@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ปั๊มหลอดท้ายทุ่ง (The Rural Tire & Gas Shack) - Roblox Concept & Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #070a09;
+            --bg-card: #111715;
+            --bg-card-hover: #18221e;
+            --accent-neon: #e2f163;
+            --accent-amber: #ff9f1c;
+            --accent-red: #ff334b;
+            --accent-green: #2ec4b6;
+            --text-main: #eef4f2;
+            --text-muted: #95a7a1;
+            --border-color: #26352f;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(46, 196, 182, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(255, 51, 75, 0.06) 0%, transparent 40%);
+            color: var(--text-main);
+            font-family: 'Sarabun', sans-serif;
+            line-height: 1.6;
+            padding-bottom: 60px;
+        }
+
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Kanit', sans-serif;
+        }
+
+        /* Header / Hero */
+        header {
+            text-align: center;
+            padding: 48px 20px 32px;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .neon-badge {
+            display: inline-block;
+            background: rgba(255, 159, 28, 0.15);
+            color: var(--accent-amber);
+            border: 1px solid var(--accent-amber);
+            padding: 4px 14px;
+            border-radius: 999px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            animation: flicker 4s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+            20%, 24%, 55% { opacity: 0.35; }
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: #fff;
+            text-shadow: 0 0 18px rgba(255, 159, 28, 0.35);
+            margin-bottom: 10px;
+        }
+
+        header p {
+            max-width: 720px;
+            margin: 0 auto;
+            color: var(--text-muted);
+            font-size: 1.05rem;
+        }
+
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 28px 0;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-amber);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-amber);
+            color: #090c0b;
+            border-color: var(--accent-amber);
+            font-weight: 600;
+            box-shadow: 0 0 20px rgba(255, 159, 28, 0.3);
+        }
+
+        .section-panel {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .section-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Concept Grid */
+        .concept-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 18px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .stat-card .tag {
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.8rem;
+            color: var(--accent-amber);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .stat-card h3 {
+            font-size: 1.35rem;
+            margin-bottom: 8px;
+        }
+
+        .stat-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Flow Steps */
+        .loop-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .step-box {
+            background: #141c19;
+            border-left: 4px solid var(--accent-green);
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .step-box.danger {
+            border-left-color: var(--accent-red);
+        }
+
+        .step-box h4 {
+            margin-bottom: 6px;
+            color: #fff;
+        }
+
+        /* Interactive Map Blueprint */
+        .map-wrapper {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .map-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .map-canvas {
+            background: #0c1310;
+            border: 2px solid #2b3d35;
+            border-radius: 14px;
+            height: 520px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.85);
+            user-select: none;
+        }
+
+        .map-compass {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(0,0,0,0.65);
+            border: 1px solid #33483f;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            z-index: 10;
+        }
+
+        .map-zone {
+            position: absolute;
+            border: 2px dashed rgba(255,255,255,0.25);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 10px;
+            font-family: 'Kanit', sans-serif;
+        }
+
+        .map-zone:hover, .map-zone.selected {
+            border-style: solid;
+            border-color: var(--accent-amber);
+            box-shadow: 0 0 25px rgba(255, 159, 28, 0.35);
+            transform: scale(1.01);
+            z-index: 5;
+        }
+
+        .map-zone .zone-icon {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+        }
+
+        .map-zone .zone-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+        }
+
+        .map-zone .zone-sub {
+            font-size: 0.75rem;
+            color: #cbd5d1;
+        }
+
+        /* Specific Map Zones */
+        .zone-ricefield {
+            top: 16px; left: 16px; right: 16px; height: 115px;
+            background: repeating-linear-gradient(45deg, rgba(22, 53, 36, 0.45), rgba(22, 53, 36, 0.45) 12px, rgba(15, 38, 25, 0.55) 12px, rgba(15, 38, 25, 0.55) 24px);
+            border-color: #2e6f40;
+        }
+
+        .zone-dirtroad {
+            top: 145px; left: 0; right: 0; height: 110px;
+            background: linear-gradient(90deg, #3b2818 0%, #4d331e 50%, #3b2818 100%);
+            border-left: none; border-right: none;
+            border-radius: 0;
+            border-color: #8c5830;
+        }
+
+        .zone-pumps {
+            top: 268px; left: 190px; width: 250px; height: 78px;
+            background: rgba(255, 159, 28, 0.16);
+            border-color: var(--accent-amber);
+        }
+
+        .zone-shack {
+            top: 356px; left: 170px; width: 290px; height: 110px;
+            background: rgba(145, 112, 72, 0.25);
+            border-color: #d4a373;
+        }
+
+        .zone-spirithouse {
+            top: 280px; left: 28px; width: 135px; height: 115px;
+            background: rgba(255, 51, 75, 0.14);
+            border-color: var(--accent-red);
+        }
+
+        .zone-bananagrove {
+            top: 280px; right: 20px; width: 165px; height: 220px;
+            background: rgba(34, 87, 45, 0.35);
+            border-color: #52b788;
+        }
+
+        .map-detail-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            position: sticky;
+            top: 20px;
+        }
+
+        .map-detail-card h3 {
+            font-size: 1.4rem;
+            color: var(--accent-amber);
+            margin-bottom: 8px;
+        }
+
+        .detail-badge {
+            display: inline-block;
+            background: #1f2d28;
+            color: var(--accent-green);
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: 'Kanit', sans-serif;
+            margin-bottom: 14px;
+        }
+
+        .detail-list {
+            margin-top: 12px;
+            padding-left: 18px;
+        }
+
+        .detail-list li {
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        /* Scenario Simulator */
+        .sim-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #121a17;
+            border: 1px solid var(--border-color);
+            padding: 16px 22px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .hud-group {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .hud-item {
+            font-family: 'Kanit', sans-serif;
+        }
+
+        .hud-item span.label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .hud-item span.val {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--accent-neon);
+        }
+
+        .scenario-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .scen-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .scen-btn.active {
+            background: #20312b;
+            border-color: var(--accent-green);
+            color: var(--accent-neon);
+        }
+
+        .sim-stage {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 22px;
+        }
+
+        @media (max-width: 900px) {
+            .sim-stage {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .viewport-box {
+            background: #060908;
+            border: 2px solid #26352f;
+            border-radius: 14px;
+            padding: 22px;
+            position: relative;
+            min-height: 410px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+
+        .night-sky-bg {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 35%, rgba(255, 180, 70, 0.08), rgba(0, 0, 0, 0.92) 75%);
+            pointer-events: none;
+        }
+
+        .flashlight-active .night-sky-bg {
+            background: radial-gradient(circle at 50% 45%, rgba(255, 245, 180, 0.24) 0%, rgba(10, 18, 14, 0.85) 60%, #030504 95%);
+        }
+
+        .scene-header {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 12px;
+        }
+
+        .customer-speech {
+            position: relative;
+            z-index: 2;
+            background: rgba(20, 30, 26, 0.9);
+            border: 1px solid #3c5249;
+            border-left: 4px solid var(--accent-amber);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 14px 0;
+            font-family: 'Kanit', sans-serif;
+            font-size: 1.05rem;
+        }
+
+        /* Hotspots to inspect with flashlight */
+        .inspect-grid {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 10px 0;
+        }
+
+        .hotspot-card {
+            background: rgba(17, 25, 22, 0.85);
+            border: 1px solid #2b3d35;
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .hotspot-card:hover {
+            border-color: var(--accent-neon);
+            background: rgba(28, 42, 36, 0.95);
+        }
+
+        .hotspot-card.inspected {
+            border-color: var(--accent-green);
+        }
+
+        .hotspot-card.anomaly-found {
+            border-color: var(--accent-red);
+            background: rgba(65, 16, 24, 0.65);
+        }
+
+        .hotspot-title {
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            color: var(--accent-amber);
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .hotspot-desc {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        /* Action Panel */
+        .control-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 15px 18px;
+            border-radius: 10px;
+            border: none;
+            font-family: 'Kanit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-serve {
+            background: linear-gradient(135deg, #2ec4b6, #1b998b);
+            color: #06110f;
+            box-shadow: 0 4px 15px rgba(46, 196, 182, 0.25);
+        }
+
+        .btn-reject {
+            background: linear-gradient(135deg, #ff334b, #c9182b);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(255, 51, 75, 0.25);
+        }
+
+        .result-box {
+            padding: 16px;
+            border-radius: 10px;
+            background: #16211d;
+            border: 1px solid #2e443b;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .result-box.win {
+            border-color: var(--accent-green);
+            background: rgba(46, 196, 182, 0.12);
+        }
+
+        .result-box.lose {
+            border-color: var(--accent-red);
+            background: rgba(255, 51, 75, 0.15);
+        }
+
+        .dev-note {
+            background: #101715;
+            border: 1px dashed #374f45;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        .dev-note strong {
+            color: var(--accent-neon);
+            font-family: 'Kanit', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <nav style="background: rgba(12, 18, 16, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); padding: 14px 24px; position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <a href="index.html" style="display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-family: 'Kanit', sans-serif; font-weight: 600; font-size: 1.1rem;">
+            <span>⛽ ปั๊มหลอดท้ายทุ่ง</span>
+            <span style="font-size:0.78rem; background:#1e2d27; color:var(--accent-neon); padding:2px 10px; border-radius:99px;">Roblox Dev Hub</span>
+        </a>
+        <div style="display: flex; gap: 10px;">
+            <a href="index.html" style="background: var(--accent-amber); color: #090c0b; border: 1px solid var(--accent-amber); padding: 8px 16px; border-radius: 8px; text-decoration: none; font-family: 'Kanit', sans-serif; font-size: 0.9rem; font-weight: 600;">🔦 หน้าคอนเซ็ปต์ & ทดลองเล่น 5 สถานการณ์</a>
+            <a href="phases.html" style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 8px; text-decoration: none; font-family: 'Kanit', sans-serif; font-size: 0.9rem;">🛠️ แผนการพัฒนา 5 เฟส (Dev Phases View)</a>
+        </div>
+    </nav>
+
+    <header>
+        <div class="neon-badge">⚡ ROBLOX CO-OP ANOMALY (1–4 PLAYERS)</div>
+        <h1>⛽ ปั๊มหลอด & เพิงปะยางท้ายทุ่ง</h1>
+        <p>จำลองคอนเซ็ปต์เกม แผนผังฉาก (Map Blueprint) และตัวอย่าง 5 สถานการณ์จริงที่ผู้เล่นจะต้องเจอในบรรยากาศถนนดินลูกรัง ทุ่งนา และดงกล้วยตานี</p>
+    </header>
+
+    <div class="container">
+        <!-- Concept Art Showcase -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 28px;">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden;">
+                <img src="assets/map_overview.jpg" alt="ภาพรวมแมพ ปั๊มหลอดท้ายทุ่ง" style="width: 100%; height: 260px; object-fit: cover; display: block; border-bottom: 1px solid var(--border-color);">
+                <div style="padding: 14px 18px;">
+                    <span style="color: var(--accent-amber); font-family: 'Kanit'; font-size: 0.8rem;">🗺️ MAP & ENVIRONMENT CONCEPT</span>
+                    <h3 style="font-size: 1.15rem; margin-top: 2px;">ภาพบรรยากาศรวม: เพิงปั๊มหลอด ริมถนนดิน ทุ่งนา & ดงกล้วย</h3>
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 4px;">ด้านหน้าเป็นถนนดินและทุ่งนาหุ่นไล่กา ข้างเพิงมีศาลพระภูมิธูป 3 ดอก และดงกล้วยตานีหลังร้าน</p>
+                </div>
+            </div>
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden;">
+                <img src="assets/gameplay_anomaly.jpg" alt="มุมมองผู้เล่นตอนส่องไฟฉายเจอ Anomaly" style="width: 100%; height: 260px; object-fit: cover; display: block; border-bottom: 1px solid var(--border-color);">
+                <div style="padding: 14px 18px;">
+                    <span style="color: var(--accent-red); font-family: 'Kanit'; font-size: 0.8rem;">🔦 FIRST-PERSON GAMEPLAY ANOMALY</span>
+                    <h3 style="font-size: 1.15rem; margin-top: 2px;">มุมมองผู้เล่น: ส่องไฟฉายเจอ "ผีสาวไร้หัวซ้อนท้าย" & "ผีตานี"</h3>
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 4px;">ผู้เล่นถือไฟฉายส่องตรวจรถมอเตอร์ไซค์ที่มาจอดหน้าตู้ปั๊มน้ำมันหลอดแก้วก่อนตัดสินใจเติมน้ำมัน</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-simulator', this)">🔦 1. ทดลองเล่น 5 สถานการณ์ (Interactive Demo)</button>
+            <button class="tab-btn" onclick="switchTab('tab-map', this)">🗺️ 2. แผนผัง Map & จุดเผื่ออัปเดต</button>
+            <button class="tab-btn" onclick="switchTab('tab-anomalies', this)">📖 3. คลัง 30 Anomaly & แผนอัปเดตระยะยาว</button>
+            <button class="tab-btn" onclick="switchTab('tab-concept', this)">📋 4. สรุปกติกา & โครงสร้างโค้ด</button>
+            <a href="phases.html" class="tab-btn" style="text-decoration:none; border-color:var(--accent-green); color:var(--accent-neon);">🛠️ 5. เปิดหน้าแผนการ Dev 5 เฟส ➔</a>
+        </div>
+
+        <!-- TAB 1: 5 SCENARIOS SIMULATOR -->
+        <section id="tab-simulator" class="section-panel active">
+            <div class="sim-top-bar">
+                <div class="hud-group">
+                    <div class="hud-item">
+                        <span class="label">กระป๋องเงิน (เป้าหมาย 500฿)</span>
+                        <span class="val" id="hud-money">100 / 500 ฿</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="label">ธูปศาลพระภูมิ (พลังชีวิตทีม)</span>
+                        <span class="val" id="hud-incense">🕯️🕯️🕯️ (3/3)</span>
+                    </div>
+                </div>
+                <div>
+                    <button class="scen-btn" onclick="resetSimulator()">🔄 รีเซ็ตค่าเริ่มต้น</button>
+                </div>
+            </div>
+
+            <p style="margin-bottom: 12px; color: var(--text-muted);">
+                👇 <strong>เลือกดูตัวอย่าง 5 รูปแบบที่ผู้เล่นจะเจอ:</strong> ลองกด <em>"ส่องไฟฉายตรวจสอบ"</em> ตามจุดต่างๆ แล้วตัดสินใจว่าจะ <strong>เติมน้ำมัน</strong> หรือ <strong>ดึงแผงสังกะสีปิดร้าน!</strong>
+            </p>
+
+            <div class="scenario-selector" id="scenario-buttons">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="sim-stage">
+                <!-- Left: Scene Inspection -->
+                <div class="viewport-box flashlight-active" id="scene-viewport">
+                    <div class="night-sky-bg"></div>
+
+                    <div class="scene-header">
+                        <div>
+                            <span style="font-size:0.8rem; color:var(--accent-amber); font-family:'Kanit';" id="scen-type-badge">คันที่ 1</span>
+                            <h3 id="scen-title" style="font-size:1.35rem;">มอเตอร์ไซค์ฮอนด้าดรีมเก่าๆ ของลุงสมหมาย</h3>
+                        </div>
+                        <span style="background:#1c2b25; padding:5px 12px; border-radius:99px; font-size:0.85rem; font-family:'Kanit'; color:var(--accent-neon);">
+                            🔦 คลิกจุดด้านล่างเพื่อส่องไฟฉายดู
+                        </span>
+                    </div>
+
+                    <div class="customer-speech" id="scen-speech">
+                        💬 ลูกค้าพูดว่า: "ไอ้หนู เติมเบนซินหลอดนึง 100 บาท ลุงจะรีบไปวิดน้ำเข้านา!"
+                    </div>
+
+                    <div class="inspect-grid" id="inspect-grid">
+                        <!-- 4 Hotspots populated by JS -->
+                    </div>
+
+                    <div class="dev-note" id="scen-dev-note">
+                        <!-- Dev explanation populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Right: Player Decision Panel -->
+                <div class="control-panel">
+                    <h3 style="font-size:1.25rem; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+                        🛠️ การตัดสินใจของผู้เล่น (1–4 คน)
+                    </h3>
+                    <p style="font-size:0.92rem; color:var(--text-muted);">
+                        เมื่อเพื่อนช่วยกันส่องไฟฉายเช็คทั้ง <strong>4 จุด</strong> จนมั่นใจแล้ว ให้เลือกทำอย่างใดอย่างหนึ่ง:
+                    </p>
+
+                    <button class="action-btn btn-serve" onclick="makeDecision('serve')">
+                        ⛽ หมุนปั๊มหลอดเติมน้ำมัน (+100 ฿)
+                    </button>
+
+                    <button class="action-btn btn-reject" onclick="makeDecision('reject')">
+                        🚧 ดึงแผงสังกะสีปิดร้าน! (ปฏิเสธผี)
+                    </button>
+
+                    <div id="decision-result" class="result-box">
+                        <h4 id="res-title" style="font-size:1.1rem; margin-bottom:6px;"></h4>
+                        <p id="res-desc" style="font-size:0.92rem;"></p>
+                    </div>
+
+                    <div style="margin-top:auto; background:#0d1311; padding:14px; border-radius:10px; border:1px solid #23312b;">
+                        <h4 style="font-size:0.95rem; color:var(--accent-amber); margin-bottom:6px;">💡 ทำไมระบบนี้ถึงเล่นสนุกและโค้ดง่าย?</h4>
+                        <p style="font-size:0.85rem; color:var(--text-muted);">
+                            ผู้เล่นไม่ต้องจำวิธีปราบผีซับซ้อน แค่ช่วยกันส่องไฟฉายจับผิดให้เจอ ถ้าคนนึงกำลังหมุนปั๊มน้ำมันอยู่ แล้วเพื่อนอีกคนส่องไปเจอผีในดงกล้วย ก็แค่ตะโกนบอกเพื่อนให้หยุด แล้ววิ่งไปดึงเชือกปิดร้านทันที!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: INTERACTIVE MAP BLUEPRINT -->
+        <section id="tab-map" class="section-panel">
+            <div style="margin-bottom: 18px;">
+                <h2>🗺️ แผนผังฉาก (Map Blueprint) & จุดวางของเผื่ออัปเดตอนาคต</h2>
+                <p style="color: var(--text-muted);">ใช้แมพเดียวขนาดกะทัดรัด (120 x 120 Studs) แต่ใส่ <strong>"จุดวางของเผื่ออนาคต (Prop Hooks)"</strong> ไว้ตั้งแต่วันแรก เพื่อให้อัปเดตผีใหม่ๆ ได้เรื่อยๆ โดยไม่ต้องรื้อแมพ <strong>(คลิกที่แต่ละโซนเพื่อดูรายละเอียด)</strong></p>
+            </div>
+
+            <div class="map-wrapper">
+                <div class="map-canvas">
+                    <div class="map-compass">🧭 ทิศเหนือ = ทุ่งนา | ทิศใต้ = เพิงร้าน & ดงกล้วย</div>
+
+                    <!-- Zone 1: Rice Field -->
+                    <div class="map-zone zone-ricefield selected" onclick="selectZone('ricefield', this)">
+                        <span class="zone-icon">🌾👻</span>
+                        <span class="zone-title">1. ทุ่งนามืด & หุ่นไล่กา (ฝั่งตรงข้ามถนน)</span>
+                        <span class="zone-sub">จุดส่องไฟฉายระยะไกล / หุ่นไล่กาขยับได้ / แสงไฟผีกระสือ</span>
+                    </div>
+
+                    <!-- Zone 2: Dirt Road -->
+                    <div class="map-zone zone-dirtroad" onclick="selectZone('dirtroad', this)">
+                        <span class="zone-icon">🛵🛣️</span>
+                        <span class="zone-title">2. ถนนดินลูกรัง & จุดรถจอด</span>
+                        <span class="zone-sub">รถวิ่งมาจากทางซ้าย -> จอดเติมน้ำมันตรงกลาง -> ขับออกไปทางขวา</span>
+                    </div>
+
+                    <!-- Zone 3: Spirit House -->
+                    <div class="map-zone zone-spirithouse" onclick="selectZone('spirithouse', this)">
+                        <span class="zone-icon">⛩️🕯️</span>
+                        <span class="zone-title">3. ศาลพระภูมิเก่า</span>
+                        <span class="zone-sub">แสดงธูป 3 ดอก (HP ของทีม)</span>
+                    </div>
+
+                    <!-- Zone 4: Gas Pump & Tire Air -->
+                    <div class="map-zone zone-pumps" onclick="selectZone('pumps', this)">
+                        <span class="zone-icon">⛽🔧</span>
+                        <span class="zone-title">4. ตู้ปั๊มหลอดแก้ว & ถังปั๊มลม</span>
+                        <span class="zone-sub">จุดทำงานหลักหน้าร้าน (หมุนน้ำมัน / เติมลม)</span>
+                    </div>
+
+                    <!-- Zone 5: Main Shack + Prop Hooks -->
+                    <div class="map-zone zone-shack" onclick="selectZone('shack', this)">
+                        <span class="zone-icon">🛖🪞⚡</span>
+                        <span class="zone-title">5. เพิงสังกะสี + 4 จุด Prop เผื่ออัปเดต</span>
+                        <span class="zone-sub">โต๊ะเงิน, วิทยุ, เชือกปิดร้าน + (กระจกเงา, รูปตา, คัตเอาต์ไฟ, ถังน้ำแข็ง)</span>
+                    </div>
+
+                    <!-- Zone 6: Banana Grove & Outhouse -->
+                    <div class="map-zone zone-bananagrove" onclick="selectZone('bananagrove', this)">
+                        <span class="zone-icon">🍌🚪⚡</span>
+                        <span class="zone-title">6. ดงกล้วยตานี + เครื่องปั่นไฟ + ห้องน้ำสังกะสี</span>
+                        <span class="zone-sub">โซนหลอนข้างร้าน / กระตุกเครื่องปั่นไฟ / ห้องน้ำผีสิงท้ายดงกล้วย</span>
+                    </div>
+                </div>
+
+                <!-- Map Zone Detail Box -->
+                <div class="map-detail-card" id="map-detail-box">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: MASTER 30 ANOMALIES & LONG-TERM UPDATE PLAN -->
+        <section id="tab-anomalies" class="section-panel">
+            <div style="margin-bottom: 20px;">
+                <h2>📖 คลังไอเดีย 30 Anomaly & แผนการอัปเดตระยะยาวบนแมพเดิม</h2>
+                <p style="color: var(--text-muted);">
+                    เพื่อให้เกมไม่จำเจเวลาอัปเดตแพตช์ใหม่โดยใช้แมพเดิม เราแบ่งความผิดปกติออกเป็น <strong>3 ระดับการรับมือ (3 Counter-Play Tiers)</strong> พร้อมระบบ <strong>สมุดสะสมผีไทย (Collection Book)</strong> และ <strong>สภาพอากาศ (Weather Modifiers)</strong>
+                </p>
+            </div>
+
+            <!-- 3 Tiers Summary Cards -->
+            <div class="concept-grid" style="margin-bottom: 24px;">
+                <div class="stat-card" style="border-left: 4px solid var(--accent-amber);">
+                    <span class="tag">Tier 1: เปิดตัว V1.0 (22 แบบ)</span>
+                    <h3>🚧 ดึงแผงสังกะสีปิดร้าน</h3>
+                    <p>ความผิดปกติที่ตัวคนขับ, ตัวรถ, เสียงวิทยุ, ดงกล้วย หรือของแต่งในเพิง <strong>วิธีแก้:</strong> ห้ามเติมน้ำมัน ให้วิ่งไปดึงเชือกปิดร้าน</p>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid var(--accent-green);">
+                    <span class="tag">Tier 2: อัปเดต V1.1 (4 แบบ)</span>
+                    <h3>🔧 ผีป่วนร้าน (ต้องเดินไปซ่อม)</h3>
+                    <p>ไฟดับ, ถังลมคลั่ง, ห้องน้ำเปิดเอง, วิทยุกรีดร้อง <strong>วิธีแก้:</strong> แบ่งเพื่อนถือไฟฉายเดินไปกดซ่อมที่จุดเกิดเหตุให้ทันเวลา</p>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid var(--accent-red);">
+                    <span class="tag">Tier 3: อัปเดต V1.2 (4 แบบ)</span>
+                    <h3>⚡ บอสบุก (สับคัตเอาต์ + หมอบนิ่งๆ)</h3>
+                    <p>ผีกระสือลอยมา, เปรตเดินผ่านถนน, ขบวนแห่ศพ <strong>วิธีแก้:</strong> สับคัตเอาต์ดับไฟทั้งเพิงให้มืดสนิท แล้วหมอบห้ามขยับ 5 วินาที!</p>
+                </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="scenario-selector" id="anomaly-filter-btns">
+                <button class="scen-btn active" onclick="filterAnomalies('all', this)">ทั้งหมด (30 แบบ)</button>
+                <button class="scen-btn" onclick="filterAnomalies('char', this)">👤 คนขับ & คนซ้อน (8)</button>
+                <button class="scen-btn" onclick="filterAnomalies('vehicle', this)">🛵 ตัวรถ & คำพูด (7)</button>
+                <button class="scen-btn" onclick="filterAnomalies('prop', this)">🪞 ของในเพิง & รอบร้าน (7)</button>
+                <button class="scen-btn" onclick="filterAnomalies('sabotage', this)">🔧 Tier 2: ผีป่วนอุปกรณ์ (4)</button>
+                <button class="scen-btn" onclick="filterAnomalies('boss', this)">💀 Tier 3: บอสบุกประชิด (4)</button>
+            </div>
+
+            <!-- 30 Anomaly Cards Grid -->
+            <div id="anomaly-list-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px;">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- TAB 4: CONCEPT & SYSTEM OVERVIEW -->
+        <section id="tab-concept" class="section-panel">
+            <div class="concept-grid">
+                <div class="stat-card">
+                    <span class="tag">เป้าหมายหลัก (Win Quota)</span>
+                    <h3>💰 เก็บเงินครบ 500 บาท</h3>
+                    <p>ให้บริการรถชาวบ้านคันละ 100 บาท (รับลูกค้าถูก 5 คันก็ชนะรอบนั้น) ถ้าตัดสินใจพลาดจะโดนหักเงินและเสียธูปคุ้มครอง</p>
+                </div>
+                <div class="stat-card">
+                    <span class="tag">จำนวนผู้เล่น (Flexible Co-op)</span>
+                    <h3>👥 เล่นได้ 1 – 4 คน</h3>
+                    <p>ไม่ล็อกหน้าที่ตายตัว เล่นคนเดียวก็เดินส่องไฟฉายแล้วมาหมุนปั๊มหลอดได้ เล่น 4 คนก็แบ่งคนหมุนปั๊ม คนสูบลม คนส่องดงกล้วย</p>
+                </div>
+                <div class="stat-card">
+                    <span class="tag">ดึงคนเล่นซ้ำ #1 (Replayability)</span>
+                    <h3>📘 สมุดสะสมผีไทย (30 แบบ)</h3>
+                    <p>มีสมุดวางบนโต๊ะให้เปิดดูว่าเคยเจอผีครบกี่แบบแล้ว เวลาอัปเดตผีใหม่เข้ามา ผู้เล่นเก่าจะกลับมาเล่นเพื่อปลดล็อกให้ครบ 100%</p>
+                </div>
+                <div class="stat-card">
+                    <span class="tag">ดึงคนเล่นซ้ำ #2 (Weather System)</span>
+                    <h3>🌧️ สุ่มสภาพอากาศกะดึก</h3>
+                    <p>ใช้แมพเดิมแต่สุ่มบรรยากาศ เช่น คืนฟ้าโปร่ง, คืนหมอกลงจัดมองเห็นทุ่งนายาก, หรือคืนฝนตกฟ้าร้องที่กลบเสียงวิทยุ</p>
+                </div>
+            </div>
+
+            <div class="stat-card" style="margin-bottom: 24px;">
+                <h3 style="color: var(--accent-amber); margin-bottom: 12px;">🔄 ลำดับการทำงานของโค้ดใน 1 รอบรถเข้า (Server Game Loop)</h3>
+                <div class="loop-steps">
+                    <div class="step-box">
+                        <h4>ขั้นที่ 1: SpawnVehicle()</h4>
+                        <p style="font-size:0.9rem; color:var(--text-muted);">Server สุ่มว่ารถคันนี้เป็นคนปกติ (50%) หรือมี Anomaly (50%) แล้วสั่งเคลื่อนโมเดลรถมาจอดหน้าเพิง</p>
+                    </div>
+                    <div class="step-box">
+                        <h4>ขั้นที่ 2: ApplyAnomaly()</h4>
+                        <p style="font-size:0.9rem; color:var(--text-muted);">ถ้าสุ่มได้ Anomaly โค้ดจะดึงข้อมูลจากตาราง 30 แบบมาแสดงผล 1 อย่างให้ผู้เล่นทุกคนเห็นตรงกัน</p>
+                    </div>
+                    <div class="step-box">
+                        <h4>ขั้นที่ 3: Player Action</h4>
+                        <p style="font-size:0.9rem; color:var(--text-muted);">ผู้เล่นกด ProximityPrompt ที่ "ปั๊มหลอดแก้ว", "เชือกดึงแผงสังกะสีปิดร้าน", หรือ "สับคัตเอาต์ไฟ"</p>
+                    </div>
+                    <div class="step-box danger">
+                        <h4>ขั้นที่ 4: CheckResult()</h4>
+                        <p style="font-size:0.9rem; color:var(--text-muted);">เช็คว่าทำถูกไหม ถ้าถูกบวกเงิน +100฿ และบันทึกเข้าสมุดสะสมผี / ถ้าผิดเล่น Jumpscare และดับธูป 1 ดอก</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // 5 Core Scenarios Data
+        const scenarios = [
+            {
+                id: 1,
+                badge: "รูปแบบที่ 1: ลูกค้าชาวบ้านปกติ (Normal)",
+                title: "🛵 มอเตอร์ไซค์ฮอนด้าดรีมของ 'ลุงสมหมาย'",
+                speech: "💬 ลูกค้าพูดว่า: \"ไอ้หนู เติมเบนซินหลอดนึง 100 บาท ลุงจะรีบไปวิดน้ำเข้านา!\"",
+                isAnomaly: false,
+                devNote: "<strong>มุมมองคนทำเกม (Dev):</strong> คันนี้ <code>IsAnomaly = false</code> ทุกจุดใช้โมเดลและเสียงปกติทั้งหมด เพื่อให้ผู้เล่นจำภาพมาตรฐานของร้านได้",
+                hotspots: [
+                    { name: "👤 ส่องคนขับ & เบาะหลัง", detail: "ลุงสมหมายใส่เสื้อลายสก๊อตคาดผ้าขาวม้า นั่งคนเดียว มีเงาปกติ", anomaly: false },
+                    { name: "🔢 ส่องป้ายทะเบียน & ล้อรถ", detail: "ป้ายทะเบียน 'กข 152 สุรินทร์' ล้อรถเปื้อนดินโคลนทุ่งนาปกติ", anomaly: false },
+                    { name: "📻 ฟังวิทยุบนโต๊ะในเพิง", detail: "วิทยุเล่นเพลงลูกทุ่งหมอลำคลอเบาๆ ปกติ", anomaly: false },
+                    { name: "🍌 ส่องดงกล้วย & ทุ่งนา", detail: "ต้นกล้วยตานีนิ่งสงบ หุ่นไล่กายืนอยู่ที่เดิมกลางทุ่งนา", anomaly: false }
+                ],
+                correctServeMsg: "✅ ถูกต้อง! ลุงสมหมายจ่ายแบงก์ร้อยเก่าๆ (+100 บาท) แล้วบิดรถไปทุ่งนาอย่างปลอดภัย",
+                wrongRejectMsg: "❌ พลาดแล้ว! ลุงสมหมายเป็นคนปกติ แกตะโกนด่า 'ปิดร้านใส่หน้ากูทำไมวะไอ้เด็กพวกนี้!' (เสียค่าปรับ -50 บาท)"
+            },
+            {
+                id: 2,
+                badge: "รูปแบบที่ 2: Anomaly ที่ตัวคนซ้อน (Character Anomaly)",
+                title: "🛵 มอเตอร์ไซค์วัยรุ่นกลับจากงานวัด",
+                speech: "💬 ลูกค้าพูดว่า: \"พี่ชาย เติมน้ำมันให้เต็มหลอดเลยครับ ทำไมวันนี้รถผมมันหนักๆ ชอบกล...\"",
+                isAnomaly: true,
+                devNote: "<strong>มุมมองคนทำเกม (Dev):</strong> โค้ดสั่ง <code>PassengerModel.Head.Transparency = 1</code> หรือซ่อนโมเดลผีไว้จนกว่าผู้เล่นจะเอาไฟฉายส่องไปโดน!",
+                hotspots: [
+                    { name: "👤 ส่องคนขับ & เบาะหลัง", detail: "⚠️ ที่เบาะหลังมีผู้หญิงชุดไทยนั่งกอดเอวคนขับอยู่ แต่ 'ไม่มีหัว' มีเลือดซึมที่คอเสื้อ!", anomaly: true },
+                    { name: "🔢 ส่องป้ายทะเบียน & ล้อรถ", detail: "ป้ายทะเบียน 'ฬ 889 ขอนแก่น' ยางหลังแบนติดพื้นเหมือนแบกของหนักมาก", anomaly: false },
+                    { name: "📻 ฟังวิทยุบนโต๊ะในเพิง", detail: "วิทยุเล่นเพลงปกติ แต่มีเสียงผู้หญิงหัวเราะแทรกเบาๆ", anomaly: false },
+                    { name: "🍌 ส่องดงกล้วย & ทุ่งนา", detail: "ทุ่งนาและดงกล้วยปกติ แต่หมาข้างทางหอนยาว", anomaly: false }
+                ],
+                correctRejectMsg: "✅ รอดตาย! พอคุณดึงแผงสังกะสีปิดร้านปุ๊บ เสียงผู้หญิงกรี๊ดดังลั่นหน้าร้าน ก่อนที่มอเตอร์ไซค์จะบิดหนีหายไป (+50 บาทโบนัสรอดชีวิต)",
+                wrongServeMsg: "💀 โดนผีหลอก! พอเติมน้ำมันเสร็จ ผีสาวไร้หัวที่ซ้อนท้ายก็พุ่งเข้ามาเกาะหน้าผู้เล่น! เงินในกระป๋องกลายเป็นใบไม้แห้ง (-100 บาท และธูปดับ 1 ดอก)"
+            },
+            {
+                id: 3,
+                badge: "รูปแบบที่ 3: Anomaly ที่ตัวรถ (Vehicle Detail Anomaly)",
+                title: "🚜 รถซาเล้งพ่วงข้างเก่าสนิมเขรอะ",
+                speech: "💬 ลูกค้าพูดว่า: \"เติมน้ำมันให้หน่อยจ้ะ... ทางข้างหน้ามืดเหลือเกิน...\"",
+                isAnomaly: true,
+                devNote: "<strong>มุมมองคนทำเกม (Dev):</strong> ทำง่ายมาก! แค่เปลี่ยนข้อความ <code>SurfaceGui.TextLabel</code> บนป้ายทะเบียนรถ และเปิด Visibility ของก้อนเส้นผมที่ล้อรถ",
+                hotspots: [
+                    { name: "👤 ส่องคนขับ & เบาะหลัง", detail: "ยายแก่ใส่หมวกงอบก้มหน้ามิดชิด มองไม่เห็นลูกตา", anomaly: false },
+                    { name: "🔢 ส่องป้ายทะเบียน & ล้อรถ", detail: "⚠️ ป้ายทะเบียนเขียนว่า 'ป่าช้าวัดดอน 4444' และที่ซี่ล้อมีเส้นผมยาวกับผ้าขาวห่อศพพันติดอยู่!", anomaly: true },
+                    { name: "📻 ฟังวิทยุบนโต๊ะในเพิง", detail: "วิทยุเงียบสนิทเหมือนคลื่นสัญญาณหลุด", anomaly: false },
+                    { name: "🍌 ส่องดงกล้วย & ทุ่งนา", detail: "ปกติ ไม่มีอะไรขยับในทุ่งนา", anomaly: false }
+                ],
+                correctRejectMsg: "✅ ตาไวมาก! คุณรีบดึงแผงสังกะสีปิดร้าน รถซาเล้งผีสิงค่อยๆ ถอยหลังกลับเข้าไปในความมืด (+50 บาทโบนัสรอดชีวิต)",
+                wrongServeMsg: "💀 พลาดท่า! พอคุณก้มลงไปสูบลมที่ล้อ เส้นผมที่ซี่ล้อก็พุ่งมารัดคอผู้เล่น! (-100 บาท และธูปศาลพระภูมิดับ 1 ดอก)"
+            },
+            {
+                id: 4,
+                badge: "รูปแบบที่ 4: Anomaly บรรยากาศรอบร้าน (Environment Anomaly)",
+                title: "🛵 มอเตอร์ไซค์แม่ค้าใส่เสื้อกันฝนสีเหลือง",
+                speech: "💬 ลูกค้าพูดว่า: \"น้องๆ เติมน้ำมันให้พี่ร้อยนึงจ้ะ ฝนทำท่าจะตกแล้ว\"",
+                isAnomaly: true,
+                devNote: "<strong>มุมมองคนทำเกม (Dev):</strong> ตัวรถและคนขับปกติ 100% เพื่อหลอกคนดูแค่หน้าร้าน! แต่ Server สั่งเปลี่ยนเสียง <code>Radio.SoundId</code> เป็นเสียงพระสวด และขยับโมเดลผีที่ดงกล้วย",
+                hotspots: [
+                    { name: "👤 ส่องคนขับ & เบาะหลัง", detail: "แม่ค้าใส่เสื้อกันฝนสีเหลือง หน้าตาปกติทุกอย่าง", anomaly: false },
+                    { name: "🔢 ส่องป้ายทะเบียน & ล้อรถ", detail: "ป้ายทะเบียนและล้อรถปกติ ไม่มีรอยเลือด", anomaly: false },
+                    { name: "📻 ฟังวิทยุบนโต๊ะในเพิง", detail: "⚠️ วิทยุเกิดเสียงซ่าดังลั่น แล้วเปลี่ยนเป็น 'เสียงพระสวดอภิธรรมงานศพ'!", anomaly: true },
+                    { name: "🍌 ส่องดงกล้วย & ทุ่งนา", detail: "⚠️ ต้นกล้วยตานีหลังร้านโน้มลงมาหาเพิง มีผู้หญิงชุดเขียว (ผีตานี) ยืนชี้หน้าแม่ค้าคนนั้นอยู่!", anomaly: true }
+                ],
+                correctRejectMsg: "✅ สังเกตรอบร้านเยี่ยมมาก! คุณดึงแผงปิดร้านทันเวลา ไฟนีออนกะพริบดับแล้วผีตานีก็ลากแม่ค้าตัวปลอมหายเข้าดงกล้วยไป (+50 บาทโบนัส)",
+                wrongServeMsg: "💀 โดนหลอกเต็มๆ! มัวแต่ดูที่รถจนลืมฟังวิทยุและดูดงกล้วย พอเติมเสร็จไฟดับทั้งร้านแล้วโดนผีตานี Jumpscare! (-100 บาท และธูปดับ 1 ดอก)"
+            },
+            {
+                id: 5,
+                badge: "รูปแบบที่ 5: Anomaly จิตวิทยา + มีมหลอน (Creepy & Meme)",
+                title: "🛵 มอเตอร์ไซค์ชายปริศนานั่งหันหลังขับ",
+                speech: "💬 ลูกค้าพูดว่า: \"ขอน้ำมันเต็มหลอด... จะเอาไปราดเผาศพตัวเองที่เมรุหน่อยจ้ะ ฮ่าๆๆ\"",
+                isAnomaly: true,
+                devNote: "<strong>มุมมองคนทำเกม (Dev):</strong> หมุน <code>Head.CFrame</code> ของ NPC 180 องศาตอนผู้เล่นกดส่องไฟฉาย พร้อมใส่ประโยคคำพูดหลอนปนฮาให้เพื่อนในตี้ตกใจวิ่งหนี",
+                hotspots: [
+                    { name: "👤 ส่องคนขับ & เบาะหลัง", detail: "⚠️ พอไฟฉายส่องโดนปุ๊บ หัวของคนขับค่อยๆ หมุนติ้วกลับมา 180 องศา ยิ้มฉีกถึงใบหู!", anomaly: true },
+                    { name: "🔢 ส่องป้ายทะเบียน & ล้อรถ", detail: "ไม่มีป้ายทะเบียน แขวนพวงมาลัยดอกดาวเรืองแห้งๆ ไว้แทน", anomaly: true },
+                    { name: "📻 ฟังวิทยุบนโต๊ะในเพิง", detail: "เสียงเพลงลูกทุ่งเล่นย้อนกลับ (Reverse Audio) ชวนขนลุก", anomaly: true },
+                    { name: "🍌 ส่องดงกล้วย & ทุ่งนา", detail: "⚠️ หุ่นไล่กากลางทุ่งนาหายไปแล้ว มายืนเกาะเสาเพิงหน้าร้านแทน!", anomaly: true }
+                ],
+                correctRejectMsg: "✅ ปิดแทบไม่ทัน! แก๊งผู้เล่นวิ่งแย่งกันดึงเชือกปิดแผงสังกะสีเสียงดังสนั่น รอดไปอีกหนึ่งคืน (+50 บาทโบนัส)",
+                wrongServeMsg: "💀 ยังจะกล้าเติมให้อีกเหรอ! หัวคนขับหมุนติ้วเป็นพัดลมแล้วพุ่งใส่หน้าจอทุกคนในร้าน! (-100 บาท และธูปดับ 1 ดอก)"
+            }
+        ];
+
+        // Master 30-Anomaly Database
+        const masterAnomalies = [
+            // Category: char (1-8)
+            { id: 1, cat: "char", tier: "Tier 1 (V1.0)", name: "คนซ้อนไร้หัว", hook: "เบาะหลังรถลูกค้า", desc: "มีผู้หญิงชุดไทยนั่งกอดเอวคนขับอยู่ที่เบาะหลังแต่ไม่มีหัว", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 2, cat: "char", tier: "Tier 1 (V1.0)", name: "ยิ้มฉีกถึงใบหู", hook: "ใบหน้าคนขับ", desc: "ตอนแรกหน้าปกติ แต่ถ้าเอาไฟฉายส่องจ้องเกิน 3 วินาที ปากจะฉีกยิ้มกว้างถึงหู", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 3, cat: "char", tier: "Tier 1 (V1.0)", name: "คอหมุน 180 องศา", hook: "หัวคนขับ", desc: "คนขับนั่งหันหลังขับรถ พอไฟฉายส่องโดน หัวหมุนติ้วกลับมา 180 องศา", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 4, cat: "char", tier: "Tier 1 (V1.0)", name: "กระสือปลอมตัว (ไร้ขา)", hook: "ใต้ท้องรถลูกค้า", desc: "คนขับใส่เสื้อคลุมมิดชิด แต่พอก้มส่องดูที่พักเท้า ไม่มีขา มีแต่ไส้เรืองแสงห้อยอยู่", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 5, cat: "char", tier: "Tier 1 (Update)", name: "ฝาแฝดสยอง", hook: "คนขับ + คนซ้อน", desc: "คนขับและคนซ้อนหน้าตาเหมือนกันเป๊ะ หันคอพร้อมกันแบบหุ่นยนต์", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 6, cat: "char", tier: "Tier 1 (Update)", name: "คนขับเป็นหุ่นฟาง", hook: "ตัวคนขับ", desc: "คนที่นั่งบิดมอเตอร์ไซค์อยู่ไม่ใช่คน แต่เป็นหุ่นไล่กาเปื้อนโคลนจากทุ่งนา", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 7, cat: "char", tier: "Tier 1 (Update)", name: "แขนยาวผิดมนุษย์", hook: "แขนคนขับ", desc: "ท่อนแขนที่จับแฮนด์มอเตอร์ไซค์ยาวผิดปกติจนมือห้อยลากพื้นดินลูกรัง", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 8, cat: "char", tier: "Tier 1 (Update)", name: "สวมหัวโขนเปื้อนเลือด", hook: "หัวคนขับ", desc: "คนขับสวมหัวโขนเก่าๆ ตอนตี 3 และมีเลือดไหลซึมออกมาจากช่องตา", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+
+            // Category: vehicle (9-15)
+            { id: 9, cat: "vehicle", tier: "Tier 1 (V1.0)", name: "ป้ายทะเบียนป่าช้า", hook: "ป้ายทะเบียนท้ายรถ", desc: "ป้ายทะเบียนเขียนว่า 'ป่าช้าวัดดอน 4444' หรือเปลี่ยนเป็นชื่อของผู้เล่นในทีม!", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 10, cat: "vehicle", tier: "Tier 1 (V1.0)", name: "ล้อรถพันเส้นผม", hook: "ซี่ล้อรถมอเตอร์ไซค์", desc: "มีเส้นผมยาวดำขลับและเศษผ้าขาวห่อศพพันติดอยู่ในซี่ล้อรถ", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 11, cat: "vehicle", tier: "Tier 1 (V1.0)", name: "เงาผีในกระจกมองข้าง", hook: "กระจกมองข้างรถ", desc: "มองด้วยตาเปล่าไม่มีคนซ้อน แต่พอส่องกระจกมองข้างเห็นผีผู้หญิงนั่งกอดคออยู่", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 12, cat: "vehicle", tier: "Tier 1 (V1.0)", name: "สั่งน้ำมันไปเผาศพตัวเอง", hook: "ข้อความคำพูดลูกค้า", desc: "ลูกค้าพูดสั่งว่า 'ขอน้ำมันเต็มหลอด จะเอาไปราดเผาศพตัวเองที่เมรุหน่อยจ้ะ'", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 13, cat: "vehicle", tier: "Tier 1 (Update)", name: "จ่ายเงินปากผี / ใบไม้แห้ง", hook: "มือลูกค้าที่ยื่นเงิน", desc: "แทนที่จะถือแบงก์ร้อย ในมือลูกค้ากลับถือใบไม้แห้งหรือเหรียญเงินปากผีสีดำ", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 14, cat: "vehicle", tier: "Tier 1 (Update)", name: "ซาเล้งบรรทุกโลงศพ", hook: "พ่วงข้างรถซาเล้ง", desc: "บนพ่วงข้างมีโลงไม้เก่าๆ วางอยู่ พร้อมเสียงเคาะ 'ก๊อก.. ก๊อก..' ดังมาจากข้างใน", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 15, cat: "vehicle", tier: "Tier 1 (Update)", name: "น้ำมันในหลอดกลายเป็นเลือด", hook: "ตู้ปั๊มน้ำมันหลอดแก้ว", desc: "พอเริ่มหมุนปั๊ม น้ำมันที่สูบขึ้นมาในหลอดแก้วกลายเป็นสีแดงสดและมีลูกตาลอยอยู่", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+
+            // Category: prop (16-22)
+            { id: 16, cat: "prop", tier: "Tier 1 (V1.0)", name: "วิทยุสวดอภิธรรม", hook: "วิทยุทรานซิสเตอร์บนโต๊ะ", desc: "พอรถคันนี้มาจอด วิทยุเปลี่ยนจากเพลงลูกทุ่งเป็นเสียงพระสวดงานศพทันที", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 17, cat: "prop", tier: "Tier 1 (V1.0)", name: "ผีตานีชี้หน้าจากดงกล้วย", hook: "ดงกล้วยตานีข้างร้าน", desc: "ต้นกล้วยโน้มลงมาหาเพิง พร้อมผู้หญิงชุดเขียวโผล่มาชี้หน้าลูกค้าคันนั้น", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 18, cat: "prop", tier: "Tier 1 (V1.0)", name: "หุ่นไล่กาบุกมายืนหน้าเพิง", hook: "ทุ่งนาฝั่งตรงข้าม", desc: "หุ่นไล่กากลางทุ่งนาหายไปจากเสาไม้ แล้วมายืนเกาะเสาเพิงหน้าร้านแทน", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 19, cat: "prop", tier: "Tier 1 (Update)", name: "รูปตาเจ้าของอู่ร้องไห้เป็นเลือด", hook: "🖼️ รูปถ่ายข้างฝาเพิง (Prop Hook)", desc: "รูปขาวดำข้างฝาเปลี่ยนเป็นหน้าบูดบึ้งและมีเลือดไหลออกจากตา", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 20, cat: "prop", tier: "Tier 1 (Update)", name: "เงาในกระจกไม่มีหัว", hook: "🪞 กระจกเงาข้างฝา (Prop Hook)", desc: "เมื่อผู้เล่นเดินผ่านกระจกเงาในเพิง เงาสะท้อนของตัวเองในกระจกไม่มีหัว", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 21, cat: "prop", tier: "Tier 1 (Update)", name: "มือโผล่จากถังแช่น้ำแข็ง", hook: "🧊 ถังน้ำแข็งมุมเพิง (Prop Hook)", desc: "ฝาถังแช่น้ำแข็งเปิดแง้มออก มีมือขาวซีดเกาะขอบถังอยู่", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+            { id: 22, cat: "prop", tier: "Tier 1 (Update)", name: "ปฏิทินเตือนภัย", hook: "📅 ปฏิทินรายวัน (Prop Hook)", desc: "ตัวเลขวันที่บนปฏิทินเปลี่ยนเป็นตัวหนังสือสีแดงเขียนว่า 'อย่าเติมให้มัน!'", action: "🚧 ดึงแผงสังกะสีปิดร้าน" },
+
+            // Category: sabotage (23-26)
+            { id: 23, cat: "sabotage", tier: "Tier 2 (Update 1.1)", name: "เครื่องปั่นไฟท้ายดงกล้วยดับ", hook: "⚡ เครื่องปั่นไฟหลังร้าน", desc: "ไฟนีออนทั้งร้านดับมืดสนิท มองไม่เห็นลูกค้า ต้องส่งตัวแทนถือไฟฉายไปกระตุกเครื่องปั่นไฟ", action: "🔧 เดินไปกดกระตุกเครื่องปั่นไฟหลังดงกล้วย" },
+            { id: 24, cat: "sabotage", tier: "Tier 2 (Update 1.1)", name: "ถังปั๊มลมคลั่ง", hook: "🔧 ถังปั๊มลมหน้าเพิง", desc: "ถังปั๊มลมสั่นแรงและส่งเสียงหวีดดังสนั่นเอง ต้องรีบวิ่งไปหมุนวาล์วปิดก่อนระเบิด", action: "🔧 วิ่งไปกดปิดวาล์วถังปั๊มลมให้ทันเวลา" },
+            { id: 25, cat: "sabotage", tier: "Tier 2 (Update 1.1)", name: "เสียงคนตักน้ำอาบในห้องน้ำ", hook: "🚪 ห้องน้ำสังกะสี (Prop Hook)", desc: "ประตูห้องน้ำท้ายดงกล้วยแง้มออกพร้อมเสียงขันตักน้ำอาบตอนตี 3", action: "🔧 เดินไปกดลงกลอนล็อกประตูห้องน้ำจากด้านนอก" },
+            { id: 26, cat: "sabotage", tier: "Tier 2 (Update 1.1)", name: "วิทยุคลื่นแทรกกรีดร้อง", hook: "📻 วิทยุบนโต๊ะ", desc: "วิทยุส่งเสียงผู้หญิงกรีดร้องแหลมสูงจนธูปที่ศาลสั่น ต้องรีบวิ่งมาตบวิทยุให้เงียบ", action: "🔧 กดตบวิทยุบนโต๊ะเพื่อจูนคลื่นใหม่" },
+
+            // Category: boss (27-30)
+            { id: 27, cat: "boss", tier: "Tier 3 (Update 1.2)", name: "แสงไฟผีกระสือลอยมาจากนา", hook: "🌾 ทุ่งนา + ⚡ คัตเอาต์ไฟ", desc: "ดวงไฟสีส้มสลับเขียวลอยจากเถียงนาข้ามถนนเข้ามาหาเพิง ห้ามให้มันเห็นแสงไฟในร้าน!", action: "⚡ สับคัตเอาต์ดับไฟในเพิง + ก้มหมอบนิ่งๆ 5 วินาที" },
+            { id: 28, cat: "boss", tier: "Tier 3 (Update 1.2)", name: "เปรตเดินผ่านถนนดิน", hook: "🛣️ ถนนดิน + ⚡ คัตเอาต์ไฟ", desc: "เสียงหวีด 'เปรตตต...' ดังมาจากถนนพร้อมเงาขายาวสูงเท่าต้นตาลเดินผ่านหน้าเพิง", action: "⚡ สับคัตเอาต์ดับไฟ + ห้ามเอาไฟฉายส่องเปรตเด็ดขาด" },
+            { id: 29, cat: "boss", tier: "Tier 3 (Update 1.2)", name: "ขบวนแห่ศพไร้เสียง", hook: "🛣️ ถนนดิน + 🚧 แผงสังกะสี", desc: "หมอกลงจัดพร้อมเงาคนชุดขาวเดินแบกโลงผ่านถนนดินหน้าร้าน", action: "⚡ ดึงแผงสังกะสีปิดร้าน + สับคัตเอาต์ดับไฟรอจนผ่านไป" },
+            { id: 30, cat: "boss", tier: "Tier 3 (Update 1.2)", name: "ผีปอบเคาะแผงสังกะสีเรียกชื่อ", hook: "🛖 หน้าเพิงสังกะสี", desc: "มีเสียงเคาะสังกะสีรัวๆ จากด้านนอกพร้อมเสียงเรียกให้เปิดร้าน", action: "⚡ สับคัตเอาต์ดับไฟ + ยืนนิ่งๆ ห้ามเปิดแผงสังกะสีเด็ดขาด" }
+        ];
+
+        // Map Zones Detail Data
+        const mapZones = {
+            ricefield: {
+                title: "1. ทุ่งนามืด & หุ่นไล่กา (ฝั่งตรงข้ามถนน)",
+                size: "ขนาดใน Studio: ~120 x 35 Studs (โซนฉากหลังฝั่งเหนือ)",
+                desc: "ผู้เล่นเดินข้ามถนนไปไม่ได้ แต่ต้องใช้ไฟฉายส่องดูจากหน้าเพิงเพื่อเช็คความผิดปกติระยะไกล",
+                points: [
+                    "มี 'หุ่นไล่กา' ตั้งอยู่กลางนา (เป็นจุดสังเกตหลักว่าหุ่นยังอยู่ที่เดิม หรือขยับเปลี่ยนท่า)",
+                    "มีเถียงนาเก่าๆ อยู่ไกลๆ รองรับอัปเดต Tier 3 (แสงไฟผีกระสือลอยมาจากเถียงนา)",
+                    "ใส่เสียง Ambient จิ้งหรีด กบร้อง และเสียงลมพัดต้นข้าวตลอดเวลา"
+                ]
+            },
+            dirtroad: {
+                title: "2. ถนนดินลูกรัง & จุดรถจอดหน้าร้าน",
+                size: "ขนาดใน Studio: ถนนยาว 120 Studs กว้าง 24 Studs",
+                desc: "เส้นทางที่รถมอเตอร์ไซค์และซาเล้งของชาวบ้าน/ผี จะขับออกมาจากหมอกมืดด้านซ้าย มาจอดตรงกลางหน้าร้าน",
+                points: [
+                    "ใช้ TweenService ในการเลื่อนโมเดลรถจากจุด StartPart -> StopPart -> ExitPart",
+                    "มีเสาไฟไม้เก่าๆ ปักอยู่ริมทาง พร้อมสคริปต์ไฟนีออนกะพริบติดๆ ดับๆ",
+                    "รองรับอัปเดต Tier 3: เปรตเดินผ่านถนนดิน หรือขบวนแห่ศพผ่านหน้าร้าน"
+                ]
+            },
+            spirithouse: {
+                title: "3. ศาลพระภูมิไม้เก่า (ระบบพลังชีวิตของทีม)",
+                size: "ขนาดใน Studio: ~10 x 10 Studs ตั้งอยู่ข้างเพิงฝั่งซ้าย",
+                desc: "แทนที่จะใช้หลอดเลือด HP บนหน้าจอธรรมดา เราใช้ 'ธูป 3 ดอก' บนศาลพระภูมิแทนเพื่อให้เข้ากับธีมไทย!",
+                points: [
+                    "เริ่มเกมจะมีธูปติดไฟมีควันลอยอยู่ 3 ดอก (ParticleEmitter)",
+                    "ทุกครั้งที่เผลอเติมน้ำมันให้ผี เสียงฟ้าผ่าจะดังขึ้นพร้อมธูปดับไป 1 ดอก",
+                    "ถ้าธูปดับครบ 3 ดอก ศาลพระภูมิจะพังลงและผีทั้งทุ่งนาจะบุกเข้าร้าน (Game Over)"
+                ]
+            },
+            pumps: {
+                title: "4. ตู้ปั๊มหลอดแก้วมือหมุน & ถังปั๊มลมปะยาง",
+                size: "ขนาดใน Studio: ลานดินหน้าเพิง ~30 x 18 Studs",
+                desc: "จุดทำงานหลักที่ผู้เล่นต้องเดินออกมากดโต้ตอบ (ProximityPrompt) เพื่อให้บริการลูกค้า",
+                points: [
+                    "ตู้ปั๊มน้ำมันหลอดแก้ว: กด E ค้างไว้เพื่อโยกมือหมุนสูบน้ำมันสีส้มขึ้นหลอดแก้วให้เต็มขีด",
+                    "ถังปั๊มลมปะยาง: กดลากสายลมไปเติมที่ล้อรถ (และรองรับ Tier 2 ถังปั๊มลมคลั่งต้องวิ่งมาปิดวาล์ว)",
+                    "ถ้าระหว่างกำลังหมุนปั๊มอยู่แล้วเพื่อนตะโกนว่า 'เจอผี!' สามารถปล่อยมือแล้ววิ่งเข้าเพิงได้ทันที"
+                ]
+            },
+            shack: {
+                title: "5. เพิงสังกะสี + 4 จุดวางของเผื่ออัปเดต (Prop Hooks)",
+                size: "ขนาดใน Studio: ตัวเพิง ~35 x 22 Studs",
+                desc: "วางของประดับ 4 ชิ้นนี้ทิ้งไว้ในเพิงตั้งแต่วันแรก เพื่อใช้อัปเดต Anomaly ใหม่ๆ ในอนาคตโดยไม่ต้องแก้แมพ:",
+                points: [
+                    "ของหลัก V1.0: กระป๋องคุกกี้แดงใส่เงิน, วิทยุทรานซิสเตอร์, และเชือกดึงแผงสังกะสีปิดร้าน",
+                    "Prop Hook #1 (🪞 กระจกเงาบานเก่า): ใช้อัปเดตผีในกระจก หรือเงาผู้เล่นไม่มีหัว",
+                    "Prop Hook #2 (🖼️ รูปขาวดำตาเจ้าของอู่ & ปฏิทิน): ใช้อัปเดตรูปร้องไห้เป็นเลือด หรือปฏิทินเปลี่ยนข้อความ",
+                    "Prop Hook #3 (⚡ สวิตช์คัตเอาต์ไฟ): ใช้สับดับไฟทั้งเพิงเวลาเจอผีกระสือ/เปรต (Tier 3)",
+                    "Prop Hook #4 (🧊 ถังแช่น้ำแข็งมุมเพิง): ใช้อัปเดตมือผีโผล่จากถังน้ำแข็ง"
+                ]
+            },
+            bananagrove: {
+                title: "6. ดงกล้วยตานี + เครื่องปั่นไฟ + ห้องน้ำสังกะสี",
+                size: "ขนาดใน Studio: ~30 x 45 Studs (ข้างขวาและหลังเพิง)",
+                desc: "โซนหลอนด้านหลังร้านที่รวมทั้งดงกล้วย เครื่องปั่นไฟ และห้องน้ำสังกะสีเผื่ออัปเดตแพตช์ใหม่",
+                points: [
+                    "ดงกล้วยตานี: จุดเกิด Anomaly ผีตานีชะโงกหน้า หรือต้นกล้วยโน้มลงมาหาเพิง",
+                    "เครื่องปั่นไฟน้ำมัน: รองรับ Tier 2 เวลาไฟดับ ต้องเดินถือไฟฉายมากระตุกเครื่องปั่นไฟ",
+                    "Prop Hook #5 (🚪 ห้องน้ำสังกะสีท้ายดงกล้วย): วางไว้รองรับอัปเดตเสียงคนตักน้ำอาบตอนตี 3 ที่ต้องเดินไปล็อกกลอนประตู"
+                ]
+            }
+        };
+
+        let currentScenarioIndex = 0;
+        let currentMoney = 100;
+        let currentIncense = 3;
+
+        function initSimulator() {
+            const btnContainer = document.getElementById('scenario-buttons');
+            btnContainer.innerHTML = '';
+            scenarios.forEach((scen, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'scen-btn' + (idx === currentScenarioIndex ? ' active' : '');
+                btn.innerText = `ตัวอย่างที่ ${scen.id}: ${scen.isAnomaly ? '👻 Anomaly' : '👨 คนปกติ'}`;
+                btn.onclick = () => loadScenario(idx);
+                btnContainer.appendChild(btn);
+            });
+            loadScenario(0);
+            selectZone('ricefield', document.querySelector('.zone-ricefield'));
+            renderAnomalies('all');
+        }
+
+        function filterAnomalies(cat, btn) {
+            document.querySelectorAll('#anomaly-filter-btns .scen-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            renderAnomalies(cat);
+        }
+
+        function renderAnomalies(cat) {
+            const grid = document.getElementById('anomaly-list-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            const filtered = cat === 'all' ? masterAnomalies : masterAnomalies.filter(a => a.cat === cat);
+            filtered.forEach(item => {
+                let borderCol = '#26352f';
+                if (item.cat === 'sabotage') borderCol = '#2ec4b6';
+                if (item.cat === 'boss') borderCol = '#ff334b';
+
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.style.borderColor = borderCol;
+                card.style.padding = '16px';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <span class="tag" style="margin:0;">#${item.id} • ${item.tier}</span>
+                        <span style="font-size:0.78rem; background:#1c2824; padding:2px 8px; border-radius:6px; color:#cbd5d1;">📍 ${item.hook}</span>
+                    </div>
+                    <h3 style="font-size:1.12rem; margin-bottom:6px;">${item.name}</h3>
+                    <p style="font-size:0.88rem; margin-bottom:10px;">${item.desc}</p>
+                    <div style="font-family:'Kanit'; font-size:0.84rem; color:var(--accent-neon); background:#0c1310; padding:6px 10px; border-radius:6px;">
+                        วิธีรับมือ: ${item.action}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function loadScenario(index) {
+            currentScenarioIndex = index;
+            const scen = scenarios[index];
+
+            // Update buttons
+            document.querySelectorAll('#scenario-buttons .scen-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === index);
+            });
+
+            document.getElementById('scen-type-badge').innerText = scen.badge;
+            document.getElementById('scen-title').innerText = scen.title;
+            document.getElementById('scen-speech').innerText = scen.speech;
+            document.getElementById('scen-dev-note').innerHTML = scen.devNote;
+
+            // Hide result box
+            const resBox = document.getElementById('decision-result');
+            resBox.className = 'result-box';
+
+            // Populate hotspots
+            const grid = document.getElementById('inspect-grid');
+            grid.innerHTML = '';
+            scen.hotspots.forEach((h) => {
+                const card = document.createElement('div');
+                card.className = 'hotspot-card';
+                card.innerHTML = `
+                    <div class="hotspot-title">
+                        <span>${h.name}</span>
+                        <span class="status-tag" style="font-size:0.75rem; color:#95a7a1;">[คลิกเพื่อส่องดู]</span>
+                    </div>
+                    <div class="hotspot-desc">ยังไม่ส่องไฟฉาย... (คลิกเพื่อตรวจสอบ)</div>
+                `;
+                card.onclick = () => {
+                    card.classList.add('inspected');
+                    if (h.anomaly) {
+                        card.classList.add('anomaly-found');
+                    }
+                    card.querySelector('.status-tag').innerText = h.anomaly ? '⚠️ พบสิ่งผิดปกติ!' : '✅ ปกติ';
+                    card.querySelector('.status-tag').style.color = h.anomaly ? '#ff334b' : '#2ec4b6';
+                    card.querySelector('.hotspot-desc').innerText = h.detail;
+                    card.querySelector('.hotspot-desc').style.color = '#eef4f2';
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        function makeDecision(action) {
+            const scen = scenarios[currentScenarioIndex];
+            const resBox = document.getElementById('decision-result');
+            const resTitle = document.getElementById('res-title');
+            const resDesc = document.getElementById('res-desc');
+
+            // Reveal all hotspots so user sees what they missed/found
+            document.querySelectorAll('.hotspot-card').forEach(c => c.click());
+
+            if (action === 'serve' && !scen.isAnomaly) {
+                currentMoney = Math.min(500, currentMoney + 100);
+                resBox.className = 'result-box show win';
+                resTitle.innerText = '🎉 ตัดสินใจถูกต้อง! (+100 บาท)';
+                resDesc.innerText = scen.correctServeMsg;
+            } else if (action === 'reject' && scen.isAnomaly) {
+                currentMoney = Math.min(500, currentMoney + 50);
+                resBox.className = 'result-box show win';
+                resTitle.innerText = '🛡️ รอดพ้นอาถรรพ์! (+50 บาทโบนัส)';
+                resDesc.innerText = scen.correctRejectMsg;
+            } else if (action === 'serve' && scen.isAnomaly) {
+                currentMoney = Math.max(0, currentMoney - 100);
+                currentIncense = Math.max(0, currentIncense - 1);
+                resBox.className = 'result-box show lose';
+                resTitle.innerText = '👻 เผลอให้บริการผี! (-100 บาท / ธูปดับ 1 ดอก)';
+                resDesc.innerText = scen.wrongServeMsg;
+            } else if (action === 'reject' && !scen.isAnomaly) {
+                currentMoney = Math.max(0, currentMoney - 50);
+                resBox.className = 'result-box show lose';
+                resTitle.innerText = '😅 ปิดร้านใส่ชาวบ้านปกติ! (-50 บาท)';
+                resDesc.innerText = scen.wrongRejectMsg;
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-money').innerText = `${currentMoney} / 500 ฿` + (currentMoney >= 500 ? ' (ครบเป้าชนะ! 🏆)' : '');
+            const candles = '🕯️'.repeat(currentIncense) + '💨'.repeat(3 - currentIncense);
+            document.getElementById('hud-incense').innerText = `${candles} (${currentIncense}/3)` + (currentIncense === 0 ? ' [GAME OVER]' : '');
+        }
+
+        function resetSimulator() {
+            currentMoney = 100;
+            currentIncense = 3;
+            updateHUD();
+            loadScenario(currentScenarioIndex);
+        }
+
+        function selectZone(zoneKey, el) {
+            document.querySelectorAll('.map-zone').forEach(z => z.classList.remove('selected'));
+            if (el) el.classList.add('selected');
+
+            const data = mapZones[zoneKey];
+            const box = document.getElementById('map-detail-box');
+            box.innerHTML = `
+                <span class="detail-badge">${data.size}</span>
+                <h3>${data.title}</h3>
+                <p style="color:var(--text-muted); margin-bottom:12px;">${data.desc}</p>
+                <h4 style="font-size:0.95rem; color:#fff;">รายละเอียดที่ต้องวางใน Roblox Studio:</h4>
+                <ul class="detail-list">
+                    ${data.points.map(p => `<li>${p}</li>`).join('')}
+                </ul>
+            `;
+        }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        window.onload = initSimulator;
+    </script>
+</body>
+</html>

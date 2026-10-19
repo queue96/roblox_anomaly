@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แผนการพัฒนา 5 เฟส (Dev Roadmap & Studio Checklist) - ปั๊มหลอดท้ายทุ่ง</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Sarabun:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #070a09;
+            --bg-card: #111715;
+            --bg-card-hover: #17211d;
+            --accent-neon: #e2f163;
+            --accent-amber: #ff9f1c;
+            --accent-red: #ff334b;
+            --accent-green: #2ec4b6;
+            --accent-blue: #4cc9f0;
+            --text-main: #eef4f2;
+            --text-muted: #95a7a1;
+            --border-color: #26352f;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 20% 0%, rgba(255, 159, 28, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.07) 0%, transparent 45%);
+            color: var(--text-main);
+            font-family: 'Sarabun', sans-serif;
+            line-height: 1.6;
+            padding-bottom: 80px;
+        }
+
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Kanit', sans-serif;
+        }
+
+        code, pre {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Top Bar Navigation */
+        .top-nav {
+            background: rgba(12, 18, 16, 0.92);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .brand-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-family: 'Kanit', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-link-btn {
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .nav-link-btn:hover {
+            border-color: var(--accent-amber);
+            color: var(--accent-amber);
+        }
+
+        .nav-link-btn.active {
+            background: var(--accent-amber);
+            color: #090c0b;
+            border-color: var(--accent-amber);
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Hero Header */
+        .page-hero {
+            padding: 36px 0 24px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .page-hero h1 {
+            font-size: 2.2rem;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .page-hero p {
+            color: var(--text-muted);
+            max-width: 680px;
+        }
+
+        .overall-progress-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 22px;
+            min-width: 280px;
+        }
+
+        .progress-bar-bg {
+            background: #1c2924;
+            height: 10px;
+            border-radius: 99px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar-fill {
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-neon));
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Phase Stepper Tabs */
+        .phase-stepper {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 900px) {
+            .phase-stepper {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 550px) {
+            .phase-stepper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .phase-tab {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            position: relative;
+        }
+
+        .phase-tab:hover {
+            background: var(--bg-card-hover);
+            border-color: #3f594e;
+        }
+
+        .phase-tab.active {
+            border-color: var(--accent-amber);
+            background: linear-gradient(180deg, rgba(255, 159, 28, 0.14) 0%, var(--bg-card) 100%);
+            box-shadow: 0 6px 22px rgba(255, 159, 28, 0.18);
+        }
+
+        .phase-tab .phase-num {
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.78rem;
+            color: var(--accent-amber);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .phase-tab h3 {
+            font-size: 1.05rem;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .phase-tab .phase-desc {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        /* Phase View Content */
+        .phase-view {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .phase-view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 920px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 22px;
+        }
+
+        .panel-card h2 {
+            font-size: 1.45rem;
+            color: var(--accent-amber);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-card h3 {
+            font-size: 1.15rem;
+            color: #fff;
+            margin: 16px 0 10px;
+        }
+
+        /* Interactive Checklist */
+        .checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #0c1210;
+            border: 1px solid #21302a;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .check-item:hover {
+            border-color: var(--accent-green);
+        }
+
+        .check-item.checked {
+            background: rgba(46, 196, 182, 0.08);
+            border-color: rgba(46, 196, 182, 0.4);
+        }
+
+        .check-item.checked .check-title {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .check-box {
+            width: 22px;
+            height: 22px;
+            border: 2px solid #456055;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+            font-size: 0.85rem;
+            color: #06110f;
+            font-weight: bold;
+        }
+
+        .check-item.checked .check-box {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+        }
+
+        .check-title {
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.98rem;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+
+        .check-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Tree Structure Box */
+        .tree-box {
+            background: #080c0b;
+            border: 1px solid #25362f;
+            border-radius: 10px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.86rem;
+            line-height: 1.75;
+            color: #d2e4dd;
+            overflow-x: auto;
+        }
+
+        .tree-folder { color: var(--accent-amber); font-weight: 600; }
+        .tree-model { color: var(--accent-blue); }
+        .tree-part { color: var(--accent-green); }
+        .tree-comment { color: #6c857b; font-family: 'Sarabun', sans-serif; }
+
+        /* Spec Table */
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .spec-table th, .spec-table td {
+            border: 1px solid #23332d;
+            padding: 10px 12px;
+            text-align: left;
+        }
+
+        .spec-table th {
+            background: #16211d;
+            font-family: 'Kanit', sans-serif;
+            color: var(--accent-amber);
+        }
+
+        .spec-table td code {
+            background: #090d0c;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-neon);
+        }
+
+        .tip-alert {
+            background: rgba(226, 241, 99, 0.08);
+            border-left: 4px solid var(--accent-neon);
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 0.9rem;
+        }
+
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #384d44;
+            color: var(--text-muted);
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.78rem;
+        }
+
+        .reset-btn:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <a href="index.html" class="brand-link">
+            <span>⛽ ปั๊มหลอดท้ายทุ่ง</span>
+            <span style="font-size:0.78rem; background:#1e2d27; color:var(--accent-neon); padding:2px 10px; border-radius:99px;">Roblox Dev Hub</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link-btn">🔦 หน้าคอนเซ็ปต์ & ทดลองเล่น 5 สถานการณ์</a>
+            <a href="phases.html" class="nav-link-btn active">🛠️ แผนการพัฒนา 5 เฟส (Dev Phases View)</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="page-hero">
+            <div>
+                <span style="color:var(--accent-amber); font-family:'Kanit'; font-size:0.9rem;">🗺️ STEP-BY-STEP ROBLOX STUDIO WORKFLOW</span>
+                <h1>แผนการพัฒนา 5 เฟส (เริ่มจากปั้น Map -> โค้ดระบบ)</h1>
+                <p>ออกแบบมาให้คุณเริ่มปั้นฉากและวางโมเดลใน Roblox Studio ได้ก่อนเลย โดยตั้งชื่อ Folder และ Part ตามมาตรฐานนี้ ताकिพอถึงเฟสเขียนโค้ดสามารถเสียบสคริปต์ทำงานได้ทันทีโดยไม่ต้องรื้อแมพ</p>
+            </div>
+
+            <div class="overall-progress-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-family:'Kanit';">
+                    <span>ความคืบหน้าโปรเจกต์รวม</span>
+                    <span id="total-progress-text" style="color:var(--accent-neon); font-weight:700;">0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="total-progress-bar"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                    <span style="font-size:0.78rem; color:var(--text-muted);" id="total-items-count">เสร็จแล้ว 0 / 26 รายการ</span>
+                    <button class="reset-btn" onclick="resetAllChecks()">รีเซ็ตเช็คลิสต์</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5 Phase Selector Tabs -->
+        <div class="phase-stepper">
+            <div class="phase-tab active" onclick="selectPhase(1, this)">
+                <div class="phase-num"><span>PHASE 1</span> <span id="p1-badge">0/8</span></div>
+                <h3>🏗️ ปั้น Map & จัดแสง</h3>
+                <div class="phase-desc">สร้างฉากชนบท วางโมเดล + 5 Prop Hooks และตั้งค่าแสงกลางคืน</div>
+            </div>
+            <div class="phase-tab" onclick="selectPhase(2, this)">
+                <div class="phase-num"><span>PHASE 2</span> <span id="p2-badge">0/5</span></div>
+                <h3>🛵 โมเดลรถ & ผี</h3>
+                <div class="phase-desc">เตรียมโมเดลรถชาวบ้านและซ่อนจุดผิดปกติไว้ใน ServerStorage</div>
+            </div>
+            <div class="phase-tab" onclick="selectPhase(3, this)">
+                <div class="phase-num"><span>PHASE 3</span> <span id="p3-badge">0/5</span></div>
+                <h3>⚙️ โค้ดลูปหลัก (Core)</h3>
+                <div class="phase-desc">สคริปต์รถวิ่งมาจอด เติมน้ำมัน ดึงแผงปิดร้าน นับเงิน 500฿</div>
+            </div>
+            <div class="phase-tab" onclick="selectPhase(4, this)">
+                <div class="phase-num"><span>PHASE 4</span> <span id="p4-badge">0/4</span></div>
+                <h3>👻 โค้ดเสก Anomaly</h3>
+                <div class="phase-desc">เชื่อมโมดูลสุ่มผี เสียงวิทยุ ไฟฉาย และระบบ Jumpscare</div>
+            </div>
+            <div class="phase-tab" onclick="selectPhase(5, this)">
+                <div class="phase-num"><span>PHASE 5</span> <span id="p5-badge">0/4</span></div>
+                <h3>📘 UI & สมุดผี 30 แบบ</h3>
+                <div class="phase-desc">หน้าจอกระป๋องเงิน สมุดสะสมผีไทย และทดสอบเล่น 1–4 คน</div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             PHASE 1 VIEW: MAP, PROPS & LIGHTING
+        =========================================== -->
+        <div id="phase-view-1" class="phase-view active">
+            <div class="two-col">
+                <!-- Left Column: Checklist -->
+                <div class="panel-card">
+                    <h2>🏗️ Phase 1: ปั้น Map, วางโมเดล & จัดแสงชนบท (ยังไม่ต้องเขียนโค้ด)</h2>
+                    <p style="color:var(--text-muted); font-size:0.95rem;">
+                        เป้าหมายของเฟสนี้คือการสร้างบรรยากาศ **"ปั๊มหลอดท้ายทุ่ง"** ใน Roblox Studio ให้เดินสำรวจได้จริง และจัดกลุ่มโมเดลใส่ Folder ให้พร้อมสำหรับเขียนโค้ดในเฟสถัดไป (คลิกติ๊กถูกเมื่อทำเสร็จแต่ละข้อ):
+                    </p>
+
+                    <div class="checklist" data-phase="1">
+                        <div class="check-item" data-id="p1-1" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">1. สร้างพื้นถนนดินลูกรัง & ลานหน้าเพิง (120 x 120 Studs)</div>
+                                <div class="check-sub">ปรับ Material พื้นเป็น Mud หรือ Ground สีดินแดง พร้อมตั้งค่า Anchor = true ทุกชิ้น</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-2" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">2. สร้างเพิงสังกะสีไม้ไผ่ & โต๊ะไม้เก็บเงิน</div>
+                                <div class="check-sub">ตัวเพิงขนาดประมาณ 35 x 22 Studs มีหลังคาสังกะสีกันฝน และมีจุดเกิดผู้เล่น (SpawnLocation) ข้างในเพิง</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-3" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">3. วางอุปกรณ์ทำงานหลักหน้าร้าน & บนโต๊ะ</div>
+                                <div class="check-sub">วางตู้ปั๊มน้ำมันหลอดแก้ว (GasPump), ถังปั๊มลม (AirCompressor), กระป๋องเงิน (MoneyTin), วิทยุ (Radio), และแผ่นสังกะสีปิดร้าน (ShutterDoor)</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-4" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">4. วางศาลพระภูมิไม้เก่า + ธูป 3 ดอก (ข้างเพิงฝั่งซ้าย)</div>
+                                <div class="check-sub">สร้างธูป 3 ดอกตั้งชื่อ Incense1, Incense2, Incense3 ใส่ ParticleEmitter ควันธูปและไฟสีแดง</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-5" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">5. ตกแต่งทุ่งนา หุ่นไล่กา & ดงกล้วยตานีหลังร้าน</div>
+                                <div class="check-sub">ฝั่งตรงข้ามถนนเป็นทุ่งนา + หุ่นไล่กา (Scarecrow) ส่วนหลังร้านและข้างขวาเป็นดงกล้วยตานี + เครื่องปั่นไฟ (Generator)</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-6" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">6. วาง 5 จุด Prop Hooks เผื่ออัปเดตระยะยาว</div>
+                                <div class="check-sub">วางทิ้งไว้ตั้งแต่วันแรก: (1) กระจกเงาข้างฝา, (2) รูปขาวดำตาเจ้าของอู่ & ปฏิทิน, (3) สวิตช์คัตเอาต์ไฟ, (4) ถังน้ำแข็ง, (5) ห้องน้ำสังกะสีท้ายดงกล้วย</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-7" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">7. วาง Part จุดวิ่งของรถ 3 จุด & ตั้งค่าแสงกลางคืน (Lighting)</div>
+                                <div class="check-sub">วาง Part ใส 3 อันบนถนน (SpawnPoint, StopPoint, ExitPoint) และปรับค่า Lighting ตามตารางด้านขวา</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p1-8" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">8. 🌐 ทำป้ายร้านและของตกแต่งแบบ 2 ภาษา (TH / EN Visual Cue)</div>
+                                <div class="check-sub">เขียนป้ายหน้าร้านเป็นไทยคู่กับอังกฤษ เช่น 'ปั๊มหลอดท้ายทุ่ง - RURAL GAS & TIRE' เพื่อให้ผู้เล่นต่างชาติเข้าใจบริบทร้านทันที</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Folder Tree & Lighting Specs -->
+                <div>
+                    <div class="panel-card">
+                        <h3>📁 โครงสร้างชื่อ Folder ใน Workspace (ตั้งชื่อตามนี้เป๊ะๆ)</h3>
+                        <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:10px;">
+                            การจัดกลุ่มและตั้งชื่อแบบนี้จะทำให้เวลาเราเขียนโค้ดใน Phase 3–4 สคริปต์สามารถหาของเจอทันทีโดยไม่เกิด Error:
+                        </p>
+                        <div class="tree-box">
+Workspace<br>
+├── <span class="tree-folder">📁 MapEnvironment</span> <span class="tree-comment">-- ของตกแต่งฉากทั่วไป (Anchor ทั้งหมด)</span><br>
+│   ├── <span class="tree-model">📦 ShackStructure</span> <span class="tree-comment">-- โครงสร้างเพิงสังกะสี & โต๊ะไม้</span><br>
+│   ├── <span class="tree-model">📦 DirtRoad</span> <span class="tree-comment">-- พื้นถนนดินลูกรัง & เสาไฟไม้</span><br>
+│   ├── <span class="tree-model">📦 RiceField</span> <span class="tree-comment">-- ทุ่งนา & เถียงนาฝั่งตรงข้าม</span><br>
+│   └── <span class="tree-model">📦 BananaGrove</span> <span class="tree-comment">-- ดงกล้วยตานีหลังร้าน</span><br>
+│<br>
+├── <span class="tree-folder">📁 InteractiveProps</span> <span class="tree-comment">-- อุปกรณ์ที่ผู้เล่นกดใช้งานได้</span><br>
+│   ├── <span class="tree-model">📦 GasPump</span> <span class="tree-comment">-- ตู้ปั๊มน้ำมันหลอดแก้ว</span><br>
+│   ├── <span class="tree-model">📦 AirCompressor</span> <span class="tree-comment">-- ถังปั๊มลมปะยาง</span><br>
+│   ├── <span class="tree-part">🧱 ShutterDoor</span> <span class="tree-comment">-- แผ่นสังกะสีปิดหน้าร้าน</span><br>
+│   ├── <span class="tree-part">🧱 RejectRope</span> <span class="tree-comment">-- เชือกดึงปิดแผงสังกะสี</span><br>
+│   ├── <span class="tree-part">🧱 Radio</span> <span class="tree-comment">-- วิทยุทรานซิสเตอร์บนโต๊ะ</span><br>
+│   ├── <span class="tree-part">🧱 MoneyTin</span> <span class="tree-comment">-- กระป๋องคุกกี้แดงใส่เงิน</span><br>
+│   ├── <span class="tree-part">🧱 CutoutSwitch</span> <span class="tree-comment">-- สวิตช์คัตเอาต์ดับไฟในเพิง</span><br>
+│   └── <span class="tree-model">📦 Generator</span> <span class="tree-comment">-- เครื่องปั่นไฟหลังดงกล้วย</span><br>
+│<br>
+├── <span class="tree-folder">📁 SpiritHouse</span> <span class="tree-comment">-- ศาลพระภูมิแสดงพลังชีวิตทีม</span><br>
+│   ├── <span class="tree-part">🧱 Incense1</span>, <span class="tree-part">Incense2</span>, <span class="tree-part">Incense3</span><br>
+│<br>
+├── <span class="tree-folder">📁 AnomalyProps</span> <span class="tree-comment">-- พร็อพเผื่ออัปเดต Anomaly</span><br>
+│   ├── <span class="tree-model">📦 Scarecrow</span> <span class="tree-comment">-- หุ่นไล่กากลางทุ่งนา</span><br>
+│   ├── <span class="tree-model">📦 PhiTaniGhost</span> <span class="tree-comment">-- โมเดลผีตานีซ่อนหลังดงกล้วย</span><br>
+│   ├── <span class="tree-part">🧱 OldMirror</span> <span class="tree-comment">-- กระจกเงาบานเก่า</span><br>
+│   ├── <span class="tree-part">🧱 OwnerPhoto</span> <span class="tree-comment">-- รูปขาวดำตาเจ้าของอู่</span><br>
+│   ├── <span class="tree-model">📦 IceBox</span> <span class="tree-comment">-- ถังแช่น้ำแข็ง</span><br>
+│   └── <span class="tree-model">📦 TinOuthouse</span> <span class="tree-comment">-- ห้องน้ำสังกะสีท้ายดงกล้วย</span><br>
+│<br>
+└── <span class="tree-folder">📁 VehicleWaypoints</span> <span class="tree-comment">-- Part ใสกำหนดจุดรถวิ่ง</span><br>
+    ├── <span class="tree-part">🧱 SpawnPoint</span> <span class="tree-comment">-- จุดเริ่มเสกรถ (ซ้ายสุดของถนน)</span><br>
+    ├── <span class="tree-part">🧱 StopPoint</span> <span class="tree-comment">-- จุดจอดเติมน้ำมันหน้าเพิง</span><br>
+    └── <span class="tree-part">🧱 ExitPoint</span> <span class="tree-comment">-- จุดรถขับหายไป (ขวาสุดของถนน)</span>
+                        </div>
+                    </div>
+
+                    <div class="panel-card">
+                        <h3>🌙 สูตรตั้งค่าแสงกลางคืน (Lighting & Atmosphere)</h3>
+                        <p style="font-size:0.86rem; color:var(--text-muted);">
+                            คลิกที่ `Lighting` ใน Explorer ของ Roblox Studio แล้วกรอกค่าตามนี้ จะได้บรรยากาศชนบทมืดหลอนทันที:
+                        </p>
+                        <table class="spec-table">
+                            <thead>
+                                <tr>
+                                    <th>Property ใน Lighting</th>
+                                    <th>ค่าที่แนะนำ</th>
+                                    <th>ผลลัพธ์ที่ได้</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Technology</strong></td>
+                                    <td><code>Future</code></td>
+                                    <td>ทำให้เงาไฟฉายและไฟนีออนสมจริงที่สุด</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ClockTime</strong></td>
+                                    <td><code>0</code> (เที่ยงคืน)</td>
+                                    <td>ท้องฟ้ามืดสนิท เห็นดวงจันทร์ลางๆ</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Brightness</strong></td>
+                                    <td><code>0.3</code></td>
+                                    <td>มืดพอให้ต้องพึ่งไฟหน้าร้านและไฟฉาย</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ambient / OutdoorAmbient</strong></td>
+                                    <td><code>15, 22, 20</code> (RGB)</td>
+                                    <td>โทนมืดอมเขียวหม่นๆ แบบป่ากล้วยและทุ่งนา</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Atmosphere.Density</strong></td>
+                                    <td><code>0.42</code></td>
+                                    <td>สร้างหมอกจางๆ ปกคลุมปลายถนนดินและทุ่งนา</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             PHASE 2 VIEW: VEHICLE & ANOMALY MODELS
+        =========================================== -->
+        <div id="phase-view-2" class="phase-view">
+            <div class="two-col">
+                <div class="panel-card">
+                    <h2>🛵 Phase 2: เตรียมโมเดลรถลูกค้า & จุดซ่อนผี (ใน ServerStorage)</h2>
+                    <p style="color:var(--text-muted); font-size:0.95rem;">
+                        แทนที่จะสร้างรถแยกเป็น 20 คัน เราใช้เทคนิค **"โมเดลรถแม่แบบคันเดียว (Master Vehicle Template)"** ที่มีทั้งคนขับปกติและชิ้นส่วนผีซ่อนไว้ (`Transparency = 1`) เวลาเสกรถออกมา โค้ดแค่สั่งเปิดชิ้นส่วนผีที่ต้องการ!
+                    </p>
+
+                    <div class="checklist" data-phase="2">
+                        <div class="check-item" data-id="p2-1" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">1. สร้างโฟลเดอร์ VehicleTemplates ใน ServerStorage</div>
+                                <div class="check-sub">เก็บโมเดลรถต้นแบบไว้ใน ServerStorage เพื่อรอให้สคริปต์ Clone() ออกมาวิ่งบนถนน</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p2-2" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">2. ตั้งค่า PrimaryPart ของโมเดลรถมอเตอร์ไซค์</div>
+                                <div class="check-sub">สร้าง Part แกนกลางรถชื่อ Chassis แล้วตั้งเป็น PrimaryPart ของ Model เพื่อให้สั่งเลื่อนรถทั้งคันด้วยคำสั่งเดียวได้</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p2-3" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">3. วางโมเดลคนขับ (DriverNPC) บนเบาะหน้า</div>
+                                <div class="check-sub">มีชิ้นส่วน Head, Torso, Legs ครบ เพื่อรอให้โค้ดสั่งหมุนคอ 180 องศา หรือซ่อนขากลายเป็นไส้กระสือ</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p2-4" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">4. วางโมเดลผีคนซ้อนท้าย (GhostPassenger) ซ่อนไว้บนเบาะหลัง</div>
+                                <div class="check-sub">วางโมเดลผู้หญิงชุดไทยไร้หัวซ้อนท้ายไว้เลย แต่ตั้งค่า Transparency = 1 (ล่องหนไว้ในตอนปกติ)</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p2-5" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">5. 🌐 สร้างป้ายทะเบียน (LicensePlate) รองรับผู้เล่นต่างชาติ</div>
+                                <div class="check-sub">ป้ายปกติใช้พื้นขาวตัวดำ แต่ป้ายผีให้เปลี่ยนเป็นพื้นดำเปื้อนเลือด + ตัวเลขสีแดงเรืองแสง '4444 CEMETERY / ป่าช้า' เพื่อให้คนอ่านไทยไม่ออกก็รู้ว่าผิดปกติ!</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel-card">
+                        <h3>📦 โครงสร้างโมเดลรถแม่แบบใน ServerStorage</h3>
+                        <div class="tree-box">
+ServerStorage<br>
+└── <span class="tree-folder">📁 VehicleTemplates</span><br>
+    └── <span class="tree-model">📦CustomerBike</span> <span class="tree-comment">-- ตั้ง PrimaryPart = Chassis</span><br>
+        ├── <span class="tree-part">🧱 Chassis</span> <span class="tree-comment">-- แกนกลางรถสำหรับสั่งเคลื่อนที่</span><br>
+        ├── <span class="tree-part">🧱 Headlight</span> <span class="tree-comment">-- ไฟหน้ารถมอเตอร์ไซค์ (SpotLight)</span><br>
+        ├── <span class="tree-part">🧱 LicensePlate</span> <span class="tree-comment">-- มี SurfaceGui > TextLabel</span><br>
+        ├── <span class="tree-part">🧱 WheelHairAnomaly</span> <span class="tree-comment">-- เส้นผมพันล้อ (ซ่อนไว้ Transparency=1)</span><br>
+        ├── <span class="tree-model">📦 DriverNPC</span> <span class="tree-comment">-- คนขับรถ</span><br>
+        │   ├── <span class="tree-part">🧱 Head</span> <span class="tree-comment">-- มี Decal หน้าปกติ & หน้ายิ้มหลอน</span><br>
+        │   └── <span class="tree-part">🧱 Legs</span><br>
+        └── <span class="tree-model">📦 GhostPassenger</span> <span class="tree-comment">-- ผีไร้หัวซ้อนท้าย (ซ่อนไว้ตอนเริ่ม)</span>
+                        </div>
+                        <div class="tip-alert">
+                            💡 <strong>ทิปสำคัญ:</strong> ชิ้นส่วนทุกชิ้นในรถต้นแบบให้กด <code>Anchored = true</code> และตั้งค่า <code>CanCollide = false</code> ยกเว้นตัวแกนกลาง จะช่วยให้เวลาสั่งเลื่อนรถด้วยโค้ด `PivotTo()` รถจะวิ่งสมูทไม่ติดพื้นถนนครับ
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             PHASE 3 VIEW: CORE GAME LOOP CODING
+        =========================================== -->
+        <div id="phase-view-3" class="phase-view">
+            <div class="two-col">
+                <div class="panel-card">
+                    <h2>⚙️ Phase 3: เขียนโค้ด Core Loop (รถเข้าจอด, เติมน้ำมัน, ปิดร้าน, นับเงิน)</h2>
+                    <p style="color:var(--text-muted); font-size:0.95rem;">
+                        เมื่อปั้นแมพและเตรียมโมเดลรถใน Phase 1–2 เสร็จแล้ว เฟสนี้เราจะเริ่มเขียนสคริปต์หลัก `GameManager.server.luau` เพื่อให้ตัวเกมเล่นได้ตั้งแต่ต้นจนจบ:
+                    </p>
+
+                    <div class="checklist" data-phase="3">
+                        <div class="check-item" data-id="p3-1" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">1. ใส่ ProximityPrompt ที่ตู้ปั๊มหลอด และ เชือกปิดร้าน</div>
+                                <div class="check-sub">ตู้ปั๊มน้ำมันตั้ง HoldDuration = 3 วินาที (กดค้างหมุนปั๊ม) ส่วนเชือกปิดร้านตั้ง HoldDuration = 0.5 วินาที</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p3-2" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">2. เขียนระบบเสกรถวิ่งจาก SpawnPoint มาจอดที่ StopPoint</div>
+                                <div class="check-sub">ใช้ TweenService หรือ CFrame Lerp เลื่อนรถมาจอดหน้าเพิง พร้อมล็อกปุ่ม 3 วินาทีแรกให้คนส่องไฟฉายดู</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p3-3" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">3. เขียนฟังก์ชันตรวจคำตอบ (เติมน้ำมัน vs ดึงแผงปิดร้าน)</div>
+                                <div class="check-sub">เช็คตัวแปร currentVehicleIsAnomaly ว่าผู้เล่นตัดสินใจถูกหรือผิด</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p3-4" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">4. ระบบอัปเดตเงินในกระป๋อง (เป้าหมาย 500฿) & ธูปศาลพระภูมิ 3 ดอก</div>
+                                <div class="check-sub">ทำถูกบวกเงิน (+100฿ / +50฿) พอครบ 500฿ ชนะ / ถ้าเผลอเติมให้ผีสั่งดับควันธูปทีละดอก</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p3-5" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">5. 🌐 สร้างโมดูลแปลภาษาคำพูดลูกค้า (LanguageModule.luau - TH/EN)</div>
+                                <div class="check-sub">เก็บประโยคพูดของลูกค้าและชื่อผีเป็น 2 ภาษา (TH / EN) เช็คค่า Player.LocaleId เพื่อให้คนไทยอ่านภาษาไทย ต่างชาติอ่านภาษาอังกฤษอัตโนมัติ</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel-card">
+                        <h3>📜 โครงสร้างสคริปต์ที่จะเขียนใน Phase 3</h3>
+                        <div class="tree-box">
+ServerScriptService<br>
+└── <span class="tree-part">📜 GameManager.server.luau</span> <span class="tree-comment">-- ควบคุมลูปเกม เงิน 500฿ และธูป 3 ดอก</span><br>
+<br>
+ReplicatedStorage<br>
+├── <span class="tree-part">📜 LanguageModule.luau</span> <span class="tree-comment">-- ตารางคำแปล TH / EN สำหรับบทพูดและชื่อผี</span><br>
+└── <span class="tree-folder">📁 Remotes</span><br>
+    ├── <span class="tree-model">⚡ UpdateHUD</span> <span class="tree-comment">-- ส่งยอดเงิน & จำนวนธูปไปโชว์ทุกเครื่อง</span><br>
+    └── <span class="tree-model">⚡ TriggerJumpscare</span> <span class="tree-comment">-- สั่งเล่นฉากผีหลอกเมื่อตอบผิด</span>
+                        </div>
+                        <div class="tip-alert">
+                            🚀 <strong>พร้อมเขียนโค้ดให้ทันที:</strong> พอคุณปั้นแมพเสร็จและมาถึงเฟสนี้ บอกผมได้เลย ผมจะสร้างไฟล์โค้ด <code>GameManager.server.luau</code> และ <code>LanguageModule.luau</code> ตัวเต็มให้ก๊อปปี้ไปวางใน Studio ได้เลยครับ!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             PHASE 4 VIEW: ANOMALY SYSTEM & FLASHLIGHT
+        =========================================== -->
+        <div id="phase-view-4" class="phase-view">
+            <div class="two-col">
+                <div class="panel-card">
+                    <h2>👻 Phase 4: เขียนโค้ดระบบสุ่มผี (AnomalyManager) & ไฟฉาย</h2>
+                    <p style="color:var(--text-muted); font-size:0.95rem;">
+                        แยกโค้ดเสกความผิดปกติออกมาเป็น `ModuleScript` เพื่อให้คุณสามารถเพิ่มผีจาก 5 แบบ เป็น 30 แบบในอนาคตได้ง่ายๆ โดยไม่ต้องแก้โค้ดลูปหลัก:
+                    </p>
+
+                    <div class="checklist" data-phase="4">
+                        <div class="check-item" data-id="p4-1" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">1. สร้างไอเทมไฟฉายกบ (Flashlight Tool) แจกเข้า StarterPack</div>
+                                <div class="check-sub">ผู้เล่นทุกคนเกิดมาพร้อมไฟฉาย กดคลิกเพื่อเปิด/ปิด SpotLight ส่องดูคนขับและดงกล้วย</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p4-2" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">2. เขียนโมดูล AnomalyManager.luau (ชุดแรก 5–10 รูปแบบ)</div>
+                                <div class="check-sub">สุ่มเปิดผีคนซ้อนไร้หัว, เปลี่ยนป้ายทะเบียน 4444, เปลี่ยนเสียงวิทยุเป็นพระสวด, โผล่ผีตานีหลังดงกล้วย, หมุนคอคนขับ 180 องศา</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p4-3" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">3. เขียนฟังก์ชัน ResetAnomalies() ตอนรถขับออกไป</div>
+                                <div class="check-sub">คืนค่าวิทยุ หุ่นไล่กา และดงกล้วยให้กลับเป็นปกติทุกครั้งก่อนรถคันต่อไปจะเข้ามา</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p4-4" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">4. ใส่สคริปต์ไฟนีออนหน้าร้านกะพริบ & เสียงบรรยากาศทุ่งนา</div>
+                                <div class="check-sub">ใส่เสียงจิ้งหรีด เสียงหมาหอน และสคริปต์สุ่มกระพริบหลอดไฟนีออนหน้าเพิง</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel-card">
+                        <h3>🧩 ตัวอย่างการออกแบบตาราง Anomaly ในโค้ด</h3>
+                        <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:10px;">
+                            โค้ดจะถูกออกแบบให้เพิ่มผีใหม่ได้ง่ายๆ แค่เพิ่มรายการลงใน Table แบบนี้:
+                        </p>
+                        <div class="tree-box">
+Anomalies = {<br>
+&nbsp;&nbsp;["HeadlessPassenger"] = function(bike)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;bike.GhostPassenger.Transparency = 0<br>
+&nbsp;&nbsp;end,<br>
+&nbsp;&nbsp;["CemeteryPlate"] = function(bike)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;bike.LicensePlate.Gui.Text = "ป่าช้า 4444 / CEMETERY"<br>
+&nbsp;&nbsp;end,<br>
+&nbsp;&nbsp;["MonkChantRadio"] = function()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;workspace.InteractiveProps.Radio.SoundId = CHANT_ID<br>
+&nbsp;&nbsp;end<br>
+}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             PHASE 5 VIEW: UI, COLLECTION BOOK & POLISH
+        =========================================== -->
+        <div id="phase-view-5" class="phase-view">
+            <div class="two-col">
+                <div class="panel-card">
+                    <h2>📘 Phase 5: หน้าจอ UI, สมุดสะสมผีไทย 30 แบบ & ระบบแปลภาษา Roblox</h2>
+                    <p style="color:var(--text-muted); font-size:0.95rem;">
+                        เฟสสุดท้ายเพื่อความสมบูรณ์แบบก่อนเปิดเกม (Public Release) และรองรับผู้เล่นทั่วโลก:
+                    </p>
+
+                    <div class="checklist" data-phase="5">
+                        <div class="check-item" data-id="p5-1" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">1. สร้างหน้าจอ HUD แสดงยอดเงิน (0/500฿) & คำพูดลูกค้า 2 ภาษา</div>
+                                <div class="check-sub">แสดงกล่องข้อความด้านล่างจอเวลารถจอดพูดสั่งน้ำมัน (ดึงคำแปล TH/EN จาก LanguageModule)</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p5-2" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">2. สร้าง UI สมุดบันทึกรวมผีไทย (Anomaly Collection Book)</div>
+                                <div class="check-sub">เมื่อผู้เล่นรอดจากผีตัวไหนได้ จะปลดล็อกชื่อผีตัวนั้นในสมุด (เช่น เจอแล้ว 5 / 30 แบบ)</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p5-3" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">3. 🌐 เปิดใช้งาน AutoLocalize & Cloud Localization บนเว็บ Roblox</div>
+                                <div class="check-sub">เช็คว่า ScreenGui และ ProximityPrompt เปิด AutoLocalize = true และเปิด Automatic Translation ในหน้า Creator Dashboard</div>
+                            </div>
+                        </div>
+                        <div class="check-item" data-id="p5-4" onclick="toggleCheck(this)">
+                            <div class="check-box">✓</div>
+                            <div>
+                                <div class="check-title">4. ตั้งค่า Max Players = 4, ทดสอบ Co-op และกด Publish ลง Roblox!</div>
+                                <div class="check-sub">เช็คว่าผู้เล่นทุกคนเห็นผีตัวเดียวกัน ใส่รูปปกเกมจากโฟลเดอร์ assets/ แล้วเปิดให้คนเข้าเล่นได้เลย</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel-card">
+                        <h3>🏆 แผนการอัปเดตหลังเปิดเกม (Post-Launch Roadmap)</h3>
+                        <table class="spec-table">
+                            <thead>
+                                <tr>
+                                    <th>เวอร์ชัน</th>
+                                    <th>สิ่งที่อัปเดตเพิ่ม (บนแมพเดิม)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>V1.0 (เปิดตัว)</strong></td>
+                                    <td>เปิดเกมพร้อม Anomaly ชุดแรก 10–12 แบบ (Tier 1: ดึงแผงสังกะสีปิดร้าน) + รองรับภาษาไทย/อังกฤษ</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Update 1.1</strong></td>
+                                    <td>เปิดใช้งาน 5 Prop Hooks (กระจกเงา, รูปตา, ถังน้ำแข็ง, ห้องน้ำสังกะสี) + ระบบผีป่วนร้าน (Tier 2)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Update 1.2</strong></td>
+                                    <td>เพิ่มบอสบุกประชิด (Tier 3: ผีกระสือ & เปรต ต้องสับคัตเอาต์ดับไฟหมอบ) + ระบบฝนตกฟ้าร้อง</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'rural_gas_shack_dev_checks_v1';
+        let savedChecks = {};
+
+        function loadChecks() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) savedChecks = JSON.parse(raw);
+            } catch (e) {
+                savedChecks = {};
+            }
+
+            document.querySelectorAll('.check-item').forEach(item => {
+                const id = item.getAttribute('data-id');
+                if (savedChecks[id]) {
+                    item.classList.add('checked');
+                } else {
+                    item.classList.remove('checked');
+                }
+            });
+            updateProgressUI();
+        }
+
+        function toggleCheck(el) {
+            const id = el.getAttribute('data-id');
+            el.classList.toggle('checked');
+            savedChecks[id] = el.classList.contains('checked');
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedChecks));
+            } catch (e) {}
+            updateProgressUI();
+        }
+
+        function updateProgressUI() {
+            const allItems = document.querySelectorAll('.check-item');
+            const total = allItems.length;
+            let completed = 0;
+
+            for (let p = 1; p <= 5; p++) {
+                const phaseItems = document.querySelectorAll(`.checklist[data-phase="${p}"] .check-item`);
+                let phaseDone = 0;
+                phaseItems.forEach(item => {
+                    if (item.classList.contains('checked')) {
+                        phaseDone++;
+                        completed++;
+                    }
+                });
+                const badge = document.getElementById(`p${p}-badge`);
+                if (badge) {
+                    badge.innerText = `${phaseDone}/${phaseItems.length}`;
+                    badge.style.color = phaseDone === phaseItems.length ? '#2ec4b6' : '#ff9f1c';
+                }
+            }
+
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+            document.getElementById('total-progress-text').innerText = `${pct}%`;
+            document.getElementById('total-progress-bar').style.width = `${pct}%`;
+            document.getElementById('total-items-count').innerText = `เสร็จแล้ว ${completed} / ${total} รายการ`;
+        }
+
+        function resetAllChecks() {
+            if (!confirm('ต้องการรีเซ็ตเช็คลิสต์ทั้งหมดกลับเป็น 0% ใช่ไหมครับ?')) return;
+            savedChecks = {};
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {}
+            loadChecks();
+        }
+
+        function selectPhase(phaseNum, tabEl) {
+            document.querySelectorAll('.phase-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.phase-view').forEach(v => v.classList.remove('active'));
+            if (tabEl) tabEl.classList.add('active');
+            document.getElementById(`phase-view-${phaseNum}`).classList.add('active');
+        }
+
+        window.onload = loadChecks;
+    </script>
+</body>
+</html>
