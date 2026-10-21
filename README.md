@@ -13,12 +13,15 @@
 ---
 
 ## 📂 ไฟล์สำคัญในโปรเจกต์นี้
-1. **[GDD.md](GDD.md)** — เอกสาร Game Design Document ฉบับเต็ม (กติกาการเล่น, แผนผังแมพ, จุดวางของเผื่ออัปเดต 5 จุด, และคลังไอเดียผี 30 รูปแบบ แบ่งเป็น 3 Tiers)
-2. **[index.html](index.html)** — หน้าเว็บจำลองการเล่น 5 สถานการณ์ (Interactive Demo), แผนผัง Map ใน Roblox Studio, และตารางค้นหา 30 Anomalies
-3. **[phases.html](phases.html)** — หน้าแผนการพัฒนา 5 เฟส (Dev Phases View) พร้อมระบบ Checklist กดติ๊กถูกบันทึกความคืบหน้า, โครงสร้างชื่อ Folder ใน `Workspace`, และตารางตั้งค่าแสง `Lighting` ตอนเที่ยงคืน
+1. **[GEMINI.md](GEMINI.md)** — คู่มือส่งมอบงานสำหรับ AI (AI Context & Handoff Guide) อธิบายโครงสร้างโค้ด โฟลเดอร์ใน `Workspace`/`ServerStorage` และกฎการแก้ไขฉากแบบไม่ทำลายตำแหน่งที่จัดวางไว้
+2. **[GDD.md](GDD.md)** — เอกสาร Game Design Document ฉบับเต็ม (กติกาการเล่น, แผนผังแมพโคกดินกลางทุ่งนา 4 ด้าน, จุดวางของเผื่ออัปเดต 6 จุด, และคลังไอเดียผี 30 รูปแบบ แบ่งเป็น 3 Tiers)
+3. **[src/shared/MapBuilder.luau](src/shared/MapBuilder.luau)** — โมดูลสร้างฉาก ระบบจัดการโมเดลจาก Toolbox และฟังก์ชันอัปเดตเฉพาะจุด (`PaintTerrainRoad`, `AddSacredBanyanZone`, `AddSideRiceFields`, `SplitSideRiceFields`, `BuildCompactPerimeter`)
+4. **[src/server/GameManager.server.luau](src/server/GameManager.server.luau)** — สคริปต์ควบคุมเกมฝั่ง Server (ระบบสลับแสงกลางคืนอัตโนมัติเมื่อกด Play, ไฟนีออนกะพริบ, เชือกดึงแผงสังกะสี `ShutterDoor`)
+5. **[src/shared/LanguageModule.luau](src/shared/LanguageModule.luau)** & **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** — ระบบ 2 ภาษา (`TH`/`EN`) และหน้าจอ HUD แสดงเงิน `500฿` + ธูป 3 ดอก
+6. **[index.html](index.html)** & **[phases.html](phases.html)** — แดชบอร์ดจำลองการเล่นและเช็กลิสต์ติดตามความคืบหน้าทั้ง 5 เฟส
 
 ---
 
-## 💻 วิธีสลับทำงานระหว่างเครื่อง PC และ โน้ตบุ๊ก
-เมื่อย้ายเครื่องและ `git pull` โปรเจกต์นี้ลงมาแล้ว หากต้องการคุยงานต่อกับ AI ในเครื่องใหม่ ให้พิมพ์คำสั่งนี้ในแชท:
-> **"ช่วยอ่านไฟล์ `@[GDD.md]` และ `@[phases.html]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้อยู่ที่ Phase ..."**
+## 💻 วิธีสลับทำงานหรือให้ AI ตัวอื่นทำต่อ
+เมื่อต้องการคุยงานต่อกับ AI ตัวใหม่ ให้พิมพ์คำสั่งนี้ในแชท:
+> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ปั้นฉาก Phase 1 เสร็จแล้ว กำลังจะทำต่อในส่วน..."**

@@ -31,24 +31,11 @@
       "$className": "Lighting",
       "$ignoreUnknownInstances": true,
       "$properties": {
-        "ClockTime": 0,
-        "Brightness": 0.3,
-        "Ambient": [0.06, 0.09, 0.08],
-        "OutdoorAmbient": [0.06, 0.09, 0.08],
-        "GlobalShadows": true,
-        "EnvironmentDiffuseScale": 0.25,
-        "EnvironmentSpecularScale": 0.2
-      },
-      "RuralAtmosphere": {
-        "$className": "Atmosphere",
-        "$properties": {
-          "Density": 0.42,
-          "Offset": 0.15,
-          "Color": [0.08, 0.11, 0.1],
-          "Decay": [0.05, 0.07, 0.06],
-          "Glare": 0,
-          "Haze": 2.2
-        }
+        "ClockTime": 14.5,
+        "Brightness": 2.0,
+        "Ambient": [0.45, 0.48, 0.46],
+        "OutdoorAmbient": [0.5, 0.52, 0.5],
+        "GlobalShadows": true
       }
     },
     "ReplicatedStorage": {

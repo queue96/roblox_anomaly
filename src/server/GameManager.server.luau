@@ -7,10 +7,16 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local LanguageModule = require(Shared:WaitForChild("LanguageModule"))
-local MapBuilder = require(Shared:WaitForChild("MapBuilder"))
+local MapBuilder = require(Shared:WaitForChild("MapBuilder"):Clone())
 
--- 1. สร้างและตกแต่งฉาก 3D แบบละเอียด (Detailed Map) อัตโนมัติ
-MapBuilder.Build()
+-- 1. ถ้าใน Workspace มีฉากอยู่แล้ว จะไม่สั่ง Build() รีเซ็ตทับตำแหน่งที่คุณลากจัดวางด้วยมือ!
+--    (จะสั่งสร้างใหม่อัตโนมัติเฉพาะกรณีที่ยังไม่มีโฟลเดอร์ MapEnvironment เท่านั้น)
+if not Workspace:FindFirstChild("MapEnvironment") or not Workspace:FindFirstChild("InteractiveProps") then
+	MapBuilder.Build()
+end
+
+-- บังคับเปลี่ยนแสงเป็นตอนเที่ยงคืนมืดหลอนเฉพาะตอนกด Play เข้าเกม! (พอออกจากโหมด Play แมพจะกลับไปสว่างให้ Dev ง่ายๆ)
+MapBuilder.SetNightLighting()
 
 -- 2. เอฟเฟกต์ไฟนีออนเสาไม้หน้าร้านกะพริบติดๆ ดับๆ (สร้างบรรยากาศหลอนชนบท)
 task.spawn(function()
@@ -39,6 +45,9 @@ local rejectRope = interactive:WaitForChild("RejectRope") :: Part
 local rejectPrompt = rejectRope:WaitForChild("RejectCustomerPrompt") :: ProximityPrompt
 
 local isShutterBusy = false
+local initialOpenY = shutterDoor.Position.Y
+local dropHeight = (shutterDoor:GetAttribute("OpenY") or 15.5) - (shutterDoor:GetAttribute("ClosedY") or 6)
+
 rejectPrompt.Triggered:Connect(function(player)
 	if isShutterBusy then
 		return
@@ -46,8 +55,8 @@ rejectPrompt.Triggered:Connect(function(player)
 	isShutterBusy = true
 
 	print("🚧 [" .. player.Name .. "] ดึงเชือกปิดแผงสังกะสีหน้าร้าน!")
-	local closedPos = Vector3.new(shutterDoor.Position.X, shutterDoor:GetAttribute("ClosedY") or 6, shutterDoor.Position.Z)
-	local openPos = Vector3.new(shutterDoor.Position.X, shutterDoor:GetAttribute("OpenY") or 15.5, shutterDoor.Position.Z)
+	local openPos = Vector3.new(shutterDoor.Position.X, initialOpenY, shutterDoor.Position.Z)
+	local closedPos = Vector3.new(shutterDoor.Position.X, initialOpenY - dropHeight, shutterDoor.Position.Z)
 
 	-- เลื่อนแผงสังกะสีลงมาปิดร้าน
 	local closeTween = TweenService:Create(shutterDoor, TweenInfo.new(0.45, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
