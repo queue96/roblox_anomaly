@@ -263,7 +263,10 @@ local typeToken = 0
 -- หัวกล่อง: ชื่อลูกค้า (แปลตามภาษา) หรือชื่อผู้เล่นที่ตอบ (สีส้มถ่าน)
 local function drawSpeaker()
 	local sp = bubbleSpeaker
-	if sp and sp.player then
+	if sp and sp.ghost then
+		speaker.Text = sp.ghost -- เสียงกระซิบไม่รู้ที่มา
+		speaker.TextColor3 = C.BloodLit
+	elseif sp and sp.player then
 		speaker.Text = sp.player
 		speaker.TextColor3 = C.Ember
 	elseif sp and sp.name then
@@ -310,7 +313,7 @@ local replyRow = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, 
 new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, replyRow)
 local timerBar = new("Frame", { BackgroundColor3 = C.Blood, BorderSizePixel = 0, Size = UDim2.new(0, 360, 0, 2), LayoutOrder = 2 }, replyBar)
 
-local replyButtons: { { button: TextButton, amount: number, key: string } } = {}
+local replyButtons: { { button: TextButton, id: string, key: string } } = {}
 local replyTween: Tween? = nil
 local function closeReplies()
 	replyBar.Visible = false
@@ -322,9 +325,9 @@ local function closeReplies()
 	end
 	table.clear(replyButtons)
 end
-local function sendReply(amount: number)
+local function sendReply(id: string)
 	if replyBar.Visible then
-		DialogueReply:FireServer(amount)
+		DialogueReply:FireServer(id)
 	end
 end
 local function drawReplies()
@@ -336,9 +339,10 @@ end
 DialogueReply.OnClientEvent:Connect(function(kind: string, a: any, b: any)
 	if kind == "open" then
 		closeReplies()
-		for i, opt in ipairs(a :: { { amount: number, key: string } }) do
+		for i, opt in ipairs(a :: { { id: string, key: string } }) do
 			local btn = new("TextButton", {
-				Size = UDim2.new(0, 112, 0, 34),
+				Size = UDim2.new(0, 0, 0, 34),
+				AutomaticSize = Enum.AutomaticSize.X,
 				BackgroundColor3 = C.Ink,
 				BackgroundTransparency = 0.2,
 				BorderSizePixel = 0,
@@ -349,6 +353,7 @@ DialogueReply.OnClientEvent:Connect(function(kind: string, a: any, b: any)
 				LayoutOrder = i,
 			}, replyRow)
 			new("UIStroke", { Color = Color3.fromRGB(90, 80, 62), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, btn)
+			new("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, btn)
 			btn.MouseEnter:Connect(function()
 				btn.BackgroundColor3 = C.Blood
 			end)
@@ -356,9 +361,9 @@ DialogueReply.OnClientEvent:Connect(function(kind: string, a: any, b: any)
 				btn.BackgroundColor3 = C.Ink
 			end)
 			btn.Activated:Connect(function()
-				sendReply(opt.amount)
+				sendReply(opt.id)
 			end)
-			table.insert(replyButtons, { button = btn, amount = opt.amount, key = opt.key })
+			table.insert(replyButtons, { button = btn, id = opt.id, key = opt.key })
 		end
 		drawReplies()
 		replyBar.Visible = true
@@ -377,7 +382,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 	local i = NUM_KEYS[input.KeyCode]
 	if i and replyButtons[i] then
-		sendReply(replyButtons[i].amount)
+		sendReply(replyButtons[i].id)
 	end
 end)
 

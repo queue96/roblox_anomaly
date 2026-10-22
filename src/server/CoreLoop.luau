@@ -30,7 +30,20 @@ local CONFIG = {
 	InspectLock = 3, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู)
 	DecisionTime = 25, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง
 	DriveSpeed = 24, -- studs / วินาที
-	NextCustomerDelay = { 3, 6 },
+	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
+	-- จังหวะลูกค้า: สุ่มรูปแบบทุกครั้ง (น้ำหนัก = โอกาส)
+	Pacing = {
+		{ kind = "lull", weight = 2, count = 1, gap = { 16, 26 } }, -- เงียบๆ นานๆ มาที
+		{ kind = "steady", weight = 4, count = 1, gap = { 7, 12 } }, -- มาเรื่อยๆ
+		{ kind = "pair", weight = 2, count = 2, spacing = { 1.5, 3 }, gap = { 12, 18 } }, -- มาพร้อมกัน 2 คัน
+		{ kind = "rush", weight = 1, count = 3, spacing = { 3, 6 }, gap = { 18, 26 } }, -- มาต่อๆ กัน 3 คัน
+	},
+	MaxQueue = 3, -- ที่ตู้ปั๊ม 1 + รอคิว 2
+	QueueSpacing = 9, -- ระยะห่างคันที่รอคิว (studs)
+	-- รอนานแล้วไม่พอใจ
+	ImpatientAfter = { 16, 24 }, -- วินาทีหลังเปิดปุ่ม (รวมช่วงถามราคา): บ่นครั้งที่ 1, 2
+	QueueAnnoyedAfter = 14, -- รอคิวนานเกินนี้ มาถึงก็บ่นเลย
+	SlowPenalty = 20, -- เติมช้า (บ่นไปแล้ว) ลูกค้าจ่ายน้อยลง
 	RestartDelay = 12,
 }
 
@@ -297,15 +310,18 @@ end)
 local devDecision = ServerStorage:FindFirstChild("DevDecision") or Instance.new("BindableEvent")
 devDecision.Name = "DevDecision"
 devDecision.Parent = ServerStorage
-local chooseReply: (number, string) -> boolean
+local chooseReply: (string, string) -> boolean
+local devSpawn: () -> ()
 local shopOpened = false
 devDecision.Event:Connect(function(choice: string)
 	-- "fuel" | "reject" | "reply:100" | "open"
-	local amount = string.match(choice, "^reply:(%d+)$")
+	local amount = string.match(choice, "^reply:(%w+)$") -- reply:100 / reply:hello / reply:both
 	if amount then
-		chooseReply(tonumber(amount) :: number, "DevDecision")
+		chooseReply(amount, "DevDecision")
 	elseif choice == "open" then
 		shopOpened = true
+	elseif choice == "spawn" then
+		devSpawn() -- เสกลูกค้าเพิ่ม 1 คันทันที (ทดสอบคิว)
 	else
 		CoreLoop.Decide(choice, "DevDecision")
 	end
@@ -352,46 +368,73 @@ local function say(key: string, speaker: { [string]: string }, vars: { [string]:
 	end
 end
 
--- ตอบราคา: ทุกคนเห็นตัวเลือกเหมือนกัน ใครตอบก่อนนับเป็นคำตอบของทั้งร้าน
+-- ตัวเลือกตอบ: ทุกคนเห็นเหมือนกัน ใครตอบก่อนนับเป็นคำตอบของทั้งร้าน
+-- options = { { id = "100", key = "Reply_100" }, ... }  Client ส่ง id กลับมา
 local replyOpen = false
-local replyAmount: number? = nil
+local replyOptions: { { id: string, key: string } } = {}
+local replyId: string? = nil
 local replyBy: string? = nil
-function chooseReply(amount: number, who: string): boolean
-	if not replyOpen or not table.find(CONFIG.Prices, amount) then
+function chooseReply(id: string, who: string): boolean
+	if not replyOpen then
 		return false
 	end
-	replyOpen = false
-	replyAmount = amount
-	replyBy = who
-	DialogueReply:FireAllClients("close", who, amount)
-	return true
+	for _, o in ipairs(replyOptions) do
+		if o.id == id then
+			replyOpen = false
+			replyId = id
+			replyBy = who
+			DialogueReply:FireAllClients("close", who, id)
+			return true
+		end
+	end
+	return false
 end
-DialogueReply.OnServerEvent:Connect(function(player, amount: any)
-	if type(amount) == "number" then
-		chooseReply(amount, player.DisplayName)
+DialogueReply.OnServerEvent:Connect(function(player, id: any)
+	if type(id) == "string" or type(id) == "number" then
+		chooseReply(tostring(id), player.DisplayName)
 	end
 end)
 
-local function askPrice(): number?
-	replyAmount, replyBy = nil, nil
+local function askReply(options: { { id: string, key: string } }, seconds: number): string?
+	replyId, replyBy = nil, nil
+	replyOptions = options
 	replyOpen = true
-	local options = {}
-	for _, p in ipairs(CONFIG.Prices) do
-		table.insert(options, { amount = p, key = "Reply_" .. p })
-	end
-	DialogueReply:FireAllClients("open", options, CONFIG.ReplyTime)
+	DialogueReply:FireAllClients("open", options, seconds)
 	local t0 = os.clock()
-	while replyOpen and os.clock() - t0 < CONFIG.ReplyTime and not decision and not gameOver do
+	while replyOpen and os.clock() - t0 < seconds and not decision and not gameOver do
 		task.wait(0.1)
 	end
 	if replyOpen then
 		replyOpen = false
 		DialogueReply:FireAllClients("close", nil, nil)
 	end
-	return replyAmount
+	return replyId
 end
 
--- ---------------------------------------------------------------- 1 รอบลูกค้า
+local PRICE_OPTIONS = {}
+for _, p in ipairs(CONFIG.Prices) do
+	table.insert(PRICE_OPTIONS, { id = tostring(p), key = "Reply_" .. p })
+end
+local GREET_OPTIONS = {
+	{ id = "hello", key = "Reply_Hello" },
+	{ id = "both", key = "Reply_GreetBoth" },
+}
+
+-- ---------------------------------------------------------------- ลูกค้า + คิว
+type Customer = {
+	v: Model,
+	ghost: boolean,
+	anomaly: string?,
+	deferredWorld: string?, -- ผีที่แตะฉาก ใส่ตอนถึงตู้ปั๊ม
+	who: any,
+	useAnomalyLine: boolean,
+	spawnedAt: number,
+	queuedSince: number?, -- เริ่มรอคิว (มาถึงช่องรอแล้วแต่ยังไม่ถึงตู้)
+	atPump: boolean,
+	serving: boolean,
+}
+local queue: { Customer } = {}
+
 local function pickTemplate(): Model
 	local bike = templates:FindFirstChild("CustomerBike") :: Model
 	local saleng = templates:FindFirstChild("Saleng") :: Model?
@@ -401,52 +444,201 @@ local function pickTemplate(): Model
 	return bike
 end
 
-local function serveOneCustomer()
-	local tpl = pickTemplate()
-	local v = tpl:Clone()
+-- ช่องจอด: 1 = StopPoint (ตู้ปั๊ม), 2..n = ถอยหลังไปทางที่รถมา
+local function slotPos(i: number): Vector3
+	local stop = stopPoint.Position
+	local back = Vector3.new(spawnPoint.Position.X - stop.X, 0, spawnPoint.Position.Z - stop.Z).Unit
+	local p = stop + back * (CONFIG.QueueSpacing * (i - 1))
+	return Vector3.new(p.X, groundAt(p), p.Z)
+end
+
+local function spawnCustomer()
+	local v = pickTemplate():Clone()
 	local forced = devDecision:GetAttribute("ForceAnomaly")
 	devDecision:SetAttribute("ForceAnomaly", nil)
+	local ghost
 	if forced == "Normal" then
-		currentVehicleIsAnomaly = false
+		ghost = false
 	elseif type(forced) == "string" and AnomalyManager.Anomalies[forced] then
-		currentVehicleIsAnomaly = true
+		ghost = true
 	else
 		forced = nil
-		currentVehicleIsAnomaly = math.random() < CONFIG.AnomalyChance
+		ghost = math.random() < CONFIG.AnomalyChance
 	end
-	currentAnomaly = nil
-	if currentVehicleIsAnomaly then
-		currentAnomaly = if forced then forced else AnomalyManager.Random()
-		AnomalyManager.Apply(currentAnomaly :: string, v)
+	local anomaly: string? = nil
+	local deferred: string? = nil
+	if ghost then
+		anomaly = if forced then forced else AnomalyManager.Random()
+		if AnomalyManager.IsWorld(anomaly :: string) then
+			deferred = anomaly
+		else
+			AnomalyManager.Apply(anomaly :: string, v)
+		end
 	end
-	publishState()
-	v:SetAttribute("IsAnomaly", currentVehicleIsAnomaly)
-	v:SetAttribute("AnomalyKey", currentAnomaly or "")
+	local useAnomalyLine = ghost and math.random() < 0.6
+	local c: Customer = {
+		v = v,
+		ghost = ghost,
+		anomaly = anomaly,
+		deferredWorld = deferred,
+		who = pickCharacter(if useAnomalyLine then ANOMALY_VOICE[anomaly :: string] else nil),
+		useAnomalyLine = useAnomalyLine,
+		spawnedAt = os.clock(),
+		queuedSince = nil,
+		atPump = false,
+		serving = false,
+	}
+	v:SetAttribute("IsAnomaly", ghost)
+	v:SetAttribute("AnomalyKey", anomaly or "")
 	local start = spawnPoint.Position
-	local stop = stopPoint.Position
 	start = Vector3.new(start.X, groundAt(start), start.Z)
-	v:PivotTo(CFrame.lookAt(start, Vector3.new(stop.X, start.Y, stop.Z)))
+	v:PivotTo(CFrame.lookAt(start, Vector3.new(stopPoint.Position.X, start.Y, stopPoint.Position.Z)))
 	v.Name = "Customer"
 	v.Parent = Workspace
-	currentVehicle = v
-	decision = nil
+	table.insert(queue, c)
+	print("🛵 ลูกค้ามา (" .. (if ghost then "ผี " .. tostring(anomaly) else "ปกติ") .. ") คิว " .. #queue)
 
-	-- ขี่มาจอด
-	driveTo(v, stop, true)
-	if gameOver then
-		v:Destroy()
-		AnomalyManager.ResetAnomalies()
-		return
+	-- ขี่ไปช่องของตัวเอง แล้วเลื่อนขึ้นเรื่อยๆ จนถึงตู้ปั๊ม
+	task.spawn(function()
+		while v.Parent and not c.serving and not gameOver do
+			local idx = table.find(queue, c)
+			if not idx then
+				return
+			end
+			local target = slotPos(idx)
+			local flat = Vector3.new(target.X - v:GetPivot().Position.X, 0, target.Z - v:GetPivot().Position.Z)
+			if flat.Magnitude > 0.5 then
+				driveTo(v, target, true)
+			else
+				if idx == 1 then
+					c.atPump = true
+				elseif not c.queuedSince then
+					c.queuedSince = os.clock()
+				end
+				task.wait(0.2)
+			end
+		end
+	end)
+end
+
+function devSpawn()
+	if not gameOver and #queue < CONFIG.MaxQueue then
+		spawnCustomer()
 	end
-	-- บทสนทนา: ทัก -> สั่งน้ำมัน -> ถามราคา (ผู้เล่นตอบ) -> รับราคา -> รอเติม/ปิดร้าน -> ขอบคุณ/โวยวาย
-	local ghost = currentVehicleIsAnomaly
-	local useAnomalyLine = ghost and math.random() < 0.6
-	local who = pickCharacter(if useAnomalyLine then ANOMALY_VOICE[currentAnomaly :: string] else nil)
+end
+
+-- เลือกจังหวะครั้งถัดไป
+local function pickPacing()
+	local total = 0
+	for _, p in ipairs(CONFIG.Pacing) do
+		total += p.weight
+	end
+	local r = math.random() * total
+	for _, p in ipairs(CONFIG.Pacing) do
+		r -= p.weight
+		if r <= 0 then
+			return p
+		end
+	end
+	return CONFIG.Pacing[1]
+end
+
+local function rand(range: { number }): number
+	return range[1] + math.random() * (range[2] - range[1])
+end
+
+-- ปล่อยลูกค้าเข้ามาตามจังหวะ (หยุดเมื่อคิวเต็ม)
+local function spawnerLoop()
+	task.wait(rand({ 3, 5 }))
+	while not gameOver do
+		local pace = pickPacing()
+		for i = 1, pace.count do
+			while #queue >= CONFIG.MaxQueue and not gameOver do
+				task.wait(0.5)
+			end
+			if gameOver then
+				return
+			end
+			spawnCustomer()
+			if i < pace.count then
+				task.wait(rand(pace.spacing))
+			end
+		end
+		local gap = rand(pace.gap)
+		local t0 = os.clock()
+		while os.clock() - t0 < gap and not gameOver do
+			task.wait(0.5)
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- บริการลูกค้า 1 คัน (คันที่ถึงตู้ปั๊ม)
+local function waitDecisionImpatient(c: Customer, speaker, annoyed: number, promptsAt: number): (string?, number)
+	-- คืน (คำตอบ, ระดับความไม่พอใจ 0..2)
+	if decision then
+		return decision, annoyed
+	end
+	local t0 = os.clock()
+	while not decision and not gameOver and os.clock() - t0 < CONFIG.DecisionTime do
+		local waited = os.clock() - promptsAt -- นับจากตอนปุ่มเปิด (รวมช่วงถามราคา)
+		if annoyed < 1 and waited > CONFIG.ImpatientAfter[1] then
+			annoyed = 1
+			say(if c.ghost then "Ghost_Wait" else pick({ "Impatient_1", "Impatient_2" }), speaker)
+		elseif annoyed < 2 and waited > CONFIG.ImpatientAfter[2] then
+			annoyed = 2
+			say(if c.ghost then "Ghost_Wait2" else "Impatient_3", speaker)
+		end
+		task.wait(0.1)
+	end
+	return decision, annoyed
+end
+
+local function serveCustomer(c: Customer)
+	local v = c.v
+	c.serving = true
+	currentVehicle = v
+	currentVehicleIsAnomaly = c.ghost
+	currentAnomaly = c.anomaly
+	decision = nil
+	if c.deferredWorld then
+		AnomalyManager.Apply(c.deferredWorld, v)
+	end
+	publishState()
+
+	local ghost = c.ghost
+	local who = c.who
 	local speaker = { name = who.name }
 	local arrivedAt = os.clock()
 	currentHead = v:FindFirstChild("DriverNPC") and v.DriverNPC:FindFirstChild("Head")
-	say(who.greet, speaker, nil, 2.8)
-	local order = if useAnomalyLine then currentAnomaly :: string else who.order
+	local annoyed = 0
+
+	-- ทัก (ถ้ารอคิวนานจะบ่นก่อน)
+	if c.queuedSince and os.clock() - c.queuedSince > CONFIG.QueueAnnoyedAfter and not ghost then
+		annoyed = 1
+		say("Greet_Waited", speaker, nil, 2.6)
+	else
+		say(who.greet, speaker)
+	end
+	-- ผู้เล่นทักตอบ (ทักคนเดียว / ทักทั้งสองคน)
+	local greet = askReply(GREET_OPTIONS, CONFIG.GreetReplyTime)
+	if greet then
+		say(if greet == "both" then "PlayerGreetBoth" else "PlayerHello", { player = replyBy :: string }, nil, 1.6)
+		if greet == "both" then
+			local passenger = v:FindFirstChild("GhostPassenger")
+			local hasPassenger = c.anomaly == "Anomaly_Headless" and passenger ~= nil
+			if hasPassenger then
+				-- คนขับไม่รู้ตัวว่ามีอะไรซ้อนท้าย
+				say("Alone_Ghost", speaker, nil, 2.6)
+				say("Passenger_Whisper", { ghost = "???" }, nil, 2.4)
+			elseif ghost then
+				say("Alone_Creepy", speaker, nil, 2.6)
+			else
+				say("Alone_Normal", speaker, nil, 2.6)
+			end
+		end
+	end
+
+	local order = if c.useAnomalyLine then c.anomaly :: string else who.order
 	say(order, speaker, nil, 3.2)
 	-- ล็อกปุ่มอย่างน้อย InspectLock วิหลังรถจอด (ให้ส่องไฟฉายดู)
 	task.wait(math.max(0, CONFIG.InspectLock - (os.clock() - arrivedAt)))
@@ -454,15 +646,16 @@ local function serveOneCustomer()
 		pumpPrompt.Enabled = true
 		rejectPrompt.Enabled = true
 	end
+	local promptsAt = os.clock()
 
 	-- ถามราคา
 	local price = CONFIG.NormalPrice
 	local leaveEarly = false
 	if not decision and not gameOver then
 		say("AskPrice", speaker)
-		local answered = askPrice()
+		local answered = askReply(PRICE_OPTIONS, CONFIG.ReplyTime)
 		if answered then
-			price = answered
+			price = tonumber(answered) :: number
 			say("PlayerQuote", { player = replyBy :: string }, { amount = price }, 1.6)
 			if ghost then
 				say("Ghost_Price", speaker, nil, 2.4)
@@ -487,7 +680,7 @@ local function serveOneCustomer()
 		rejectPrompt.Enabled = false
 		print("💸 ตั้งราคาแพงไป ลูกค้าไม่เติม")
 	else
-		choice = waitDecision(CONFIG.DecisionTime)
+		choice, annoyed = waitDecisionImpatient(c, speaker, annoyed, promptsAt)
 		pumpPrompt.Enabled = false
 		rejectPrompt.Enabled = false
 	end
@@ -504,8 +697,13 @@ local function serveOneCustomer()
 			incense -= 1
 			money = math.max(0, money - CONFIG.GhostFuelPenalty)
 			refreshIncense()
-			TriggerJumpscare:FireAllClients(currentAnomaly)
+			TriggerJumpscare:FireAllClients(c.anomaly)
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
+		elseif annoyed > 0 then
+			local paid = math.max(0, price - CONFIG.SlowPenalty)
+			money += paid
+			say("Pay_Slow", speaker, { amount = paid })
+			print("😒 เติมช้า ลูกค้าจ่ายแค่ " .. paid .. "฿ รวม " .. money)
 		else
 			money += price
 			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price })
@@ -533,13 +731,31 @@ local function serveOneCustomer()
 	CustomerSpeech:FireAllClients(nil)
 	currentHead = nil
 
-	-- ขี่ออก
+	-- ออกจากคิว คันหลังเลื่อนขึ้นมาได้เลย แล้วขี่ออก
+	local idx = table.find(queue, c)
+	if idx then
+		table.remove(queue, idx)
+	end
+	currentVehicle = nil
+	currentVehicleIsAnomaly = false
+	currentAnomaly = nil
+	publishState()
 	task.wait(1)
 	local exit = exitPoint.Position
 	driveTo(v, Vector3.new(exit.X, exit.Y, exit.Z), false)
 	v:Destroy()
-	currentVehicle = nil
 	-- รถไปแล้ว: คืนวิทยุ หุ่นไล่กา ผีตานีหลังกอกล้วย น้ำมัน ให้ปกติ
+	AnomalyManager.ResetAnomalies()
+end
+
+local function clearQueue()
+	for _, c in ipairs(queue) do
+		if c.v.Parent then
+			c.v:Destroy()
+		end
+	end
+	table.clear(queue)
+	currentVehicle = nil
 	AnomalyManager.ResetAnomalies()
 end
 
@@ -548,7 +764,7 @@ local function resetGame()
 	money = 0
 	incense = CONFIG.StartIncense
 	gameOver = false
-	AnomalyManager.ResetAnomalies()
+	clearQueue()
 	refreshIncense()
 	setFuelLevel(1, 0.5)
 	broadcastHUD()
@@ -591,19 +807,22 @@ function CoreLoop.Start()
 		while true do
 			resetGame()
 			waitForShopOpen()
-			task.wait(4)
+			task.spawn(spawnerLoop)
 			while not gameOver do
-				serveOneCustomer()
-				if money >= CONFIG.TargetMoney then
-					gameOver = true
-					GameState:FireAllClients("Win")
-					print("🏆 ครบ " .. CONFIG.TargetMoney .. "฿ ชนะ!")
-				elseif incense <= 0 then
-					gameOver = true
-					GameState:FireAllClients("Lose")
-					print("💀 ธูปดับครบ 3 ดอก Game Over")
+				local front = queue[1]
+				if front and front.atPump and not front.serving then
+					serveCustomer(front)
+					if money >= CONFIG.TargetMoney then
+						gameOver = true
+						GameState:FireAllClients("Win")
+						print("🏆 ครบ " .. CONFIG.TargetMoney .. "฿ ชนะ!")
+					elseif incense <= 0 then
+						gameOver = true
+						GameState:FireAllClients("Lose")
+						print("💀 ธูปดับครบ 3 ดอก Game Over")
+					end
 				else
-					task.wait(math.random(CONFIG.NextCustomerDelay[1], CONFIG.NextCustomerDelay[2]))
+					task.wait(0.2)
 				end
 			end
 			task.wait(CONFIG.RestartDelay)

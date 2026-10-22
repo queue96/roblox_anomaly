@@ -337,6 +337,13 @@ function AnomalyManager.Random(): string
 	return AnomalyManager.Keys[math.random(#AnomalyManager.Keys)]
 end
 
+-- ผีที่แตะของในฉาก (มี reset) เช่น วิทยุ หุ่นไล่กา ต้อง Apply ตอนรถถึงตู้ปั๊ม ไม่ใช่ตอนต่อคิว
+-- (ไม่งั้นลูกค้าคันหน้าที่ปกติจะโดนเข้าใจผิดว่าเป็นผี)
+function AnomalyManager.IsWorld(key: string): boolean
+	local a = AnomalyManager.Anomalies[key]
+	return a ~= nil and a.reset ~= nil
+end
+
 function AnomalyManager.Apply(key: string, vehicle: Model): boolean
 	local a = AnomalyManager.Anomalies[key]
 	if not a then

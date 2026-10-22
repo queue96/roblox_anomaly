@@ -97,6 +97,22 @@ LanguageModule.Dialogues = {
 	Ghost_Pay = { th = "ขอบใจ... นี่เงิน... {amount} บาท... หึหึ", en = "Thank you... here's... {amount} baht... heh heh." },
 	Ghost_Rejected = { th = "แก... รู้ได้ยังไง...", en = "You... how did you know..." },
 	Ghost_NoOne = { th = "ไม่มีใครอยู่... งั้นเดี๋ยวกลับมาใหม่นะ...", en = "No one here... I'll come back later..." },
+	Ghost_Wait = { th = "ไม่ต้องรีบ... ข้ารอได้... รอได้นานเลย...", en = "No rush... I can wait... I can wait a long time..." },
+	Ghost_Wait2 = { th = "รอมานานแล้ว... นานกว่าที่เจ้าคิด...", en = "I've waited so long... longer than you think..." },
+	-- ผู้เล่นทักทาย
+	PlayerHello = { th = "สวัสดี รับอะไรดี", en = "Hi, what can I get you?" },
+	PlayerGreetBoth = { th = "สวัสดีทั้งสองคนเลย", en = "Evening, you two!" },
+	-- "ฉันมาคนเดียว" (ทักทั้งสองคน)
+	Alone_Normal = { th = "สองคน? ฉันมาคนเดียวนะ ง่วงแล้วมั้งเรา", en = "You two? I came alone. You must be sleepy." },
+	Alone_Ghost = { th = "พูดอะไรน่ะ... ฉันมาคนเดียวนะ... ทำไมหลังมันหนักๆ", en = "What are you talking about... I came alone... why does my back feel heavy..." },
+	Alone_Creepy = { th = "คนเดียว... ตอนนี้ยังคนเดียว... หึ", en = "Alone... for now, alone... heh." },
+	Passenger_Whisper = { th = "ชู่ว... อย่าบอกเขานะ...", en = "Shh... don't tell him..." },
+	-- รอนาน / เติมช้า
+	Greet_Waited = { th = "รอตั้งนานแน่ะ... คืนนี้คนเยอะจังนะ", en = "Took forever... busy night, huh?" },
+	Impatient_1 = { th = "เร็วๆ หน่อยได้ไหม รีบอยู่นะ", en = "Could you hurry up? I'm in a rush." },
+	Impatient_2 = { th = "ยังไม่เติมอีกเหรอ ยืนรอนานแล้วนะ", en = "Still not filling? I've been waiting a while." },
+	Impatient_3 = { th = "นี่จะเติมหรือไม่เติม! จะไปละนะ!", en = "Are you filling it or not?! I'm about to leave!" },
+	Pay_Slow = { th = "ช้าจริงๆ... ให้ {amount} บาทพอนะ", en = "So slow... {amount} baht is all you get." },
 }
 
 -- ชื่อลูกค้า (แสดงบนหัวกล่องคำพูด จะได้จำกันได้ ผีก็ปลอมใช้ชื่อเดียวกัน)
@@ -152,6 +168,8 @@ LanguageModule.UI = {
 	Reply_80 = { th = "80 บาท", en = "80 Baht" },
 	Reply_100 = { th = "100 บาท", en = "100 Baht" },
 	Reply_120 = { th = "120 บาท", en = "120 Baht" },
+	Reply_Hello = { th = "สวัสดี รับอะไรดี", en = "Hi, what can I get you?" },
+	Reply_GreetBoth = { th = "สวัสดีทั้งสองคน", en = "Evening, you two" },
 	-- เปิดร้านก่อนเริ่มคืน
 	OpenShop = { th = "เปิดร้าน", en = "Open Shop" },
 	WaitOpen = { th = "ร้านยังปิดอยู่... ไปดึงเชือกเปิดแผงสังกะสีเพื่อเริ่มคืนนี้", en = "The shop is closed... pull the shutter rope to begin the night." },
