@@ -419,7 +419,41 @@ UpdateHUD.OnClientEvent:Connect(function(money: number, target: number, incense:
 end)
 
 -- ---------------------------------------------------------------- คำพูดลูกค้า
+-- ข้อความบรรยาย (เนื้อเรื่อง / คำแนะนำ) ใช้กล่องล่างจอเดียวกับคำพูด แต่ไม่มีหัวชื่อคนพูด
+-- (ไม่ขึ้นกลางจอ เผื่อเปลี่ยนเป็นมุมมองบุคคลที่หนึ่งในอนาคต)
+local narrationKey: string? = nil
+local narrationToken = 0
+local function setHeader(show: boolean)
+	dialogHeader.Visible = show
+	line.Position = if show then UDim2.new(0, 22, 0, 38) else UDim2.new(0, 22, 0, 16)
+end
+local function showNarration(key: string, seconds: number?)
+	bubbleKey = nil
+	narrationKey = key
+	narrationToken += 1
+	local token = narrationToken
+	setHeader(false)
+	dialog.BackgroundTransparency = 0.18
+	dialog.Visible = true
+	typeLine(ui(key))
+	if seconds then
+		task.delay(seconds, function()
+			if narrationToken == token and narrationKey == key then
+				narrationKey = nil
+				dialog.Visible = false
+				setHeader(true)
+			end
+		end)
+	end
+end
+
 CustomerSpeech.OnClientEvent:Connect(function(key: string?, _head: BasePart?, who: { [string]: string }?, vars: { [string]: any }?)
+	if key then
+		narrationKey = nil -- ลูกค้าพูดทับข้อความบรรยาย
+		setHeader(true)
+	elseif narrationKey then
+		return
+	end
 	bubbleKey = key
 	bubbleVars = vars
 	bubbleSpeaker = who
@@ -464,9 +498,9 @@ GameState.OnClientEvent:Connect(function(state: string)
 	elseif state == "Lose" then
 		showBanner("Lose", true, 10)
 	elseif state == "Waiting" then
-		showBanner("WaitOpen", false, 600) -- ค้างไว้จนกว่าจะมีคนเปิดร้าน
+		showNarration("WaitOpen") -- ค้างไว้จนกว่าจะมีคนเปิดร้าน
 	elseif state == "Playing" then
-		showBanner("NewNight", false, 4)
+		showNarration("NewNight", 5)
 	end
 end)
 
@@ -502,7 +536,11 @@ local function refreshLanguage()
 	if bannerKey and bannerBar.Visible then
 		banner.Text = ui(bannerKey)
 	end
-	if bubbleKey and dialog.Visible then
+	if narrationKey and dialog.Visible then
+		typeToken += 1
+		line.Text = ui(narrationKey)
+		line.MaxVisibleGraphemes = -1
+	elseif bubbleKey and dialog.Visible then
 		typeToken += 1
 		line.Text = LanguageModule.GetText(bubbleKey, lang(), bubbleVars)
 		line.MaxVisibleGraphemes = -1
