@@ -22,6 +22,10 @@
 8. **[src/server/CoreLoop.luau](src/server/CoreLoop.luau)** — Phase 3 ลูปหลัก: รถลูกค้าขี่มาจอด, ล็อกปุ่ม 3 วิ, เติมน้ำมัน (กดค้าง 3 วิ) / ดึงแผงปิดร้าน (0.5 วิ), เงิน 500฿, ธูป 3 ดอก, ชนะ/แพ้ ค่าปรับเกมอยู่ใน `CONFIG` · ทดสอบได้ด้วย `ServerStorage.DevDecision:Fire("fuel" | "reject")`
 9. **[src/server/AnomalyManager.luau](src/server/AnomalyManager.luau)** — Phase 4 ผี 10 ตัว (Headless, Cemetery 4444, WheelHair, NeckTwist, CreepySmile, Krasue, MonkRadio, Tani, Scarecrow, BloodFuel) แต่ละตัวมี apply/reset, `ResetAnomalies()` ตอนรถขี่ออก, หมาหอนในทุ่ง · บังคับผีตัวถัดไปด้วย `ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue")` (หรือ `"Normal"`)
 10. **[src/server/Flashlight.server.luau](src/server/Flashlight.server.luau)** — ไฟฉายกบ (StarterPack.FrogFlashlight) คลิกเปิด/ปิด SpotLight ฝั่ง Server
+11. **[src/server/PlayerSettings.server.luau](src/server/PlayerSettings.server.luau)** — การตั้งค่าผู้เล่น (ภาษา ไทย/อังกฤษ, เสียงเพลง, เสียงเอฟเฟกต์, ซ่อน HUD, ซ่อนป้ายชื่อวัตถุ) เป็น Attribute บน Player จำไว้ใน DataStore · เข้าครั้งแรกจากประเทศไทย = ไทย นอกนั้น = อังกฤษ
+12. **[src/client/SettingsController.client.luau](src/client/SettingsController.client.luau)** — ปุ่ม "ตั้งค่า" มุมขวาบน + หน้าต่างตั้งค่า (ปิดด้วย X) · แบ่งเสียงเป็น SoundGroup Music / SFX
+13. **[src/client/ObjectLabels.client.luau](src/client/ObjectLabels.client.luau)** — ป้ายลอยตามวัตถุ (ZoneLabel) ฝั่ง Client: ชื่อสั้นตามภาษา ไม่มีพื้นหลัง เห็นเมื่อเข้าใกล้ ป้ายผีซ่อนตลอด
+14. **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** — HUD สไตล์ชนบทหลอน: เงิน/ธูปขวาล่าง, ปุ่มคีย์แนวตั้ง, กล่องคำพูดลูกค้าแสดงชื่อ, แถบตอบราคา (ทุกคนเห็นเหมือนกัน ใครตอบก่อนได้ก่อน), แถบประกาศ · บทสนทนา (ทัก -> ถามราคา -> จ่ายเงิน/โวยวาย) และการเปิดร้านก่อนเริ่มคืนอยู่ใน CoreLoop · ทดสอบด้วย `DevDecision:Fire("open")` / `Fire("reply:100")`
 7. **[index.html](index.html)** & **[phases.html](phases.html)** — แดชบอร์ดจำลองการเล่นและเช็กลิสต์ติดตามความคืบหน้าทั้ง 5 เฟส
 
 ---

@@ -19,7 +19,10 @@ local CoreLoop = {}
 -- ---------------------------------------------------------------- ค่าปรับเกม
 local CONFIG = {
 	TargetMoney = 500,
-	FuelReward = 100, -- เติมน้ำมันให้ลูกค้าปกติ
+	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ)
+	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
+	ExpensiveRefuseChance = 0.5, -- ตอบแพง (120) ลูกค้าปกติมีโอกาสไม่เอา
+	ReplyTime = 8, -- วินาทีที่เปิดให้ตอบราคา
 	RejectGhostReward = 50, -- ดึงแผงปิดร้านใส่ผีได้ถูกต้อง
 	GhostFuelPenalty = 100, -- เผลอเติมน้ำมันให้ผี (หักเงิน + ธูปดับ 1 ดอก)
 	StartIncense = 3,
@@ -58,7 +61,8 @@ end
 local UpdateHUD = remote("UpdateHUD") -- (money, target, incense, maxIncense)
 local TriggerJumpscare = remote("TriggerJumpscare") -- (anomalyKey)
 local CustomerSpeech = remote("CustomerSpeech") -- (dialogueKey, headPart) / (nil) = ปิดคำพูด
-local GameState = remote("GameState") -- ("Win" | "Lose" | "Playing", messageKey)
+local GameState = remote("GameState") -- ("Waiting" | "Playing" | "Win" | "Lose")
+local DialogueReply = remote("DialogueReply") -- S->C ("open", options, seconds) / ("close", byName, amount)  C->S (amount)
 
 -- ---------------------------------------------------------------- ปุ่มกด (ProximityPrompt)
 local function setupPrompt(name: string, parent: Instance, hold: number, action: string, object: string): ProximityPrompt
@@ -74,11 +78,13 @@ local function setupPrompt(name: string, parent: Instance, hold: number, action:
 	prompt.ObjectText = object
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
+	prompt.AutoLocalize = false
 	prompt.Enabled = false
 	return prompt
 end
-local pumpPrompt = setupPrompt("PumpFuelPrompt", pumpBody, 3, "เติมน้ำมัน / Fill Up", "ตู้ปั๊มหลอด / Gas Pump")
-local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, 0.5, "ปิดร้าน! / Close Shop!", "เชือกแผงสังกะสี / Shutter Rope")
+local pumpPrompt = setupPrompt("PumpFuelPrompt", pumpBody, 3, "Fill Up", "Gas Pump") -- ข้อความจริงตามภาษาผู้เล่นตั้งฝั่ง Client (HUDController)
+local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, 0.5, "Close Shop!", "Shutter Rope")
+local openPrompt = setupPrompt("OpenShopPrompt", rejectRope, 1, "Open Shop", "Shutter Rope") -- ก่อนเริ่มคืน
 
 -- ---------------------------------------------------------------- สถานะเกม
 local money = 0
@@ -134,7 +140,35 @@ end
 
 -- ---------------------------------------------------------------- ผี (Phase 4: อยู่ใน AnomalyManager.luau)
 local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
-local NORMAL_LINES = { "Normal_Uncle", "Normal_Aunt", "Normal_Student", "Normal_Farmer" }
+local function pick(list: { any }): any
+	return list[math.random(#list)]
+end
+
+-- ลูกค้าประจำ (ชื่อ / คำทัก / คำสั่งน้ำมัน) ผีจะปลอมเป็นหนึ่งในนี้
+local CHARACTERS = {
+	{ name = "Name_Sommai", greet = "Greet_Uncle", order = "Normal_Uncle", voice = "M" },
+	{ name = "Name_Chaem", greet = "Greet_Aunt", order = "Normal_Aunt", voice = "F" },
+	{ name = "Name_Ton", greet = "Greet_Student", order = "Normal_Student", voice = "M" },
+	{ name = "Name_Boonmee", greet = "Greet_Farmer", order = "Normal_Farmer", voice = "M" },
+}
+-- ประโยคผีที่ใช้คำแทนตัวเฉพาะเพศ ต้องให้ลูกค้าเพศเดียวกันพูด (ไม่อยู่ในตาราง = ใครพูดก็ได้)
+local ANOMALY_VOICE: { [string]: string } = {
+	Anomaly_Krasue = "F", -- "ป้า"
+	Anomaly_Cemetery = "F", -- "จ้ะ"
+	Anomaly_Headless = "M", -- "ผม"
+	Anomaly_NeckTwist = "M",
+	Anomaly_MonkRadio = "M",
+	Anomaly_Scarecrow = "M",
+}
+local function pickCharacter(voice: string?)
+	local pool = {}
+	for _, c in ipairs(CHARACTERS) do
+		if voice == nil or c.voice == voice then
+			table.insert(pool, c)
+		end
+	end
+	return pick(if #pool > 0 then pool else CHARACTERS)
+end
 
 -- ---------------------------------------------------------------- การขี่รถ
 local groundParams = RaycastParams.new()
@@ -263,8 +297,18 @@ end)
 local devDecision = ServerStorage:FindFirstChild("DevDecision") or Instance.new("BindableEvent")
 devDecision.Name = "DevDecision"
 devDecision.Parent = ServerStorage
+local chooseReply: (number, string) -> boolean
+local shopOpened = false
 devDecision.Event:Connect(function(choice: string)
-	CoreLoop.Decide(choice, "DevDecision")
+	-- "fuel" | "reject" | "reply:100" | "open"
+	local amount = string.match(choice, "^reply:(%d+)$")
+	if amount then
+		chooseReply(tonumber(amount) :: number, "DevDecision")
+	elseif choice == "open" then
+		shopOpened = true
+	else
+		CoreLoop.Decide(choice, "DevDecision")
+	end
 end)
 -- ทดสอบผีเฉพาะตัว: ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue") -> ลูกค้าคันถัดไปเป็นผีนี้
 -- ("Normal" = บังคับลูกค้าปกติ)
@@ -296,6 +340,55 @@ local function waitDecision(timeout: number): string?
 	end
 	conn:Disconnect()
 	return decision
+end
+
+-- ---------------------------------------------------------------- บทสนทนา
+-- speaker = { name = "Name_Sommai" } (ลูกค้า แปลชื่อฝั่ง Client) หรือ { player = "DisplayName" } (ผู้เล่นที่ตอบ)
+local currentHead: BasePart? = nil
+local function say(key: string, speaker: { [string]: string }, vars: { [string]: any }?, hold: number?)
+	CustomerSpeech:FireAllClients(key, currentHead, speaker, vars)
+	if hold then
+		task.wait(hold)
+	end
+end
+
+-- ตอบราคา: ทุกคนเห็นตัวเลือกเหมือนกัน ใครตอบก่อนนับเป็นคำตอบของทั้งร้าน
+local replyOpen = false
+local replyAmount: number? = nil
+local replyBy: string? = nil
+function chooseReply(amount: number, who: string): boolean
+	if not replyOpen or not table.find(CONFIG.Prices, amount) then
+		return false
+	end
+	replyOpen = false
+	replyAmount = amount
+	replyBy = who
+	DialogueReply:FireAllClients("close", who, amount)
+	return true
+end
+DialogueReply.OnServerEvent:Connect(function(player, amount: any)
+	if type(amount) == "number" then
+		chooseReply(amount, player.DisplayName)
+	end
+end)
+
+local function askPrice(): number?
+	replyAmount, replyBy = nil, nil
+	replyOpen = true
+	local options = {}
+	for _, p in ipairs(CONFIG.Prices) do
+		table.insert(options, { amount = p, key = "Reply_" .. p })
+	end
+	DialogueReply:FireAllClients("open", options, CONFIG.ReplyTime)
+	local t0 = os.clock()
+	while replyOpen and os.clock() - t0 < CONFIG.ReplyTime and not decision and not gameOver do
+		task.wait(0.1)
+	end
+	if replyOpen then
+		replyOpen = false
+		DialogueReply:FireAllClients("close", nil, nil)
+	end
+	return replyAmount
 end
 
 -- ---------------------------------------------------------------- 1 รอบลูกค้า
@@ -345,20 +438,59 @@ local function serveOneCustomer()
 		AnomalyManager.ResetAnomalies()
 		return
 	end
-	-- พูดสั่งน้ำมัน (แต่ละ Client แปลภาษาเองตาม LocaleId)
-	local head = v:FindFirstChild("DriverNPC") and v.DriverNPC:FindFirstChild("Head")
-	local line = if currentVehicleIsAnomaly and math.random() < 0.6 then currentAnomaly else NORMAL_LINES[math.random(#NORMAL_LINES)]
-	CustomerSpeech:FireAllClients(line, head)
-	-- ล็อกปุ่ม 3 วิแรกให้ส่องไฟฉาย
-	task.wait(CONFIG.InspectLock)
+	-- บทสนทนา: ทัก -> สั่งน้ำมัน -> ถามราคา (ผู้เล่นตอบ) -> รับราคา -> รอเติม/ปิดร้าน -> ขอบคุณ/โวยวาย
+	local ghost = currentVehicleIsAnomaly
+	local useAnomalyLine = ghost and math.random() < 0.6
+	local who = pickCharacter(if useAnomalyLine then ANOMALY_VOICE[currentAnomaly :: string] else nil)
+	local speaker = { name = who.name }
+	local arrivedAt = os.clock()
+	currentHead = v:FindFirstChild("DriverNPC") and v.DriverNPC:FindFirstChild("Head")
+	say(who.greet, speaker, nil, 2.8)
+	local order = if useAnomalyLine then currentAnomaly :: string else who.order
+	say(order, speaker, nil, 3.2)
+	-- ล็อกปุ่มอย่างน้อย InspectLock วิหลังรถจอด (ให้ส่องไฟฉายดู)
+	task.wait(math.max(0, CONFIG.InspectLock - (os.clock() - arrivedAt)))
 	if not gameOver then
 		pumpPrompt.Enabled = true
 		rejectPrompt.Enabled = true
 	end
-	local choice = waitDecision(CONFIG.DecisionTime)
-	pumpPrompt.Enabled = false
-	rejectPrompt.Enabled = false
-	CustomerSpeech:FireAllClients(nil)
+
+	-- ถามราคา
+	local price = CONFIG.NormalPrice
+	local leaveEarly = false
+	if not decision and not gameOver then
+		say("AskPrice", speaker)
+		local answered = askPrice()
+		if answered then
+			price = answered
+			say("PlayerQuote", { player = replyBy :: string }, { amount = price }, 1.6)
+			if ghost then
+				say("Ghost_Price", speaker, nil, 2.4)
+			elseif price < CONFIG.NormalPrice then
+				say("Price_Cheap", speaker, { amount = price }, 2.4)
+			elseif price == CONFIG.NormalPrice then
+				say("Price_Normal", speaker, { amount = price }, 2.4)
+			elseif math.random() < CONFIG.ExpensiveRefuseChance and not decision then
+				say("Price_ExpensiveNo", speaker, { amount = price }, 2.6)
+				leaveEarly = true
+			else
+				say("Price_ExpensiveOk", speaker, { amount = price }, 2.4)
+			end
+		elseif not decision then
+			say(if ghost then "Ghost_Price" else "Price_Silent", speaker, { amount = price }, 2.4)
+		end
+	end
+
+	local choice: string? = nil
+	if leaveEarly then
+		pumpPrompt.Enabled = false
+		rejectPrompt.Enabled = false
+		print("💸 ตั้งราคาแพงไป ลูกค้าไม่เติม")
+	else
+		choice = waitDecision(CONFIG.DecisionTime)
+		pumpPrompt.Enabled = false
+		rejectPrompt.Enabled = false
+	end
 
 	-- ตรวจคำตอบ
 	if choice == "fuel" then
@@ -366,32 +498,40 @@ local function serveOneCustomer()
 		if fillTween then
 			fillTween.Completed:Wait()
 		end
-		if currentVehicleIsAnomaly then
+		if ghost then
 			-- เติมให้ผี: ธูปดับ 1 ดอก + หักเงิน + ผีหลอก
+			say("Ghost_Pay", speaker, { amount = price }, 1.5)
 			incense -= 1
 			money = math.max(0, money - CONFIG.GhostFuelPenalty)
 			refreshIncense()
 			TriggerJumpscare:FireAllClients(currentAnomaly)
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
 		else
-			money += CONFIG.FuelReward
-			print("💰 ลูกค้าปกติ +" .. CONFIG.FuelReward .. "฿ รวม " .. money)
+			money += price
+			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price })
+			print("💰 ลูกค้าปกติ +" .. price .. "฿ รวม " .. money)
 		end
 		broadcastHUD()
 		setFuelLevel(1, 3)
 	elseif choice == "reject" then
 		closeShutter()
-		if currentVehicleIsAnomaly then
+		if ghost then
 			money += CONFIG.RejectGhostReward
+			say("Ghost_Rejected", speaker)
 			print("✅ ไล่ผีถูกต้อง +" .. CONFIG.RejectGhostReward .. "฿ รวม " .. money)
 		else
+			say(pick({ "Rejected_1", "Rejected_2" }), speaker)
 			print("😤 ปิดร้านใส่ลูกค้าปกติ อดได้เงิน")
 		end
 		broadcastHUD()
 		task.delay(3, openShutter)
-	else
+	elseif not leaveEarly then
+		say(if ghost then "Ghost_NoOne" else pick({ "NoOne_1", "NoOne_2" }), speaker)
 		print("⌛ ไม่มีใครตัดสินใจ ลูกค้าขับออกไปเอง")
 	end
+	task.wait(2.6) -- ให้อ่านประโยคสุดท้ายทัน
+	CustomerSpeech:FireAllClients(nil)
+	currentHead = nil
 
 	-- ขี่ออก
 	task.wait(1)
@@ -412,8 +552,37 @@ local function resetGame()
 	refreshIncense()
 	setFuelLevel(1, 0.5)
 	broadcastHUD()
+end
+
+-- เริ่มคืน: แผงสังกะสีปิดไว้ ยังไม่มีลูกค้า จนกว่าจะมีคนดึงเชือกเปิดร้าน
+local function waitForShopOpen()
+	local p = shutterDoor.Position
+	shutterDoor.Position = Vector3.new(p.X, shutterOpenY - shutterDrop, p.Z)
+	shopOpened = false
+	openPrompt.Enabled = true
+	GameState:FireAllClients("Waiting")
+	remotes:SetAttribute("ShopOpen", false)
+	local conn = openPrompt.Triggered:Connect(function(player)
+		print("🔓 [" .. player.Name .. "] เปิดร้าน")
+		shopOpened = true
+	end)
+	while not shopOpened do
+		task.wait(0.2)
+	end
+	conn:Disconnect()
+	openPrompt.Enabled = false
+	remotes:SetAttribute("ShopOpen", true)
+	openShutter()
 	GameState:FireAllClients("Playing")
 end
+
+-- ผู้เล่นที่เข้ามาตอนร้านยังปิด ให้เห็นข้อความรอเปิดร้านด้วย
+Players.PlayerAdded:Connect(function(p)
+	task.wait(3)
+	if openPrompt.Enabled then
+		GameState:FireClient(p, "Waiting")
+	end
+end)
 
 function CoreLoop.Start()
 	math.randomseed(os.time())
@@ -421,6 +590,7 @@ function CoreLoop.Start()
 	task.spawn(function()
 		while true do
 			resetGame()
+			waitForShopOpen()
 			task.wait(4)
 			while not gameOver do
 				serveOneCustomer()
