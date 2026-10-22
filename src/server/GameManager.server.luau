@@ -52,42 +52,9 @@ task.spawn(function()
 	end
 end)
 
--- 3. ทดสอบระบบดึงเชือกปิดแผงสังกะสีหน้าร้าน (RejectRope -> ShutterDoor)
-local interactive = Workspace:WaitForChild("InteractiveProps")
-local shutterDoor = interactive:WaitForChild("ShutterDoor") :: Part
-local rejectRope = interactive:WaitForChild("RejectRope") :: Part
-local rejectPrompt = rejectRope:WaitForChild("RejectCustomerPrompt") :: ProximityPrompt
+-- 3. Phase 3 Core Loop: รถลูกค้าขี่มาจอด, เติมน้ำมัน/ดึงแผงปิดร้าน (เชือก RejectRope -> ShutterDoor), เงิน 500฿, ธูป 3 ดอก
+--    รายละเอียดอยู่ใน CoreLoop.luau (ModuleScript ในโฟลเดอร์เดียวกัน)
+local CoreLoop = require(script.Parent:WaitForChild("CoreLoop"))
+CoreLoop.Start()
 
-local isShutterBusy = false
-local initialOpenY = shutterDoor.Position.Y
-local dropHeight = (shutterDoor:GetAttribute("OpenY") or 15.5) - (shutterDoor:GetAttribute("ClosedY") or 6)
-
-rejectPrompt.Triggered:Connect(function(player)
-	if isShutterBusy then
-		return
-	end
-	isShutterBusy = true
-
-	print("🚧 [" .. player.Name .. "] ดึงเชือกปิดแผงสังกะสีหน้าร้าน!")
-	local openPos = Vector3.new(shutterDoor.Position.X, initialOpenY, shutterDoor.Position.Z)
-	local closedPos = Vector3.new(shutterDoor.Position.X, initialOpenY - dropHeight, shutterDoor.Position.Z)
-
-	-- เลื่อนแผงสังกะสีลงมาปิดร้าน
-	local closeTween = TweenService:Create(shutterDoor, TweenInfo.new(0.45, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-		Position = closedPos,
-	})
-	closeTween:Play()
-	closeTween.Completed:Wait()
-
-	task.wait(3) -- ปิดร้านกันผีไว้ 3 วินาทีแล้วเปิดกลับขึ้นไป
-
-	local openTween = TweenService:Create(shutterDoor, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-		Position = openPos,
-	})
-	openTween:Play()
-	openTween.Completed:Wait()
-
-	isShutterBusy = false
-end)
-
-print("✅ [Server] ปั๊มหลอดท้ายทุ่ง: โหลดฉาก Greybox + ไฟนีออนกะพริบ + เชือกดึงแผงสังกะสี เรียบร้อย!")
+print("✅ [Server] ปั๊มหลอดท้ายทุ่ง: โหลดฉาก + ไฟนีออนกะพริบ + Core Loop (รถลูกค้า เงิน 500฿ ธูป 3 ดอก) เรียบร้อย!")

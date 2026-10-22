@@ -20,7 +20,45 @@ LanguageModule.Dialogues = {
 		th = "ขอน้ำมันเต็มหลอด... จะเอาไปราดเผาศพตัวเองที่เมรุหน่อยจ้ะ ฮ่าๆๆ",
 		en = "Fill it up... I need gasoline to cremate my own corpse tonight! Hahaha!",
 	},
+	-- ลูกค้าปกติเพิ่ม (Phase 3)
+	Normal_Aunt = {
+		th = "เติมให้ป้าหน่อยลูก ป้าจะรีบไปตลาดเช้า",
+		en = "Fill it up for auntie, dear. I'm heading to the morning market.",
+	},
+	Normal_Student = {
+		th = "พี่ครับ เติมหลอดนึงครับ เดี๋ยวแม่ด่าว่ากลับดึก",
+		en = "One cylinder please. My mom will scold me for coming home late.",
+	},
+	Normal_Farmer = {
+		th = "เติมเต็มหลอดเลย พรุ่งนี้ต้องเอารถไปไถนาแต่เช้า",
+		en = "Fill it up. I have to take the tiller to the field at dawn.",
+	},
+	Anomaly_WheelHair = {
+		th = "เติมน้ำมันให้หน่อย... ล้อมันหนักๆ เหมือนมีใครดึงไว้...",
+		en = "Some fuel please... my wheels feel heavy, like someone is pulling them...",
+	},
 }
+
+-- ข้อความหน้าจอ (HUD)
+LanguageModule.UI = {
+	Money = { th = "เงินในกระป๋อง", en = "Money Tin" },
+	Incense = { th = "ธูปศาลพระภูมิ", en = "Shrine Incense" },
+	Win = { th = "ครบ 500฿ แล้ว! ปิดร้านกลับบ้านได้ รอดไปอีกคืน", en = "500 Baht reached! You survived the night." },
+	Lose = { th = "ธูปดับหมดแล้ว... ศาลพระภูมิคุ้มครองไม่ไหวอีกต่อไป", en = "All the incense is out... the shrine can no longer protect you." },
+	Jumpscare = { th = "คุณเติมน้ำมันให้ผี!", en = "You fueled a ghost!" },
+	NewNight = { th = "คืนใหม่เริ่มแล้ว... ระวังลูกค้าแปลกๆ", en = "A new night begins... beware of strange customers." },
+}
+
+function LanguageModule.GetUI(key: string, localeId: string?): string
+	local entry = LanguageModule.UI[key]
+	if not entry then
+		return key
+	end
+	if localeId and string.find(string.lower(localeId), "th") then
+		return entry.th
+	end
+	return entry.en
+end
 
 function LanguageModule.GetText(key: string, localeId: string?): string
 	local entry = LanguageModule.Dialogues[key]
