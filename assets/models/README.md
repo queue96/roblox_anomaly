@@ -121,3 +121,26 @@
 - `GhostPassenger` ผีไร้หัวชุดไทยซ้อนท้าย (ซ่อน)
 - ชิ้นที่ซ่อนทุกชิ้นมี attribute `ShowTransparency` = ค่าความโปร่งใสตอนแสดง (ใช้ในเฟส 4)
 - `MapBuilder.RebuildVehicleRiders()` สร้างคนขับ/ผีใหม่โดยไม่แตะชิ้นอื่น
+
+## ชุดวัดไทยชนบท (สำหรับ Lobby) — ยังไม่ได้นำเข้า Studio
+ปั้นด้วยสคริปต์ `tools/blender/thai_temple.py` (ไม่ได้อยู่ใน `pump_props.blend` แต่อยู่ใน `thai_temple.blend`) ทุกไฟล์มี texture atlas 1024 ชุดละ 4 ไฟล์
+ภาพรวม: `previews/ThaiTemple_Sheet.png` · ตอนกลางคืนจัดวางแบบ Lobby: `previews/ThaiTemple_Night_*.png`
+กล่องชน + ขอบเขตแต่ละชิ้น (studs, แกน Blender): `ThaiTemple_Colliders.json`
+
+| ไฟล์ | Object | หมายเหตุ |
+|---|---|---|
+| TempleGate.fbx | TempleGate, TempleGate_Buddha, TempleNameSign, TempleNameSign_Plaque | ซุ้มจั่วหน้าบันน้ำเงินขอบแดงลายทอง ช่อฟ้า ใบระกา หางหงส์ พระในซุ้มจระนำทั้ง 2 ด้าน ช่องประตู 14×17 studs · ป้ายชื่อวัดเป็นกำแพงปูนแยกชิ้น แผ่นป้ายเปล่า (SurfaceGui) |
+| TempleFence.fbx | FenceSegment (12), FenceSegment_Half (6), FencePost | กำแพงปูนชมพูหม่น ลายฝักเพกาทอง หัวเสาลูกแก้วทอง origin = เสาต้นทาง กำแพงยาวไป +X และมีเสาที่ปลาย |
+| BoneStupa.fbx | BoneStupa_A, BoneStupa_B, BoneStupa_C | ธาตุสีขาวทรงเหลี่ยมซ้อนชั้น (A สูง 13.8, C ย่อ 0.72 สีเก่า) / ทรงระฆัง (B) มีกรอบรูปผู้ตายสีซีเปียด้านหน้า |
+| Meru.fbx | Meru_Base, Meru_Hall, Meru_Roof, Meru_Chimney | ฐานสูง 5.2 บันได 7 ขั้นมีราว หลังคาแดงซ้อน 2 ชั้น หน้าบันทอง ห้องเผาประตูเหล็ก ปล่องไฟสูง 56 |
+| Ubosot.fbx | Ubosot_Base, _Walls, _Columns, _Roof, _KaewWall | หลังคาส้ม/แดงซ้อน 3 ตับ ขอบเขียว ปีกนกข้าง ช่อฟ้า 4 ตัว หน้าบันทอง เสาขาว ซุ้มหน้าต่างทอง ประตูเปิดเดินเข้าได้ · กำแพงแก้ว + ใบเสมา 8 ทิศ |
+| Kuti.fbx | Kuti_Stilts, Kuti_House, Kuti_Roof | เรือนไม้ใต้ถุนสูง 10.2 ระเบียงลูกกรงไม้ บันไดไม้ 12 ขั้น หลังคากระเบื้องน้ำตาล กาแลหน้า-หลัง |
+| Sala.fbx | Sala_Base, Sala_Columns, Sala_Roof | ศาลาโล่ง 46×35 หลังคาสังกะสีเขียวปั้นหยา+จั่ว หน้าจั่วขาวบานเกล็ด เสาไม้แดงโคนขาว แท่นตั้งพระด้านหลัง |
+| BuddhaTrio.fbx | BuddhaTrio_Base, BuddhaTrio_Plaques, Buddha_Center, Buddha_Left, Buddha_Right | พระปางมารวิชัยสีทอง (กลางสูง ~5, ข้าง 0.74 เท่า) บนฐานชุกชีลายกระจก กลีบบัวทอง แผ่นชื่อพระสีแดง 3 แผ่น (SurfaceGui) |
+| DonationBoard.fbx | DonationBoard, DonationBoard_Board, DonationBoard_Face | ป้ายบริจาคแบบป้ายวัด เสาไม้แดงสูง 26 คานยาว 31 แผ่นป้ายไม้ 24×19.5 ห้อยโซ่ ขอบล่างสูงจากพื้น 2.5 หน้าป้ายเปล่าทั้ง 2 ด้าน (SurfaceGui ทำ dashboard) |
+| DonationBox.fbx | DonationBox_Stand, DonationBox, DonationBox_Door, DonationBox_Glass | ตู้ไม้สักเสากลึงเกลียว ขาลูกบิด บานกระจก กลอนทองเหลือง มีธนบัตร/เหรียญข้างใน ช่องหยอดเงินบนหลังตู้ ตั้งบนแท่นกลึง สูงรวม 7.8 · Glass ตั้ง Transparency ใน Studio |
+| ShopCart.fbx | ShopCart, ShopCart_Goods, ShopCart_Canopy, ShopCart_Sign | รถเข็นขายทุกอย่าง 16×8 สูง 13 ล้อจักรยาน 2 ล้อ ชั้นขั้นบันได 4 ชั้น ขวด/โหล/ซองขนม ตะกร้า ของห้อย ผ้าใบลายทางน้ำเงิน-เหลือง-แดง-ขาว ป้ายหน้าเปล่า |
+
+ขยายจากขนาดตอนปั้น: Ubosot ×1.3, Meru ×1.15 (เสาสูงขึ้น 3), Kuti ×1.5 (ประตู/บันไดกว้างขึ้น), Sala ×1.15 (เสาห่าง 9) เพื่อให้ 4 คนเดินสวนกันได้ — ประตูโบสถ์ 9.4×11.4, ประตูกุฏิ 8.1×10.5
+ทุก object ไม่เกิน 10,000 triangles (พระองค์ละ ~7,400 / TempleGate_Buddha 2 องค์รวม ~8,100)
+วางฉาก: `MapBuilder.BuildTempleLobby()` (ดู GEMINI.md หัวข้อ 🛕) — ยังไม่ได้รัน

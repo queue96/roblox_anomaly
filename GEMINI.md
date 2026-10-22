@@ -67,6 +67,16 @@ trigger: always_on
   - ⚠️ ห้ามติด `WindSway` ให้ Model ที่มีใบไม้หลายร้อยแผ่น เพราะ `PivotTo` ต้นมะม่วงชายทุ่ง 71 ต้นใช้เวลา 10ms ต่อเฟรม และจะขยับซ้อนกับ `LeafFlutter` ด้วย (`TagWindPlants` จะลบ tag นี้ออกให้เองถ้ามี `MangoLeaves`)
 - tag ถูกบันทึกในไฟล์ place (รันใน Edit mode) **ถ้าสร้าง/วางต้นข้าว ต้นไม้ หรือใบไม้ใหม่ ต้องรันอีกครั้ง:** `require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).TagWindPlants()` (รันซ้ำได้)
 
+### 🛕 ชุดวัดไทยชนบท สำหรับฉาก Lobby (เพิ่มเมื่อ 2026-10-23, **เตรียมโมเดลไว้ ยังไม่ได้วางในฉาก**)
+ผู้พัฒนาจะเอาไปทำ Lobby แยกจากแมพปั๊ม **ห้ามวางวัดในเขตเล่นของแมพนี้**
+- **ปั้นด้วยสคริปต์:** `tools/blender/thai_temple.py` (รัน Blender แบบ headless) → `assets/models/<ชื่อ>.fbx` + texture 1024 ชุดละ 4 ไฟล์, ไฟล์ต้นฉบับ `assets/models/thai_temple.blend`, ภาพตัวอย่าง `assets/models/previews/<ชื่อ>.png`, `ThaiTemple_Sheet.png` (รวม 8 ชิ้น) และ `ThaiTemple_Night_*.png` (จัดวางแบบ Lobby ตอนกลางคืน จาก `tools/blender/thai_temple_preview.py`)
+- **8 ไฟล์:** `TempleGate` (ซุ้มประตู + พระในหน้าบัน + ป้ายชื่อวัด `TempleNameSign`/`_Plaque`), `TempleFence` (`FenceSegment` 12 studs, `FenceSegment_Half`, `FencePost`), `BoneStupa` (`_A`/`_B`/`_C` มีช่องรูปผู้ตาย), `Meru` (ปล่องไฟสูง 56 studs), `Ubosot` (+กำแพงแก้ว ใบเสมา ประตูเปิด เดินเข้าได้), `Kuti` (เรือนไม้ยกใต้ถุน กาแล), `Sala` (หลังคาสังกะสีเขียว), `BuddhaTrio` (ปางมารวิชัย 3 องค์บนฐานชุกชีลายกระจก)
+- **ของใน Lobby (เพิ่ม 3 ไฟล์):** `DonationBoard` (ป้ายบริจาคเสาสูง 26 studs แผ่นป้าย 24 × 19.5 ห้อยโซ่ลงมาเกือบถึงพื้น (ขอบล่างสูง 2.5) หน้าป้ายเปล่า `DonationBoard_Face` 2 ด้าน ไว้ใส่ SurfaceGui ทำ dashboard ผู้บริจาค), `DonationBox` (ตู้บริจาคไม้สักหน้าบานกระจกบนแท่นกลึง สูง 7.8 มี `_Door`/`_Glass` แยก ช่องหยอดเงินด้านบน — จุดกดโดเนท), `ShopCart` (รถเข็นขายทุกอย่าง ผ้าใบลายทาง ของเต็ม 4 ชั้น ป้ายหน้า `ShopCart_Sign` — ใช้เป็นร้านค้า) · วางใน `BuildTempleLobby()` ที่ (-24, 50) / (-8.5, 28) / (22, 44)
+- สีหม่นลง 18% และมืดลง 10% จากภาพอ้างอิง ป้ายทุกแผ่นเปล่า (ข้อความใส่ทาง SurfaceGui)
+- **ขนาด (ให้ผู้เล่น 4 คนเดินสวนกันได้):** ช่องประตูวัด 14 × 17 studs, ประตูโบสถ์ 9.4 × 11.4 (ในโบสถ์กว้าง 18 เพดาน 15.6), ประตูกุฏิ 8.1 × 10.5 (เพดาน 12, ระเบียงลึก 8.4), เมรุใต้คาน 12 ช่องเสากลาง 9.3, ศาลาช่องเสา ≥ 8.2 ใต้คาน 12.9, บันไดทุกจุดสูงขั้นละ ≤ 0.8 studs · ขยายด้วย `PROP_SCALE` ในสคริปต์ (โบสถ์ 1.3, เมรุ 1.15, กุฏิ 1.5, ศาลา 1.15) · ลายทอง/ใบระกา/ลูกแก้วเป็น mesh ที่ปิด collision ทั้งหมด ชนเฉพาะกล่อง `Colliders`
+- **วางฉาก (ยังไม่ได้รัน):** นำเข้า FBX ทั้ง 11 ไฟล์ด้วย 3D Importer แล้วรัน `require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).BuildTempleLobby()` → ย้ายต้นแบบไป `ServerStorage.ImportedProps.ThaiTemple` และสร้าง `Workspace.TempleLobby` ที่ `(0, 0, 600)` (ส่ง `origin` อื่นได้, `rebuild = true` จะย้ายชุดเดิมไป `ArchivedPlaceholders` ก่อน) มีรั้วรอบ 162×132 studs (กุฏิ 2 หลังที่ z = 40 และ 8 ฝั่ง +X), ต้นมะม่วง 5 ต้น (ติด `LeafFlutter` ผ่าน `TagWindPlants()` อัตโนมัติ) และไฟสลัว 6 ดวง
+- mesh ทุกชิ้น `CanCollide = false` แล้วสร้างกล่องชนล่องหน (`Colliders`) จากตาราง `TEMPLE_UNITS` ใน `MapBuilder.luau` — ตารางนี้สร้างจาก `tools/blender/temple_units_to_luau.py` ถ้าปั้นใหม่ให้รันสคริปต์นี้แล้วแทนตารางเดิม อย่าแก้มือ
+
 ### 🗺️ โครงสร้างฉากใน `Workspace` และคลังโมเดลใน `ServerStorage`
 1. **`Workspace.MapEnvironment`:**
    - `ShackStructure`: เพิงสังกะสีไม้ไผ่ตรงกลาง (`X = 0, Z = 18`) พร้อมโต๊ะไม้, วิทยุทรานซิสเตอร์, และ Prop Hooks ทั้ง 5 จุด

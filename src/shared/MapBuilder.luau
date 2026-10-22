@@ -4579,4 +4579,512 @@ function MapBuilder.AddMangoLeaves(tree: Model, light: boolean?, far: boolean?)
 	end
 end
 
+-- ===================================================================================
+-- วัดไทยชนบทครบชุด (สำหรับฉาก Lobby) — โมเดลจาก tools/blender/thai_temple.py
+-- นำเข้า FBX 8 ไฟล์ (TempleGate, TempleFence, BoneStupa, Meru, Ubosot, Kuti, Sala, BuddhaTrio) ด้วย 3D Importer
+-- แล้วรัน: require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).BuildTempleLobby()
+-- ต้นแบบถูกย้ายไป ServerStorage.ImportedProps.ThaiTemple, วัดวางที่ Workspace.TempleLobby (ไม่แตะแมพเดิม)
+-- mesh ทุกชิ้นปิด collision แล้วใช้กล่องชนล่องหน (Colliders) แทน เพื่อให้เดินผ่านประตู/ขึ้นบันไดได้จริง
+-- ตาราง TEMPLE_UNITS สร้างจาก tools/blender/temple_units_to_luau.py (อย่าแก้มือ ให้รันสคริปต์ใหม่)
+-- ===================================================================================
+local TEMPLE_UNITS = {
+	TempleGate = {
+		file = "TempleGate",
+		parts = { "TempleGate", "TempleGate_Buddha" },
+		bmin = Vector3.new(-12.86, 0, -3.73),
+		bmax = Vector3.new(12.86, 34.32, 3.73),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ -8.25, 8.55, 0, 3.2, 17.1, 3.2 }, { 8.25, 8.55, 0, 3.2, 17.1, 3.2 },
+		},
+	},
+	TempleNameSign = {
+		file = "TempleGate",
+		parts = { "TempleNameSign", "TempleNameSign_Plaque" },
+		bmin = Vector3.new(-7.95, 0, -0.85),
+		bmax = Vector3.new(7.95, 7.6, 0.85),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 2.5, 0, 15, 5, 1.6 },
+		},
+	},
+	FenceSegment = {
+		file = "TempleFence",
+		parts = { "FenceSegment" },
+		bmin = Vector3.new(0.75, 0, -0.95),
+		bmax = Vector3.new(12.95, 7.3, 0.95),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 6, 2.2, 0, 10.4, 4.4, 1.2 }, { 12, 2.7, 0, 1.7, 5.4, 1.7 },
+		},
+	},
+	FenceSegment_Half = {
+		file = "TempleFence",
+		parts = { "FenceSegment_Half" },
+		bmin = Vector3.new(0.75, 0, -0.95),
+		bmax = Vector3.new(6.95, 7.3, 0.95),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 3, 2.2, 0, 4.4, 4.4, 1.2 }, { 6, 2.7, 0, 1.7, 5.4, 1.7 },
+		},
+	},
+	FencePost = {
+		file = "TempleFence",
+		parts = { "FencePost" },
+		bmin = Vector3.new(-0.95, 0, -0.95),
+		bmax = Vector3.new(0.95, 7.3, 0.95),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 2.7, 0, 1.7, 5.4, 1.7 },
+		},
+	},
+	BoneStupa_A = {
+		file = "BoneStupa",
+		parts = { "BoneStupa_A" },
+		bmin = Vector3.new(-2.34, 0, -2.34),
+		bmax = Vector3.new(2.34, 13.8, 2.34),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 3, 0, 4.6, 6, 4.6 },
+		},
+	},
+	BoneStupa_B = {
+		file = "BoneStupa",
+		parts = { "BoneStupa_B" },
+		bmin = Vector3.new(-2.04, 0, -2.04),
+		bmax = Vector3.new(2.04, 10, 2.04),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 2.5, 0, 4, 5, 4 },
+		},
+	},
+	BoneStupa_C = {
+		file = "BoneStupa",
+		parts = { "BoneStupa_C" },
+		bmin = Vector3.new(-1.7, 0, -1.7),
+		bmax = Vector3.new(1.7, 9.94, 1.7),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 2.15, 0, 3.32, 4.3, 3.32 },
+		},
+	},
+	Meru = {
+		file = "Meru",
+		parts = { "Meru_Base", "Meru_Hall", "Meru_Roof", "Meru_Chimney" },
+		bmin = Vector3.new(-14.84, 0, -14.14),
+		bmax = Vector3.new(14.84, 56.35, 18.52),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 2.59, 0, 25.99, 5.17, 21.39 }, { 0, 2.26, 10.93, 9.2, 4.53, 1.15 }, { 0, 1.94, 12.07, 9.2, 3.88, 1.15 },
+			{ 0, 1.62, 13.22, 9.2, 3.23, 1.15 }, { 0, 1.29, 14.38, 9.2, 2.59, 1.15 }, { 0, 0.97, 15.52, 9.2, 1.94, 1.15 },
+			{ 0, 0.65, 16.67, 9.2, 1.29, 1.15 }, { 0, 0.32, 17.82, 9.2, 0.65, 1.15 }, { -11.04, 11.5, 8.74, 1.27, 12.65, 1.27 },
+			{ -11.04, 11.5, -8.74, 1.27, 12.65, 1.27 }, { -5.29, 11.5, 8.74, 1.26, 12.65, 1.27 }, { -5.29, 11.5, -8.74, 1.26, 12.65, 1.27 },
+			{ 5.29, 11.5, 8.74, 1.26, 12.65, 1.27 }, { 5.29, 11.5, -8.74, 1.26, 12.65, 1.27 }, { 11.04, 11.5, 8.74, 1.27, 12.65, 1.27 },
+			{ 11.04, 11.5, -8.74, 1.27, 12.65, 1.27 }, { -11.04, 6.5, 0, 0.92, 2.64, 17.48 }, { 11.04, 6.5, 0, 0.92, 2.64, 17.48 },
+			{ 0, 8.86, -3.1, 8.74, 7.36, 9.2 }, { 0, 19.84, -7.59, 5.29, 29.32, 5.29 },
+		},
+	},
+	Ubosot = {
+		file = "Ubosot",
+		parts = { "Ubosot_Base", "Ubosot_Walls", "Ubosot_Columns", "Ubosot_Roof", "Ubosot_KaewWall" },
+		bmin = Vector3.new(-24.7, 0, -31.85),
+		bmax = Vector3.new(24.7, 34.91, 41.34),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 1.43, 2.93, 32.5, 2.86, 51.35 }, { 0, 1.07, 29.15, 10.4, 2.15, 1.11 }, { 0, 0.72, 30.26, 10.4, 1.43, 1.1 },
+			{ 0, 0.36, 31.36, 10.4, 0.72, 1.11 }, { -7.54, 10.66, 16.25, 5.72, 15.6, 1.3 }, { 7.54, 10.66, 16.25, 5.72, 15.6, 1.3 },
+			{ 0, 16.38, 16.25, 9.36, 4.16, 1.3 }, { 0, 10.66, -18.85, 20.8, 15.6, 1.3 }, { -9.75, 10.66, -1.3, 1.3, 15.6, 33.8 },
+			{ 9.75, 10.66, -1.3, 1.3, 15.6, 33.8 }, { -10.4, 9.88, 25.74, 1.56, 14.04, 1.56 }, { -5.98, 9.88, 25.74, 1.56, 14.04, 1.56 },
+			{ 5.98, 9.88, 25.74, 1.56, 14.04, 1.56 }, { 10.4, 9.88, 25.74, 1.56, 14.04, 1.56 }, { -13.78, 9.1, 13, 1.3, 12.48, 1.3 },
+			{ -13.78, 9.1, 3.25, 1.3, 12.48, 1.3 }, { -13.78, 9.1, -6.5, 1.3, 12.48, 1.3 }, { -13.78, 9.1, -16.25, 1.3, 12.48, 1.3 },
+			{ 13.78, 9.1, 13, 1.3, 12.48, 1.3 }, { 13.78, 9.1, 3.25, 1.3, 12.48, 1.3 }, { 13.78, 9.1, -6.5, 1.3, 12.48, 1.3 },
+			{ 13.78, 9.1, -16.25, 1.3, 12.48, 1.3 }, { -13, 1.69, 35.75, 15.34, 3.38, 1.04 }, { 13, 1.69, 35.75, 15.34, 3.38, 1.04 },
+			{ 0, 1.69, -27.3, 41.34, 3.38, 1.04 }, { -20.15, 1.69, 4.22, 1.04, 3.38, 64.09 }, { 20.15, 1.69, 4.22, 1.04, 3.38, 64.09 },
+		},
+	},
+	Kuti = {
+		file = "Kuti",
+		parts = { "Kuti_Stilts", "Kuti_House", "Kuti_Roof" },
+		bmin = Vector3.new(-14.74, -0.31, -10.57),
+		bmax = Vector3.new(14.74, 35.06, 31.76),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ -11.4, 11.1, 12.6, 1.35, 22.2, 1.35 }, { -11.4, 4.5, 4.5, 1.35, 9, 1.35 }, { -11.4, 4.5, -2.25, 1.35, 9, 1.35 },
+			{ -11.4, 4.5, -8.7, 1.35, 9, 1.35 }, { -3.75, 4.5, 12.6, 1.35, 9, 1.35 }, { -3.75, 4.5, 4.5, 1.35, 9, 1.35 },
+			{ -3.75, 4.5, -2.25, 1.35, 9, 1.35 }, { -3.75, 4.5, -8.7, 1.35, 9, 1.35 }, { 3.75, 4.5, 12.6, 1.35, 9, 1.35 },
+			{ 3.75, 4.5, 4.5, 1.35, 9, 1.35 }, { 3.75, 4.5, -2.25, 1.35, 9, 1.35 }, { 3.75, 4.5, -8.7, 1.35, 9, 1.35 },
+			{ 11.4, 11.1, 12.6, 1.35, 22.2, 1.35 }, { 11.4, 4.5, 4.5, 1.35, 9, 1.35 }, { 11.4, 4.5, -2.25, 1.35, 9, 1.35 },
+			{ 11.4, 4.5, -8.7, 1.35, 9, 1.35 }, { 0, 9.6, 1.95, 24.9, 1.2, 23.1 }, { 7.35, 5.1, 14.25, 7.8, 10.2, 1.5 },
+			{ 7.35, 4.67, 15.75, 7.8, 9.35, 1.5 }, { 7.35, 4.25, 17.25, 7.8, 8.5, 1.5 }, { 7.35, 3.82, 18.75, 7.8, 7.65, 1.5 },
+			{ 7.35, 3.4, 20.25, 7.8, 6.8, 1.5 }, { 7.35, 2.98, 21.75, 7.8, 5.95, 1.5 }, { 7.35, 2.55, 23.25, 7.8, 5.1, 1.5 },
+			{ 7.35, 2.12, 24.75, 7.8, 4.25, 1.5 }, { 7.35, 1.7, 26.25, 7.8, 3.4, 1.5 }, { 7.35, 1.28, 27.75, 7.8, 2.55, 1.5 },
+			{ 7.35, 0.85, 29.25, 7.8, 1.7, 1.5 }, { 7.35, 0.42, 30.75, 7.8, 0.85, 1.5 }, { -8.03, 16.2, 4.5, 7.95, 12, 0.6 },
+			{ 8.03, 16.2, 4.5, 7.95, 12, 0.6 }, { 0, 21.45, 4.5, 8.1, 1.5, 0.6 }, { 0, 16.2, -8.7, 24, 12, 0.6 },
+			{ -11.7, 16.2, -2.1, 0.6, 12, 12.6 }, { 11.7, 16.2, -2.1, 0.6, 12, 12.6 }, { -4.5, 12.3, 13.27, 15.3, 4.2, 0.45 },
+			{ -12, 12.3, 9.08, 0.45, 4.2, 8.55 }, { 12, 12.3, 9.08, 0.45, 4.2, 8.55 },
+		},
+	},
+	Sala = {
+		file = "Sala",
+		parts = { "Sala_Base", "Sala_Columns", "Sala_Roof" },
+		bmin = Vector3.new(-24.86, 0, -18.12),
+		bmax = Vector3.new(24.86, 27.2, 19.32),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 0.92, 0, 46, 1.84, 34.5 }, { 0, 0.61, 17.77, 16.1, 1.23, 1.04 }, { 0, 0.31, 18.8, 16.1, 0.61, 1.04 },
+			{ 0, 2.42, -10.81, 20.7, 1.15, 7.36 }, { -20.7, 8.62, 14.95, 1.73, 13.57, 1.72 }, { -20.7, 8.62, -14.95, 1.73, 13.57, 1.72 },
+			{ -10.35, 8.62, 14.95, 1.72, 13.57, 1.72 }, { -10.35, 8.62, -14.95, 1.72, 13.57, 1.72 }, { 0, 8.62, 14.95, 1.72, 13.57, 1.72 },
+			{ 0, 8.62, -14.95, 1.72, 13.57, 1.72 }, { 10.35, 8.62, 14.95, 1.72, 13.57, 1.72 }, { 10.35, 8.62, -14.95, 1.72, 13.57, 1.72 },
+			{ 20.7, 8.62, 14.95, 1.73, 13.57, 1.72 }, { 20.7, 8.62, -14.95, 1.73, 13.57, 1.72 }, { -20.7, 8.62, 4.94, 1.73, 13.57, 1.72 },
+			{ -20.7, 8.62, -4.94, 1.73, 13.57, 1.72 }, { 20.7, 8.62, 4.94, 1.73, 13.57, 1.72 }, { 20.7, 8.62, -4.94, 1.73, 13.57, 1.72 },
+			{ -13.8, 9.83, 5.17, 1.73, 15.98, 1.72 }, { -13.8, 9.83, -5.17, 1.73, 15.98, 1.72 }, { 13.8, 9.83, 5.17, 1.73, 15.98, 1.72 },
+			{ 13.8, 9.83, -5.17, 1.73, 15.98, 1.72 },
+		},
+	},
+	BuddhaTrio = {
+		file = "BuddhaTrio",
+		parts = { "BuddhaTrio_Base", "BuddhaTrio_Plaques", "Buddha_Center", "Buddha_Left", "Buddha_Right" },
+		bmin = Vector3.new(-6.4, 0, -2.1),
+		bmax = Vector3.new(6.4, 8.23, 2.12),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 1.55, 0, 12.8, 3.1, 4.2 },
+		},
+	},
+	DonationBoard = {
+		file = "DonationBoard",
+		parts = { "DonationBoard", "DonationBoard_Board", "DonationBoard_Face" },
+		bmin = Vector3.new(-15.6, 0, -1),
+		bmax = Vector3.new(15.6, 26.3, 1),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ -13.6, 13.15, 0, 2, 26.3, 2 }, { 13.6, 13.15, 0, 2, 26.3, 2 },
+		},
+	},
+	DonationBox = {
+		file = "DonationBox",
+		parts = { "DonationBox_Stand", "DonationBox", "DonationBox_Door", "DonationBox_Glass" },
+		bmin = Vector3.new(-1.7, 0, -1.4),
+		bmax = Vector3.new(1.7, 7.78, 1.4),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 1.68, 0, 3.4, 3.35, 2.8 }, { 0, 5.55, 0, 3, 4.4, 2.4 },
+		},
+	},
+	ShopCart = {
+		file = "ShopCart",
+		parts = { "ShopCart", "ShopCart_Goods", "ShopCart_Canopy", "ShopCart_Sign" },
+		bmin = Vector3.new(-7.5, 0, -3.3),
+		bmax = Vector3.new(8.1, 13.2, 3.9),
+		-- กล่องชน { cx, cy, cz, sx, sy, sz } เทียบกับ origin ของ prop (ฐานกลาง) หน้าหันไป +Z
+		cols = {
+			{ 0, 4.9, 0, 12.6, 9.8, 5.2 },
+		},
+	},
+}
+
+local TEMPLE_FILES = { "TempleGate", "TempleFence", "BoneStupa", "Meru", "Ubosot", "Kuti", "Sala", "BuddhaTrio", "DonationBoard", "DonationBox", "ShopCart" }
+local TEMPLE_GOLD_TEXT = Color3.fromRGB(214, 172, 92)
+
+local function templeStore(): Folder
+	local ss = game:GetService("ServerStorage")
+	local root = ss:FindFirstChild("ImportedProps") or Instance.new("Folder")
+	root.Name = "ImportedProps"
+	root.Parent = ss
+	local store = root:FindFirstChild("ThaiTemple") or Instance.new("Folder")
+	store.Name = "ThaiTemple"
+	store.Parent = root
+	for _, name in ipairs(TEMPLE_FILES) do
+		if not store:FindFirstChild(name) then
+			for _, where in ipairs({ Workspace, Workspace:FindFirstChild("NewModels") }) do
+				local m = where and where:FindFirstChild(name)
+				if m and m:IsA("Model") then
+					m.Parent = store
+					break
+				end
+			end
+		end
+	end
+	-- importer ใส่ SurfaceAppearance ว่างซ้อน: ลบอันที่ไม่มี ColorMap (เหมือน moveTemplatesToStorage)
+	for _, p in ipairs(store:GetDescendants()) do
+		if p:IsA("MeshPart") then
+			local sas = {}
+			for _, c in ipairs(p:GetChildren()) do
+				if c:IsA("SurfaceAppearance") then
+					table.insert(sas, c)
+				end
+			end
+			if #sas > 1 then
+				for _, sa in ipairs(sas) do
+					if sa.ColorMap == "" then
+						sa:Destroy()
+					end
+				end
+			end
+		end
+	end
+	return store :: Folder
+end
+
+-- วาง prop 1 ชุด: cf = ตำแหน่ง/ทิศของฐานกลาง prop (หน้า prop หันไป +Z ของ cf), scale = ขยาย (ค่าเริ่มต้น 1)
+local function placeTempleUnit(store: Folder, unitName: string, cf: CFrame, parent: Instance, scale: number?): Model
+	local u = TEMPLE_UNITS[unitName]
+	local tpl = store:FindFirstChild(u.file)
+	assert(tpl, "ไม่พบโมเดลนำเข้า " .. u.file .. " (นำเข้า " .. u.file .. ".fbx ก่อน)")
+	local parts = {}
+	for _, n in ipairs(u.parts) do
+		local p = tpl:FindFirstChild(n, true)
+		assert(p and p:IsA("BasePart"), "ไม่พบชิ้น " .. u.file .. "." .. n)
+		table.insert(parts, p)
+	end
+	local mn, mx = boundsOf(parts)
+	-- ตรวจหน่วยตอนนำเข้า: ถ้าขนาดไม่ตรงกับตอนปั้น ให้ย่อ/ขยายกลับ
+	local s = (mx - mn).Magnitude / (u.bmax - u.bmin).Magnitude
+	local offset = mn - u.bmin * s
+	local m = Instance.new("Model")
+	m.Name = unitName
+	m:SetAttribute("ImportedProp", true)
+	for _, p in ipairs(parts) do
+		local c = p:Clone()
+		c.CFrame = cf * (CFrame.new(-offset) * p.CFrame)
+		c.Anchored = true
+		c.CanCollide = false
+		c.CanTouch = false
+		c.Parent = m
+	end
+	m.WorldPivot = cf
+	local k = scale or 1
+	if math.abs(k / s - 1) > 0.002 then
+		m:ScaleTo(k / s)
+	end
+	local cols = Instance.new("Folder")
+	cols.Name = "Colliders"
+	cols.Parent = m
+	for _, c in ipairs(u.cols) do
+		local p = Instance.new("Part")
+		p.Name = "Collider"
+		p.Size = Vector3.new(c[4], c[5], c[6]) * k
+		p.CFrame = cf * CFrame.new(Vector3.new(c[1], c[2], c[3]) * k)
+		p.Transparency = 1
+		p.Anchored = true
+		p.CanCollide = true
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Parent = cols
+	end
+	m.Parent = parent
+	return m
+end
+
+local function templeLight(parent: Instance, name: string, pos: Vector3, color: Color3, brightness: number, range: number)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = Vector3.new(0.2, 0.2, 0.2)
+	p.Position = pos
+	p.Transparency = 1
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Brightness = brightness
+	l.Range = range
+	l.Shadows = true
+	l.Parent = p
+	p.Parent = parent
+end
+
+-- ข้อความบนแผ่นป้ายที่หันไป +Z (NormalId.Back) — slots = { { ข้อความ, ตำแหน่ง X (0..1), ความกว้าง (0..1) } }
+local function templeLabels(part: BasePart?, slots: { { any } }, textSize: number?)
+	if not part then
+		return
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "TempleText"
+	gui.Face = Enum.NormalId.Back
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 1
+	gui.Parent = part
+	for _, s in ipairs(slots) do
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.AnchorPoint = Vector2.new(0.5, 0.5)
+		t.Position = UDim2.fromScale(s[2], 0.5)
+		t.Size = UDim2.fromScale(s[3], 0.8)
+		t.Text = s[1]
+		t.TextColor3 = TEMPLE_GOLD_TEXT
+		t.Font = Enum.Font.GothamBold
+		t.TextScaled = true
+		t.Parent = gui
+		local c = Instance.new("UITextSizeConstraint")
+		c.MaxTextSize = textSize or 60
+		c.Parent = t
+	end
+end
+
+-- origin = จุดกลางลานวัดบนพื้น (ค่าเริ่มต้น 0,0,600 ห่างจากแมพหลัก) · ประตูวัดหันไป +Z
+-- rebuild = true: ย้ายชุดเดิมไปเก็บ ServerStorage.ArchivedPlaceholders.TempleLobby แล้วสร้างใหม่
+function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
+	local old = Workspace:FindFirstChild("TempleLobby")
+	if old then
+		if not rebuild then
+			warn("[MapBuilder] BuildTempleLobby: มี Workspace.TempleLobby แล้ว (ส่ง rebuild = true เพื่อสร้างใหม่)")
+			return
+		end
+		old.Name = "TempleLobby_Old"
+		old.Parent = archiveFolder("TempleLobby")
+	end
+	local store = templeStore()
+	for _, name in ipairs(TEMPLE_FILES) do
+		assert(store:FindFirstChild(name), "ยังไม่ได้นำเข้า " .. name .. ".fbx")
+	end
+	local O = origin or Vector3.new(0, 0, 600)
+	local G = O + Vector3.new(0, 0.1, 0)
+	local function at(x: number, z: number, yaw: number?, y: number?): CFrame
+		return CFrame.new(G + Vector3.new(x, y or 0, z)) * CFrame.Angles(0, math.rad(yaw or 0), 0)
+	end
+	local lobby = Instance.new("Model")
+	lobby.Name = "TempleLobby"
+	lobby.WorldPivot = CFrame.new(G)
+
+	-- พื้นลานวัด + ทางเดินปูนจากประตูถึงบันไดโบสถ์
+	local ground = Instance.new("Part")
+	ground.Name = "TempleGround"
+	ground.Size = Vector3.new(200, 1, 176)
+	ground.CFrame = CFrame.new(G + Vector3.new(0, -0.5, -2))
+	ground.Material = Enum.Material.Ground
+	ground.Color = Color3.fromRGB(66, 58, 48)
+	ground.Anchored = true
+	ground.Parent = lobby
+	local path = Instance.new("Part")
+	path.Name = "TemplePath"
+	path.Size = Vector3.new(10, 0.2, 48)
+	path.CFrame = CFrame.new(G + Vector3.new(0, 0.1, 44))
+	path.Material = Enum.Material.Concrete
+	path.Color = Color3.fromRGB(112, 110, 102)
+	path.Anchored = true
+	path.Parent = lobby
+
+	-- ประตูวัด + ป้ายชื่อวัด
+	local FRONT, BACK, X = 62, -70, 81
+	placeTempleUnit(store, "TempleGate", at(0, FRONT), lobby)
+	local sign = placeTempleUnit(store, "TempleNameSign", at(24, FRONT + 5), lobby)
+	templeLabels(sign:FindFirstChild("TempleNameSign_Plaque") :: BasePart, { { "วัดท้ายทุ่ง", 0.25, 0.42 }, { "WAT THAI THUNG", 0.75, 0.42 } })
+
+	-- รั้ววัด: ช่วงละ 12 studs มีเสาหัวลูกแก้วที่ปลาย เดินวนจากหน้าขวา → ขวา → หลัง → ซ้าย → หน้าซ้าย
+	local fence = Instance.new("Model")
+	fence.Name = "TempleFence"
+	fence.Parent = lobby
+	local function run(x: number, z: number, yaw: number, length: number)
+		local cf = at(x, z, yaw)
+		local d = 0
+		while length - d >= 12 do
+			placeTempleUnit(store, "FenceSegment", cf * CFrame.new(d, 0, 0), fence)
+			d += 12
+		end
+		if length - d >= 6 then
+			placeTempleUnit(store, "FenceSegment_Half", cf * CFrame.new(d, 0, 0), fence)
+		end
+	end
+	run(9, FRONT, 0, X - 9)
+	run(X, FRONT, 90, FRONT - BACK)
+	run(X, BACK, 180, 2 * X)
+	run(-X, BACK, -90, FRONT - BACK)
+	run(-X, FRONT, 0, X - 9)
+
+	-- โบสถ์กลางลาน หันหน้าเข้าหาประตู + พระ 3 องค์บนฐานชุกชี
+	local UBZ = -12
+	placeTempleUnit(store, "Ubosot", at(0, UBZ), lobby)
+	local trio = placeTempleUnit(store, "BuddhaTrio", at(0, UBZ - 15.6, 0, 2.86), lobby, 1.2)
+	trio.Name = "BuddhaTrio_Ubosot"
+	local NAMES = { { "พระแก่นจันทร์", 0.115, 0.22 }, { "พระประธาน", 0.5, 0.22 }, { "พระเกษร", 0.885, 0.22 } }
+	templeLabels(trio:FindFirstChild("BuddhaTrio_Plaques") :: BasePart, NAMES, 40)
+	templeLight(lobby, "UbosotCandleLight", G + Vector3.new(0, 9, UBZ - 8), Color3.fromRGB(255, 160, 80), 1.1, 24)
+
+	-- ศาลาการเปรียญ (ฝั่งซ้าย หันหน้าเข้าลาน) + พระ 3 องค์อีกชุด
+	local SALA = at(-55, 25, 90)
+	placeTempleUnit(store, "Sala", SALA, lobby)
+	local trio2 = placeTempleUnit(store, "BuddhaTrio", SALA * CFrame.new(0, 2.99, -10.81), lobby, 1.4)
+	trio2.Name = "BuddhaTrio_Sala"
+	templeLabels(trio2:FindFirstChild("BuddhaTrio_Plaques") :: BasePart, NAMES, 40)
+	templeLight(lobby, "SalaLight", (SALA * CFrame.new(0, 11, -3.5)).Position, Color3.fromRGB(200, 215, 255), 0.5, 26)
+
+	-- กุฏิ 2 หลัง (ฝั่งขวา หันหน้าเข้าลาน)
+	placeTempleUnit(store, "Kuti", at(66, 40, -90), lobby)
+	placeTempleUnit(store, "Kuti", at(66, 8, -90), lobby).Name = "Kuti_2"
+	templeLight(lobby, "KutiLamp", G + Vector3.new(64, 15, 40), Color3.fromRGB(255, 176, 96), 0.5, 16)
+
+	-- เมรุ (มุมหลังซ้าย) + แสงแดงจางๆ ที่ประตูเตาเผา
+	local MERU = at(-55, -45)
+	placeTempleUnit(store, "Meru", MERU, lobby)
+	templeLight(lobby, "MeruFurnaceGlow", (MERU * CFrame.new(0, 7.5, 2.6)).Position, Color3.fromRGB(255, 70, 40), 0.5, 9)
+	templeLight(lobby, "GateLamp", G + Vector3.new(0, 15, FRONT - 3), Color3.fromRGB(190, 210, 255), 0.6, 24)
+
+	-- ป้ายบริจาค (หน้าป้ายเปล่า DonationBoard_Face ไว้ใส่ SurfaceGui ทำ dashboard ผู้บริจาค) หันเข้าลาน
+	placeTempleUnit(store, "DonationBoard", at(-24, 50, 180), lobby)
+	-- ตู้บริจาค (จุดกดโดเนท) ข้างทางเข้ากำแพงแก้วโบสถ์ หันเข้าหาทางเดิน
+	local box = placeTempleUnit(store, "DonationBox", at(-8.5, 28, 90), lobby)
+	local glass = box:FindFirstChild("DonationBox_Glass") :: BasePart
+	if glass then
+		glass.Material = Enum.Material.Glass
+		glass.Transparency = 0.55
+	end
+	-- รถเข็นขายทุกอย่าง (ร้านค้า) ฝั่งขวาของทางเดิน หันเข้าหาทางเดิน
+	local cart = placeTempleUnit(store, "ShopCart", at(22, 44, -90), lobby)
+	templeLabels(cart:FindFirstChild("ShopCart_Sign") :: BasePart, { { "ขายทุกอย่าง · All Goods", 0.5, 0.95 } }, 50)
+	templeLight(lobby, "ShopCartLamp", G + Vector3.new(21, 10.5, 44), Color3.fromRGB(255, 214, 150), 0.7, 14)
+
+	-- ธาตุเก็บกระดูก 2 กลุ่ม (บางองค์เอียงนิดๆ ให้ดูเก่า)
+	local stupas = Instance.new("Model")
+	stupas.Name = "BoneStupas"
+	stupas.Parent = lobby
+	local rng = Random.new(907)
+	local KINDS = { "BoneStupa_A", "BoneStupa_B", "BoneStupa_C" }
+	local spots = {}
+	for r = 0, 2 do
+		for c = 0, 3 do
+			table.insert(spots, { -38 + c * 6.5 + (r % 2) * 2, -62 + r * 7 })
+		end
+	end
+	for r = 0, 1 do
+		for c = 0, 3 do
+			table.insert(spots, { 28 + c * 6.5, -63 + r * 7 })
+		end
+	end
+	for i, sp in ipairs(spots) do
+		local kind = KINDS[(i * 7 + rng:NextInteger(0, 2)) % 3 + 1]
+		local cf = at(sp[1] + rng:NextNumber(-0.8, 0.8), sp[2] + rng:NextNumber(-0.8, 0.8), rng:NextInteger(-1, 1) * 4)
+		if rng:NextNumber() < 0.25 then
+			cf *= CFrame.Angles(math.rad(rng:NextNumber(-3, 3)), 0, math.rad(rng:NextNumber(-3, 3)))
+		end
+		placeTempleUnit(store, kind, cf, stupas).Name = kind .. "_" .. i
+	end
+
+	-- ต้นมะม่วงในวัด (ใบไหวด้วย tag LeafFlutter จาก TagWindPlants ห้ามติด WindSway)
+	local mangoStore = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	if mangoStore and mangoStore:FindFirstChild("MangoTree") then
+		for i, p in ipairs({ { -30, 48, 30 }, { -20, 34, 140 }, { -72, -14, 250 }, { 70, -38, 80 }, { 12, -60, 200 } }) do
+			local m = Instance.new("Model")
+			m.Name = "TempleMango_" .. i
+			m:SetAttribute("ImportedProp", true)
+			local base = G + Vector3.new(p[1], -0.4, p[2])
+			local pl = placeGroup(mangoStore :: Folder, "MangoTree", { "MangoTrunk", "MangoTwigs" }, base, p[3], "origin", m)
+			m.PrimaryPart = pl.MangoTrunk
+			m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(p[3]), 0)
+			pl.MangoTwigs.CanCollide = false
+			m.Parent = lobby
+			MapBuilder.AddMangoLeaves(m)
+		end
+	else
+		warn("[MapBuilder] BuildTempleLobby: ไม่พบ ImportedProps.MangoTree ข้ามการปลูกต้นไม้")
+	end
+
+	lobby.Parent = Workspace
+	MapBuilder.TagWindPlants()
+	print("🛕 [MapBuilder] สร้างวัด Workspace.TempleLobby ที่ " .. tostring(O))
+	return lobby
+end
+
 return MapBuilder
