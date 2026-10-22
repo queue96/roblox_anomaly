@@ -18,10 +18,11 @@
 3. **[src/shared/MapBuilder.luau](src/shared/MapBuilder.luau)** — โมดูลสร้างฉาก ระบบจัดการโมเดลจาก Toolbox และฟังก์ชันอัปเดตเฉพาะจุด (`PaintTerrainRoad`, `AddSacredBanyanZone`, `AddSideRiceFields`, `SplitSideRiceFields`, `BuildCompactPerimeter`)
 4. **[src/server/GameManager.server.luau](src/server/GameManager.server.luau)** — สคริปต์ควบคุมเกมฝั่ง Server (ระบบสลับแสงกลางคืนอัตโนมัติเมื่อกด Play, ไฟนีออนกะพริบ, เชือกดึงแผงสังกะสี `ShutterDoor`)
 5. **[src/shared/LanguageModule.luau](src/shared/LanguageModule.luau)** & **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** — ระบบ 2 ภาษา (`TH`/`EN`) และหน้าจอ HUD แสดงเงิน `500฿` + ธูป 3 ดอก
-6. **[index.html](index.html)** & **[phases.html](phases.html)** — แดชบอร์ดจำลองการเล่นและเช็กลิสต์ติดตามความคืบหน้าทั้ง 5 เฟส
+6. **[src/client/AmbienceController.client.luau](src/client/AmbienceController.client.luau)** — บรรยากาศกลางคืนฝั่ง Client: เสียงจิ้งหรีดเหงาๆ ที่บางช่วงเงียบลงเอง + หมอกหนาวสีฟ้าซีดและหมอกเรี่ยพื้น
+7. **[index.html](index.html)** & **[phases.html](phases.html)** — แดชบอร์ดจำลองการเล่นและเช็กลิสต์ติดตามความคืบหน้าทั้ง 5 เฟส
 
 ---
 
 ## 💻 วิธีสลับทำงานหรือให้ AI ตัวอื่นทำต่อ
 เมื่อต้องการคุยงานต่อกับ AI ตัวใหม่ ให้พิมพ์คำสั่งนี้ในแชท:
-> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ปั้นฉาก Phase 1 เสร็จแล้ว กำลังจะทำต่อในส่วน..."**
+> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ Phase 1 (ปั้นฉาก) และ Phase 2 (รถแม่แบบใน ServerStorage.VehicleTemplates) เสร็จแล้ว กำลังจะทำต่อในส่วน..."**

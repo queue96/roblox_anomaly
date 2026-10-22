@@ -110,3 +110,14 @@
 - `MapBuilder.AddMountainTrees()` ต้นมะม่วงใบเบาบนภูเขาด้านข้าง 45 ต้น
 - ลมพัดหญ้า: `src/client/GrassWind.client.luau` แกว่ง Model ที่มี tag `WindSway` ไปทิศเดียวกัน (มีคลื่นลมวิ่งผ่าน) และเอนหลบเมื่อตัวละครเดินชน ปรับทิศ/แรงที่ค่าคงที่ต้นไฟล์ · ติด tag ด้วย `MapBuilder.TagWindPlants()`
 - ต้นข้าวเต็มแปลง: `RiceTile.fbx` (16 กอ 6.4×6.4 studs) + `MapBuilder.FillRicePaddies()` ปูแล้ว 213 แผ่นใน 4 แปลงเขตเล่น (`<แปลง>.RiceTiles`)
+
+## Phase 2 — รถลูกค้าแม่แบบ (`MapBuilder.BuildVehicleTemplates()`)
+`ServerStorage.VehicleTemplates` มี `CustomerBike` และ `Saleng` (ตาม phases.html)
+- `Chassis` = PrimaryPart (ล่องหน, pivot ที่พื้นใต้รถ) สั่ง `PivotTo()` เลื่อนทั้งคัน · ทุกชิ้น Anchored, CanCollide ปิด
+- `Headlight` (+SpotLight `HeadlightBeam`), `Taillight`
+- `LicensePlate`: SurfaceGui `NormalPlate` (1กข 4512 ราชบุรี) / `GhostPlate` (4444 ป่าช้า CEMETERY, Enabled=false)
+- `WheelHairAnomaly` ผมพันล้อหลัง (ซ่อน)
+- `DriverNPC`: `Torso`, `Head` (`FaceNormal` + `CreepyFace` ซ่อน), `LeftArm`, `RightArm`, `Legs` (Model เดียว ซ่อนทั้งท่อนล่างได้)
+- `GhostPassenger` ผีไร้หัวชุดไทยซ้อนท้าย (ซ่อน)
+- ชิ้นที่ซ่อนทุกชิ้นมี attribute `ShowTransparency` = ค่าความโปร่งใสตอนแสดง (ใช้ในเฟส 4)
+- `MapBuilder.RebuildVehicleRiders()` สร้างคนขับ/ผีใหม่โดยไม่แตะชิ้นอื่น

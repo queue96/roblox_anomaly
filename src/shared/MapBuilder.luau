@@ -3805,20 +3805,378 @@ function MapBuilder.AddMountainTrees(maxTrees: number?)
 	print("⛰️ [MapBuilder] ปลูกต้นไม้บนภูเขาด้านข้าง " .. #placed .. " ต้น")
 end
 
--- ติด tag "WindSway" ให้กอหญ้า/ตะไคร้ (Model ที่มีชิ้น WildGrassClump หรือ LemongrassClump) ให้ GrassWind.client แกว่งตามลม
+-- ติด tag ให้ GrassWind.client แกว่งตามลม (รันซ้ำได้ ต้องรันใหม่หลังสร้างใบไม้/ต้นข้าวใหม่):
+--   "WindSway"    = ทั้งต้นเอนจากโคน: กอหญ้า/ตะไคร้, แผ่นต้นข้าว RiceTile, ต้นกล้วย, ต้นไม้ชายทุ่ง BorderTree
+--                   attribute: SwayAmp (แรงเอน), SwaySpeed (ความเร็ว), SwayPush = false (ไม่เอนหลบเวลาคนเดินชน)
+--   "LeafFlutter" = ลำต้นนิ่ง ใบไหวทีละใบ: BanyanLeaves (ต้นไทร), MangoLeaves (ต้นมะม่วงบนภูเขา)
 function MapBuilder.TagWindPlants()
 	local CollectionService = game:GetService("CollectionService")
-	local n = 0
+	local function sway(inst: Instance, amp: number, speed: number?, push: boolean?)
+		CollectionService:AddTag(inst, "WindSway")
+		inst:SetAttribute("SwayAmp", amp)
+		inst:SetAttribute("SwaySpeed", speed)
+		inst:SetAttribute("SwayPush", push)
+	end
+	local grass, rice, trees, leaves = 0, 0, 0, 0
 	for _, d in ipairs(Workspace:GetDescendants()) do
 		if d:IsA("Model") and d:GetAttribute("ImportedProp") and (d:FindFirstChild("WildGrassClump") or d:FindFirstChild("LemongrassClump")) then
-			CollectionService:AddTag(d, "WindSway")
-			if d:FindFirstChild("LemongrassClump") then
-				d:SetAttribute("SwayAmp", 0.7)
+			sway(d, if d:FindFirstChild("LemongrassClump") then 0.7 else 1)
+			grass += 1
+		elseif d:IsA("BasePart") and d.Name == "RiceTile" and d.Parent and d.Parent.Name == "RiceTiles" then
+			-- แผ่นข้าวกว้าง 6 studs เอนมากไม่ได้ (ขอบแผ่นจะลอยพ้นน้ำ) และไม่ให้เอนหลบคนทั้งแผ่น
+			sway(d, 0.5, 1.15, false)
+			rice += 1
+		elseif d:IsA("Model") and d.Name:match("^BananaTree") then
+			sway(d, 0.45, 0.75)
+			trees += 1
+		elseif d:IsA("Model") and d.Name:match("^BorderTree") then
+			if d:FindFirstChild("MangoLeaves") then
+				-- ต้นมะม่วงชายทุ่งมีใบ ~110 แผ่น: ให้แค่ใบไหว (LeafFlutter) ถ้าเอนทั้งต้นด้วยจะหนักเครื่องและขยับซ้อนกัน
+				CollectionService:RemoveTag(d, "WindSway")
+			else
+				sway(d, 0.3, 0.6, false)
+				trees += 1
 			end
-			n += 1
+		elseif d:IsA("Model") and (d.Name == "BanyanLeaves" or d.Name == "MangoLeaves") then
+			CollectionService:AddTag(d, "LeafFlutter")
+			leaves += 1
 		end
 	end
-	print("🌬️ [MapBuilder] ติด tag WindSway ให้กอหญ้า " .. n .. " กอ")
+	print(string.format("🌬️ [MapBuilder] ติด tag ลม: กอหญ้า %d กอ, ต้นข้าว %d แผ่น, ต้นกล้วย/ต้นไม้ชายทุ่ง %d ต้น, พุ่มใบไม้ %d พุ่ม", grass, rice, trees, leaves))
+end
+
+-- ===================================================================================
+-- Phase 2: รถลูกค้าแม่แบบ (ServerStorage.VehicleTemplates) ตาม phases.html
+-- ใช้โมเดล CustomerBike / Saleng ที่นำเข้าจาก Blender (Workspace.NewModels) แล้วเพิ่ม:
+--   Chassis (PrimaryPart, แกนกลางสำหรับ PivotTo), Headlight (+SpotLight), LicensePlate (SurfaceGui ปกติ/ผี),
+--   WheelHairAnomaly (เส้นผม+ผ้าห่อศพพันล้อ ซ่อนไว้), DriverNPC (คนขับ), GhostPassenger (ผีไร้หัวซ้อนท้าย ซ่อนไว้)
+-- แกนของรถ: หน้ารถ = -Z, pivot ของรถอยู่ที่พื้นใต้กึ่งกลางรถ หน่วย studs
+-- ชิ้นที่ซ่อนไว้ทุกชิ้นมี attribute "ShowTransparency" = ค่าความโปร่งใสตอนแสดง ให้โค้ด Phase 4 ใช้คืนค่า
+-- ===================================================================================
+local SKIN = Color3.fromRGB(176, 128, 92)
+local GHOST_SKIN = Color3.fromRGB(196, 196, 178)
+
+local function vPart(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanTouch = false
+	p.CanQuery = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+-- ส่วนตัวที่เป็นแท่งระหว่างสองจุด (แขน ขา)
+local function limb(parent: Instance, name: string, a: Vector3, b: Vector3, thick: number, color: Color3, material: Enum.Material?): Part
+	local len = (b - a).Magnitude
+	return vPart(parent, name, Vector3.new(thick, thick, len), CFrame.lookAt((a + b) / 2, b), color, material)
+end
+
+local function hideForAnomaly(root: Instance)
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			d:SetAttribute("ShowTransparency", d.Transparency)
+			d.Transparency = 1
+		end
+	end
+	if root:IsA("BasePart") then
+		root:SetAttribute("ShowTransparency", root.Transparency)
+		root.Transparency = 1
+	end
+end
+
+-- คนขับ: ชาวบ้านเสื้อม่อฮ่อม กางเกงขาก๊วย ผ้าขาวม้าคาดเอว นั่งบิดรถ มือจับแฮนด์ เท้าวางที่พักเท้า
+-- hip = จุดก้นบนเบาะ, grip = ตำแหน่งปลายแฮนด์ (x ซ้าย/ขวา), foot = ที่พักเท้า (ทั้งหมดเป็นพิกัดในเฟรมของรถ)
+local function buildDriver(vehicleCF: CFrame, hip: Vector3, gripL: Vector3, gripR: Vector3, footL: Vector3, footR: Vector3): Model
+	local m = Instance.new("Model")
+	m.Name = "DriverNPC"
+	local function at(v: Vector3): Vector3
+		return vehicleCF:PointToWorldSpace(v)
+	end
+	local lean = CFrame.Angles(math.rad(-12), 0, 0) -- ตัวเอนไปข้างหน้าเล็กน้อย
+	local torsoCF = vehicleCF * CFrame.new(hip + Vector3.new(0, 1.15, -0.05)) * lean
+	local torso = vPart(m, "Torso", Vector3.new(1.9, 2.0, 1.0), torsoCF, Color3.fromRGB(28, 34, 58), Enum.Material.Fabric)
+	-- ผ้าขาวม้าคาดเอว
+	vPart(m, "Sash", Vector3.new(2.0, 0.35, 1.1), torsoCF * CFrame.new(0, -0.8, 0), Color3.fromRGB(150, 40, 40), Enum.Material.Fabric)
+	-- หัว (ทรง R6) + หน้าปกติ + หน้ายิ้มหลอน (ซ่อน)
+	local head = vPart(m, "Head", Vector3.new(1.9, 0.95, 0.95), torsoCF * CFrame.new(0, 1.5, 0), SKIN)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Head
+	mesh.Scale = Vector3.new(1.25, 1.25, 1.25)
+	mesh.Parent = head
+	local face = Instance.new("Decal")
+	face.Name = "FaceNormal"
+	face.Texture = "rbxasset://textures/face.png"
+	face.Face = Enum.NormalId.Front
+	face.Parent = head
+	-- หน้ายิ้มฉีกถึงใบหู (ตาโปนขาว + ปากดำแดงกว้าง) ซ่อนไว้ใช้กับ anomaly
+	local creepy = Instance.new("Model")
+	creepy.Name = "CreepyFace"
+	creepy.Parent = head
+	local hf = head.CFrame
+	for _, s in ipairs({ -1, 1 }) do
+		vPart(creepy, "Eye", Vector3.new(0.28, 0.28, 0.28), hf * CFrame.new(s * 0.27, 0.15, -0.55), Color3.fromRGB(240, 240, 230), Enum.Material.Neon, Enum.PartType.Ball)
+		vPart(creepy, "Pupil", Vector3.new(0.1, 0.1, 0.1), hf * CFrame.new(s * 0.27, 0.15, -0.68), Color3.fromRGB(10, 10, 10), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	end
+	vPart(creepy, "Smile", Vector3.new(1.3, 0.12, 0.06), hf * CFrame.new(0, -0.25, -0.6), Color3.fromRGB(40, 0, 0))
+	for _, s in ipairs({ -1, 1 }) do
+		vPart(creepy, "SmileCorner", Vector3.new(0.5, 0.1, 0.06), hf * CFrame.new(s * 0.78, -0.08, -0.48) * CFrame.Angles(0, s * math.rad(-35), s * math.rad(25)), Color3.fromRGB(40, 0, 0))
+	end
+	vPart(creepy, "Teeth", Vector3.new(1.1, 0.06, 0.05), hf * CFrame.new(0, -0.2, -0.62), Color3.fromRGB(220, 210, 180))
+	hideForAnomaly(creepy)
+	-- แขน: ไหล่ -> ศอก -> มือจับแฮนด์
+	for _, side in ipairs({ { -1, gripL, "LeftArm" }, { 1, gripR, "RightArm" } }) do
+		local s, grip, name = side[1], side[2], side[3]
+		local shoulder = torsoCF:PointToWorldSpace(Vector3.new(s * 1.1, 0.75, 0))
+		local hand = at(grip)
+		local elbow = (shoulder + hand) / 2 + vehicleCF:VectorToWorldSpace(Vector3.new(s * 0.35, -0.35, 0))
+		local arm = Instance.new("Model")
+		arm.Name = name
+		arm.Parent = m
+		limb(arm, "Upper", shoulder, elbow, 0.75, Color3.fromRGB(28, 34, 58), Enum.Material.Fabric)
+		limb(arm, "Lower", elbow, hand, 0.6, SKIN)
+		vPart(arm, "Hand", Vector3.new(0.45, 0.45, 0.45), CFrame.new(hand), SKIN, nil, Enum.PartType.Ball)
+	end
+	-- ขา (Model "Legs" เพื่อซ่อนทั้งท่อนล่างได้ในคำสั่งเดียว): สะโพก -> เข่า -> เท้าบนที่พักเท้า
+	local legs = Instance.new("Model")
+	legs.Name = "Legs"
+	legs.Parent = m
+	for _, side in ipairs({ { -1, footL, "Left" }, { 1, footR, "Right" } }) do
+		local s, foot, name = side[1], side[2], side[3]
+		local hp = at(hip + Vector3.new(s * 0.5, 0.15, 0))
+		local knee = at(Vector3.new(s * 0.75, hip.Y + 0.35, foot.Z - 0.15))
+		local ft = at(foot + Vector3.new(0, 0.25, 0))
+		limb(legs, name .. "Thigh", hp, knee, 0.85, Color3.fromRGB(20, 20, 24), Enum.Material.Fabric)
+		limb(legs, name .. "Shin", knee, ft, 0.7, Color3.fromRGB(20, 20, 24), Enum.Material.Fabric)
+		vPart(legs, name .. "Foot", Vector3.new(0.5, 0.3, 0.9), vehicleCF * CFrame.new(foot + Vector3.new(0, 0.15, -0.15)), Color3.fromRGB(70, 50, 35))
+	end
+	return m
+end
+
+-- ผีไร้หัวซ้อนท้าย: หญิงชุดไทย (สไบครีม ผ้าซิ่นแดงขอบทอง) นั่งกอดเอวคนขับ คอขาดเปื้อนเลือด (ซ่อนไว้ตั้งแต่เริ่ม)
+local function buildGhostPassenger(vehicleCF: CFrame, hip: Vector3, driverWaist: Vector3): Model
+	local m = Instance.new("Model")
+	m.Name = "GhostPassenger"
+	local function at(v: Vector3): Vector3
+		return vehicleCF:PointToWorldSpace(v)
+	end
+	local torsoCF = vehicleCF * CFrame.new(hip + Vector3.new(0, 1.05, 0)) * CFrame.Angles(math.rad(-10), 0, 0)
+	vPart(m, "Torso", Vector3.new(1.6, 1.8, 0.85), torsoCF, GHOST_SKIN)
+	-- สไบพาดเฉียง
+	vPart(m, "Sabai", Vector3.new(1.7, 0.7, 0.95), torsoCF * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.rad(28)), Color3.fromRGB(214, 196, 150), Enum.Material.Fabric)
+	vPart(m, "Belt", Vector3.new(1.7, 0.22, 0.95), torsoCF * CFrame.new(0, -0.8, 0), Color3.fromRGB(176, 140, 60), Enum.Material.Metal)
+	-- คอขาด
+	vPart(m, "NeckStump", Vector3.new(0.25, 0.55, 0.55), torsoCF * CFrame.new(0, 1.02, 0) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(110, 10, 12), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+	vPart(m, "BloodDrip", Vector3.new(0.12, 0.6, 0.06), torsoCF * CFrame.new(0.2, 0.65, -0.44), Color3.fromRGB(110, 10, 12))
+	-- แขนอ้อมกอดเอวคนขับ
+	for _, s in ipairs({ -1, 1 }) do
+		local shoulder = torsoCF:PointToWorldSpace(Vector3.new(s * 0.95, 0.65, 0))
+		local hand = at(driverWaist + Vector3.new(s * 0.55, 0, -0.4))
+		local elbow = at(driverWaist + Vector3.new(s * 1.25, 0.05, 0.45))
+		limb(m, "Arm", shoulder, elbow, 0.5, GHOST_SKIN)
+		limb(m, "Forearm", elbow, hand, 0.42, GHOST_SKIN)
+	end
+	-- ผ้าซิ่นคลุมตักถึงข้อเท้า นั่งคร่อม
+	for _, s in ipairs({ -1, 1 }) do
+		local hp = at(hip + Vector3.new(s * 0.45, 0.2, 0))
+		local knee = at(Vector3.new(s * 0.7, hip.Y + 0.1, hip.Z - 0.55))
+		local ft = at(Vector3.new(s * 0.68, 1.0, hip.Z - 0.65))
+		limb(m, "SkirtThigh", hp, knee, 0.7, Color3.fromRGB(96, 18, 22), Enum.Material.Fabric)
+		limb(m, "SkirtShin", knee, ft, 0.62, Color3.fromRGB(96, 18, 22), Enum.Material.Fabric)
+		vPart(m, "SkirtHem", Vector3.new(0.68, 0.1, 0.68), CFrame.new(ft + Vector3.new(0, 0.05, 0)), Color3.fromRGB(176, 140, 60), Enum.Material.Fabric)
+	end
+	hideForAnomaly(m)
+	return m
+end
+
+-- เส้นผมยาวดำ + ผ้าขาวห่อศพพันซี่ล้อหลัง (ซ่อนไว้)
+local function buildWheelHair(vehicleCF: CFrame, hub: Vector3, radius: number): Model
+	local m = Instance.new("Model")
+	m.Name = "WheelHairAnomaly"
+	local rng = Random.new(10)
+	for k = 1, 14 do
+		local a0 = rng:NextNumber(0, math.pi * 2)
+		local prev = nil
+		for j = 0, 5 do
+			local a = a0 + j * 0.45
+			local r = radius * rng:NextNumber(0.45, 1.0)
+			local x = rng:NextNumber(-0.18, 0.18)
+			local p = vehicleCF:PointToWorldSpace(hub + Vector3.new(x, r * math.sin(a), r * math.cos(a)))
+			if prev then
+				limb(m, "Hair", prev, p, 0.05, Color3.fromRGB(8, 8, 8))
+			end
+			prev = p
+		end
+		-- ปอยผมห้อยลงพื้น
+		limb(m, "HairTail", prev, prev + Vector3.new(0, -rng:NextNumber(0.3, 0.9), 0), 0.05, Color3.fromRGB(8, 8, 8))
+	end
+	for k = 1, 3 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local p0 = vehicleCF:PointToWorldSpace(hub + Vector3.new(0, 0.5 * math.sin(a), 0.5 * math.cos(a)))
+		local p1 = vehicleCF:PointToWorldSpace(hub + Vector3.new(0.1, 0.95 * math.sin(a + 0.8), 0.95 * math.cos(a + 0.8)))
+		local cloth = limb(m, "ShroudCloth", p0, p1, 0.22, Color3.fromRGB(226, 222, 206), Enum.Material.Fabric)
+		cloth.Size = Vector3.new(cloth.Size.X, 0.06, cloth.Size.Z)
+	end
+	hideForAnomaly(m)
+	return m
+end
+
+-- ป้ายทะเบียน: SurfaceGui ปกติ (พื้นขาวตัวดำ) + ป้ายผี (พื้นดำเปื้อนเลือด ตัวแดงเรืองแสง) ซ่อนไว้
+local function buildPlate(vehicleCF: CFrame, center: Vector3): Part
+	local plate = vPart(Instance.new("Folder"), "LicensePlate", Vector3.new(0.92, 0.5, 0.03), vehicleCF * CFrame.new(center) * CFrame.Angles(math.rad(8), 0, 0), Color3.fromRGB(235, 235, 230))
+	local function gui(name: string, bg: Color3, fg: Color3, top: string, bottom: string, glow: boolean, enabled: boolean)
+		local g = Instance.new("SurfaceGui")
+		g.Name = name
+		g.Face = Enum.NormalId.Back -- ท้ายรถ (+Z)
+		g.CanvasSize = Vector2.new(184, 100)
+		g.LightInfluence = if glow then 0 else 1
+		g.Brightness = if glow then 2 else 1
+		g.Enabled = enabled
+		g.Parent = plate
+		local f = Instance.new("Frame")
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundColor3 = bg
+		f.BorderSizePixel = 0
+		f.Parent = g
+		for i, txt in ipairs({ top, bottom }) do
+			local t = Instance.new("TextLabel")
+			t.BackgroundTransparency = 1
+			t.Size = UDim2.new(1, -8, if i == 1 then 0.6 else 0.4, 0)
+			t.Position = UDim2.new(0, 4, if i == 1 then 0 else 0.6, 0)
+			t.Text = txt
+			t.TextColor3 = fg
+			t.TextScaled = true
+			t.Font = Enum.Font.GothamBold
+			t.Parent = f
+		end
+		return g
+	end
+	gui("NormalPlate", Color3.fromRGB(240, 240, 235), Color3.fromRGB(20, 20, 20), "1กข 4512", "ราชบุรี RATCHABURI", false, true)
+	local ghost = gui("GhostPlate", Color3.fromRGB(14, 6, 6), Color3.fromRGB(255, 30, 30), "4444", "ป่าช้า CEMETERY", true, false)
+	-- คราบเลือดบนป้ายผี
+	for k = 1, 3 do
+		local d = Instance.new("Frame")
+		d.BackgroundColor3 = Color3.fromRGB(90, 0, 0)
+		d.BorderSizePixel = 0
+		d.Size = UDim2.new(0, 10 + k * 6, 0, 30 + k * 12)
+		d.Position = UDim2.new(0.15 + k * 0.25, 0, 0, 0)
+		d.ZIndex = 0
+		d.Parent = ghost:FindFirstChildOfClass("Frame")
+	end
+	return plate
+end
+
+function MapBuilder.BuildVehicleTemplates()
+	local ss = game:GetService("ServerStorage")
+	local folder = ss:FindFirstChild("VehicleTemplates") or Instance.new("Folder")
+	folder.Name = "VehicleTemplates"
+	folder.Parent = ss
+	local nm = Workspace:FindFirstChild("NewModels")
+	-- พิกัดอ้างอิงจาก Blender (assets/models: CustomerBike.fbx / Saleng.fbx) แปลงเป็นแกน Roblox: X=-bx, Y=bz, Z=by
+	local HIP = Vector3.new(0, 2.78, 0.95)
+	local HIP2 = Vector3.new(0, 2.78, 2.25)
+	local GRIP_L, GRIP_R = Vector3.new(1.05, 3.6, -1.3), Vector3.new(-1.05, 3.6, -1.3)
+	local FOOT_L, FOOT_R = Vector3.new(0.82, 0.85, -0.05), Vector3.new(-0.82, 0.85, -0.05)
+	for _, name in ipairs({ "CustomerBike", "Saleng" }) do
+		local src = (nm and nm:FindFirstChild(name)) or folder:FindFirstChild(name)
+		if src and not src:GetAttribute("TemplateReady") then
+			local m = src :: Model
+			local base = m:GetPivot() -- pivot = จุดกำเนิดจาก Blender (พื้นใต้กึ่งกลางรถ)
+			local baseCF = CFrame.new(base.Position) * (base - base.Position)
+			for _, d in ipairs(m:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+					d.CanCollide = false
+				end
+			end
+			-- แกนกลางรถ
+			local chassis = vPart(m, "Chassis", Vector3.new(1.2, 1.6, 5.2), baseCF * CFrame.new(0, 1.8, 0.1), Color3.fromRGB(255, 0, 255))
+			chassis.Transparency = 1
+			chassis.CanCollide = true
+			chassis.CanQuery = true
+			chassis.PivotOffset = CFrame.new(0, -1.8, -0.1) -- pivot ของรถ = พื้นใต้รถ
+			m.PrimaryPart = chassis
+			-- ไฟหน้า (+SpotLight ส่องไปข้างหน้ากดลงพื้นเล็กน้อย)
+			local hl = m:FindFirstChild("Headlight_Neon")
+			if hl and hl:IsA("BasePart") then
+				hl.Name = "Headlight"
+				hl.Material = Enum.Material.Neon
+				hl.Color = Color3.fromRGB(255, 236, 190)
+				local sa = hl:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					sa:Destroy()
+				end
+				local att = Instance.new("Attachment")
+				att.Name = "BeamAttachment"
+				att.Parent = hl
+				att.WorldCFrame = CFrame.lookAt(hl.Position, hl.Position + baseCF:VectorToWorldSpace(Vector3.new(0, -0.25, -1)))
+				local spot = Instance.new("SpotLight")
+				spot.Name = "HeadlightBeam"
+				spot.Face = Enum.NormalId.Front
+				spot.Angle = 50
+				spot.Range = 40
+				spot.Brightness = 3
+				spot.Color = Color3.fromRGB(255, 232, 180)
+				spot.Parent = att
+			end
+			local tl = m:FindFirstChild("Taillight_Neon")
+			if tl and tl:IsA("BasePart") then
+				tl.Name = "Taillight"
+				tl.Material = Enum.Material.Neon
+				tl.Color = Color3.fromRGB(200, 20, 20)
+				local sa = tl:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					sa:Destroy()
+				end
+			end
+			-- ป้ายทะเบียน: ชิ้น mesh เดิมเปลี่ยนชื่อเป็นกรอบป้าย แล้ววางป้ายที่มี SurfaceGui ทับด้านหลัง
+			local plateMesh = m:FindFirstChild("LicensePlate")
+			if plateMesh then
+				plateMesh.Name = "LicensePlateFrame"
+			end
+			local plate = buildPlate(baseCF, Vector3.new(0, 1.62, 3.36))
+			plate.Parent = m
+			buildWheelHair(baseCF, Vector3.new(0, 1.03, 2.1), 0.8).Parent = m
+			buildDriver(baseCF, HIP, GRIP_L, GRIP_R, FOOT_L, FOOT_R).Parent = m
+			buildGhostPassenger(baseCF, HIP2, HIP + Vector3.new(0, 0.9, 0)).Parent = m
+			m.Parent = folder
+			m:SetAttribute("TemplateReady", true)
+		end
+	end
+	print("🛵 [MapBuilder] เตรียมรถแม่แบบใน ServerStorage.VehicleTemplates แล้ว")
+end
+
+-- สร้างคนขับ/ผีซ้อนท้ายของรถแม่แบบใหม่ (หลังแก้สัดส่วน) โดยไม่แตะชิ้นอื่นของรถ
+function MapBuilder.RebuildVehicleRiders()
+	local folder = game:GetService("ServerStorage"):FindFirstChild("VehicleTemplates")
+	if not folder then
+		return
+	end
+	local HIP = Vector3.new(0, 2.78, 0.95)
+	local HIP2 = Vector3.new(0, 2.78, 2.25)
+	for _, m in ipairs(folder:GetChildren()) do
+		if m:IsA("Model") and m:FindFirstChild("Chassis") then
+			local baseCF = m:GetPivot()
+			for _, n in ipairs({ "DriverNPC", "GhostPassenger" }) do
+				local old = m:FindFirstChild(n)
+				if old then
+					old:Destroy()
+				end
+			end
+			buildDriver(baseCF, HIP, Vector3.new(1.05, 3.6, -1.3), Vector3.new(-1.05, 3.6, -1.3), Vector3.new(0.82, 0.85, -0.05), Vector3.new(-0.82, 0.85, -0.05)).Parent = m
+			buildGhostPassenger(baseCF, HIP2, HIP + Vector3.new(0, 0.9, 0)).Parent = m
+		end
+	end
 end
 
 -- จัดมุมปะยาง: ถังปั๊มลมอยู่หน้าสุดใกล้ถนน (เด่นสุด เผื่อ event กับเครื่อง) กองยางเก่าอยู่ด้านหลังและข้างๆ
