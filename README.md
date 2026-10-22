@@ -20,10 +20,12 @@
 5. **[src/shared/LanguageModule.luau](src/shared/LanguageModule.luau)** & **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** — ระบบ 2 ภาษา (`TH`/`EN`) และหน้าจอ HUD แสดงเงิน `500฿` + ธูป 3 ดอก
 6. **[src/client/AmbienceController.client.luau](src/client/AmbienceController.client.luau)** — บรรยากาศกลางคืนฝั่ง Client: เสียงจิ้งหรีดเหงาๆ ที่บางช่วงเงียบลงเอง + หมอกหนาวสีฟ้าซีดและหมอกเรี่ยพื้น
 8. **[src/server/CoreLoop.luau](src/server/CoreLoop.luau)** — Phase 3 ลูปหลัก: รถลูกค้าขี่มาจอด, ล็อกปุ่ม 3 วิ, เติมน้ำมัน (กดค้าง 3 วิ) / ดึงแผงปิดร้าน (0.5 วิ), เงิน 500฿, ธูป 3 ดอก, ชนะ/แพ้ ค่าปรับเกมอยู่ใน `CONFIG` · ทดสอบได้ด้วย `ServerStorage.DevDecision:Fire("fuel" | "reject")`
+9. **[src/server/AnomalyManager.luau](src/server/AnomalyManager.luau)** — Phase 4 ผี 10 ตัว (Headless, Cemetery 4444, WheelHair, NeckTwist, CreepySmile, Krasue, MonkRadio, Tani, Scarecrow, BloodFuel) แต่ละตัวมี apply/reset, `ResetAnomalies()` ตอนรถขี่ออก, หมาหอนในทุ่ง · บังคับผีตัวถัดไปด้วย `ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue")` (หรือ `"Normal"`)
+10. **[src/server/Flashlight.server.luau](src/server/Flashlight.server.luau)** — ไฟฉายกบ (StarterPack.FrogFlashlight) คลิกเปิด/ปิด SpotLight ฝั่ง Server
 7. **[index.html](index.html)** & **[phases.html](phases.html)** — แดชบอร์ดจำลองการเล่นและเช็กลิสต์ติดตามความคืบหน้าทั้ง 5 เฟส
 
 ---
 
 ## 💻 วิธีสลับทำงานหรือให้ AI ตัวอื่นทำต่อ
 เมื่อต้องการคุยงานต่อกับ AI ตัวใหม่ ให้พิมพ์คำสั่งนี้ในแชท:
-> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ Phase 1 (ปั้นฉาก), Phase 2 (รถแม่แบบใน ServerStorage.VehicleTemplates) และ Phase 3 (Core Loop ใน src/server/CoreLoop.luau) เสร็จแล้ว กำลังจะทำต่อในส่วน..."**
+> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ Phase 1 (ปั้นฉาก), Phase 2 (รถแม่แบบใน ServerStorage.VehicleTemplates) Phase 3 (Core Loop ใน src/server/CoreLoop.luau) และ Phase 4 (ผี 10 ตัวใน src/server/AnomalyManager.luau + ไฟฉาย) เสร็จแล้ว กำลังจะทำต่อในส่วน..."**

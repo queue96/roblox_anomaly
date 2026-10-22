@@ -37,6 +37,35 @@ LanguageModule.Dialogues = {
 		th = "เติมน้ำมันให้หน่อย... ล้อมันหนักๆ เหมือนมีใครดึงไว้...",
 		en = "Some fuel please... my wheels feel heavy, like someone is pulling them...",
 	},
+	-- ผีเพิ่ม (Phase 4: AnomalyManager)
+	Anomaly_NeckTwist = {
+		th = "เติมหลอดนึง... ข้างหลังผมมีอะไรเหรอ ทำไมมองไม่เห็นทางเลย...",
+		en = "One cylinder... is something behind me? I can't see the road at all...",
+	},
+	Anomaly_CreepySmile = {
+		th = "เติมน้ำมันให้หน่อยสิ... ยิ้มให้หน่อยก็ได้นะ หึหึหึ",
+		en = "Fill it up for me... and give me a smile, won't you? Heh heh heh.",
+	},
+	Anomaly_Krasue = {
+		th = "ขอน้ำมันหน่อยจ้ะ... คืนนี้ป้าหิวเหลือเกิน...",
+		en = "Some fuel, dear... auntie is so very hungry tonight...",
+	},
+	Anomaly_MonkRadio = {
+		th = "เติมหลอดนึงครับ... วิทยุร้านนี้เปิดเพลงเพราะดีนะ...",
+		en = "One cylinder please... nice song on your radio tonight...",
+	},
+	Anomaly_Tani = {
+		th = "เติมน้ำมันให้หน่อย... ผู้หญิงตรงกอกล้วยนั่นเขารอใครอยู่เหรอ...",
+		en = "Some fuel please... who is that woman waiting by the banana grove...",
+	},
+	Anomaly_Scarecrow = {
+		th = "เติมเต็มหลอดเลย... หุ่นไล่กาตัวนั้นมันเดินตามผมมาตั้งแต่หัวทุ่ง...",
+		en = "Fill it up... that scarecrow has been following me since the edge of the field...",
+	},
+	Anomaly_BloodFuel = {
+		th = "เติมน้ำมันสีแดงๆ นั่นให้หน่อย... หอมดีจัง...",
+		en = "Fill me up with that red stuff... it smells so good...",
+	},
 }
 
 -- ข้อความหน้าจอ (HUD)

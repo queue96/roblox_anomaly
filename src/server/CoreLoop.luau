@@ -5,7 +5,7 @@
 --   -> ผู้เล่นเลือก "เติมน้ำมัน" (กดค้าง 3 วิ ที่ตู้ปั๊ม) หรือ "ดึงแผงปิดร้าน" (กดค้าง 0.5 วิ ที่เชือก)
 --   -> ตรวจคำตอบจาก currentVehicleIsAnomaly: ถูกได้เงิน / เติมให้ผีธูปดับ 1 ดอก + หักเงิน
 --   -> รถขี่ออกไปทาง ExitPoint แล้วเสกคันต่อไป  ครบ 500฿ = ชนะ  ธูปดับครบ 3 ดอก = แพ้
--- Phase 4 จะเพิ่มชนิดผีโดยใส่ฟังก์ชันใน ANOMALIES (ตอนนี้มี 3 แบบที่ใช้ชิ้นส่วนในรถแม่แบบ)
+-- Phase 4: ชนิดผีทั้งหมดอยู่ใน AnomalyManager.luau (Apply ตอนเสกรถ, ResetAnomalies ตอนรถขี่ออกไป)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -132,43 +132,8 @@ local function refreshIncense()
 	end
 end
 
--- ---------------------------------------------------------------- ผีที่ซ่อนในรถแม่แบบ
-local function showPart(root: Instance)
-	for _, d in ipairs(root:GetDescendants()) do
-		local t = d:GetAttribute("ShowTransparency")
-		if t ~= nil and (d:IsA("BasePart") or d:IsA("Decal")) then
-			(d :: any).Transparency = t
-		end
-	end
-end
-
--- key = ชื่อ anomaly (ใช้เป็นคีย์บทพูดใน LanguageModule ด้วย), ฟังก์ชันรับรถที่ Clone แล้ว
-local ANOMALIES: { [string]: (Model) -> () } = {
-	Anomaly_Headless = function(v)
-		local g = v:FindFirstChild("GhostPassenger")
-		if g then
-			showPart(g)
-		end
-	end,
-	Anomaly_Cemetery = function(v)
-		local plate = v:FindFirstChild("LicensePlate")
-		if plate then
-			plate.NormalPlate.Enabled = false
-			plate.GhostPlate.Enabled = true
-		end
-	end,
-	Anomaly_WheelHair = function(v)
-		local h = v:FindFirstChild("WheelHairAnomaly")
-		if h then
-			showPart(h)
-		end
-	end,
-}
-local ANOMALY_KEYS = {}
-for k in pairs(ANOMALIES) do
-	table.insert(ANOMALY_KEYS, k)
-end
-table.sort(ANOMALY_KEYS)
+-- ---------------------------------------------------------------- ผี (Phase 4: อยู่ใน AnomalyManager.luau)
+local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
 local NORMAL_LINES = { "Normal_Uncle", "Normal_Aunt", "Normal_Student", "Normal_Farmer" }
 
 -- ---------------------------------------------------------------- การขี่รถ
@@ -301,6 +266,8 @@ devDecision.Parent = ServerStorage
 devDecision.Event:Connect(function(choice: string)
 	CoreLoop.Decide(choice, "DevDecision")
 end)
+-- ทดสอบผีเฉพาะตัว: ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue") -> ลูกค้าคันถัดไปเป็นผีนี้
+-- ("Normal" = บังคับลูกค้าปกติ)
 
 -- สถานะสำหรับทดสอบ
 function CoreLoop.State()
@@ -344,11 +311,20 @@ end
 local function serveOneCustomer()
 	local tpl = pickTemplate()
 	local v = tpl:Clone()
-	currentVehicleIsAnomaly = math.random() < CONFIG.AnomalyChance
+	local forced = devDecision:GetAttribute("ForceAnomaly")
+	devDecision:SetAttribute("ForceAnomaly", nil)
+	if forced == "Normal" then
+		currentVehicleIsAnomaly = false
+	elseif type(forced) == "string" and AnomalyManager.Anomalies[forced] then
+		currentVehicleIsAnomaly = true
+	else
+		forced = nil
+		currentVehicleIsAnomaly = math.random() < CONFIG.AnomalyChance
+	end
 	currentAnomaly = nil
 	if currentVehicleIsAnomaly then
-		currentAnomaly = ANOMALY_KEYS[math.random(#ANOMALY_KEYS)]
-		ANOMALIES[currentAnomaly](v)
+		currentAnomaly = if forced then forced else AnomalyManager.Random()
+		AnomalyManager.Apply(currentAnomaly :: string, v)
 	end
 	publishState()
 	v:SetAttribute("IsAnomaly", currentVehicleIsAnomaly)
@@ -366,6 +342,7 @@ local function serveOneCustomer()
 	driveTo(v, stop, true)
 	if gameOver then
 		v:Destroy()
+		AnomalyManager.ResetAnomalies()
 		return
 	end
 	-- พูดสั่งน้ำมัน (แต่ละ Client แปลภาษาเองตาม LocaleId)
@@ -422,6 +399,8 @@ local function serveOneCustomer()
 	driveTo(v, Vector3.new(exit.X, exit.Y, exit.Z), false)
 	v:Destroy()
 	currentVehicle = nil
+	-- รถไปแล้ว: คืนวิทยุ หุ่นไล่กา ผีตานีหลังกอกล้วย น้ำมัน ให้ปกติ
+	AnomalyManager.ResetAnomalies()
 end
 
 -- ---------------------------------------------------------------- ลูปเกม
@@ -429,6 +408,7 @@ local function resetGame()
 	money = 0
 	incense = CONFIG.StartIncense
 	gameOver = false
+	AnomalyManager.ResetAnomalies()
 	refreshIncense()
 	setFuelLevel(1, 0.5)
 	broadcastHUD()
@@ -437,6 +417,7 @@ end
 
 function CoreLoop.Start()
 	math.randomseed(os.time())
+	AnomalyManager.Init()
 	task.spawn(function()
 		while true do
 			resetGame()
