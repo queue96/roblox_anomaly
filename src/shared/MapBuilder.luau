@@ -2450,4 +2450,1775 @@ function MapBuilder.BuildCompactPerimeter()
 	print("🌾🌲 [MapBuilder] ปิดจุดตกโลก + ซ้อนพุ่มไม้ทึบชายทุ่ง 2 ชั้น + ดึงกำแพงล่องหนเข้ามาด้านใน เรียบร้อย!")
 end
 
+-- หาโมเดลที่นำเข้าจาก Blender (assets/models/*.fbx) ใน Workspace.NewModels หรือ ServerStorage.ImportedProps
+local function findImportedModel(name: string): Model?
+	for _, folder in ipairs({ Workspace:FindFirstChild("NewModels"), game:GetService("ServerStorage"):FindFirstChild("ImportedProps") }) do
+		local m = folder and folder:FindFirstChild(name)
+		if m and m:IsA("Model") then
+			return m
+		end
+	end
+	return nil
+end
+
+-- ย้าย placeholder เดิมไปเก็บใน ServerStorage.ArchivedPlaceholders (ไม่ลบทิ้ง) แล้ววางโมเดลใหม่แทน
+local function archivePlaceholder(old: Instance)
+	local ss = game:GetService("ServerStorage")
+	local archive = ss:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	archive.Name = "ArchivedPlaceholders"
+	archive.Parent = ss
+	old.Parent = archive
+end
+
+-- สลับตู้ปั๊มหลอด placeholder (InteractiveProps.GasPump) เป็นโมเดล GasPump.fbx
+-- ตั้งฐานตู้ไว้ตรงฐานเดิม หันหน้าป้ายไปทาง StopPoint และย้าย PumpFuelPrompt / ZoneLabel ไปใส่ตู้ใหม่
+function MapBuilder.SwapGasPumpModel()
+	local interactive = Workspace:FindFirstChild("InteractiveProps")
+	local old = interactive and interactive:FindFirstChild("GasPump")
+	local new = findImportedModel("GasPump")
+	if not old or not new then
+		warn("[MapBuilder] SwapGasPumpModel: ไม่พบ InteractiveProps.GasPump หรือโมเดลที่นำเข้า (NewModels/ImportedProps.GasPump)")
+		return
+	end
+	if old:GetAttribute("ImportedProp") then
+		warn("[MapBuilder] SwapGasPumpModel: ตู้ปั๊มเป็นโมเดลใหม่อยู่แล้ว")
+		return
+	end
+
+	local pad = old:FindFirstChild("ConcretePad") :: BasePart?
+	local basePos = if pad then pad.Position - Vector3.new(0, pad.Size.Y / 2, 0) else old:GetPivot().Position
+	local stop = Workspace:FindFirstChild("StopPoint", true)
+	local facing = if stop then (stop:GetPivot().Position - basePos) * Vector3.new(1, 0, 1) else Vector3.new(0, 0, -1)
+	if facing.Magnitude < 0.01 then
+		facing = Vector3.new(0, 0, -1)
+	end
+	-- ด้านหน้าของโมเดลจาก Blender คือแกน -Z ซึ่ง CFrame.lookAt ชี้ไปทางเป้าหมายพอดี
+	new:PivotTo(CFrame.lookAt(basePos, basePos + facing.Unit))
+
+	local body = new:FindFirstChild("GasPump") :: BasePart?
+	local glass = new:FindFirstChild("GlassTube") :: BasePart?
+	local prompt = old:FindFirstChild("PumpFuelPrompt", true)
+	if prompt and body then
+		prompt.Parent = body
+	end
+	local label = old:FindFirstChild("ZoneLabel", true)
+	if label and glass then
+		label.Parent = glass
+	end
+	if glass then
+		glass.Material = Enum.Material.Glass
+		glass.Color = Color3.fromRGB(205, 225, 215)
+		glass.Transparency = 0.55
+		glass.CastShadow = false
+	end
+	for _, d in ipairs(new:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = d == body
+		end
+	end
+	if body then
+		new.PrimaryPart = body
+	end
+
+	archivePlaceholder(old)
+	new.Name = "GasPump"
+	new:SetAttribute("ImportedProp", true)
+	new.Parent = interactive
+	print("⛽ [MapBuilder] สลับตู้ปั๊มหลอดเป็นโมเดลใหม่แล้ว (ของเดิมเก็บไว้ที่ ServerStorage.ArchivedPlaceholders)")
+end
+
+-- ===================================================================================
+-- สลับ placeholder ทั้งฉากเป็นโมเดลจาก Blender (assets/models/*.fbx)
+-- โมเดลต้นแบบ: Workspace.NewModels.<ชื่อไฟล์> (จะถูกย้ายไปเก็บที่ ServerStorage.ImportedProps แล้ว Clone มาวาง)
+-- ของเดิมทุกชิ้นย้ายไป ServerStorage.ArchivedPlaceholders (ไม่ลบ) รันซ้ำได้ ระบบจะข้ามถ้าเคยสลับแล้ว
+-- ชื่อที่สคริปต์ใช้อยู่คงไว้: InteractiveProps.ShutterDoor / RejectRope(+RejectCustomerPrompt), DirtRoad.NeonLightPart(+FlickerLight)
+-- ===================================================================================
+local IMPORTED_TEMPLATES = {
+	"AirCompressor", "TireStack", "ShackSigns", "ShackPorchKit", "CorrugatedPanels", "ShackLight", "FuelDrum",
+	"ToolsOnGround", "TvAntennaAndPoles", "SpiritHouseOnStilts", "ShackInteriorProps", "Generator", "TinOuthouse",
+	"SacredBanyanProps", "RoadsideProps", "ShackShelf", "ShackSeats", "WelcomeSign", "WoodPlankWalls",
+	"HangingCoils", "PowerLines", "SacredBanyanTree", "WoodenPolePlain",
+}
+
+local function moveTemplatesToStorage(): Folder
+	local ss = game:GetService("ServerStorage")
+	local store = ss:FindFirstChild("ImportedProps") or Instance.new("Folder")
+	store.Name = "ImportedProps"
+	store.Parent = ss
+	local newModels = Workspace:FindFirstChild("NewModels")
+	for _, name in ipairs(IMPORTED_TEMPLATES) do
+		local m = newModels and newModels:FindFirstChild(name)
+		if m and not store:FindFirstChild(name) then
+			m.Parent = store
+		end
+	end
+	-- importer สร้าง SurfaceAppearance ว่าง (ไม่มี ColorMap) ซ้อนให้ชิ้นที่มี material หน้าป้าย (SignFace ฯลฯ)
+	-- ทำให้ป้ายขึ้นเป็นสีพื้นเรียบและย้อมสีไม่ได้: ลบอันที่ว่างทิ้ง เหลืออันที่มี texture
+	for _, p in ipairs(store:GetDescendants()) do
+		if p:IsA("MeshPart") then
+			local sas = {}
+			for _, c in ipairs(p:GetChildren()) do
+				if c:IsA("SurfaceAppearance") then
+					table.insert(sas, c)
+				end
+			end
+			if #sas > 1 then
+				for _, sa in ipairs(sas) do
+					if sa.ColorMap == "" then
+						sa:Destroy()
+					end
+				end
+			end
+		end
+	end
+	return store :: Folder
+end
+
+local function archiveFolder(sub: string): Folder
+	local ss = game:GetService("ServerStorage")
+	local root = ss:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	root.Name = "ArchivedPlaceholders"
+	root.Parent = ss
+	local f = root:FindFirstChild(sub) or Instance.new("Folder")
+	f.Name = sub
+	f.Parent = root
+	return f :: Folder
+end
+
+local function boundsOf(list: { Instance }): (Vector3, Vector3)
+	local mn = Vector3.new(math.huge, math.huge, math.huge)
+	local mx = -mn
+	local function addPart(p: BasePart)
+		local cf, s = p.CFrame, p.Size / 2
+		for _, sx in ipairs({ -1, 1 }) do
+			for _, sy in ipairs({ -1, 1 }) do
+				for _, sz in ipairs({ -1, 1 }) do
+					local w = cf:PointToWorldSpace(Vector3.new(sx * s.X, sy * s.Y, sz * s.Z))
+					mn = mn:Min(w)
+					mx = mx:Max(w)
+				end
+			end
+		end
+	end
+	for _, inst in ipairs(list) do
+		if inst:IsA("BasePart") then
+			addPart(inst)
+		end
+		for _, d in ipairs(inst:GetDescendants()) do
+			if d:IsA("BasePart") then
+				addPart(d)
+			end
+		end
+	end
+	return mn, mx
+end
+
+local function bottomCenter(list: { Instance }): Vector3
+	local mn, mx = boundsOf(list)
+	return Vector3.new((mn.X + mx.X) / 2, mn.Y, (mn.Z + mx.Z) / 2)
+end
+
+local function groundY(x: number, z: number): number
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	local hit = Workspace:Raycast(Vector3.new(x, 120, z), Vector3.new(0, -260, 0), params)
+	return if hit then hit.Position.Y else 2
+end
+
+-- Clone ชิ้นส่วนจากต้นแบบมาวาง
+-- anchor: "bottom" = กึ่งกลางฐาน, "origin" = จุด origin จาก Blender (pivot ของไฟล์),
+--         "backBottom" = ฐานด้านหลัง (ติดผนัง), "backTop" = บนสุดด้านหลัง (ของแขวน), "topStart" = ปลายสายไฟด้านต้น
+local function placeGroup(store: Folder, file: string, names: { string }, target: Vector3, yawDeg: number, anchor: string, parent: Instance): { [string]: BasePart }
+	local tplModel = store:FindFirstChild(file) :: Model
+	assert(tplModel, "ไม่พบต้นแบบ " .. file)
+	local parts = {}
+	for _, n in ipairs(names) do
+		local p = tplModel:FindFirstChild(n)
+		assert(p and p:IsA("BasePart"), "ไม่พบชิ้น " .. file .. "." .. n)
+		table.insert(parts, p)
+	end
+	local mn, mx = boundsOf(parts)
+	local a: Vector3
+	if anchor == "origin" then
+		a = tplModel:GetPivot().Position
+	elseif anchor == "backBottom" then
+		a = Vector3.new((mn.X + mx.X) / 2, mn.Y, mx.Z)
+	elseif anchor == "backTop" then
+		a = Vector3.new((mn.X + mx.X) / 2, mx.Y, mx.Z)
+	elseif anchor == "topStart" then
+		a = Vector3.new((mn.X + mx.X) / 2, mx.Y, mn.Z)
+	else
+		a = Vector3.new((mn.X + mx.X) / 2, mn.Y, (mn.Z + mx.Z) / 2)
+	end
+	local base = CFrame.new(target) * CFrame.Angles(0, math.rad(yawDeg), 0)
+	local out = {}
+	for _, p in ipairs(parts) do
+		local c = p:Clone()
+		c.CFrame = base * (CFrame.new(-a) * p.CFrame)
+		c.Anchored = true
+		c.Parent = parent
+		out[p.Name] = c
+	end
+	return out
+end
+
+local function moveChildren(from: Instance?, className: string, to: Instance?)
+	if not from or not to then
+		return
+	end
+	for _, d in ipairs(from:GetDescendants()) do
+		if d:IsA(className) then
+			d.Parent = to
+		end
+	end
+end
+
+local function moveLabel(from: Instance?, to: BasePart?)
+	if not from or not to then
+		return
+	end
+	local label = if from:IsA("BillboardGui") then from else from:FindFirstChild("ZoneLabel", true)
+	if label and label:IsA("BillboardGui") then
+		label.Adornee = nil
+		label.Parent = to
+	end
+end
+
+local function makeNeon(p: BasePart?, color: Color3)
+	if not p then
+		return
+	end
+	local sa = p:FindFirstChildOfClass("SurfaceAppearance")
+	if sa then
+		sa:Destroy() -- SurfaceAppearance จะบังสี Neon (เป็นของที่นำเข้ามาเอง ไม่ใช่ของเดิมในฉาก)
+	end
+	p.Material = Enum.Material.Neon
+	p.Color = color
+	p.CastShadow = false
+end
+
+local function newModel(name: string, parent: Instance): Model
+	local m = Instance.new("Model")
+	m.Name = name
+	m:SetAttribute("ImportedProp", true)
+	m.Parent = parent
+	return m
+end
+
+local function setCollide(container: Instance, bigOnly: boolean)
+	for _, d in ipairs(container:GetDescendants()) do
+		if d:IsA("BasePart") and d:GetAttribute("ImportedProp") ~= false then
+			local s = d.Size
+			d.CanCollide = (not bigOnly) or math.max(s.X, s.Y, s.Z) > 3.2
+		end
+	end
+end
+
+function MapBuilder.SwapImportedProps()
+	if Workspace:GetAttribute("ImportedPropsSwapped") then
+		warn("[MapBuilder] SwapImportedProps: เคยสลับไปแล้ว (ลบ attribute ImportedPropsSwapped ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local store = moveTemplatesToStorage()
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local interactive = Workspace:FindFirstChild("InteractiveProps")
+	local anomaly = Workspace:FindFirstChild("AnomalyProps")
+	assert(env and interactive and anomaly, "ไม่พบ MapEnvironment / InteractiveProps / AnomalyProps")
+
+	-- ---------------------------------------------------------------- เพิง (ShackStructure)
+	local shack = env:FindFirstChild("ShackStructure") :: Model
+	local floor = shack:FindFirstChild("ShackFloor") :: BasePart
+	local floorBottom = floor.Position.Y - floor.Size.Y / 2
+	local floorTop = floorBottom + 0.8
+	local pillars = {}
+	local counterParts, tireParts, roofSheets = {}, {}, {}
+	local shopSign = shack:FindFirstChild("ShopSign") :: BasePart
+	local bulb = shack:FindFirstChild("ShackLightBulb") :: BasePart
+	for _, c in ipairs(shack:GetChildren()) do
+		if c.Name:match("^WoodenPillar") then
+			table.insert(pillars, c)
+		elseif c.Name == "CounterTop" or c.Name == "TableLeg" then
+			table.insert(counterParts, c)
+		elseif c.Name:match("^SpareTire") then
+			table.insert(tireParts, c)
+		elseif c.Name == "CorrugatedTinSheet" then
+			table.insert(roofSheets, c)
+		end
+	end
+	local signBottom = bottomCenter({ shopSign })
+	local counterBase = bottomCenter(counterParts)
+	local tireBase = bottomCenter(tireParts)
+	local bulbTop = bulb.Position + Vector3.new(0, bulb.Size.Y / 2, 0)
+
+	local oldShack = archiveFolder("ShackStructure")
+	for _, c in ipairs(shack:GetChildren()) do
+		if not c:IsA("SpawnLocation") then
+			c.Parent = oldShack
+		end
+	end
+	local newShack = newModel("ImportedShack", shack)
+
+	placeGroup(store, "ShackPorchKit", { "PorchDeck" }, Vector3.new(floor.Position.X, floorBottom, floor.Position.Z), 0, "bottom", newShack)
+	for _, p in ipairs(pillars) do
+		local b = bottomCenter({ p })
+		placeGroup(store, "ShackPorchKit", { "WoodenPillar" }, Vector3.new(b.X, floorTop, b.Z), 0, "bottom", newShack)
+	end
+	-- ผนัง: หลัง 5 แผ่น, ข้างละ 4 แผ่น สลับสังกะสี/ไม้ (คานไม้ของแผ่นไม้หันเข้าในเพิง)
+	local W = { tin = { "CorrugatedPanels", "TinWallPanel" }, bent = { "CorrugatedPanels", "TinWallPanel_Bent" }, torn = { "CorrugatedPanels", "TinWallPanel_Torn" },
+		wood = { "WoodPlankWalls", "WoodPlankWallPanel" }, broken = { "WoodPlankWalls", "WoodPlankWallPanel_Broken" } }
+	local walls = {
+		{ "wood", Vector3.new(-12, floorTop, 28.35), 180 }, { "tin", Vector3.new(-6, floorTop, 28.35), 180 }, { "torn", Vector3.new(0, floorTop, 28.35), 180 },
+		{ "broken", Vector3.new(6, floorTop, 28.35), 180 }, { "bent", Vector3.new(12, floorTop, 28.35), 180 },
+		{ "tin", Vector3.new(-16.3, floorTop, 10.5), 90 }, { "wood", Vector3.new(-16.3, floorTop, 15.5), 90 }, { "bent", Vector3.new(-16.3, floorTop, 20.5), 90 }, { "tin", Vector3.new(-16.3, floorTop, 25.5), 90 },
+		{ "torn", Vector3.new(16.3, floorTop, 10.5), -90 }, { "tin", Vector3.new(16.3, floorTop, 15.5), -90 }, { "wood", Vector3.new(16.3, floorTop, 20.5), -90 }, { "tin", Vector3.new(16.3, floorTop, 25.5), -90 },
+	}
+	for _, w in ipairs(walls) do
+		local spec = W[w[1]]
+		placeGroup(store, spec[1], { spec[2] }, w[2], w[3], "bottom", newShack)
+	end
+	for i, sheet in ipairs(roofSheets) do
+		local b = bottomCenter({ sheet })
+		placeGroup(store, "CorrugatedPanels", { "TinRoofPanel" }, b, if i % 2 == 0 then 180 else 0, "bottom", newShack)
+	end
+	local sign = placeGroup(store, "ShackSigns", { "MainSignBoard" }, signBottom, 0, "bottom", newShack)
+	moveChildren(oldShack:FindFirstChild("ShopSign"), "SurfaceGui", sign.MainSignBoard)
+	-- ให้ตัวหนังสือป้ายร้านมืดตามแสงฉาก (ไม่เรืองแสงเองตอนกลางคืน)
+	for _, g in ipairs(sign.MainSignBoard:GetChildren()) do
+		if g:IsA("SurfaceGui") then
+			g.LightInfluence = 1
+		end
+	end
+	local counter = placeGroup(store, "ShackInteriorProps", { "CounterTable" }, counterBase, 0, "bottom", newShack)
+	local counterTop = counter.CounterTable.Position.Y + counter.CounterTable.Size.Y / 2
+	placeGroup(store, "TireStack", { "TireStack_4" }, Vector3.new(tireBase.X, floorTop, tireBase.Z), 0, "bottom", newShack)
+	local light = placeGroup(store, "ShackLight", { "ShackLight", "ShackLight_Neon" }, Vector3.new(bulbTop.X, bulbTop.Y + 0.35, bulbTop.Z), 0, "backTop", newShack)
+	-- หลอดนีออนในเพิงเป็นหลอดเสีย ไม่ติด (ให้แสงหน้าร้านมาจากโคมเสาไฟไม้อย่างเดียว เพื่อให้มืดหลอน)
+	local tube = light.ShackLight_Neon
+	makeNeon(tube, Color3.fromRGB(120, 135, 120))
+	tube.Material = Enum.Material.Glass
+	tube.Transparency = 0.35
+	moveChildren(oldShack:FindFirstChild("ShackLightBulb"), "Light", tube)
+	for _, l in ipairs(tube:GetChildren()) do
+		if l:IsA("Light") then
+			l.Enabled = false
+		end
+	end
+	-- ของเพิ่มตาม concept (ไม่มี placeholder)
+	placeGroup(store, "ShackShelf", { "ShackShelf" }, Vector3.new(-11, floorTop, 28.1), 0, "backBottom", newShack)
+	placeGroup(store, "ShackInteriorProps", { "SodaCrate" }, Vector3.new(6.5, floorTop, 26.2), 15, "bottom", newShack)
+	placeGroup(store, "ShackInteriorProps", { "CompendiumBook" }, Vector3.new(-3.5, counterTop, 13.2), -20, "bottom", newShack)
+	-- โต๊ะใหม่สูงกว่าเดิม: ยกวิทยุเดิมที่วางบนโต๊ะขึ้นให้ไม่จมโต๊ะ
+	local radio = interactive:FindFirstChild("Radio")
+	if radio and (radio:IsA("Model") or radio:IsA("BasePart")) then
+		local mn = boundsOf({ radio })
+		if mn.Y < counterTop then
+			radio:PivotTo(radio:GetPivot() + Vector3.new(0, counterTop - mn.Y + 0.02, 0))
+		end
+	end
+	placeGroup(store, "ShackSeats", { "WoodenBench" }, Vector3.new(-9, floorTop, 10.6), 0, "bottom", newShack)
+	placeGroup(store, "ShackSeats", { "WoodenStool" }, Vector3.new(9.5, floorTop, 10.2), 0, "bottom", newShack)
+	placeGroup(store, "WelcomeSign", { "WelcomeSign" }, Vector3.new(16.5, 6.2, 16), -90, "backBottom", newShack)
+	placeGroup(store, "TvAntennaAndPoles", { "TvAntenna" }, Vector3.new(-9, 13.3, 24), 0, "bottom", newShack)
+	placeGroup(store, "HangingCoils", { "HangingHoseCoil" }, Vector3.new(15, 9.6, 7.45), 0, "backTop", newShack)
+	placeGroup(store, "HangingCoils", { "HangingTire" }, Vector3.new(-15, 9.3, 7.45), 0, "backTop", newShack)
+	setCollide(newShack, true)
+
+	-- ---------------------------------------------------------------- ของใน InteractiveProps (คงชื่อ Part เดิมให้สคริปต์)
+	local function swapPart(folder: Instance, name: string, file: string, names: { string }, target: Vector3, yaw: number, anchor: string, keepAttrs: boolean?)
+		local old = folder:FindFirstChild(name)
+		if not old or old:GetAttribute("ImportedProp") then
+			return nil
+		end
+		local placed = placeGroup(store, file, names, target, yaw, anchor, folder)
+		local main = placed[names[1]]
+		for _, d in ipairs(old:GetChildren()) do
+			if d:IsA("ProximityPrompt") or d:IsA("BillboardGui") or d:IsA("SurfaceGui") or d:IsA("Light") or d:IsA("ParticleEmitter") then
+				d.Parent = main
+			end
+		end
+		if keepAttrs then
+			for k, v in pairs(old:GetAttributes()) do
+				main:SetAttribute(k, v)
+			end
+		end
+		for i = 2, #names do
+			placed[names[i]].Parent = main
+		end
+		archivePlaceholder(old)
+		main.Name = name
+		main:SetAttribute("ImportedProp", true)
+		return placed
+	end
+
+	local shutterOld = interactive:FindFirstChild("ShutterDoor") :: BasePart
+	if shutterOld and not shutterOld:GetAttribute("ImportedProp") then
+		local oldPos, oldSize = shutterOld.Position, shutterOld.Size
+		local placed = swapPart(interactive, "ShutterDoor", "CorrugatedPanels", { "ShutterDoor" }, Vector3.zero, 0, "bottom", true)
+		local door = placed and placed.ShutterDoor
+		if door then
+			door.Size = Vector3.new(oldSize.X, oldSize.Y, door.Size.Z)
+			door.Position = oldPos
+			door.CanCollide = true
+		end
+	end
+	local rope = interactive:FindFirstChild("RejectRope") :: BasePart
+	if rope then
+		swapPart(interactive, "RejectRope", "CorrugatedPanels", { "RejectRope" }, bottomCenter({ rope }), 0, "bottom")
+	end
+	local cut = interactive:FindFirstChild("CutoutSwitch") :: BasePart
+	if cut then
+		local b = bottomCenter({ cut })
+		swapPart(interactive, "CutoutSwitch", "ShackInteriorProps", { "CutoutSwitch", "CutoutSwitch_Lever" }, Vector3.new(-14.45, b.Y, b.Z), -90, "backBottom")
+	end
+	if interactive:FindFirstChild("MoneyTin") then
+		local b = bottomCenter({ interactive.MoneyTin })
+		swapPart(interactive, "MoneyTin", "ShackInteriorProps", { "MoneyTin", "MoneyTin_Lid" }, Vector3.new(b.X, counterTop, b.Z), 0, "bottom")
+	end
+
+	-- ---------------------------------------------------------------- AnomalyProps
+	if anomaly:FindFirstChild("OldMirror") then
+		local b = bottomCenter({ anomaly.OldMirror })
+		swapPart(anomaly, "OldMirror", "ShackInteriorProps", { "OldMirror", "OldMirror_Glass" }, Vector3.new(14.45, b.Y, b.Z), 90, "backBottom")
+		local glass = anomaly.OldMirror:FindFirstChild("OldMirror_Glass") :: BasePart
+		if glass then
+			glass.Material = Enum.Material.Glass
+			glass.Reflectance = 0.5
+			glass.Transparency = 0.05
+		end
+	end
+	if anomaly:FindFirstChild("OwnerPhoto") then
+		local b = bottomCenter({ anomaly.OwnerPhoto })
+		swapPart(anomaly, "OwnerPhoto", "ShackInteriorProps", { "OwnerPhoto", "OwnerPhoto_Image" }, Vector3.new(b.X - 0.8, b.Y + 0.6, 28.1), 0, "backBottom")
+		local cal = placeGroup(store, "ShackInteriorProps", { "WallCalendar", "WallCalendar_Page" }, Vector3.new(b.X + 1.2, b.Y + 0.2, 28.1), 0, "backBottom", anomaly.OwnerPhoto)
+		cal.WallCalendar_Page.Parent = cal.WallCalendar
+	end
+	local function swapModel(folder: Instance, name: string, file: string, names: { string }, yaw: number, anchor: string, newName: string?)
+		local old = folder:FindFirstChild(name)
+		if not old or old:GetAttribute("ImportedProp") then
+			return nil
+		end
+		local base = bottomCenter({ old })
+		local m = newModel(newName or name, folder)
+		local placed = placeGroup(store, file, names, base, yaw, anchor, m)
+		m.PrimaryPart = placed[names[1]]
+		moveLabel(old, placed[names[1]])
+		for _, d in ipairs(old:GetDescendants()) do
+			if d:IsA("ProximityPrompt") then
+				d.Parent = placed[names[1]]
+			end
+		end
+		archivePlaceholder(old)
+		setCollide(m, true)
+		return placed, m
+	end
+	swapModel(anomaly, "IceBox", "ShackInteriorProps", { "IceBox", "IceBox_Lid" }, 0, "bottom")
+	swapModel(anomaly, "TinOuthouse", "TinOuthouse", { "TinOuthouse", "TinOuthouse_Door", "TinOuthouse_Latch", "DragonJar", "WaterDipper" }, 0, "origin")
+	swapModel(Workspace, " Generator", "Generator", { "Generator", "PullStartHandle", "Generator_Neon" }, 0, "origin", "Generator")
+	local gen = Workspace:FindFirstChild("Generator")
+	if gen and gen:GetAttribute("ImportedProp") then
+		makeNeon(gen:FindFirstChild("Generator_Neon") :: BasePart, Color3.fromRGB(255, 60, 40))
+	end
+	for _, c in ipairs(Workspace:GetChildren()) do
+		if c.Name == "AirCompressor" and not c:GetAttribute("ImportedProp") then
+			local placed = swapModel(Workspace, "AirCompressor", "AirCompressor", { "AirCompressor", "PressureGauge_Needle", "ReliefValve" }, 0, "bottom")
+			break
+		end
+	end
+
+	-- ---------------------------------------------------------------- ถนน: เสาไฟไม้ + หลักกิโล
+	local road = env:FindFirstChild("DirtRoad")
+	local pole = road and road:FindFirstChild("WoodenPole") :: BasePart
+	if pole and not pole:GetAttribute("ImportedProp") then
+		local b = bottomCenter({ pole })
+		local oldNeon = road:FindFirstChild("NeonLightPart")
+		local placed = placeGroup(store, "TvAntennaAndPoles", { "WoodenPole", "WoodenPole_Neon" }, b, 0, "bottom", road)
+		archivePlaceholder(pole)
+		local arm = road:FindFirstChild("PoleArm")
+		if arm then
+			archivePlaceholder(arm)
+		end
+		local neon = placed.WoodenPole_Neon
+		if oldNeon then
+			moveChildren(oldNeon, "Light", neon)
+			archivePlaceholder(oldNeon)
+		end
+		makeNeon(neon, Color3.fromRGB(255, 240, 200))
+		neon.Name = "NeonLightPart"
+		placed.WoodenPole:SetAttribute("ImportedProp", true)
+	end
+	local km = road and road:FindFirstChild("KilometerMilestone") :: BasePart
+	if km and not km:GetAttribute("ImportedProp") then
+		local b = bottomCenter({ km }) + Vector3.new(0, 0.45, 0) -- placeholder เดิมจมดิน 0.6: ยกให้เห็นฐานปูน
+		local placed = placeGroup(store, "RoadsideProps", { "KilometerMilestone" }, b, 0, "bottom", road)
+		moveLabel(km, placed.KilometerMilestone)
+		archivePlaceholder(km)
+		local top = road:FindFirstChild("KilometerTop")
+		if top then
+			archivePlaceholder(top)
+		end
+		placed.KilometerMilestone:SetAttribute("ImportedProp", true)
+	end
+
+	-- ---------------------------------------------------------------- ศาลพระภูมิ (คงชื่อ Incense1-3 ไว้ในโฟลเดอร์ SpiritHouse)
+	local spirit = Workspace:FindFirstChild("SpiritHouse")
+	if spirit and not spirit:GetAttribute("ImportedProp") then
+		local base = bottomCenter(spirit:GetChildren())
+		local center = (spirit:FindFirstChild("ShrinePillar") :: BasePart)
+		local target = if center then Vector3.new(center.Position.X, base.Y, center.Position.Z) else base
+		local oldSpirit = archiveFolder("SpiritHouse")
+		local smoke = {}
+		for i = 1, 3 do
+			smoke[i] = spirit:FindFirstChild("Incense" .. i)
+		end
+		local glow = spirit:FindFirstChild("ShrineCandleFlame")
+		local label = spirit:FindFirstChild("ShrineTop")
+		local placed = placeGroup(store, "SpiritHouseOnStilts", { "SpiritHouseOnStilts", "Incense1", "Incense2", "Incense3", "Incense1_Neon", "Incense2_Neon", "Incense3_Neon" }, target, -45, "origin", spirit)
+		moveLabel(label, placed.SpiritHouseOnStilts)
+		for i = 1, 3 do
+			local tip = placed["Incense" .. i .. "_Neon"]
+			moveChildren(smoke[i], "ParticleEmitter", tip)
+			makeNeon(tip, Color3.fromRGB(255, 90, 30))
+		end
+		moveChildren(glow, "Light", placed.Incense2_Neon)
+		for _, p in pairs(placed) do
+			p:SetAttribute("ImportedProp", true)
+		end
+		-- ชิ้นเดิมทั้งหมด (รวม Incense1-3 อันเก่า) ย้ายไปเก็บ เหลือแต่ชิ้นใหม่ที่ชื่อเดิม
+		for _, c in ipairs(spirit:GetChildren()) do
+			if not c:GetAttribute("ImportedProp") then
+				c.Parent = oldSpirit
+			end
+		end
+		spirit:SetAttribute("ImportedProp", true)
+	end
+
+	-- ---------------------------------------------------------------- ต้นไทร (ขนาดจริง) + ของเซ่น + ม้านั่งหินอ่อน
+	local zone = env:FindFirstChild("SacredBanyanZone")
+	if zone then
+		local oldTree = zone:FindFirstChild("SacredBanyanTree")
+		if oldTree and not oldTree:GetAttribute("ImportedProp") then
+			local trunk = oldTree:FindFirstChild("BanyanMainTrunk") :: BasePart
+			local b = bottomCenter({ oldTree })
+			local target = if trunk then Vector3.new(trunk.Position.X, b.Y, trunk.Position.Z) else b
+			local m = newModel("SacredBanyanTree", zone)
+			local placed = placeGroup(store, "SacredBanyanTree", { "BanyanTrunk", "BanyanRoots", "BanyanLimbs", "BanyanTwigs", "BanyanAerialRoots", "SacredThaiRibbons" }, target, 0, "origin", m)
+			m.PrimaryPart = placed.BanyanTrunk
+			moveLabel(oldTree, placed.BanyanTrunk)
+			archivePlaceholder(oldTree)
+			for _, n in ipairs({ "BanyanTwigs", "BanyanAerialRoots", "BanyanLimbs", "SacredThaiRibbons" }) do
+				placed[n].CanCollide = false
+			end
+		end
+		swapModel(zone, "BrokenOfferings", "SacredBanyanProps", { "BrokenOfferings" }, 0, "bottom")
+		swapModel(zone, "OldMarbleBenchSet", "SacredBanyanProps", { "OldMarbleBenchSet" }, 0, "bottom")
+	end
+
+	-- ---------------------------------------------------------------- เถียงนากลางทุ่ง
+	local rice = env:FindFirstChild("RiceField")
+	if rice then
+		swapModel(rice, "DistantRiceHut", "RoadsideProps", { "DistantRiceHut" }, 0, "bottom")
+	end
+
+	-- ---------------------------------------------------------------- ของรอบร้านตาม concept (ไม่มี placeholder)
+	local yard = newModel("ImportedYardProps", env)
+	local function onGround(x: number, z: number): Vector3
+		return Vector3.new(x, groundY(x, z), z)
+	end
+	placeGroup(store, "FuelDrum", { "FuelDrum" }, onGround(19.2, 11.5), 0, "bottom", yard)
+	placeGroup(store, "FuelDrum", { "FuelDrum_Red" }, onGround(20.9, 14.2), 30, "bottom", yard)
+	placeGroup(store, "TireStack", { "TireLeaning" }, onGround(11.8, 2.2), 15, "bottom", yard)
+	placeGroup(store, "TireStack", { "TireWithRim" }, onGround(-9.8, 0.6), 0, "bottom", yard)
+	placeGroup(store, "ToolsOnGround", { "Wrench" }, onGround(-2.8, -0.2), 20, "bottom", yard)
+	placeGroup(store, "ToolsOnGround", { "TireIron" }, onGround(1.2, -0.8), -25, "bottom", yard)
+	placeGroup(store, "ToolsOnGround", { "TireLever" }, onGround(3.6, 1.0), 40, "bottom", yard)
+	placeGroup(store, "ToolsOnGround", { "PatchKitTin" }, onGround(5.2, 2.6), 0, "bottom", yard)
+	placeGroup(store, "ToolsOnGround", { "BucketWater" }, onGround(9.2, 5.0), 0, "bottom", yard)
+	-- เสาไฟฟ้าคอนกรีต 2 ต้นริมทุ่ง + สายไฟ 40 studs ระหว่างเสา (คานเสาขวางแนวสาย)
+	local p1, p2 = onGround(45, -32), onGround(85, -32)
+	-- ให้โคนเสาสองต้นอยู่ระดับเดียวกัน (ต้นที่พื้นสูงกว่าจมดินลงไป) สายไฟจะได้พาดตรงลูกถ้วยทั้งสองฝั่ง
+	local poleY = math.min(p1.Y, p2.Y)
+	p1, p2 = Vector3.new(p1.X, poleY, p1.Z), Vector3.new(p2.X, poleY, p2.Z)
+	placeGroup(store, "TvAntennaAndPoles", { "ConcretePole" }, p1, 90, "bottom", yard)
+	placeGroup(store, "TvAntennaAndPoles", { "ConcretePole" }, p2, 90, "bottom", yard)
+	placeGroup(store, "PowerLines", { "PowerLine_40" }, Vector3.new(p1.X, p1.Y + 29.2, p1.Z), 90, "topStart", yard)
+	setCollide(yard, true)
+
+	Workspace:SetAttribute("ImportedPropsSwapped", true)
+	MapBuilder.TintShackHaunted()
+	MapBuilder.MuteBrightProps()
+	MapBuilder.AddRoadPowerPoles()
+	print("🏚️ [MapBuilder] สลับ placeholder เป็นโมเดลจาก Blender ครบแล้ว (ของเดิมอยู่ใน ServerStorage.ArchivedPlaceholders, ต้นแบบอยู่ใน ServerStorage.ImportedProps)")
+end
+
+-- ===================================================================================
+-- เสาไฟไม้เรียงตามถนนตั้งแต่ทางเข้า (VehicleWaypoints.SpawnPoint) ถึงทางออก (ExitPoint) พร้อมสายไฟ 4 เส้นพาดต่อกันทุกต้น
+-- รวมเสาต้นที่มีหลอด (DirtRoad.WoodenPole + NeonLightPart) ด้วย: หมุนเสาทุกต้นให้คานลูกถ้วยขวางถนน
+-- เสาต้นอื่นไม่มีหลอด (ฝาโคมเปล่า) และปิดแสงที่ไม่ได้มาจากหลอดไฟ (แสงเรืองที่ศาลพระภูมิ)
+-- ===================================================================================
+local POLE_YAW = -90 -- คานขวางถนน (ถนนวิ่งตามแกน X) และโคมของเสาที่มีหลอดหันเข้าหาร้าน
+local INSULATOR_X = { -2.2, -1.0, 1.0, 2.2 } -- ตำแหน่งลูกถ้วยบนคาน (studs จากแกนเสา)
+local INSULATOR_Y = 21.6 -- ความสูงยอดลูกถ้วยจากโคนเสา
+
+-- ตำแหน่งโคนแกนเสาในพิกัดของ MeshPart (โมเดลจาก Blender: โคมยื่นไปทาง -Z, แกนเสาอยู่ห่างขอบ +Z ราว 0.45)
+local function poleAxisLocal(pole: BasePart): Vector3
+	return Vector3.new(0, -pole.Size.Y / 2, pole.Size.Z / 2 - 0.45)
+end
+
+local function insulatorWorld(pole: BasePart, i: number): Vector3
+	local a = poleAxisLocal(pole)
+	return pole.CFrame:PointToWorldSpace(Vector3.new(INSULATOR_X[i], a.Y + INSULATOR_Y, a.Z))
+end
+
+local function wireSegment(a: Vector3, b: Vector3, parent: Instance)
+	local p = Instance.new("Part")
+	p.Name = "Wire"
+	p.Shape = Enum.PartType.Cylinder
+	p.Size = Vector3.new((b - a).Magnitude + 0.04, 0.09, 0.09)
+	p.CFrame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.rad(90), 0)
+	p.Material = Enum.Material.SmoothPlastic
+	p.Color = Color3.fromRGB(18, 18, 18)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CastShadow = false
+	p.Parent = parent
+end
+
+local function sagWire(a: Vector3, b: Vector3, parent: Instance)
+	local n = 10
+	local sag = 0.03 * (b - a).Magnitude
+	local prev = a
+	for k = 1, n do
+		local t = k / n
+		local pt = a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+		wireSegment(prev, pt, parent)
+		prev = pt
+	end
+end
+
+function MapBuilder.AddRoadPowerPoles()
+	if Workspace:GetAttribute("RoadPowerPolesAdded") then
+		warn("[MapBuilder] AddRoadPowerPoles: เคยเพิ่มไปแล้ว (ลบ attribute RoadPowerPolesAdded ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local road = env and env:FindFirstChild("DirtRoad")
+	local litPole = road and road:FindFirstChild("WoodenPole") :: BasePart
+	local tplModel = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	tplModel = tplModel and tplModel:FindFirstChild("TvAntennaAndPoles")
+	local tplPole = tplModel and tplModel:FindFirstChild("WoodenPole") :: BasePart
+	local wp = Workspace:FindFirstChild("VehicleWaypoints")
+	assert(litPole and tplPole and wp, "ไม่พบ DirtRoad.WoodenPole / ImportedProps.TvAntennaAndPoles.WoodenPole / VehicleWaypoints")
+
+	-- แนวเสาอยู่ฝั่งตรงข้ามร้าน (ร้านใช้ไฟจากเครื่องปั่นไฟ ไม่มีสายเข้าร้าน)
+	-- ถนนวิ่งตามแกน X: กลางถนน = ค่า Z เฉลี่ยของจุดเข้า/ออก, ร้านอยู่ฝั่ง +Z จึงวางเสาที่ฝั่ง -Z ห่างกลางถนน 9 studs (ไหล่ทางหญ้า)
+	local spawnPt, exitPt = wp:FindFirstChild("SpawnPoint"), wp:FindFirstChild("ExitPoint")
+	local roadZ = if spawnPt and exitPt then (spawnPt.Position.Z + exitPt.Position.Z) / 2 else -11.5
+	local shack = env:FindFirstChild("ShackStructure")
+	local shopSide = if shack and shack:GetPivot().Position.Z < roadZ then -1 else 1
+	local lineZ = roadZ - shopSide * 9
+	local xs = { -112, -75, -45, -15, 15, 45, 75, 105, 126 }
+	if spawnPt and exitPt then
+		xs[1] = math.floor(spawnPt.Position.X)
+		xs[#xs] = math.ceil(exitPt.Position.X)
+	end
+
+	-- เสาชุดเก่า (ถ้ามี) ย้ายไปเก็บ ไม่ลบ
+	local oldLine = env:FindFirstChild("RoadPowerPoles")
+	if oldLine then
+		archivePlaceholder(oldLine)
+	end
+	local folder = Instance.new("Model")
+	folder.Name = "RoadPowerPoles"
+	folder.Parent = env
+
+	-- เสาไม้เก่าสีหลอน: ไม้ดำคล้ำ และเอียงคนละนิดแบบเสาผุ
+	local rng = Random.new(1313)
+	local tplRot = tplPole.CFrame - tplPole.Position
+	local function hauntedWood(p: BasePart)
+		local sa = p:FindFirstChildOfClass("SurfaceAppearance")
+		if sa then
+			sa.Color = Color3.fromRGB(78, 72, 66)
+		end
+	end
+
+	-- เสาฝั่งตรงข้ามร้าน: ไม่มีหลอดและไม่มีโคม (ใช้ WoodenPolePlain.fbx ถ้านำเข้าแล้ว ไม่งั้นใช้เสาแบบมีฝาโคม)
+	local store = moveTemplatesToStorage()
+	local plainModel = store:FindFirstChild("WoodenPolePlain")
+	local plainPole = plainModel and plainModel:FindFirstChild("WoodenPolePlain") :: BasePart?
+	local farTpl = plainPole or tplPole
+	local farRot = farTpl.CFrame - farTpl.Position
+	local poles = {}
+	for _, x in ipairs(xs) do
+		local c = farTpl:Clone()
+		c.Name = "WoodenPole"
+		local base = Vector3.new(x, groundY(x, lineZ) - 0.4, lineZ)
+		local lean = CFrame.Angles(math.rad(rng:NextNumber(-4, 4)), 0, math.rad(rng:NextNumber(-3, 3)))
+		c.CFrame = CFrame.new(base) * lean * CFrame.Angles(0, math.rad(POLE_YAW), 0) * CFrame.new(-poleAxisLocal(farTpl)) * farRot
+		c.Anchored = true
+		c:SetAttribute("ImportedProp", true)
+		hauntedWood(c)
+		c.Parent = folder
+		table.insert(poles, c)
+	end
+
+	-- เสาหน้าร้านที่มีหลอด (+NeonLightPart/FlickerLight): อยู่ที่เดิมหน้าร้าน ตั้งตรง โคมหันออกถนน (คานขนานถนน)
+	local archived = game:GetService("ServerStorage"):FindFirstChild("ArchivedPlaceholders")
+	local oldPolePart = archived and archived:FindFirstChild("WoodenPole") :: BasePart?
+	local litBaseXZ = if oldPolePart then Vector3.new(oldPolePart.Position.X, 0, oldPolePart.Position.Z) else Vector3.new(-15, 0, -0.5)
+	local litAxis = Vector3.new(litBaseXZ.X, groundY(litBaseXZ.X, litBaseXZ.Z) - 0.4, litBaseXZ.Z + tplPole.Size.Z / 2 - 0.45)
+	local litCF = CFrame.new(litAxis) * CFrame.new(-poleAxisLocal(tplPole)) * tplRot
+	local delta = litCF * litPole.CFrame:Inverse()
+	litPole.CFrame = litCF
+	local bulb = road:FindFirstChild("NeonLightPart") :: BasePart
+	if bulb then
+		bulb.CFrame = delta * bulb.CFrame
+	end
+	hauntedWood(litPole)
+
+	-- 3) สายไฟ 4 เส้นพาดต่อกันทุกต้น (รวมเสาที่มีหลอด)
+	local wires = Instance.new("Model")
+	wires.Name = "Wires"
+	wires.Parent = folder
+	for i = 1, #poles - 1 do
+		for k = 1, #INSULATOR_X do
+			sagWire(insulatorWorld(poles[i], k), insulatorWorld(poles[i + 1], k), wires)
+		end
+	end
+	-- โคมเสาหน้าร้านใช้ไฟจากเครื่องปั่นไฟของร้าน: สายเส้นเดียวจากหัวเสาเพิงต้นที่ใกล้ที่สุด มาเข้าเสาที่ระดับโคม
+	-- (ไม่ต่อกับแนวสายไฟฝั่งตรงข้าม)
+	local shackModel = env:FindFirstChild("ShackStructure")
+	local importedShack = shackModel and shackModel:FindFirstChild("ImportedShack")
+	local nearPillar, best = nil, math.huge
+	if importedShack then
+		for _, p in ipairs(importedShack:GetChildren()) do
+			if p.Name == "WoodenPillar" and p:IsA("BasePart") then
+				local d = (Vector3.new(p.Position.X, 0, p.Position.Z) - Vector3.new(litPole.Position.X, 0, litPole.Position.Z)).Magnitude
+				if d < best then
+					nearPillar, best = p, d
+				end
+			end
+		end
+	end
+	if nearPillar then
+		local from = nearPillar.Position + Vector3.new(0, nearPillar.Size.Y / 2 - 0.4, 0)
+		local axisLocal = poleAxisLocal(litPole)
+		local to = litPole.CFrame:PointToWorldSpace(Vector3.new(0, axisLocal.Y + 16.2, axisLocal.Z + 0.35))
+		sagWire(from, to, wires)
+	end
+
+	-- 4) แหล่งแสงนอกจากไฟฉายให้มีแค่หลอดไฟ: ปิดแสงเรืองที่ศาลพระภูมิ (ปลายธูปยังเป็นถ่านแดงแต่ไม่ส่องแสง)
+	local spirit = Workspace:FindFirstChild("SpiritHouse")
+	if spirit then
+		for _, l in ipairs(spirit:GetDescendants()) do
+			if l:IsA("Light") then
+				l.Enabled = false
+			end
+		end
+	end
+
+	Workspace:SetAttribute("RoadPowerPolesAdded", true)
+	print("🔌 [MapBuilder] วางเสาไฟไม้ " .. #poles .. " ต้นตามถนนพร้อมสายไฟแล้ว")
+end
+
+-- วางแนวเสาไฟใหม่ (เสาชุดเก่าย้ายไป ArchivedPlaceholders)
+function MapBuilder.RebuildRoadPowerPoles()
+	Workspace:SetAttribute("RoadPowerPolesAdded", nil)
+	MapBuilder.AddRoadPowerPoles()
+end
+
+-- ย้ายเงาคนแอบ (AnomalyProps.BanyanShadowAnomaly) ออกจากลำต้นไทรใหม่ ไปยืนหลบชิดลำต้นฝั่งที่มองไม่เห็นจากถนน/ร้าน
+-- หาผิวลำต้นด้วย raycast จากด้านนอกเข้าหาแกนต้น แล้ววางเงาห่างผิว 0.6 stud หันหน้าเข้าหาลำต้น (ท่าแอบ)
+function MapBuilder.HideBanyanShadowBehindTree()
+	local anomaly = Workspace:FindFirstChild("AnomalyProps")
+	local shadow = anomaly and anomaly:FindFirstChild("BanyanShadowAnomaly")
+	local zone = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("SacredBanyanZone")
+	local tree = zone and zone:FindFirstChild("SacredBanyanTree")
+	if not shadow or not tree then
+		warn("[MapBuilder] HideBanyanShadowBehindTree: ไม่พบ BanyanShadowAnomaly หรือ SacredBanyanTree")
+		return
+	end
+	local trunk = tree:FindFirstChild("BanyanTrunk") :: BasePart
+	-- แกนลำต้นที่โคน = pivot ของต้นไทร (ตำแหน่งลำต้นในฉาก - ในต้นแบบ) ; ไม่ใช้ trunk.Position เพราะเป็นกึ่งกลางกล่องที่รวมกิ่งเอียง
+	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	local tplTree = store and store:FindFirstChild("SacredBanyanTree")
+	local center = if tplTree then trunk.Position - tplTree.BanyanTrunk.Position + tplTree:GetPivot().Position else trunk.Position
+	-- ถนนอยู่ฝั่ง -Z และร้านอยู่ฝั่ง +X ของต้นไทร: หลบไปทาง +Z ค่อนไป -X
+	local dir = Vector3.new(-0.45, 0, 1).Unit
+	local _, size = shadow:GetBoundingBox()
+	-- รัศมีลำต้นช่วงอกราว 4.8 studs: วางเงาห่างแกน 6.5 studs ให้พ้นผิวลำต้นแต่ยังชิดพอให้ดูเหมือนแอบ
+	local spot = Vector3.new(center.X, 0, center.Z) + dir * 6.5
+	local floorY = groundY(spot.X, spot.Z)
+	local pos = Vector3.new(spot.X, floorY + size.Y / 2, spot.Z)
+	local look = Vector3.new(center.X, pos.Y, center.Z)
+	local target = CFrame.lookAt(pos, look)
+	-- ย้ายทั้งโมเดลตาม bounding box (ไม่แตะโครงสร้างภายใน)
+	local bboxCF = shadow:GetBoundingBox()
+	shadow:PivotTo(target * bboxCF:ToObjectSpace(shadow:GetPivot()))
+	print("👤 [MapBuilder] ย้ายเงาคนแอบไปหลบหลังต้นไทรแล้ว")
+end
+
+-- ===================================================================================
+-- ชุดโมเดลไทยบ้านรอบ 2 (MarbleTableSet, KilometerPost, DragonJar, Scarecrow, SquatToilet, HandLights)
+-- ย้ายต้นแบบจาก Workspace / NewModels ไป ServerStorage.ImportedProps แล้ววางแทนของเดิม (ของเดิมเก็บใน ArchivedPlaceholders)
+-- ===================================================================================
+local THAI_PROPS = { "MarbleTableSet", "KilometerPost", "DragonJar", "Scarecrow", "SquatToilet", "HandLights" }
+
+function MapBuilder.SwapThaiProps()
+	if Workspace:GetAttribute("ThaiPropsSwapped") then
+		warn("[MapBuilder] SwapThaiProps: เคยสลับไปแล้ว (ลบ attribute ThaiPropsSwapped ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local store = moveTemplatesToStorage()
+	for _, name in ipairs(THAI_PROPS) do
+		if not store:FindFirstChild(name) then
+			local m = Workspace:FindFirstChild(name)
+			if not (m and m:IsA("Model")) then
+				local nm = Workspace:FindFirstChild("NewModels")
+				m = nm and nm:FindFirstChild(name)
+			end
+			-- ต้นแบบที่นำเข้ามาต้องมีชิ้นตามชื่อไฟล์ (กันหยิบ Scarecrow ของเพื่อนใน AnomalyProps ผิดตัว)
+			assert(m and m:IsA("Model") and m.Parent ~= Workspace:FindFirstChild("AnomalyProps"), "ไม่พบโมเดลที่นำเข้า " .. name)
+			m.Parent = store
+		end
+	end
+	local env = Workspace.MapEnvironment
+	local anomaly = Workspace.AnomalyProps
+
+	-- 1) โต๊ะ + ม้านั่งหินขัด แทน OldMarbleBenchSet ใต้ต้นไทร (ป้ายชื่อย้ายตาม)
+	local zone = env:FindFirstChild("SacredBanyanZone")
+	local oldBench = zone and zone:FindFirstChild("OldMarbleBenchSet")
+	if oldBench then
+		local base = bottomCenter({ oldBench })
+		local m = newModel("OldMarbleBenchSet", zone)
+		local placed = placeGroup(store, "MarbleTableSet", { "MarbleTable", "MarbleBench1", "MarbleBench2", "MarbleBench3", "MarbleBench4" }, base, 0, "bottom", m)
+		m.PrimaryPart = placed.MarbleTable
+		moveLabel(oldBench, placed.MarbleTable)
+		archivePlaceholder(oldBench)
+	end
+
+	-- 2) หลักกิโล แทน DirtRoad.KilometerMilestone (คงชื่อเดิม, หน้าตัวเลขหันออกถนน)
+	local road = env:FindFirstChild("DirtRoad")
+	local km = road and road:FindFirstChild("KilometerMilestone")
+	if km then
+		local b = bottomCenter({ km })
+		local base = Vector3.new(b.X, groundY(b.X, b.Z) - 0.05, b.Z)
+		local placed = placeGroup(store, "KilometerPost", { "KilometerPost" }, base, 0, "bottom", road)
+		moveLabel(km, placed.KilometerPost)
+		archivePlaceholder(km)
+		placed.KilometerPost.Name = "KilometerMilestone"
+		placed.KilometerPost:SetAttribute("ImportedProp", true)
+	end
+
+	-- 3) โอ่งหน้าห้องน้ำ แทน TinOuthouse.DragonJar (ยกขันขึ้นให้ลอยบนน้ำในโอ่งใหม่)
+	local outhouse = anomaly:FindFirstChild("TinOuthouse")
+	local oldJar = outhouse and outhouse:FindFirstChild("DragonJar")
+	if oldJar then
+		local base = bottomCenter({ oldJar })
+		local placed = placeGroup(store, "DragonJar", { "DragonJar", "DragonJar_Water" }, base, 0, "bottom", outhouse)
+		archivePlaceholder(oldJar)
+		local dipper = outhouse:FindFirstChild("WaterDipper") :: BasePart
+		if dipper then
+			local water = placed.DragonJar_Water
+			local dmn = boundsOf({ dipper })
+			dipper.CFrame = dipper.CFrame + Vector3.new(0, water.Position.Y + 0.01 - dmn.Y, 0)
+		end
+	end
+
+	-- 4) ส้วมนั่งยองในห้องน้ำสังกะสี (ไม่มี placeholder): กลางห้อง ด้านหน้าส้วมหันไปทางประตู
+	local body = outhouse and outhouse:FindFirstChild("TinOuthouse") :: BasePart
+	local door = outhouse and outhouse:FindFirstChild("TinOuthouse_Door") :: BasePart
+	if body and door then
+		local bmn, bmx = boundsOf({ body })
+		local doorZ = door.Position.Z
+		local floorTop = bmn.Y + 0.25 -- พื้นยกในห้องสูง 0.25 stud จากโคนโมเดล
+		local center = Vector3.new((bmn.X + bmx.X) / 2, floorTop - 0.39, doorZ + 2.15) -- แผ่นปูนส้วมเสมอพื้นห้อง
+		local placed = placeGroup(store, "SquatToilet", { "SquatToilet", "SquatToilet_Water" }, center, 0, "bottom", outhouse)
+		placed.SquatToilet:SetAttribute("ImportedProp", true)
+	end
+
+	-- 5) หุ่นไล่กากลางนา แทน ScareCrow mesh ของเดิม (คง Model "Scarecrow" + Part ที่มีป้ายชื่อ/ParticleEmitter ไว้)
+	local crowModel = anomaly:FindFirstChild("Scarecrow")
+	local oldMesh = crowModel and crowModel:FindFirstChild("ScareCrow")
+	if oldMesh then
+		local b = bottomCenter({ oldMesh })
+		local base = Vector3.new(b.X, groundY(b.X, b.Z) - 0.6, b.Z) -- เสาปักลงดิน 0.6
+		local placed = placeGroup(store, "Scarecrow", { "Scarecrow", "Scarecrow_EyeL_Neon", "Scarecrow_EyeR_Neon" }, base, 180, "bottom", crowModel)
+		for _, n in ipairs({ "Scarecrow_EyeL_Neon", "Scarecrow_EyeR_Neon" }) do
+			makeNeon(placed[n], Color3.fromRGB(255, 40, 30))
+			placed[n].CanCollide = false
+		end
+		crowModel.PrimaryPart = placed.Scarecrow
+		archivePlaceholder(oldMesh)
+	end
+
+	-- 6) ตะเกียงพายุบนโต๊ะร้าน (ยังไม่จุด: เปลวไฟซ่อนไว้ ใช้ทำ event ได้โดยตั้ง Transparency = 0)
+	local shack = env.ShackStructure:FindFirstChild("ImportedShack")
+	local counter = shack and shack:FindFirstChild("CounterTable") :: BasePart
+	if counter then
+		local _, cmx = boundsOf({ counter })
+		local placed = placeGroup(store, "HandLights", { "StormLantern", "StormLantern_Glass", "StormLantern_Neon" }, Vector3.new(-5.6, cmx.Y + 0.01, 13.6), 20, "bottom", shack)
+		local glass = placed.StormLantern_Glass
+		glass.Material = Enum.Material.Glass
+		glass.Transparency = 0.5
+		glass.CanCollide = false
+		local flame = placed.StormLantern_Neon
+		makeNeon(flame, Color3.fromRGB(255, 150, 60))
+		flame.Transparency = 1
+		flame.CanCollide = false
+	end
+
+	-- 7) ไฟฉายของผู้เล่น (StarterPack.FrogFlashlight): ใส่โมเดลไฟฉายเชื่อมกับ Handle เดิม ซ่อนชิ้นเดิม (สคริปต์/SpotLight คงเดิม)
+	local tool = game:GetService("StarterPack"):FindFirstChild("FrogFlashlight")
+	local handle = tool and tool:FindFirstChild("Handle") :: BasePart
+	local tplLights = store:FindFirstChild("HandLights")
+	if handle and tplLights and not handle:FindFirstChild("FlashlightModel") then
+		local body = tplLights.Flashlight:Clone()
+		local lens = tplLights.Flashlight_Neon:Clone()
+		local k = handle.Size.Z / body.Size.Z
+		local lensOffset = lens.Position - body.Position
+		body.Size *= k
+		lens.Size *= k
+		-- โมเดลส่องไป +Z แต่ Tool ส่องไป -Z: หมุน 180 องศารอบแกนตั้ง
+		local rot = CFrame.Angles(0, math.pi, 0)
+		body.CFrame = handle.CFrame * rot * (body.CFrame - body.Position)
+		lens.CFrame = handle.CFrame * rot * CFrame.new(lensOffset * k) * (lens.CFrame - lens.Position)
+		makeNeon(lens, Color3.fromRGB(255, 240, 200))
+		for _, p in ipairs({ body, lens }) do
+			p.Anchored = false
+			p.CanCollide = false
+			p.Massless = true
+			p.Parent = handle
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = handle
+			w.Part1 = p
+			w.Parent = p
+		end
+		body.Name = "FlashlightModel"
+		lens.Name = "FlashlightLens"
+		handle.Transparency = 1
+		local rim = tool:FindFirstChild("YellowRim")
+		if rim and rim:IsA("BasePart") then
+			rim.Transparency = 1
+		end
+	end
+
+	Workspace:SetAttribute("ThaiPropsSwapped", true)
+	print("🏮 [MapBuilder] วางโมเดลไทยบ้านรอบ 2 ครบแล้ว")
+end
+
+-- ===================================================================================
+-- ชุดพืชไทย: แทนของเดิมที่วางอยู่ (ต้นกล้วยใน BananaGrove, กอข้าวในนา, กอหญ้าริมถนน) ตำแหน่งเดิม ขนาดตามของเดิม
+-- ของเดิมเก็บใน ServerStorage.ArchivedPlaceholders (ไม่ลบ)
+-- ===================================================================================
+local THAI_PLANTS = { "BananaClump", "BananaBunch", "BananaBlossom", "ThaiGrasses", "MangoTree" }
+-- ยอดต้นกล้วยต้นสูงสุดในกอ (studs, แกน Roblox เทียบ pivot ที่โคนกอ) สำหรับห้อยเครือกล้วย
+local BANANA_TOP = Vector3.new(-0.2, 9.4, 0.38)
+-- ปลายก้านเครือกล้วย (เทียบ pivot ของเครือ) สำหรับห้อยหัวปลี
+local BUNCH_END = Vector3.new(-0.9, -4.55, 0)
+
+function MapBuilder.SwapThaiPlants()
+	if Workspace:GetAttribute("ThaiPlantsSwapped") then
+		warn("[MapBuilder] SwapThaiPlants: เคยสลับไปแล้ว (ลบ attribute ThaiPlantsSwapped ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local store = moveTemplatesToStorage()
+	for _, name in ipairs(THAI_PLANTS) do
+		if not store:FindFirstChild(name) then
+			local m = Workspace:FindFirstChild(name)
+			local nm = Workspace:FindFirstChild("NewModels")
+			m = m or (nm and nm:FindFirstChild(name))
+			assert(m and m:IsA("Model"), "ไม่พบโมเดลที่นำเข้า " .. name)
+			m.Parent = store
+		end
+	end
+	local env = Workspace.MapEnvironment
+	local rng = Random.new(2026)
+
+	local function placeScaled(file: string, names: { string }, base: Vector3, yaw: number, scale: number, parent: Instance, name: string): Model
+		local m = Instance.new("Model")
+		m.Name = name
+		m:SetAttribute("ImportedProp", true)
+		local placed = placeGroup(store, file, names, base, yaw, "origin", m)
+		m.PrimaryPart = placed[names[1]]
+		m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+		m.Parent = parent
+		return m
+	end
+
+	-- 1) ต้นกล้วย: กอใหม่แทนทุกต้นเดิม ขนาดตามความสูงเดิม, ห้อยเครือ + หัวปลีทุก ๆ 3 กอ
+	local grove = env:FindFirstChild("BananaGrove")
+	if grove then
+		local i = 0
+		for _, old in ipairs(grove:GetChildren()) do
+			if old:IsA("Model") and not old:GetAttribute("ImportedProp") then
+				i += 1
+				local _, s = old:GetBoundingBox()
+				local b = bottomCenter({ old })
+				local base = Vector3.new(b.X, groundY(b.X, b.Z) - 0.1, b.Z)
+				local yaw = rng:NextNumber(0, 360)
+				local m = placeScaled("BananaClump", { "BananaClump", "BananaClump_B", "BananaClump_Base" }, base, yaw, 1, grove, old.Name)
+				if i % 3 == 1 then
+					local rot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+					local top = rot:PointToWorldSpace(BANANA_TOP)
+					local byaw = yaw + rng:NextNumber(0, 360)
+					placeGroup(store, "BananaBunch", { "BananaBunch" }, top, byaw, "origin", m)
+					local tip = (CFrame.new(top) * CFrame.Angles(0, math.rad(byaw), 0)):PointToWorldSpace(BUNCH_END)
+					placeGroup(store, "BananaBlossom", { "BananaBlossom" }, tip, byaw, "origin", m)
+				end
+				m:ScaleTo(math.clamp(s.Y / 13.6, 0.6, 1.1))
+				for _, d in ipairs(m:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.CanCollide = d.Name == "BananaClump_Base"
+						d.CastShadow = d.Name ~= "BananaClump_Base"
+					end
+				end
+				archivePlaceholder(old)
+			end
+		end
+	end
+
+	-- 2) กอข้าว: แถวต้นข้าวเพิ่งดำ (3 กอ) แทนทุกกอเดิมในนา หันแนวแถวไปทางเดียวกันทั้งแปลง
+	local fields = { env:FindFirstChild("RiceField"), env:FindFirstChild("BackRiceField") }
+	local nm = Workspace:FindFirstChild("NewModels")
+	-- แปลงข้างมีทั้งใน MapEnvironment และ NewModels (คนละตำแหน่ง) ทำทั้งคู่
+	for _, n in ipairs({ "LeftRiceField", "RightRiceField" }) do
+		for _, root in ipairs({ env, nm }) do
+			local f = root and root:FindFirstChild(n)
+			if f then
+				table.insert(fields, f)
+			end
+		end
+	end
+	for _, field in ipairs(fields) do
+		for _, old in ipairs(field:GetChildren()) do
+			if old:IsA("Model") and old.Name:match("^RiceGrass") and not old:GetAttribute("ImportedProp") then
+				local b = bottomCenter({ old })
+				local m = placeScaled("ThaiGrasses", { "RicePaddyPatch" }, Vector3.new(b.X, b.Y + 0.15, b.Z), 0, 1, field, old.Name)
+				for _, d in ipairs(m:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.CanCollide = false
+						d.CastShadow = false
+					end
+				end
+				archivePlaceholder(old)
+			end
+		end
+	end
+
+	-- 3) กอหญ้าริมถนน: กอหญ้าดอกฟูแทนทุกกอเดิม ขนาดตามความสูงเดิม
+	local road = env:FindFirstChild("DirtRoad")
+	if road then
+		for _, old in ipairs(road:GetChildren()) do
+			if old:IsA("Model") and old.Name:match("^RoadsideGrass") and not old:GetAttribute("ImportedProp") then
+				local _, s = old:GetBoundingBox()
+				local b = bottomCenter({ old })
+				local m = placeScaled("ThaiGrasses", { "WildGrassClump" }, Vector3.new(b.X, groundY(b.X, b.Z), b.Z), rng:NextNumber(0, 360), 1, road, old.Name)
+				m:ScaleTo(math.clamp(s.Y / 4.6, 0.55, 1.0))
+				for _, d in ipairs(m:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.CanCollide = false
+					end
+				end
+				archivePlaceholder(old)
+			end
+		end
+	end
+
+	-- 4) นาข้าวรอบนอก (BackRiceField ที่ราก Workspace 6 แปลง)
+	for _, f in ipairs(Workspace:GetChildren()) do
+		if f:IsA("Model") and f.Name == "BackRiceField" then
+			for _, old in ipairs(f:GetChildren()) do
+				if old:IsA("Model") and old.Name:match("^RiceGrass") and not old:GetAttribute("ImportedProp") then
+					local b = bottomCenter({ old })
+					local m = placeScaled("ThaiGrasses", { "RicePaddyPatch" }, Vector3.new(b.X, b.Y + 0.15, b.Z), 0, 1, f, old.Name)
+					for _, d in ipairs(m:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.CanCollide = false
+							d.CastShadow = false
+						end
+					end
+					archivePlaceholder(old)
+				end
+			end
+		end
+	end
+
+	-- 5) กอหญ้าแนวขอบแมพ (OuterTreeLine.BorderGrass): สลับกอหญ้าดอกฟูกับกอตะไคร้ ขนาดตามของเดิม
+	local otl = env:FindFirstChild("OuterTreeLine")
+	if otl then
+		local k = 0
+		for _, old in ipairs(otl:GetChildren()) do
+			if old:IsA("Model") and old.Name:match("^BorderGrass") and not old:GetAttribute("ImportedProp") then
+				k += 1
+				local _, s = old:GetBoundingBox()
+				local b = bottomCenter({ old })
+				local kind = if k % 3 == 0 then "LemongrassClump" else "WildGrassClump"
+				local m = placeScaled("ThaiGrasses", { kind }, Vector3.new(b.X, groundY(b.X, b.Z), b.Z), rng:NextNumber(0, 360), 1, otl, old.Name)
+				m:ScaleTo(math.clamp(s.Y / (if kind == "LemongrassClump" then 4.8 else 4.6), 0.55, 1.0))
+				for _, d in ipairs(m:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.CanCollide = false
+					end
+				end
+				archivePlaceholder(old)
+			end
+		end
+	end
+
+	-- 6) ต้นไม้แนวขอบแมพ (OuterTreeLine.BorderTree): ทุก 6 ต้น แทนมะม่วง 1 ต้น (ใบแบบเบา) และกอกล้วย 1 กอ ที่เหลือคงเดิม
+	if otl then
+		local k = 0
+		for _, old in ipairs(otl:GetChildren()) do
+			if old:IsA("Model") and old.Name:match("^BorderTree") and not old:GetAttribute("ImportedProp") then
+				k += 1
+				local b = bottomCenter({ old })
+				local base = Vector3.new(b.X, groundY(b.X, b.Z) - 0.2, b.Z)
+				if k % 6 == 1 then
+					local m = placeScaled("MangoTree", { "MangoTrunk", "MangoTwigs" }, base, rng:NextNumber(0, 360), 1, otl, old.Name)
+					m.MangoTwigs.CanCollide = false
+					MapBuilder.AddMangoLeaves(m, true)
+					archivePlaceholder(old)
+				elseif k % 6 == 4 then
+					local m = placeScaled("BananaClump", { "BananaClump", "BananaClump_B", "BananaClump_Base" }, base, rng:NextNumber(0, 360), 1, otl, old.Name)
+					m:ScaleTo(0.85)
+					for _, d in ipairs(m:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.CanCollide = false
+						end
+					end
+					archivePlaceholder(old)
+				end
+			end
+		end
+	end
+
+	Workspace:SetAttribute("ThaiPlantsSwapped", true)
+	MapBuilder.TagWindPlants()
+	print("🍌 [MapBuilder] แทนต้นกล้วย กอข้าว และกอหญ้าเดิมด้วยโมเดลพืชไทยแล้ว")
+end
+
+-- กอตะไคร้/กอหญ้าตามคันนา: หาคันนาจากจุดที่พื้นสูงกว่าผิวน้ำในแต่ละแปลง แล้ววางกอห่างกันอย่างน้อย 5 studs
+function MapBuilder.AddBundClumps()
+	if Workspace:GetAttribute("BundClumpsAdded") then
+		warn("[MapBuilder] AddBundClumps: เคยเพิ่มไปแล้ว (ลบ attribute BundClumpsAdded ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	assert(store and store:FindFirstChild("ThaiGrasses"), "ไม่พบ ImportedProps.ThaiGrasses")
+	local env = Workspace.MapEnvironment
+	local waters = {}
+	-- เฉพาะนา 4 แปลงในเขตเล่น (นารอบนอกไกล ไม่ต้องใส่ เพื่อประหยัดเครื่อง)
+	for _, d in ipairs(env:GetDescendants()) do
+		if d:IsA("BasePart") and d.Name:match("^PaddyWater") then
+			table.insert(waters, d)
+		end
+	end
+	local include = { Workspace.Terrain }
+	for _, w in ipairs(waters) do
+		table.insert(include, w)
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = include
+	local rng = Random.new(77)
+	local placed: { Vector3 } = {}
+	local folder = Instance.new("Model")
+	folder.Name = "BundClumps"
+	folder.Parent = env
+	local count = 0
+	for _, w in ipairs(waters) do
+		local top = w.Position.Y + w.Size.Y / 2
+		local hx, hz = w.Size.X / 2 + 2, w.Size.Z / 2 + 2
+		for x = -hx, hx, 2.5 do
+			for z = -hz, hz, 2.5 do
+				local p = w.CFrame:PointToWorldSpace(Vector3.new(x + rng:NextNumber(-0.8, 0.8), 0, z + rng:NextNumber(-0.8, 0.8)))
+				local hit = Workspace:Raycast(Vector3.new(p.X, top + 30, p.Z), Vector3.new(0, -60, 0), params)
+				if hit and hit.Instance == Workspace.Terrain and hit.Position.Y > top + 0.15 and hit.Position.Y < top + 3 then
+					local ok = true
+					for _, q in ipairs(placed) do
+						if (Vector3.new(q.X, 0, q.Z) - Vector3.new(hit.Position.X, 0, hit.Position.Z)).Magnitude < 8 then
+							ok = false
+							break
+						end
+					end
+					if ok and rng:NextNumber() < 0.6 then
+						table.insert(placed, hit.Position)
+						count += 1
+						local kind = if count % 3 == 0 then "WildGrassClump" else "LemongrassClump"
+						local m = Instance.new("Model")
+						m.Name = "Bund" .. kind .. "_" .. count
+						m:SetAttribute("ImportedProp", true)
+						local base = hit.Position - Vector3.new(0, 0.1, 0)
+						local yaw = rng:NextNumber(0, 360)
+						local pl = placeGroup(store, "ThaiGrasses", { kind }, base, yaw, "origin", m)
+						m.PrimaryPart = pl[kind]
+						m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+						m.Parent = folder
+						m:ScaleTo(rng:NextNumber(0.55, 0.8))
+						for _, d in ipairs(m:GetDescendants()) do
+							if d:IsA("BasePart") then
+								d.CanCollide = false
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	Workspace:SetAttribute("BundClumpsAdded", true)
+	MapBuilder.TagWindPlants()
+	print("🌾 [MapBuilder] วางกอตะไคร้/หญ้าตามคันนา " .. count .. " กอ")
+end
+
+-- ต้นข้าวเต็มแปลง: ปูแผ่น RiceTile (16 กอ 6.4 x 6.4 studs) ทุกช่องที่เป็นผิวน้ำในนา 4 แปลงเขตเล่น
+-- แถวข้าว 3 กอ (RicePaddyPatch) ที่วางไว้ก่อนในแปลงเหล่านี้ถูกเอาออก (เป็นของที่นำเข้าเอง ไม่ใช่ของเดิม)
+function MapBuilder.FillRicePaddies()
+	if Workspace:GetAttribute("RicePaddiesFilled") then
+		warn("[MapBuilder] FillRicePaddies: เคยทำแล้ว (ลบ attribute RicePaddiesFilled ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local store = moveTemplatesToStorage()
+	if not store:FindFirstChild("RiceTile") then
+		local m = Workspace:FindFirstChild("RiceTile") or (Workspace:FindFirstChild("NewModels") and Workspace.NewModels:FindFirstChild("RiceTile"))
+		assert(m and m:IsA("Model"), "ไม่พบโมเดลที่นำเข้า RiceTile")
+		m.Parent = store
+	end
+	local tpl = store.RiceTile.RiceTile :: BasePart
+	local env = Workspace.MapEnvironment
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	local total = 0
+	for _, field in ipairs(env:GetChildren()) do
+		local water = nil
+		for _, c in ipairs(field:GetChildren()) do
+			if c:IsA("BasePart") and c.Name:match("^PaddyWater") then
+				water = c
+			end
+		end
+		if water then
+			for _, c in ipairs(field:GetChildren()) do
+				if c:IsA("Model") and c.Name:match("^RiceGrass") and c:GetAttribute("ImportedProp") then
+					c:Destroy()
+				end
+			end
+			params.FilterDescendantsInstances = { Workspace.Terrain, water }
+			local top = water.Position.Y + water.Size.Y / 2
+			local tiles = Instance.new("Model")
+			tiles.Name = "RiceTiles"
+			tiles.Parent = field
+			local hx, hz = water.Size.X / 2, water.Size.Z / 2
+			for x = -hx + 3.2, hx - 3.2, 6.4 do
+				for z = -hz + 3.2, hz - 3.2, 6.4 do
+					local ok = true
+					for _, o in ipairs({ Vector3.zero, Vector3.new(2.4, 0, 2.4), Vector3.new(-2.4, 0, 2.4), Vector3.new(2.4, 0, -2.4), Vector3.new(-2.4, 0, -2.4) }) do
+						local p = water.CFrame:PointToWorldSpace(Vector3.new(x, 0, z) + o)
+						local hit = Workspace:Raycast(Vector3.new(p.X, top + 20, p.Z), Vector3.new(0, -40, 0), params)
+						if not hit or hit.Instance ~= water then
+							ok = false
+							break
+						end
+					end
+					if ok then
+						local c = tpl:Clone()
+						local p = water.CFrame:PointToWorldSpace(Vector3.new(x, 0, z))
+						-- จุด origin ของแผ่น (ระดับ 0 ใน Blender) วางที่ผิวน้ำ โคนกออยู่ใต้น้ำ 0.2 stud
+						local offset = tpl.Position - store.RiceTile:GetPivot().Position
+						c.CFrame = (tpl.CFrame - tpl.CFrame.Position) + Vector3.new(p.X, top, p.Z) + offset
+						c.Anchored = true
+						c.CanCollide = false
+						c.CastShadow = false
+						c:SetAttribute("ImportedProp", true)
+						c.Parent = tiles
+						total += 1
+					end
+				end
+			end
+		end
+	end
+	Workspace:SetAttribute("RicePaddiesFilled", true)
+	print("🌾 [MapBuilder] ปูต้นข้าวเต็มแปลง " .. total .. " แผ่น")
+end
+
+-- ต้นไม้บนภูเขาด้านข้าง: ต้นมะม่วงแบบใบเบา (far) บนเนินภูเขานอกเขตเล่น ห่างกันอย่างน้อย 20 studs
+function MapBuilder.AddMountainTrees(maxTrees: number?)
+	if Workspace:GetAttribute("MountainTreesAdded") then
+		warn("[MapBuilder] AddMountainTrees: เคยเพิ่มไปแล้ว (ลบ attribute MountainTreesAdded ที่ Workspace ถ้าต้องการรันใหม่)")
+		return
+	end
+	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	assert(store and store:FindFirstChild("MangoTree"), "ไม่พบ ImportedProps.MangoTree")
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	local rng = Random.new(4242)
+	local folder = Instance.new("Model")
+	folder.Name = "MountainTrees"
+	folder.Parent = Workspace.MapEnvironment
+	local placed: { Vector3 } = {}
+	local cands = {}
+	for x = -320, 320, 16 do
+		for z = -280, 280, 16 do
+			if math.abs(x) > 100 or math.abs(z) > 90 then
+				local px, pz = x + rng:NextNumber(-6, 6), z + rng:NextNumber(-6, 6)
+				local hit = Workspace:Raycast(Vector3.new(px, 400, pz), Vector3.new(0, -500, 0), params)
+				if hit and hit.Position.Y > 8 and hit.Material ~= Enum.Material.Water then
+					table.insert(cands, hit.Position)
+				end
+			end
+		end
+	end
+	-- สุ่มลำดับ แล้ววางเรียงจากจุดที่ใกล้เขตเล่นก่อน (มองเห็นจากในเกม)
+	table.sort(cands, function(a, b)
+		return math.max(math.abs(a.X) - 100, math.abs(a.Z) - 90) < math.max(math.abs(b.X) - 100, math.abs(b.Z) - 90)
+	end)
+	local limit = maxTrees or 45
+	for _, p in ipairs(cands) do
+		if #placed >= limit then
+			break
+		end
+		local ok = true
+		for _, q in ipairs(placed) do
+			if (q - p).Magnitude < 20 then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			table.insert(placed, p)
+			local m = Instance.new("Model")
+			m.Name = "MountainMango_" .. #placed
+			m:SetAttribute("ImportedProp", true)
+			local base = p - Vector3.new(0, 0.6, 0)
+			local yaw = rng:NextNumber(0, 360)
+			local pl = placeGroup(store, "MangoTree", { "MangoTrunk", "MangoTwigs" }, base, yaw, "origin", m)
+			m.PrimaryPart = pl.MangoTrunk
+			m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+			pl.MangoTwigs.CanCollide = false
+			m.Parent = folder
+			MapBuilder.AddMangoLeaves(m, true, true)
+		end
+	end
+	Workspace:SetAttribute("MountainTreesAdded", true)
+	print("⛰️ [MapBuilder] ปลูกต้นไม้บนภูเขาด้านข้าง " .. #placed .. " ต้น")
+end
+
+-- ติด tag "WindSway" ให้กอหญ้า/ตะไคร้ (Model ที่มีชิ้น WildGrassClump หรือ LemongrassClump) ให้ GrassWind.client แกว่งตามลม
+function MapBuilder.TagWindPlants()
+	local CollectionService = game:GetService("CollectionService")
+	local n = 0
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d:GetAttribute("ImportedProp") and (d:FindFirstChild("WildGrassClump") or d:FindFirstChild("LemongrassClump")) then
+			CollectionService:AddTag(d, "WindSway")
+			if d:FindFirstChild("LemongrassClump") then
+				d:SetAttribute("SwayAmp", 0.7)
+			end
+			n += 1
+		end
+	end
+	print("🌬️ [MapBuilder] ติด tag WindSway ให้กอหญ้า " .. n .. " กอ")
+end
+
+-- จัดมุมปะยาง: ถังปั๊มลมอยู่หน้าสุดใกล้ถนน (เด่นสุด เผื่อ event กับเครื่อง) กองยางเก่าอยู่ด้านหลังและข้างๆ
+-- ชื่อ AirCompressor / PressureGauge_Needle / ReliefValve คงเดิม
+function MapBuilder.GroupCompressorTires()
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local yard = env and env:FindFirstChild("ImportedYardProps")
+	local comp = Workspace:FindFirstChild("AirCompressor")
+	if not yard or not comp then
+		warn("[MapBuilder] GroupCompressorTires: ไม่พบ ImportedYardProps หรือ AirCompressor")
+		return
+	end
+	-- วางให้ก้นวัตถุแตะพื้นที่ (x, z) และหมุนรอบแกนตั้งตาม yaw (องศา) ทับของเดิม
+	local function setOnGround(inst: Instance, x: number, z: number, yaw: number, tilt: CFrame?)
+		local list = { inst }
+		local pivot = (inst :: any):GetPivot()
+		local rotOnly = CFrame.Angles(0, math.rad(yaw), 0) * (tilt or CFrame.identity) * (pivot - pivot.Position)
+		local placed = CFrame.new(Vector3.new(x, 0, z)) * rotOnly
+		;(inst :: any):PivotTo(placed)
+		local mn = boundsOf(list)
+		local dy = groundY(x, z) - mn.Y
+		;(inst :: any):PivotTo(placed + Vector3.new(0, dy, 0))
+		return pivot
+	end
+	-- ถังปั๊มลม: หน้าสุด แกนยาวขนานถนน
+	setOnGround(comp, 8, 1.6, 0)
+	-- กองยาง 4 เส้น (ย้ายจากระเบียงมาไว้หลังถังลม)
+	local shack = env:FindFirstChild("ShackStructure")
+	local stack = shack and shack:FindFirstChild("ImportedShack") and shack.ImportedShack:FindFirstChild("TireStack_4")
+	if stack then
+		stack.Parent = yard
+		setOnGround(stack, 11.6, 4.8, 15)
+	end
+	local leaning = yard:FindFirstChild("TireLeaning")
+	if leaning then
+		setOnGround(leaning, 13.6, 3.2, 70)
+	end
+	local rim = yard:FindFirstChild("TireWithRim")
+	if rim then
+		setOnGround(rim, 4.6, 4.8, 30)
+	end
+	-- ยางเส้นเปล่าอีกเส้นนอนพิงกองยาง
+	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	local tpl = store and store:FindFirstChild("TireStack") and store.TireStack:FindFirstChild("TireLeaning")
+	if tpl and not yard:FindFirstChild("TireLoose") then
+		local loose = tpl:Clone()
+		loose.Name = "TireLoose"
+		loose.Anchored = true
+		loose.Parent = yard
+		setOnGround(loose, 9.2, 5.8, 0, CFrame.Angles(math.rad(-75), 0, 0))
+	end
+	-- ของปะยางวางหน้าถังลม
+	local bucket = yard:FindFirstChild("BucketWater")
+	if bucket then
+		setOnGround(bucket, 4.8, 1.2, 0)
+	end
+	local kit = yard:FindFirstChild("PatchKitTin")
+	if kit then
+		setOnGround(kit, 5.6, -0.4, 20)
+	end
+	print("🛞 [MapBuilder] จัดมุมถังปั๊มลม + กองยางแล้ว")
+end
+
+-- หรี่ของที่สีสว่างเกินจนดูเหมือนมีแสง: น้ำมันในตู้ปั๊ม และหลักกิโล (ย้อมสี texture ให้หม่น)
+function MapBuilder.MuteBrightProps()
+	local targets = {
+		{ Workspace:FindFirstChild("InteractiveProps") and Workspace.InteractiveProps:FindFirstChild("GasPump"), "FuelLiquid", Color3.fromRGB(150, 118, 90) },
+		{ Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("DirtRoad"), "KilometerMilestone", Color3.fromRGB(120, 116, 106) },
+	}
+	for _, t in ipairs(targets) do
+		local part = t[1] and t[1]:FindFirstChild(t[2])
+		local sa = part and part:FindFirstChildOfClass("SurfaceAppearance")
+		if sa then
+			sa.Color = t[3]
+		end
+	end
+	-- เถียงนากลางทุ่ง: ผิวด้าน ไม่สะท้อน และหม่นลง
+	local rice = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("RiceField")
+	local hut = rice and rice:FindFirstChild("DistantRiceHut")
+	if hut then
+		for _, d in ipairs(hut:GetDescendants()) do
+			if d:IsA("SurfaceAppearance") then
+				d.MetalnessMap = ""
+				d.RoughnessMap = ""
+				d.Color = Color3.fromRGB(105, 100, 88)
+			elseif d:IsA("BasePart") then
+				d.Reflectance = 0
+			end
+		end
+	end
+end
+
+-- ย้อมสีกระท่อมให้หลอน: สังกะสี/ไม้ เทาอมเขียวหม่นแบบขึ้นตะไคร่ ป้ายร้านเข้มกว่าอีกระดับ (รวม ShutterDoor)
+local SHACK_TINT = Color3.fromRGB(92, 96, 84)
+local SHACK_SIGN_TINT = Color3.fromRGB(70, 70, 62)
+function MapBuilder.TintShackHaunted()
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local imported = shack and shack:FindFirstChild("ImportedShack")
+	local targets = { imported, Workspace:FindFirstChild("InteractiveProps") and Workspace.InteractiveProps:FindFirstChild("ShutterDoor") }
+	for _, t in ipairs(targets) do
+		if t then
+			for _, d in ipairs(t:GetDescendants()) do
+				if d:IsA("SurfaceAppearance") then
+					d.Color = if d.Parent and d.Parent.Name == "MainSignBoard" then SHACK_SIGN_TINT else SHACK_TINT
+				end
+			end
+		end
+	end
+end
+
+-- ===================================================================================
+-- ใบต้นไทร: แผ่นใบไขว้ (leaf card) 4 แผ่นต่อกลุ่ม ติดภาพกลุ่มใบไทรพื้นหลังโปร่งใส ตามจุดจาก assets/models/SacredBanyanTree_LeafAnchors.json
+-- (x, y, z, radius) เป็น studs เทียบกับ pivot ของต้นไทร (โคนลำต้น) ตามแกน Roblox
+-- ===================================================================================
+local BANYAN_LEAF_IMAGE = "rbxassetid://71802157290225" -- SacredBanyanTree_LeafCard.png
+local BANYAN_LEAF_TINT = Color3.fromRGB(150, 165, 140) -- หม่นลงให้เข้ากับฉากกลางคืน
+local BANYAN_LEAF_ANCHORS = {
+	{ -1.95, 33.26, 0.0, 3.39 },
+	{ 2.42, 33.02, 2.21, 3.1 },
+	{ -0.36, 32.57, -4.08, 3.36 },
+	{ -2.92, 33.02, 3.81, 3.11 },
+	{ 5.02, 33.05, -0.89, 3.57 },
+	{ -5.04, 32.51, -3.2, 2.88 },
+	{ 1.61, 33.26, 5.98, 3.5 },
+	{ 3.01, 32.46, -5.8, 3.4 },
+	{ -7.04, 32.67, 2.57, 2.68 },
+	{ 7.42, 32.45, 3.06, 2.79 },
+	{ -3.42, 31.78, -7.32, 3.11 },
+	{ -2.62, 32.72, 8.35, 3.51 },
+	{ 7.89, 32.31, -4.57, 2.95 },
+	{ -9.62, 31.54, -2.12, 2.68 },
+	{ 6.12, 32.44, 8.71, 2.61 },
+	{ 1.32, 31.3, -10.19, 3.57 },
+	{ -8.22, 31.98, 6.93, 3.42 },
+	{ 10.68, 32.27, 0.44, 3.17 },
+	{ -7.66, 31.59, -7.62, 2.97 },
+	{ 0.56, 30.9, 12.02, 3.38 },
+	{ 7.71, 31.39, -9.23, 3.54 },
+	{ -11.9, 32.19, 1.6, 2.9 },
+	{ 10.4, 31.62, 7.23, 3.34 },
+	{ -2.94, 31.52, -13.09, 2.72 },
+	{ -6.7, 31.06, 11.69, 3.29 },
+	{ 11.97, 31.93, -3.82, 2.74 },
+	{ -12.68, 30.79, -5.86, 3.18 },
+	{ 5.39, 30.01, 12.87, 3.36 },
+	{ 5.02, 30.03, -13.95, 3.36 },
+	{ -12.38, 30.14, 6.5, 2.79 },
+	{ 14.47, 30.05, 3.81, 2.68 },
+	{ -8.12, 30.57, -12.64, 3.38 },
+	{ -2.6, 30.38, 15.09, 2.68 },
+	{ 11.24, 30.0, -8.7, 3.14 },
+	{ -14.27, 30.24, -1.18, 2.98 },
+	{ 10.3, 30.32, 11.14, 3.35 },
+	{ -0.07, 29.89, -15.64, 3.17 },
+	{ -10.24, 30.01, 11.28, 2.74 },
+	{ 15.07, 30.12, -1.4, 3.38 },
+	{ -13.44, 29.16, -10.2, 3.4 },
+	{ 3.01, 29.42, 16.57, 3.3 },
+	{ 9.31, 27.86, -14.8, 2.81 },
+	{ -16.71, 28.68, 4.58, 2.66 },
+	{ 15.04, 29.38, 7.72, 3.08 },
+	{ -5.8, 28.33, -15.66, 2.9 },
+	{ -6.82, 27.04, 16.73, 3.55 },
+	{ -17.08, 25.47, 0.68, 2.71 },
+	{ -14.28, 24.53, 8.65, 2.42 },
+	{ -9.91, 24.65, 14.75, 2.76 },
+	{ -0.77, 24.47, 15.99, 2.6 },
+	{ 9.49, 24.87, 13.12, 2.84 },
+	{ 13.61, 24.46, 7.87, 2.53 },
+	{ 17.64, 24.07, -1.36, 2.7 },
+	{ 15.22, 24.33, -7.72, 2.6 },
+	{ 9.77, 24.72, -14.77, 2.85 },
+	{ -1.09, 24.86, -16.72, 2.76 },
+	{ -6.81, 24.77, -15.26, 2.69 },
+	{ -12.77, 24.58, -8.87, 2.5 }
+}
+
+local function leafCard(cf: CFrame, size: Vector3, horizontal: boolean, parent: Instance)
+	local p = Instance.new("Part")
+	p.Name = "LeafCard"
+	p.Size = size
+	p.CFrame = cf
+	p.Transparency = 1
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	for _, face in ipairs(if horizontal then { Enum.NormalId.Top, Enum.NormalId.Bottom } else { Enum.NormalId.Front, Enum.NormalId.Back }) do
+		local d = Instance.new("Decal")
+		d.Texture = BANYAN_LEAF_IMAGE
+		d.Face = face
+		d.Color3 = BANYAN_LEAF_TINT
+		d.Parent = p
+	end
+	p.Parent = parent
+end
+
+function MapBuilder.AddBanyanLeaves()
+	local zone = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("SacredBanyanZone")
+	local tree = zone and zone:FindFirstChild("SacredBanyanTree")
+	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	local tplTree = store and store:FindFirstChild("SacredBanyanTree")
+	if not tree or not tplTree then
+		warn("[MapBuilder] AddBanyanLeaves: ไม่พบ SacredBanyanTree ในฉาก หรือต้นแบบใน ServerStorage.ImportedProps")
+		return
+	end
+	if tree:FindFirstChild("BanyanLeaves") then
+		warn("[MapBuilder] AddBanyanLeaves: มีใบอยู่แล้ว (ลบ SacredBanyanTree.BanyanLeaves ถ้าต้องการสร้างใหม่)")
+		return
+	end
+	-- pivot ของต้นไทรในฉาก = ตำแหน่งลำต้นในฉาก - ตำแหน่งลำต้นในต้นแบบ (ต้นแบบมี pivot ที่จุด 0,0,0)
+	local origin = tree.BanyanTrunk.Position - tplTree.BanyanTrunk.Position + tplTree:GetPivot().Position
+	local leaves = Instance.new("Model")
+	leaves.Name = "BanyanLeaves"
+	leaves.Parent = tree
+	local rng = Random.new(77)
+	local function clump(c: Vector3, r: number)
+		local yaw0 = rng:NextNumber(0, 180)
+		for k = 0, 2 do
+			local cf = CFrame.new(c) * CFrame.Angles(0, math.rad(yaw0 + k * 60), 0) * CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), 0, 0)
+			leafCard(cf, Vector3.new(2.3 * r, 1.6 * r, 0.05), false, leaves)
+		end
+		local top = CFrame.new(c + Vector3.new(0, r * 0.25, 0)) * CFrame.Angles(math.rad(rng:NextNumber(-10, 10)), math.rad(rng:NextNumber(0, 360)), math.rad(rng:NextNumber(-10, 10)))
+		leafCard(top, Vector3.new(2.2 * r, 0.05, 2.2 * r), true, leaves)
+	end
+	local count = 0
+	for _, a in ipairs(BANYAN_LEAF_ANCHORS) do
+		local c = origin + Vector3.new(a[1], a[2], a[3])
+		local r = a[4]
+		clump(c, r)
+		count += 1
+		-- พุ่มย่อย 2 พุ่มรอบจุดหลัก เยื้องออกด้านข้างและห้อยต่ำลงมา ให้ทรงพุ่มหนาและแผ่กว้างขึ้น
+		local outward = Vector3.new(a[1], 0, a[3])
+		outward = if outward.Magnitude > 0.1 then outward.Unit else Vector3.new(1, 0, 0)
+		for _ = 1, 2 do
+			local side = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)) * r * 0.9
+			local off = outward * r * rng:NextNumber(0.3, 1.1) + side + Vector3.new(0, -r * rng:NextNumber(0.3, 0.9), 0)
+			clump(c + off, r * rng:NextNumber(0.65, 0.85))
+			count += 1
+		end
+	end
+	print("🌳 [MapBuilder] เพิ่มใบต้นไทร " .. count .. " พุ่มแล้ว")
+end
+
+-- สร้างใบต้นไทรใหม่ (ลบชุดใบที่สร้างไว้ก่อน ซึ่งเป็นของที่ฟังก์ชันนี้สร้างเอง)
+function MapBuilder.RebuildBanyanLeaves()
+	local zone = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("SacredBanyanZone")
+	local tree = zone and zone:FindFirstChild("SacredBanyanTree")
+	local old = tree and tree:FindFirstChild("BanyanLeaves")
+	if old then
+		old:Destroy()
+	end
+	MapBuilder.AddBanyanLeaves()
+end
+
+-- ===================================================================================
+-- ใบมะม่วง: แผ่นใบไขว้ ตามจุดใน assets/models/MangoTree_LeafAnchors.json (studs เทียบ pivot ที่โคนต้น)
+-- ใช้: MapBuilder.AddMangoLeaves(<Model ต้นมะม่วงที่วางในฉาก>)
+-- ===================================================================================
+local MANGO_LEAF_IMAGE = "rbxassetid://126910157062464" -- MangoTree_LeafCard.png
+local MANGO_LEAF_TINT = Color3.fromRGB(150, 170, 140)
+local MANGO_LEAF_ANCHORS = {
+	{ -0.99, 20.22, 0.0, 2.85 },
+	{ 1.18, 21.22, 1.08, 2.64 },
+	{ -0.19, 20.12, -2.12, 2.85 },
+	{ -1.57, 20.19, 2.05, 3.15 },
+	{ 2.85, 20.75, -0.5, 2.49 },
+	{ -2.57, 20.17, -1.64, 2.8 },
+	{ 0.9, 21.15, 3.36, 2.92 },
+	{ 1.6, 20.2, -3.08, 3.13 },
+	{ -3.35, 20.4, 1.22, 2.49 },
+	{ 4.06, 21.06, 1.67, 2.52 },
+	{ -1.94, 20.21, -4.14, 2.41 },
+	{ -1.34, 19.86, 4.27, 2.55 },
+	{ 4.22, 20.7, -2.45, 2.8 },
+	{ -4.68, 21.15, -1.03, 2.75 },
+	{ 2.92, 20.04, 4.15, 2.89 },
+	{ 0.64, 20.11, -4.9, 2.66 },
+	{ -4.39, 20.73, 3.7, 3.1 },
+	{ 5.17, 20.11, 0.21, 2.72 },
+	{ -4.02, 19.7, -4.0, 3.12 },
+	{ 0.25, 19.45, 5.38, 2.99 },
+	{ 3.6, 19.7, -4.31, 3.13 },
+	{ -5.97, 19.2, 0.8, 2.55 },
+	{ 5.13, 20.25, 3.57, 3.14 },
+	{ -1.37, 20.24, -6.08, 3.3 },
+	{ -3.22, 19.74, 5.62, 3.03 },
+	{ 6.05, 19.18, -1.93, 3.02 },
+	{ -6.19, 18.97, -2.86, 3.19 },
+	{ 2.51, 18.83, 6.0, 2.87 },
+	{ 2.51, 18.86, -6.97, 3.27 },
+	{ -6.65, 19.58, 3.5, 2.53 },
+	{ 6.97, 19.73, 1.84, 2.61 },
+	{ -4.06, 19.12, -6.31, 2.76 },
+	{ -1.34, 19.52, 7.77, 2.8 },
+	{ 6.01, 18.86, -4.66, 3.18 },
+	{ -7.88, 19.77, -0.65, 2.94 },
+	{ 5.24, 19.13, 5.67, 2.91 },
+	{ -0.04, 18.5, -7.65, 2.73 },
+	{ -5.34, 18.76, 5.89, 2.45 },
+	{ 7.96, 17.92, -0.74, 2.51 },
+	{ -6.52, 18.19, -4.95, 2.83 },
+	{ 1.54, 17.75, 8.47, 3.16 },
+	{ 4.5, 18.77, -7.15, 2.41 },
+	{ -8.67, 18.71, 2.38, 2.82 },
+	{ 7.31, 18.22, 3.75, 2.81 },
+	{ -2.88, 18.45, -7.78, 2.48 },
+	{ -3.29, 18.66, 8.09, 3.08 },
+	{ 8.31, 18.4, -3.94, 2.7 },
+	{ -8.66, 17.4, -2.67, 2.71 },
+	{ 4.86, 18.25, 8.3, 2.51 },
+	{ 2.05, 17.59, -9.54, 2.44 },
+	{ -7.31, 18.22, 5.19, 2.48 },
+	{ 9.26, 16.87, 1.16, 2.47 },
+	{ -6.08, 18.03, -7.15, 2.54 },
+	{ -0.38, 16.98, 10.4, 2.58 },
+	{ 6.81, 18.17, -6.91, 2.83 },
+	{ -9.35, 17.74, 0.48, 2.53 },
+	{ 8.14, 16.36, 6.73, 2.98 },
+	{ -1.33, 18.31, -9.52, 2.62 },
+	{ -5.76, 17.8, 8.36, 2.57 },
+	{ 10.67, 16.16, -2.45, 2.57 },
+	{ -9.43, 16.35, -5.35, 2.9 },
+	{ 3.22, 16.54, 9.93, 2.44 },
+	{ 4.49, 16.33, -9.83, 3.17 },
+	{ -10.47, 15.19, 4.44, 3.17 },
+	{ 10.78, 15.42, 3.82, 2.66 },
+	{ -5.37, 14.13, -10.11, 2.59 },
+	{ -2.58, 16.05, 9.98, 2.47 },
+	{ 8.68, 17.25, -5.64, 2.65 },
+	{ -10.75, 16.52, -1.8, 2.58 },
+	{ 7.35, 13.12, 9.4, 2.82 },
+	{ -11.74, 13.3, -0.48, 2.59 },
+	{ -10.67, 12.94, 3.53, 2.93 },
+	{ -8.29, 13.5, 7.15, 2.69 },
+	{ -3.48, 13.42, 11.21, 2.26 },
+	{ 0.93, 12.98, 10.76, 2.45 },
+	{ 2.99, 12.75, 9.78, 2.4 },
+	{ 7.53, 12.83, 6.72, 2.67 },
+	{ 10.13, 12.51, 5.1, 2.57 },
+	{ 9.92, 13.35, 0.67, 2.63 },
+	{ 9.68, 12.98, -3.98, 2.27 },
+	{ 8.31, 13.39, -6.87, 2.41 },
+	{ 4.12, 13.01, -10.0, 2.38 },
+	{ -0.12, 13.07, -10.5, 2.83 },
+	{ -4.56, 13.51, -10.4, 2.68 },
+	{ -7.62, 13.16, -8.62, 2.86 },
+	{ -9.85, 13.26, -5.09, 2.87 }
+}
+
+function MapBuilder.AddMangoLeaves(tree: Model, light: boolean?, far: boolean?)
+	if not tree or tree:FindFirstChild("MangoLeaves") then
+		return
+	end
+	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
+	local tpl = store and store:FindFirstChild("MangoTree")
+	local trunk = tree:FindFirstChild("MangoTrunk") :: BasePart
+	local origin = if tpl and trunk then trunk.Position - tpl.MangoTrunk.Position + tpl:GetPivot().Position else tree:GetPivot().Position
+	local leaves = Instance.new("Model")
+	leaves.Name = "MangoLeaves"
+	leaves.Parent = tree
+	local rng = Random.new(88)
+	local function card(cf: CFrame, size: Vector3, horizontal: boolean)
+		local p = Instance.new("Part")
+		p.Name = "LeafCard"
+		p.Size = size
+		p.CFrame = cf
+		p.Transparency = 1
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		for _, face in ipairs(if horizontal then { Enum.NormalId.Top, Enum.NormalId.Bottom } else { Enum.NormalId.Front, Enum.NormalId.Back }) do
+			local d = Instance.new("Decal")
+			d.Texture = MANGO_LEAF_IMAGE
+			d.Face = face
+			d.Color3 = MANGO_LEAF_TINT
+			d.Parent = p
+		end
+		p.Parent = leaves
+	end
+	for idx, a in ipairs(MANGO_LEAF_ANCHORS) do
+		if far and idx % 3 ~= 0 then
+			continue
+		end
+		local c = origin + Vector3.new(a[1], a[2], a[3])
+		local r = a[4] * (if far then 1.7 else 1)
+		for n = 1, if light then 1 else 2 do
+			local cc = if n == 1 then c else c + Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.8, 0), rng:NextNumber(-1, 1)) * r * 0.7
+			local rr = if n == 1 then r else r * 0.8
+			local yaw0 = rng:NextNumber(0, 180)
+			for k = 0, 2 do
+				card(CFrame.new(cc) * CFrame.Angles(0, math.rad(yaw0 + k * 60), 0) * CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), 0, 0), Vector3.new(2.3 * rr, 1.7 * rr, 0.05), false)
+			end
+			card(CFrame.new(cc + Vector3.new(0, rr * 0.3, 0)) * CFrame.Angles(math.rad(rng:NextNumber(-10, 10)), math.rad(rng:NextNumber(0, 360)), 0), Vector3.new(2.3 * rr, 0.05, 2.3 * rr), true)
+		end
+	end
+end
+
 return MapBuilder

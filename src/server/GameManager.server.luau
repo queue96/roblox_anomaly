@@ -18,6 +18,20 @@ end
 -- บังคับเปลี่ยนแสงเป็นตอนเที่ยงคืนมืดหลอนเฉพาะตอนกด Play เข้าเกม! (พอออกจากโหมด Play แมพจะกลับไปสว่างให้ Dev ง่ายๆ)
 MapBuilder.SetNightLighting()
 
+-- ซ่อนจุดจอดรถ StopPoint ตอนเล่น (เป็นตัวช่วยของ Dev: ระบบรถยังใช้ตำแหน่งได้ตามปกติ, ตอน Edit ยังมองเห็น)
+do
+	local waypoints = Workspace:FindFirstChild("VehicleWaypoints")
+	local stopPoint = waypoints and waypoints:FindFirstChild("StopPoint")
+	if stopPoint and stopPoint:IsA("BasePart") then
+		stopPoint.Transparency = 1
+		for _, d in ipairs(stopPoint:GetDescendants()) do
+			if d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+				d.Enabled = false
+			end
+		end
+	end
+end
+
 -- 2. เอฟเฟกต์ไฟนีออนเสาไม้หน้าร้านกะพริบติดๆ ดับๆ (สร้างบรรยากาศหลอนชนบท)
 task.spawn(function()
 	local dirtRoad = Workspace:WaitForChild("MapEnvironment"):WaitForChild("DirtRoad")
