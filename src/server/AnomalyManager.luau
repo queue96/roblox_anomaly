@@ -274,8 +274,8 @@ AnomalyManager.Anomalies = {
 			local pump = (gasPump :: Model):GetPivot().Position
 			local p = from:Lerp(pump, 0.55)
 			p = Vector3.new(p.X, groundAt(p) + (from.Y - groundAt(from)), p.Z)
-			-- pivot เดิมของหุ่นไล่กาหน้า = LookVector (หันเข้าร้าน)
-			scarecrow:PivotTo(CFrame.lookAt(p, Vector3.new(pump.X, p.Y, pump.Z)))
+			-- หน้าของหุ่นไล่กาอยู่ฝั่ง -LookVector ของ pivot (ลูกตาอยู่ฝั่งนั้น) จึงหมุนกลับ 180° ให้หน้ามองร้าน
+			scarecrow:PivotTo(CFrame.lookAt(p, Vector3.new(pump.X, p.Y, pump.Z)) * CFrame.Angles(0, math.pi, 0))
 			for _, d in ipairs(scarecrow:GetDescendants()) do
 				if d:IsA("BasePart") and string.find(d.Name, "Eye") then
 					d.Color = Color3.fromRGB(255, 20, 20)
@@ -316,7 +316,38 @@ AnomalyManager.Anomalies = {
 			end
 		end,
 	},
+	-- 11. (ฝนตก) คนเดินมาท่ามกลางฝนหนักโดยไม่กางร่ม ตัวแห้งสนิท
+	Anomaly_NoUmbrella = {
+		apply = function(v)
+			local u = v:FindFirstChild("Umbrella")
+			if u then
+				u:Destroy()
+			end
+		end,
+	},
 } :: { [string]: Anomaly }
+
+-- ผีที่ใช้ได้เฉพาะกับรถ (ต้องมีคนซ้อน / ป้ายทะเบียน / ล้อ) หรือเฉพาะคนเดินตอนฝนตก
+local VEHICLE_ONLY = { Anomaly_Headless = true, Anomaly_Cemetery = true, Anomaly_WheelHair = true }
+local WALKER_RAIN_ONLY = { Anomaly_NoUmbrella = true }
+
+-- สุ่มผีที่เข้ากับลูกค้าแบบนี้ (kind = "vehicle" | "walker")
+function AnomalyManager.RandomFor(kind: string, raining: boolean): string
+	local pool = {}
+	for _, k in ipairs(AnomalyManager.Keys) do
+		local ok = true
+		if VEHICLE_ONLY[k] and kind ~= "vehicle" then
+			ok = false
+		end
+		if WALKER_RAIN_ONLY[k] and not (kind == "walker" and raining) then
+			ok = false
+		end
+		if ok then
+			table.insert(pool, k)
+		end
+	end
+	return pool[math.random(#pool)]
+end
 
 -- จำสีตาหุ่นไล่กาไว้ก่อน (ใช้ตอน reset)
 if scarecrow then
@@ -363,21 +394,46 @@ function AnomalyManager.ResetAnomalies()
 	end
 end
 
--- ---------------------------------------------------------------- บรรยากาศทุ่ง: หมาหอนไกลๆ แบบสุ่ม
+-- ---------------------------------------------------------------- บรรยากาศทุ่ง: เสียงหลอนแบบสุ่มรอบๆ แมพ
+-- เสียงเล่นฝั่ง Server (ทุกคนได้ยินเหมือนกัน เป็นเสียง 3D จากจุดนั้นจริงๆ) ทุก 14-32 วิ สุ่ม 1 เสียงตามน้ำหนัก
+--   segment = เล่นแค่ช่วงหนึ่งของไฟล์ยาว (เริ่มสุ่มตำแหน่ง แล้วหยุดเมื่อครบเวลา)
+--   near = ดังใกล้ร้าน (เช่น เสียงฝีเท้า เสียงกระซิบ) ไม่ใช่ไกลกลางทุ่ง
+local AMBIENT = {
+	{ name = "DogHowl", id = "rbxassetid://748228812", weight = 4, volume = 0.7, speed = { 0.9, 1.1 } },
+	{ name = "Owl", id = "rbxassetid://9117181875", weight = 3, volume = 0.6, speed = { 0.95, 1.05 } },
+	{ name = "Crows", id = "rbxassetid://190872950", weight = 2, volume = 0.5, segment = 6 },
+	{ name = "Crying", id = "rbxassetid://75664285683608", weight = 2, volume = 0.45, speed = { 0.85, 0.95 } },
+	{ name = "Laugh", id = "rbxassetid://91272160888434", weight = 1, volume = 0.4, speed = { 0.8, 0.9 } },
+	{ name = "Bells", id = "rbxassetid://119445319966378", weight = 1, volume = 0.35 },
+	{ name = "Whisper", id = "rbxassetid://2643071410", weight = 2, volume = 0.5, segment = 5, near = true },
+	{ name = "Footsteps", id = "rbxassetid://135952279207329", weight = 2, volume = 0.6, segment = 3, near = true, speed = { 0.7, 0.8 } },
+	{ name = "Eerie", id = "rbxassetid://9112775624", weight = 1, volume = 0.6, segment = 10 },
+}
+local THUNDER_ID = "rbxassetid://9120016037"
+local AMBIENT_SCALE = 0.45 -- เสียงพื้นหลังเบาลง ให้ผีหลอกเด่นกว่า
+local FAR_SPOTS = {
+	Vector3.new(-90, 4, 70),
+	Vector3.new(80, 4, -70),
+	Vector3.new(60, 4, 90),
+	Vector3.new(-80, 4, -60),
+	Vector3.new(30, 4, -90), -- กลางทุ่งหลังหุ่นไล่กา
+	Vector3.new(-40, 4, 40), -- แถวต้นไทร
+}
+local NEAR_SPOTS = {
+	Vector3.new(14, 4, 20), -- หลังร้าน
+	Vector3.new(-14, 4, 18),
+	Vector3.new(20, 4, -2), -- ข้างร้าน
+	Vector3.new(-20, 4, 4),
+}
+
 local ambienceStarted = false
 function AnomalyManager.StartAmbience()
 	if ambienceStarted then
 		return
 	end
 	ambienceStarted = true
-	local spots = {
-		Vector3.new(-90, 4, 70),
-		Vector3.new(80, 4, -70),
-		Vector3.new(60, 4, 90),
-		Vector3.new(-80, 4, -60),
-	}
 	local emitter = Instance.new("Part")
-	emitter.Name = "DogHowlEmitter"
+	emitter.Name = "AmbienceEmitter"
 	emitter.Anchored = true
 	emitter.CanCollide = false
 	emitter.CanQuery = false
@@ -385,24 +441,76 @@ function AnomalyManager.StartAmbience()
 	emitter.Transparency = 1
 	emitter.Size = Vector3.new(1, 1, 1)
 	emitter.Parent = Workspace
-	local howl = Instance.new("Sound")
-	howl.Name = "DogHowl"
-	howl.SoundId = SOUNDS.DogHowl
-	howl.Volume = 0.7
-	howl.RollOffMode = Enum.RollOffMode.Linear
-	howl.RollOffMinDistance = 40
-	howl.RollOffMaxDistance = 260
-	local reverb = Instance.new("ReverbSoundEffect")
-	reverb.DecayTime = 2.5
-	reverb.WetLevel = -4
-	reverb.Parent = howl
-	howl.Parent = emitter
+	local sounds: { [string]: Sound } = {}
+	for _, a in ipairs(AMBIENT) do
+		local snd = Instance.new("Sound")
+		snd.Name = a.name
+		snd.SoundId = a.id
+		snd.Volume = a.volume * AMBIENT_SCALE
+		snd.RollOffMode = Enum.RollOffMode.Linear
+		snd.RollOffMinDistance = if a.near then 10 else 40
+		snd.RollOffMaxDistance = if a.near then 70 else 260
+		local reverb = Instance.new("ReverbSoundEffect")
+		reverb.DecayTime = 2.5
+		reverb.WetLevel = -4
+		reverb.Parent = snd
+		snd.Parent = emitter
+		sounds[a.name] = snd
+	end
+	-- ฟ้าร้อง (เฉพาะตอนฝนตก) เสียงทั่วทั้งแมพ + Client ทำฟ้าแลบจาก Attribute ThunderAt
+	local thunder = Instance.new("Sound")
+	thunder.Name = "Thunder"
+	thunder.SoundId = THUNDER_ID
+	thunder.Volume = 0.5
+	thunder.Parent = game:GetService("SoundService")
+	local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+
+	local total = 0
+	for _, a in ipairs(AMBIENT) do
+		total += a.weight
+	end
+	local function pickAmbient()
+		local r = math.random() * total
+		for _, a in ipairs(AMBIENT) do
+			r -= a.weight
+			if r <= 0 then
+				return a
+			end
+		end
+		return AMBIENT[1]
+	end
+
 	task.spawn(function()
 		while true do
-			task.wait(math.random(25, 60))
-			emitter.Position = spots[math.random(#spots)]
-			howl.PlaybackSpeed = 0.9 + math.random() * 0.2
-			howl:Play()
+			task.wait(math.random(14, 32))
+			local a = pickAmbient()
+			local snd = sounds[a.name]
+			local list = if a.near then NEAR_SPOTS else FAR_SPOTS
+			emitter.Position = list[math.random(#list)]
+			snd.PlaybackSpeed = if a.speed then a.speed[1] + math.random() * (a.speed[2] - a.speed[1]) else 1
+			if a.segment and snd.TimeLength > a.segment + 1 then
+				snd.TimePosition = math.random() * (snd.TimeLength - a.segment)
+			else
+				snd.TimePosition = 0
+			end
+			snd:Play()
+			if a.segment then
+				local seg = a.segment
+				task.delay(seg, function()
+					snd:Stop()
+				end)
+			end
+		end
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(math.random(18, 40))
+			if remotes:GetAttribute("Weather") == "Rain" then
+				remotes:SetAttribute("ThunderAt", os.clock()) -- Client: ฟ้าแลบก่อน
+				task.wait(0.4 + math.random() * 0.8) -- แล้วเสียงตามมา
+				thunder.PlaybackSpeed = 0.9 + math.random() * 0.2
+				thunder:Play()
+			end
 		end
 	end)
 end

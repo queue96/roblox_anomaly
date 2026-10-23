@@ -54,9 +54,11 @@ for _, root in ipairs({ Workspace, SoundService, ReplicatedStorage, localPlayer 
 	root.DescendantAdded:Connect(classify)
 end
 
+-- 100% ในหน้าตั้งค่า = ดัง 50% ของเสียงจริง (ไม่ให้ดังแสบหู โดยเฉพาะตอนผีหลอก)
+local MASTER_SCALE = 0.5
 local function applyVolumes()
-	musicGroup.Volume = (localPlayer:GetAttribute("MusicVolume") or 0.7) :: number
-	sfxGroup.Volume = (localPlayer:GetAttribute("SfxVolume") or 0.8) :: number
+	musicGroup.Volume = ((localPlayer:GetAttribute("MusicVolume") or 0.7) :: number) * MASTER_SCALE
+	sfxGroup.Volume = ((localPlayer:GetAttribute("SfxVolume") or 0.8) :: number) * MASTER_SCALE
 end
 applyVolumes()
 localPlayer:GetAttributeChangedSignal("MusicVolume"):Connect(applyVolumes)

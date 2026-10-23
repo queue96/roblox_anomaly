@@ -234,15 +234,16 @@ end
 -- ---------------------------------------------------------------- กล่องคำพูดลูกค้า (ล่างจอ แบบไดอารี่)
 local dialog = new("Frame", {
 	Name = "Dialogue",
+	ZIndex = 5, -- กล่องคำพูดอยู่หน้าสุด ถ้าทับแถบปุ่มคีย์ กล่องต้องบังปุ่ม ไม่ใช่ปุ่มบังกล่อง
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -112), -- เหนือช่องเก็บของ (Hotbar)
-	Size = UDim2.new(0.62, 0, 0, 96),
+	Size = UDim2.new(1, -620, 0, 96), -- เว้นขอบขวา-ซ้ายข้างละ 310 ไม่ทับแถบปุ่มคีย์/เงินที่มุมขวา
 	BackgroundColor3 = C.Ink,
-	BackgroundTransparency = 0.18,
+	BackgroundTransparency = 0.04, -- ทึบ บังของข้างหลังได้มิด
 	BorderSizePixel = 0,
 	Visible = false,
 }, gui)
-new("UISizeConstraint", { MaxSize = Vector2.new(900, 110) }, dialog)
+new("UISizeConstraint", { MinSize = Vector2.new(320, 0), MaxSize = Vector2.new(900, 110) }, dialog)
 new("UIStroke", { Color = Color3.fromRGB(70, 64, 54), Thickness = 1, Transparency = 0.2 }, dialog)
 local dialogHeader = new("Frame", { Name = "Header", BackgroundColor3 = C.Bar, BackgroundTransparency = 0.1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 28) }, dialog)
 local speaker = text(dialogHeader, { Name = "Speaker", Position = UDim2.new(0, 0, 0, 3), Size = UDim2.new(1, 0, 1, -6), TextXAlignment = Enum.TextXAlignment.Center, MaxTextSize = 19 })
@@ -299,6 +300,7 @@ end
 -- ---------------------------------------------------------------- ตอบราคา (ทุกคนเห็นเหมือนกัน ใครตอบก่อนได้ก่อน) เหนือกล่องคำพูด
 local replyBar = new("Frame", {
 	Name = "ReplyBar",
+	ZIndex = 5,
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -216),
 	Size = UDim2.new(0, 0, 0, 0),
@@ -433,7 +435,7 @@ local function showNarration(key: string, seconds: number?)
 	narrationToken += 1
 	local token = narrationToken
 	setHeader(false)
-	dialog.BackgroundTransparency = 0.18
+	dialog.BackgroundTransparency = 0.04
 	dialog.Visible = true
 	typeLine(ui(key))
 	if seconds then
@@ -464,12 +466,12 @@ CustomerSpeech.OnClientEvent:Connect(function(key: string?, _head: BasePart?, wh
 		task.delay(0.4, function()
 			if not bubbleKey then
 				dialog.Visible = false
-				dialog.BackgroundTransparency = 0.18
+				dialog.BackgroundTransparency = 0.04
 			end
 		end)
 		return
 	end
-	dialog.BackgroundTransparency = 0.18
+	dialog.BackgroundTransparency = 0.04
 	dialog.Visible = true
 	drawSpeaker()
 	typeLine(LanguageModule.GetText(key, lang(), vars))
@@ -496,7 +498,7 @@ GameState.OnClientEvent:Connect(function(state: string)
 	if state == "Win" then
 		showBanner("Win", false, 10)
 	elseif state == "Lose" then
-		showBanner("Lose", true, 10)
+		-- แพ้: จอตายสีแดง + ถามเริ่มใหม่ อยู่ใน DeathScreen.client.luau
 	elseif state == "Waiting" then
 		showNarration("WaitOpen") -- ค้างไว้จนกว่าจะมีคนเปิดร้าน
 	elseif state == "Playing" then
@@ -509,6 +511,8 @@ local PROMPTS = {
 	PumpFuelPrompt = { "FillUp", "GasPump" },
 	RejectCustomerPrompt = { "CloseShop", "ShutterRope" },
 	OpenShopPrompt = { "OpenShop", "ShutterRope" },
+	DieselFuelPrompt = { "FillDiesel", "DieselPump" },
+	AirPumpPrompt = { "PumpAir", "AirCompressorName" },
 }
 local function localizePrompt(p: Instance)
 	local keys = PROMPTS[p.Name]
@@ -518,7 +522,7 @@ local function localizePrompt(p: Instance)
 		p.ObjectText = ui(keys[2])
 	end
 end
-local interactive = workspace:WaitForChild("InteractiveProps")
+local interactive = workspace -- ปุ่มอยู่ทั้งใน InteractiveProps และถังลม (Workspace.AirCompressor)
 for _, d in ipairs(interactive:GetDescendants()) do
 	localizePrompt(d)
 end

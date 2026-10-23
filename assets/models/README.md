@@ -144,3 +144,30 @@
 ขยายจากขนาดตอนปั้น: Ubosot ×1.3, Meru ×1.15 (เสาสูงขึ้น 3), Kuti ×1.5 (ประตู/บันไดกว้างขึ้น), Sala ×1.15 (เสาห่าง 9) เพื่อให้ 4 คนเดินสวนกันได้ — ประตูโบสถ์ 9.4×11.4, ประตูกุฏิ 8.1×10.5
 ทุก object ไม่เกิน 10,000 triangles (พระองค์ละ ~7,400 / TempleGate_Buddha 2 องค์รวม ~8,100)
 วางฉาก: `MapBuilder.BuildTempleLobby()` (ดู GEMINI.md หัวข้อ 🛕) — ยังไม่ได้รัน
+
+## รถและจักรยานสไตล์ไทย 8 คัน (`tools/blender/thai_vehicles.py`)
+ไฟล์ต้นฉบับ: `thai_vehicles.blend` · ภาพตัวอย่าง: `previews/<ชื่อ>.png` + `_side.png` (หุ่นสีขาว = ตัวละคร R15 สูง 5.2 studs ไม่ได้ export)
+ข้อมูลที่นั่ง/ล้อ/ไฟ/กล่องชน: `ThaiVehicles_Rig.json` → `python tools/blender/vehicle_rig_to_luau.py` → `src/shared/ThaiVehicleRigs.luau`
+แกน: หน้ารถหัน -Y ใน Blender, ด้านซ้ายรถ = +X (พวงมาลัยขวาอยู่ฝั่ง -X), origin = พื้นใต้กึ่งกลางรถ
+
+| ไฟล์ | Object | หมายเหตุ |
+|---|---|---|
+| ThaiPickupOld.fbx | ThaiPickupOld, ThaiPickupOld_Glass, ThaiPickupOld_Interior, Wheel_FL/FR/RL/RR | กระบะ Hero ยุค 90 สีน้ำตาลแดงลอก สนิม แถบซีดข้างรถ ล้อกระทะสนิม คอกเหล็ก ฝากระโปรงปิด ยาว 21.6 · กระบะยืนได้ 4 คน |
+| ThaiSedanSoluna.fbx | ThaiSedanSoluna, _Glass, _Interior, Wheel_* | เก๋งบรอนซ์ทอง ฝาครอบล้อเงิน 4 ประตู 4 ที่นั่ง ป้ายทะเบียนไทย (SurfaceGui ใน Studio) |
+| ThaiBicycleRed.fbx | ThaiBicycleRed, ThaiBicycleRed_Handlebar, Wheel_F/R | เฟรมมิกซ์สีแดง บังโคลนโครเมียมสั้น ตะแกรงหลัง อานสปริง ไฟหน้าไดนาโม (ย่อ 0.85) |
+| ThaiBicycleBlue.fbx | ThaiBicycleBlue, _Handlebar, Wheel_F/R | สีน้ำเงินสติกเกอร์เหลือง ตะกร้าหน้า เบาะซ้อนท้าย ขาตั้ง บังโซ่ (ย่อ 0.85) |
+| ThaiTukTuk.fbx | ThaiTukTuk, _Glass, _Handlebar, Wheel_F/RL/RR | ตัวรถน้ำเงิน-แดง หลังคาผ้าใบดำ ป้าย TAXI เสาโครเมียม เบาะหลัง 2 ที่ |
+| ThaiRacingMoto.fbx | ThaiRacingMoto, _Handlebar, Wheel_F/R | เวฟซิ่งส้มดำลายขาว ล้อซี่ลวด 4 สี วงล้อ/จานทอง ท่อม่วง โช้คแดง (ย่อ 0.9) |
+| ThaiSoundTruck.fbx | ThaiSoundTruck, _Glass, _Interior, _Horns, _LED1–5_Neon, Wheel_* | กระบะเตี้ยสีน้ำเงินสติกเกอร์ลาย แม็กดำ ตู้ลำโพงในกระบะ (ลำโพงหันข้างทั้ง 2 ฝั่ง + หลัง) วงไฟ LED แยก 5 สี ฮอร์น 15 ตัว |
+
+| ThaiParadeTruck.fbx | ThaiParadeTruck, _Glass, _Interior, _Windows, Wheel_FL/FR, Wheel_RL1/RR1/RL2/RR2 (ล้อคู่) | รถแห่ 6 ล้อหัว Hino แดง ตู้สูง 19 คร่อมหลังคาหัว หน้าตู้ระแนงเฉียง ข้างตู้ลายเฉียงแดง/เทา/ขาว หน้าต่างดำ 5 บาน โลโก้ทอง ประตูท้ายเปิด บันไดพับ ชั้นลอย + บันไดในตู้ ล้ออัลลอยเงิน ยาว 33.4 |
+
+เก๋ง/กระบะ/รถแห่: ตัวถังเป็นเปลือกโค้งต่อเนื่อง (`car_shell`) กระจก `_Glass` ทำ 2 ด้าน · ภาพเทียบรูปอ้างอิง: `previews/ThaiVehicles_RefCompare.png` (`<ชื่อ>_RefPair.png`)
+ทุก object ไม่เกิน 10,000 triangles · ใน Studio: `MapBuilder.BuildThaiVehicleTemplates()` (ดู GEMINI.md หัวข้อ 🚗)
+
+## ร่มกาง (`tools/blender/umbrella.py`)
+ไฟล์ต้นฉบับ: `umbrella.blend` · ภาพตัวอย่าง: `previews/Umbrella.png`, `Umbrella_below.png` (มุมใต้ร่ม), `Umbrella_Sheet.png`
+
+| ไฟล์ | Object | หมายเหตุ |
+|---|---|---|
+| Umbrella.fbx | Umbrella_Canopy, Umbrella_Frame, Umbrella_Handle | ร่มกาง 8 ซี่ กว้าง 6 studs (ใหญ่กว่าร่ม Part เดิม 4.6 ใน `Pedestrian.AddUmbrella` ให้เงาคลุมตัวละคร) ยอดผ้าสูง 5.1 จาก origin · origin = จุดมือจับ (กลางด้ามไม้ตรง) ก้านตั้งขึ้น +Z ของ Blender (+Y ใน Studio) · ผ้าทำ 2 ด้าน ขอบเป็นลอนระหว่างซี่ · ผ้าสีเทาอ่อน ให้ย้อมสีใน Studio ด้วย `SurfaceAppearance.Color` (สีร่มใน `UMBRELLA_COLORS`) · ใต้ร่มมีซี่ ซี่ค้ำ รันเนอร์ ด้ามไม้ตะขอ J · รวม 4,706 tris ทุกชิ้นไม่ต้องมี collision |

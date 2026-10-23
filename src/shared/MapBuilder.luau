@@ -5087,4 +5087,525 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	return lobby
 end
 
+-- ===================================================================================
+-- 🚗 รถและจักรยานสไตล์ไทย 8 คัน (tools/blender/thai_vehicles.py → assets/models/Thai*.fbx)
+-- แม่แบบอยู่ ServerStorage.VehicleTemplates (anchored, pivot = พื้นใต้กึ่งกลางรถ, หน้ารถ -Z เหมือน CustomerBike)
+-- ข้อมูลที่นั่ง/ล้อ/ไฟ/กล่องชนมาจาก Shared.ThaiVehicleRigs (สร้างจาก vehicle_rig_to_luau.py)
+-- mesh ทุกชิ้น CanCollide = false ชนเฉพาะกล่องล่องหนใน "Colliders" + ลูกบอลลื่น "Skid" ที่ล้อ
+-- ถ้ายังไม่ได้นำเข้า FBX จะใช้ชิ้น Part แทน (Body.Proxy) และสลับเป็น mesh เองเมื่อรันซ้ำหลังนำเข้า
+-- ===================================================================================
+local THAI_VEHICLES = {
+	{ name = "ThaiPickupOld", kind = "Car", maxSpeed = 42, turn = 1.3 },
+	{ name = "ThaiSedanSoluna", kind = "Car", maxSpeed = 50, turn = 1.4 },
+	{ name = "ThaiBicycleRed", kind = "Bicycle", maxSpeed = 20, turn = 2.0 },
+	{ name = "ThaiBicycleBlue", kind = "Bicycle", maxSpeed = 20, turn = 2.0 },
+	{ name = "ThaiTukTuk", kind = "TukTuk", maxSpeed = 34, turn = 1.8 },
+	{ name = "ThaiRacingMoto", kind = "Motorcycle", maxSpeed = 48, turn = 1.9 },
+	{ name = "ThaiSoundTruck", kind = "Car", maxSpeed = 38, turn = 1.2 },
+	{ name = "ThaiParadeTruck", kind = "Truck", maxSpeed = 32, turn = 0.9 },
+}
+MapBuilder.THAI_VEHICLES = THAI_VEHICLES
+
+local VEHICLE_MATERIAL: { [string]: Enum.Material } = {
+	pk_paint = Enum.Material.CorrodedMetal,
+	pk_paint_top = Enum.Material.CorrodedMetal,
+	rust = Enum.Material.CorrodedMetal,
+	cage_rust = Enum.Material.CorrodedMetal,
+	rim_rust = Enum.Material.CorrodedMetal,
+	glass = Enum.Material.Glass,
+	chrome = Enum.Material.Metal,
+	steel = Enum.Material.Metal,
+	horn = Enum.Material.Metal,
+	mt_gold = Enum.Material.Metal,
+	mt_purple = Enum.Material.Metal,
+	tt_roof = Enum.Material.Fabric,
+	seat_cloth = Enum.Material.Fabric,
+	speaker_box = Enum.Material.Fabric,
+	seat_vinyl = Enum.Material.Leather,
+	saddle = Enum.Material.Leather,
+	tt_seat = Enum.Material.Leather,
+	floor_tread = Enum.Material.DiamondPlate,
+	basket = Enum.Material.DiamondPlate,
+	led = Enum.Material.Neon,
+}
+
+local function thaiRigs(): { [string]: any }
+	-- :Clone() กัน Studio แคชโมดูลเก่า (เหมือนกฎ Command Bar)
+	return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ThaiVehicleRigs"):Clone()) :: any
+end
+
+local function v3(t: { number }): Vector3
+	return Vector3.new(t[1], t[2], t[3])
+end
+
+local function vehPart(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	if shape then
+		p.Shape = shape
+	end
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanTouch = false
+	p.CanQuery = false
+	p.Massless = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+-- ป้ายทะเบียนไทย / ป้ายไฟ ด้วย SurfaceGui (ใช้ได้ทั้งตอนมี mesh และตอนใช้ proxy)
+local function vehicleSign(parent: Instance, name: string, d: any, lines: { string }, bg: Color3, fg: Color3, glow: boolean): Part
+	local p = vehPart(parent, name, v3(d.s), CFrame.new(v3(d.c)), bg)
+	local g = Instance.new("SurfaceGui")
+	g.Face = if d.front == 1 then Enum.NormalId.Front else Enum.NormalId.Back
+	g.CanvasSize = Vector2.new(math.floor(200 * d.s[1] / d.s[2]), 200)
+	g.LightInfluence = if glow then 0 else 1
+	g.Brightness = if glow then 1.6 else 1
+	g.Parent = p
+	local f = Instance.new("Frame")
+	f.Size = UDim2.fromScale(1, 1)
+	f.BackgroundColor3 = bg
+	f.BorderSizePixel = 6
+	f.BorderColor3 = Color3.fromRGB(20, 20, 20)
+	f.BorderMode = Enum.BorderMode.Inset
+	f.Parent = g
+	for i, txt in ipairs(lines) do
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		local h = if #lines == 1 then 1 else (if i == 1 then 0.62 else 0.38)
+		t.Size = UDim2.new(1, -16, h, -8)
+		t.Position = UDim2.new(0, 8, if i == 1 then 0 else 0.62, 4)
+		t.Text = txt
+		t.TextColor3 = fg
+		t.TextScaled = true
+		t.Font = Enum.Font.GothamBlack
+		t.Parent = f
+	end
+	return p
+end
+
+-- วาง MeshPart จากโมเดลที่นำเข้า (3D Importer) ให้ตรงเฟรมรถ: หาทิศหน้ารถจากล้อหน้า-ล้อหลัง และขนาดจากระยะล้อ
+local function adoptImportedMeshes(name: string, rig: any, body: Instance, frame: CFrame): { [string]: MeshPart }?
+	local ss = game:GetService("ServerStorage")
+	local stored = ss:FindFirstChild("ImportedProps") and ss.ImportedProps:FindFirstChild("ThaiVehicles")
+	local fresh = Workspace:FindFirstChild(name)
+	local src = (if fresh and fresh:IsA("Model") and not fresh:HasTag("PlayerVehicle") then fresh else nil)
+		or findImportedModel(name)
+		or (stored and stored:FindFirstChild(name) :: Model?)
+	if not src then
+		return nil
+	end
+	if src.Parent == Workspace then
+		-- เก็บต้นฉบับที่นำเข้าไว้ ServerStorage.ImportedProps.ThaiVehicles (ไม่ลบ) ใช้สร้างแม่แบบใหม่ได้ภายหลัง
+		local ip = ss:FindFirstChild("ImportedProps") or Instance.new("Folder")
+		ip.Name = "ImportedProps"
+		ip.Parent = ss
+		local tv = ip:FindFirstChild("ThaiVehicles") or Instance.new("Folder")
+		tv.Name = "ThaiVehicles"
+		tv.Parent = ip
+		local old = tv:FindFirstChild(name)
+		if old then
+			old:Destroy()
+		end
+		src.Parent = tv
+	end
+	local meshes: { [string]: MeshPart } = {}
+	for _, d in ipairs(src:GetDescendants()) do
+		if d:IsA("MeshPart") then
+			meshes[(d.Name:gsub("%.%d+$", ""))] = d
+		end
+	end
+	local wf, wr = rig.wheels[1], rig.wheels[#rig.wheels]
+	local mf, mr = meshes[wf.n], meshes[wr.n]
+	if not (mf and mr and meshes[name]) then
+		warn("⚠️ [MapBuilder] " .. name .. ": โมเดลที่นำเข้าไม่มีชิ้น " .. wf.n .. "/" .. wr.n .. "/" .. name .. " ใช้ proxy แทน")
+		return nil
+	end
+	local eF, eR = v3(rig.bbox[wf.n].c), v3(rig.bbox[wr.n].c)
+	local dA = (mr.Position - mf.Position) * Vector3.new(1, 0, 1)
+	local dE = (eR - eF) * Vector3.new(1, 0, 1)
+	local k = dA.Magnitude / math.max(dE.Magnitude, 1e-3) -- ขนาดที่นำเข้าเทียบกับ studs ที่ปั้น
+	local yaw = math.atan2(-dA.Z, dA.X) - math.atan2(-dE.Z, dE.X)
+	local rot = CFrame.Angles(0, yaw, 0)
+	local srcFrame = CFrame.new(mf.Position - rot:VectorToWorldSpace(eF * k)) * rot -- เฟรมรถ ณ จุดที่นำเข้า
+	local out: { [string]: MeshPart } = {}
+	for n, mesh in pairs(meshes) do
+		local c = mesh:Clone()
+		for _, ch in ipairs(c:GetChildren()) do
+			if ch:IsA("JointInstance") or ch:IsA("WeldConstraint") then
+				ch:Destroy()
+			end
+		end
+		local rel = srcFrame:ToObjectSpace(mesh.CFrame)
+		if math.abs(k - 1) > 0.02 then
+			c.Size = c.Size / k
+			rel = CFrame.new(rel.Position / k) * (rel - rel.Position)
+		end
+		c.CFrame = frame * rel
+		c.Anchored = true
+		c.CanCollide = false
+		c.CanTouch = false
+		c.CanQuery = false
+		c.Massless = true
+		c.Name = n
+		if n:find("_Glass$") then
+			c.Transparency = 0.55
+			c.CastShadow = false
+		elseif n:find("_Neon$") then
+			-- วงไฟลำโพง <ชื่อรถ>_LED<i>_Neon: สีที่ i ของ rig.led_colors
+			local sa = c:FindFirstChildOfClass("SurfaceAppearance")
+			if sa then
+				sa:Destroy()
+			end
+			local ci = tonumber(n:match("_LED(%d+)_Neon$"))
+			local lc = rig.led_colors and ci and rig.led_colors[ci]
+			c.Material = Enum.Material.Neon
+			c.Color = if lc then Color3.fromRGB(lc[1], lc[2], lc[3]) else Color3.fromRGB(255, 60, 200)
+			c:SetAttribute("LedIndex", ci or 1)
+			c:AddTag("VehicleLED")
+		end
+		c.Parent = body
+		out[n] = c
+	end
+	return out
+end
+
+
+
+local function buildThaiVehicle(spec: any, rig: any): Model
+	local frame = CFrame.new() -- สร้างที่จุดกำเนิดโลก แล้ว PivotTo ทีหลัง
+	local m = Instance.new("Model")
+	m.Name = spec.name
+	m:SetAttribute("VehicleKind", spec.kind)
+	m:SetAttribute("MaxSpeed", spec.maxSpeed)
+	m:SetAttribute("TurnRate", spec.turn)
+	m:SetAttribute("PlayerDrivable", true)
+	m:SetAttribute("LightsOn", true)
+	m:SetAttribute("TemplateReady", true)
+
+	-- แกนกลางรถ (PrimaryPart) อยู่ที่ระดับดุมล้อ, pivot ของรถ = พื้นใต้กึ่งกลางรถ
+	local hubY = rig.wheels[1].c[2]
+	local chassis = vehPart(m, "Chassis", Vector3.new(1, 1, 1), frame * CFrame.new(0, hubY, 0), Color3.fromRGB(255, 0, 255))
+	chassis.Transparency = 1
+	chassis.Massless = false
+	chassis.CustomPhysicalProperties = PhysicalProperties.new(4, 0, 0, 100, 1)
+	m.PrimaryPart = chassis
+	chassis.PivotOffset = CFrame.new(0, -hubY, 0)
+
+	local body = Instance.new("Model")
+	body.Name = "Body"
+	body.Parent = m
+	local meshes = adoptImportedMeshes(spec.name, rig, body, frame)
+	m:SetAttribute("UsesImportedMesh", meshes ~= nil)
+	if not meshes then
+		local proxy = Instance.new("Model")
+		proxy.Name = "Proxy"
+		proxy.Parent = body
+		for _, d in ipairs(rig.proxy) do
+			if d.k == "horn" then
+				-- แถวลำโพงฮอร์น: กระบอกเงินเรียงกัน ปากบานหันไปหน้ารถ
+				local hs = v3(d.s)
+				local hc = frame * CFrame.new(v3(d.c))
+				for i = 1, 8 do
+					local x = -hs.X / 2 + hs.X * (i - 0.5) / 8
+					vehPart(proxy, "Horn", Vector3.new(hs.Z, 0.5, 0.5), hc * CFrame.new(x, -0.1, 0) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(176, 178, 182), Enum.Material.Metal, Enum.PartType.Cylinder)
+					vehPart(proxy, "HornBell", Vector3.new(0.15, 0.85, 0.85), hc * CFrame.new(x, -0.1, -hs.Z / 2) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(196, 198, 202), Enum.Material.Metal, Enum.PartType.Cylinder)
+				end
+				continue
+			end
+			local pc = rig.pal[d.k]
+			local color = Color3.fromRGB(pc[1], pc[2], pc[3])
+			local mat = VEHICLE_MATERIAL[d.k] or (if pc[4] >= 0.8 then Enum.Material.Metal else Enum.Material.SmoothPlastic)
+			local size, cf = v3(d.s), frame * CFrame.new(v3(d.c))
+			if d.rx then
+				-- แผ่น/แท่งเฉียงตามเส้นทแยงของกล่อง (กระจกหน้า ฝากระโปรงเปิด ท่อเฟรมจักรยาน)
+				local len = math.sqrt(size.Y ^ 2 + size.Z ^ 2)
+				local ang = math.atan2(size.Y, size.Z) * (if d.rx > 0 then -1 else 1)
+				cf = cf * CFrame.Angles(ang, 0, 0)
+				size = Vector3.new(size.X, d.th, len)
+			end
+			local p = vehPart(proxy, "Proxy_" .. d.k, size, cf, color, mat)
+			if d.k == "glass" then
+				p.Transparency = 0.55
+				p.CastShadow = false
+			end
+			if d.n == 1 then
+				p.Color = Color3.fromRGB(255, 60, 200)
+				p:AddTag("VehicleLED")
+			end
+		end
+		-- ลำโพง: หน้าลำโพงกลมสีดำ + จานไฟนีออนด้านหลังที่โตกว่าเล็กน้อย (เห็นเป็นวงไฟรอบลำโพง)
+		for _, sp in ipairs(rig.speakers or {}) do
+			local rot = if sp.ax == "x" then CFrame.identity else CFrame.Angles(0, math.rad(90), 0)
+			local cf = frame * CFrame.new(v3(sp.c)) * rot
+			local lc = rig.led_colors[sp.ci + 1]
+			local ring = vehPart(proxy, "SpeakerLED", Vector3.new(0.08, sp.d - 0.02, sp.d - 0.02), cf, Color3.fromRGB(lc[1], lc[2], lc[3]), Enum.Material.Neon, Enum.PartType.Cylinder)
+			ring:SetAttribute("LedIndex", sp.ci + 1)
+			ring:AddTag("VehicleLED")
+			local outward = frame:VectorToWorldSpace(if sp.ax == "x" then Vector3.new(math.sign(sp.c[1]), 0, 0) else Vector3.new(0, 0, math.sign(sp.c[3])))
+			vehPart(proxy, "SpeakerCone", Vector3.new(0.1, sp.d * 0.8, sp.d * 0.8), cf + outward * 0.06, Color3.fromRGB(40, 40, 44), Enum.Material.Fabric, Enum.PartType.Cylinder)
+			vehPart(proxy, "SpeakerCap", Vector3.new(0.14, sp.d * 0.22, sp.d * 0.22), cf + outward * 0.09, Color3.fromRGB(120, 120, 128), Enum.Material.Metal, Enum.PartType.Cylinder)
+		end
+		for _, lb in ipairs(rig.ledbars or {}) do
+			local lc = rig.led_colors[lb.ci + 1]
+			local p = vehPart(proxy, "LedBar", v3(lb.s), frame * CFrame.new(v3(lb.c)), Color3.fromRGB(lc[1], lc[2], lc[3]), Enum.Material.Neon)
+			p:SetAttribute("LedIndex", lb.ci + 1)
+			p:AddTag("VehicleLED")
+		end
+	end
+	-- ไฟสีส่องจากตู้ลำโพงลงพื้นรอบรถ (สีเปลี่ยนตามวงไฟ)
+	if rig.led_colors then
+		local glowAt = { Vector3.new(4.2, 6, 4.8), Vector3.new(-4.2, 6, 4.8), Vector3.new(0, 7, 8.6) }
+		for i, pos in ipairs(glowAt) do
+			local lc = rig.led_colors[i]
+			local g = vehPart(body, "SpeakerGlow" .. i, Vector3.new(0.2, 0.2, 0.2), frame * CFrame.new(pos), Color3.new(0, 0, 0))
+			g.Transparency = 1
+			local pl = Instance.new("PointLight")
+			pl.Color = Color3.fromRGB(lc[1], lc[2], lc[3])
+			pl.Range = 14
+			pl.Brightness = 1.6
+			pl.Parent = g
+			g:SetAttribute("LedIndex", i)
+			g:AddTag("VehicleLED")
+		end
+	end
+
+	-- ล้อ (mesh ที่นำเข้า หรือทรงกระบอกแทน) ต่อกับ Chassis ด้วย Motor6D ให้สคริปต์ขับหมุนล้อ/เลี้ยวได้
+	local wheels = Instance.new("Model")
+	wheels.Name = "Wheels"
+	wheels.Parent = m
+	for _, w in ipairs(rig.wheels) do
+		local cf = frame * CFrame.new(v3(w.c))
+		local wp: BasePart
+		if meshes and meshes[w.n] then
+			wp = meshes[w.n]
+			wp.Parent = wheels
+		else
+			wp = vehPart(wheels, w.n, Vector3.new(w.w, w.r * 2, w.r * 2), cf, Color3.fromRGB(30, 30, 30), Enum.Material.Fabric, Enum.PartType.Cylinder)
+			local rimColor = if spec.name == "ThaiPickupOld" then Color3.fromRGB(122, 82, 52) elseif spec.name == "ThaiSoundTruck" then Color3.fromRGB(25, 25, 28) elseif spec.name == "ThaiRacingMoto" then Color3.fromRGB(214, 166, 60) else Color3.fromRGB(180, 182, 188)
+			local rim = vehPart(wp, "Rim", Vector3.new(w.w + 0.06, w.r * 1.3, w.r * 1.3), cf, rimColor, Enum.Material.Metal, Enum.PartType.Cylinder)
+			local wc = Instance.new("WeldConstraint")
+			wc.Part0, wc.Part1 = wp, rim
+			wc.Parent = rim
+		end
+		local motor = Instance.new("Motor6D")
+		motor.Name = "Axle"
+		motor.Part0 = chassis
+		motor.Part1 = wp
+		motor.C0 = chassis.CFrame:ToObjectSpace(cf)
+		motor.C1 = wp.CFrame:ToObjectSpace(cf)
+		motor:SetAttribute("Steer", w.st == 1)
+		motor:SetAttribute("Radius", w.r)
+		motor:SetAttribute("BaseC0", motor.C0)
+		motor.Parent = wp
+	end
+
+	-- กล่องชนล่องหน + ลูกบอลลื่นที่ล้อ (แตะพื้นแทนล้อ ไม่ติดขอบหลุม)
+	local cols = Instance.new("Model")
+	cols.Name = "Colliders"
+	cols.Parent = m
+	for i, c in ipairs(rig.cols) do
+		local p = vehPart(cols, "Collider" .. i, v3(c.s), frame * CFrame.new(v3(c.c)), Color3.new(1, 0, 0))
+		p.Transparency = 1
+		p.CanCollide = true
+		p.CanQuery = true
+		p.Massless = false
+		p.CustomPhysicalProperties = PhysicalProperties.new(0.4, c.f or 0.3, 0, if c.f then 1 else 0.5, 1)
+	end
+	for i, s in ipairs(rig.skids) do
+		local p = vehPart(cols, "Skid" .. i, Vector3.one * (s.r * 2), frame * CFrame.new(v3(s.c)), Color3.new(0, 1, 0), nil, Enum.PartType.Ball)
+		p.Transparency = 1
+		p.CanCollide = true
+		p.Massless = false
+		p.CustomPhysicalProperties = PhysicalProperties.new(0.4, 0, 0, 100, 1)
+	end
+
+	-- ที่นั่ง (VehicleSeat = คนขับ, Seat = ผู้โดยสาร) ล่องหน ไม่กันทาง
+	for _, s in ipairs(rig.seats) do
+		local seat = Instance.new(s.t) :: BasePart
+		seat.Name = s.n
+		seat.Size = v3(s.s)
+		seat.CFrame = frame * CFrame.new(v3(s.c))
+		seat.Transparency = 1
+		seat.Anchored = true
+		seat.CanCollide = false
+		seat.CanQuery = true
+		seat.Massless = true
+		if seat:IsA("VehicleSeat") then
+			seat.MaxSpeed = 0
+			seat.Torque = 0
+			seat.HeadsUpDisplay = false
+		end
+		seat.Parent = m
+	end
+
+	-- ไฟหน้า (SpotLight) / ไฟท้าย เป็น Part Neon แปะทับเลนส์ของ mesh
+	local lights = Instance.new("Model")
+	lights.Name = "Lights"
+	lights.Parent = m
+	local small = spec.kind == "Bicycle"
+	for i, l in ipairs(rig.lights) do
+		local head = l.t == "head"
+		local size = v3(l.s)
+		local cf = frame * CFrame.new(v3(l.c))
+		local p
+		if l.rd == 1 then -- โคมกลม: ทรงกระบอกแกนตามความยาวรถ
+			p = vehPart(lights, if head then "Headlight" .. i else "Taillight" .. i, Vector3.new(size.Z, size.X, size.Y), cf * CFrame.Angles(0, math.rad(90), 0),
+				if head then Color3.fromRGB(255, 238, 200) else Color3.fromRGB(200, 20, 20), Enum.Material.Neon, Enum.PartType.Cylinder)
+		else
+			p = vehPart(lights, if head then "Headlight" .. i else "Taillight" .. i, size, cf,
+				if head then Color3.fromRGB(255, 238, 200) else Color3.fromRGB(200, 20, 20), Enum.Material.Neon)
+		end
+		p.CastShadow = false
+		if head then
+			local att = Instance.new("Attachment")
+			att.Name = "BeamAttachment"
+			att.Parent = p
+			att.WorldCFrame = CFrame.lookAt(p.Position, p.Position + frame:VectorToWorldSpace(Vector3.new(0, -0.12, -1)))
+			local spot = Instance.new("SpotLight")
+			spot.Name = "HeadlightBeam"
+			spot.Face = Enum.NormalId.Front
+			spot.Angle = if small then 45 else 60
+			spot.Range = if small then 26 else 48
+			spot.Brightness = if small then 2 else 3.5
+			spot.Color = Color3.fromRGB(255, 232, 180)
+			spot.Shadows = not small
+			spot.Parent = att
+		else
+			local glow = Instance.new("PointLight")
+			glow.Name = "TailGlow"
+			glow.Color = Color3.fromRGB(255, 30, 20)
+			glow.Range = 5
+			glow.Brightness = 0.8
+			glow.Parent = p
+		end
+	end
+	for i, pl in ipairs(rig.plates) do
+		vehicleSign(m, "LicensePlate" .. i, pl, { pl.t, pl.p }, Color3.fromRGB(240, 240, 232), Color3.fromRGB(20, 20, 20), false)
+	end
+	for i, sg in ipairs(rig.signs) do
+		local taxi = sg.t == "TAXI"
+		vehicleSign(m, "RoofSign" .. i, sg, { sg.t },
+			if taxi then Color3.fromRGB(240, 200, 40) else Color3.fromRGB(14, 14, 18),
+			if taxi then Color3.fromRGB(160, 20, 20) else Color3.fromRGB(80, 230, 255), true)
+	end
+	if rig.led_colors then
+		local list = {}
+		for _, c in ipairs(rig.led_colors) do
+			table.insert(list, string.format("%d,%d,%d", c[1], c[2], c[3]))
+		end
+		m:SetAttribute("LedColors", table.concat(list, ";"))
+	end
+
+	-- เชื่อมทุกชิ้นเข้ากับ Chassis (ยกเว้นล้อที่ใช้ Motor6D) ให้ขยับทั้งคันได้เมื่อปลด Anchored
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") and d ~= chassis and d.Parent ~= wheels and not d:IsDescendantOf(wheels) then
+			local wc = Instance.new("WeldConstraint")
+			wc.Part0 = chassis
+			wc.Part1 = d
+			wc.Parent = d
+		end
+	end
+	return m
+end
+
+-- สร้าง/สร้างใหม่แม่แบบรถไทยทั้ง 8 คันใน ServerStorage.VehicleTemplates (ไม่แตะ CustomerBike / Saleng)
+-- แม่แบบเดิมชื่อเดียวกันย้ายไป ServerStorage.ArchivedPlaceholders.ThaiVehicles (เก็บไว้รุ่นเดียว)
+-- รันซ้ำได้: require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).BuildThaiVehicleTemplates()
+function MapBuilder.BuildThaiVehicleTemplates(only: { string }?)
+	local ss = game:GetService("ServerStorage")
+	local folder = ss:FindFirstChild("VehicleTemplates") or Instance.new("Folder")
+	folder.Name = "VehicleTemplates"
+	folder.Parent = ss
+	local archive = ss:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	archive.Name = "ArchivedPlaceholders"
+	archive.Parent = ss
+	local arch = archive:FindFirstChild("ThaiVehicles") or Instance.new("Folder")
+	arch.Name = "ThaiVehicles"
+	arch.Parent = archive
+	local rigs = thaiRigs()
+	local built = {}
+	for _, spec in ipairs(THAI_VEHICLES) do
+		if only and not table.find(only, spec.name) then
+			continue
+		end
+		local rig = rigs[spec.name]
+		if not rig then
+			warn("⚠️ [MapBuilder] ไม่มีข้อมูล rig ของ " .. spec.name)
+			continue
+		end
+		local old = folder:FindFirstChild(spec.name)
+		if old then
+			local prev = arch:FindFirstChild(spec.name)
+			if prev then
+				prev:Destroy()
+			end
+			old.Parent = arch
+		end
+		local m = buildThaiVehicle(spec, rig)
+		m.Parent = folder
+		table.insert(built, spec.name .. (if m:GetAttribute("UsesImportedMesh") then " (mesh)" else " (proxy)"))
+		task.wait()
+	end
+	print("🚗 [MapBuilder] แม่แบบรถไทยใน ServerStorage.VehicleTemplates: " .. table.concat(built, ", "))
+end
+
+-- วางรถที่ผู้เล่นขึ้นขับได้ 1 คัน (ปลด Anchored + tag "PlayerVehicle" ให้ ThaiVehicleDrive.server ควบคุม)
+function MapBuilder.SpawnThaiVehicle(name: string, cf: CFrame, parent: Instance?): Model?
+	local folder = game:GetService("ServerStorage"):FindFirstChild("VehicleTemplates")
+	local t = folder and folder:FindFirstChild(name)
+	if not t then
+		warn("⚠️ [MapBuilder] ไม่พบแม่แบบ " .. name .. " (รัน BuildThaiVehicleTemplates() ก่อน)")
+		return nil
+	end
+	local m = t:Clone() :: Model
+	m:PivotTo(cf)
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+		end
+	end
+	m:AddTag("PlayerVehicle")
+	m.Parent = parent or Workspace
+	return m
+end
+
+-- จอดรถทั้ง 8 คันเรียงกันไว้ทดสอบ/ถ่ายภาพ ใน Workspace.ThaiVehicleShowcase (เรียงตามแกน +X จาก origin หน้ารถหัน -Z)
+function MapBuilder.ParkThaiVehicles(origin: Vector3?, spacing: number?): Folder
+	local o = origin or Vector3.new(-40, 0, -30)
+	local f = Workspace:FindFirstChild("ThaiVehicleShowcase") or Instance.new("Folder")
+	f.Name = "ThaiVehicleShowcase"
+	f:ClearAllChildren()
+	f.Parent = Workspace
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	local templates = game:GetService("ServerStorage"):FindFirstChild("VehicleTemplates")
+	local x = o.X
+	for _, spec in ipairs(THAI_VEHICLES) do
+		-- วางสูงกว่าพื้นจุดที่สูงที่สุดใต้ตัวรถ (กันกล่องชนจมดินแล้วรถดีดเอียงตอนเกิด)
+		local t = templates and templates:FindFirstChild(spec.name)
+		local ext = if t then (t :: Model):GetExtentsSize() else Vector3.new(4, 4, 8)
+		local y = -math.huge
+		for _, dx in ipairs({ -0.5, 0, 0.5 }) do
+			for _, dz in ipairs({ -0.5, -0.25, 0, 0.25, 0.5 }) do
+				local hit = Workspace:Raycast(Vector3.new(x + dx * ext.X, o.Y + 60, o.Z + dz * ext.Z), Vector3.new(0, -200, 0), params)
+				if hit then
+					y = math.max(y, hit.Position.Y)
+				end
+			end
+		end
+		y = if y == -math.huge then o.Y else y
+		MapBuilder.SpawnThaiVehicle(spec.name, CFrame.new(x, y + 0.3, o.Z), f)
+		x += spacing or math.max(ext.X + 3, 9)
+	end
+	return f
+end
+
 return MapBuilder

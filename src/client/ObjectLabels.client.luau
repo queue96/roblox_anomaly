@@ -14,6 +14,7 @@ local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForC
 
 -- ชื่อ Instance (ตัวป้ายเองหรือบรรพบุรุษ) -> คีย์ใน LanguageModule.Labels  /  false = ซ่อนตลอด
 local LABEL_FOR: { [string]: string | boolean } = {
+	DieselPump = "DieselPump", -- ก่อน GasPump: ตู้ดีเซล Clone มาจากตู้ 1 (ข้างในมีชิ้นชื่อ GasPump)
 	GasPump = "GasPump",
 	Radio = "Radio",
 	CutoutSwitch = "CutoutSwitch",

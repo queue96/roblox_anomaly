@@ -75,6 +75,30 @@ LanguageModule.Dialogues = {
 	Greet_Farmer = { th = "ไง น้อง ขอแวะเติมหน่อยนะ", en = "Hey there. Mind if I fill up?" },
 	-- ถามราคา -> ผู้เล่นตอบ (ใครตอบก่อนได้ก่อน)
 	AskPrice = { th = "คืนนี้หลอดละเท่าไหร่ล่ะ?", en = "How much for a cylinder tonight?" },
+	AskPriceDiesel = { th = "ดีเซลเต็มถังคืนนี้เท่าไหร่ล่ะ?", en = "How much for a full tank of diesel tonight?" },
+	AskPriceAir = { th = "เติมลมกี่บาทจ๊ะ?", en = "How much to pump up a tire?" },
+	-- รถยนต์ (ดีเซล ตู้ 2) / ตุ๊กตุ๊ก / จักรยานยางแบน
+	Car_Order_1 = { th = "เติมดีเซลหน่อย พรุ่งนี้ต้องขับเข้าเมืองแต่เช้า", en = "Diesel, please. I'm driving into town early tomorrow." },
+	Car_Order_2 = { th = "ขอดีเซลเต็มถัง ขนผักไปส่งตลาดไทอีกรอบ", en = "Fill her up with diesel. One more vegetable run to the market." },
+	Car_Order_3 = { th = "เติมดีเซลให้หน่อย ปั๊มใหญ่ในเมืองปิดหมดแล้ว", en = "Diesel, please. All the big stations in town are closed." },
+	TukTuk_Order_1 = { th = "เติมหลอดนึง พรุ่งนี้ต้องวิ่งรับนักท่องเที่ยวแต่เช้า", en = "One cylinder. I'm picking up tourists first thing tomorrow." },
+	TukTuk_Order_2 = { th = "เติมเบนซินหลอดนึง ตุ๊กตุ๊กคันนี้กินน้ำมันจริงๆ", en = "One cylinder of petrol. This tuk-tuk drinks fuel like water." },
+	Bicycle_Order_1 = { th = "ยางแบนกลางทาง ขอเติมลมหน่อยนะ เข็นมาตั้งไกล", en = "Got a flat on the way. Could you pump it up? I pushed it all the way here." },
+	Bicycle_Order_2 = { th = "ขอเติมลมยางจักรยานหน่อย พรุ่งนี้ต้องปั่นไปโรงเรียน", en = "Can I get some air in my tire? I ride to school tomorrow." },
+	-- เติมผิดตู้
+	Wrong_NeedDiesel = { th = "เดี๋ยวๆ! รถผมใช้ดีเซลนะ ตู้นั้นมันน้ำมันหลอด!", en = "Wait! My car takes diesel, that's the petrol pump!" },
+	Wrong_NeedPetrol = { th = "นั่นมันดีเซล! รถฉันใช้เบนซินหลอดนะ", en = "That's diesel! I need petrol from the glass pump." },
+	Wrong_NeedAir = { th = "ไม่ได้มาเติมน้ำมัน มาเติมลมยางจ้ะ!", en = "I'm not here for fuel, I just need air in my tire!" },
+	Wrong_NeedFuel = { th = "ลมยางยังดีอยู่ เติมน้ำมันให้หน่อยสิ", en = "My tires are fine. I need fuel." },
+	-- ขาจรบนถนน (ไม่ได้มาใช้บริการ)
+	Racer_Shout_1 = { th = "ปั๊มผีปะเนี่ย 555 เปิดดึกจัง!", en = "Is this a ghost pump? Haha, open so late!" },
+	Racer_Shout_2 = { th = "เฮ้ย ดูนี่! ยกล้อผ่านหน้าร้านโว้ย!", en = "Hey, watch this! Wheelie past the shop!" },
+	Party_Line = { th = "ไปไหนกันจ๊ะคืนนี้ งานวัดบ้านโน้นยังไม่เลิกเลย ไปด้วยกันไหม!", en = "Where you headed tonight? The temple fair's still going, come along!" },
+	Teen_Line = { th = "จัดไปพี่! เปิดดังๆ อีก!", en = "Let's go! Turn it up!" },
+	Coyote_Line = { th = "หวัดดีจ้า แค่แวะทักเฉยๆ นะ ไม่ได้มาเติมน้ำมันหรอก", en = "Hi there! Just saying hello, we're not here for fuel." },
+	Parade_Invite = { th = "พรุ่งนี้บวชลูกชาย! แวะไปงานนะ มีข้าวต้มเลี้ยงทั้งคืนเลย!", en = "My son's ordination is tomorrow! Drop by, there's rice soup all night!" },
+	Parade_Cheer = { th = "โห่... ฮิ้ว!! โห่... ฮิ้ว!!", en = "Hooo... hiew!! Hooo... hiew!!" },
+	Wrong_GiveUp = { th = "ทำผิดอยู่ได้... ไม่เอาแล้ว ไปปั๊มอื่นดีกว่า", en = "You keep getting it wrong... forget it, I'll go elsewhere." },
 	PlayerQuote = { th = "หลอดละ {amount} บาท", en = "{amount} baht a cylinder." },
 	-- ลูกค้ารับราคา
 	Price_Cheap = { th = "โห {amount} บาทเองเหรอ ใจดีจริงๆ", en = "Only {amount} baht? That's kind of you." },
@@ -95,6 +119,7 @@ LanguageModule.Dialogues = {
 	-- ผี
 	Ghost_Price = { th = "เท่าไหร่ก็ได้... เงินไม่สำคัญหรอก...", en = "Any price... money doesn't matter anymore..." },
 	Ghost_Pay = { th = "ขอบใจ... นี่เงิน... {amount} บาท... หึหึ", en = "Thank you... here's... {amount} baht... heh heh." },
+	Ghost_Chased = { th = "ตามมาทำไม... อยากไปด้วยกันเหรอ!!", en = "Why are you following me... want to come along?!" },
 	Ghost_Rejected = { th = "แก... รู้ได้ยังไง...", en = "You... how did you know..." },
 	Ghost_NoOne = { th = "ไม่มีใครอยู่... งั้นเดี๋ยวกลับมาใหม่นะ...", en = "No one here... I'll come back later..." },
 	Ghost_Wait = { th = "ไม่ต้องรีบ... ข้ารอได้... รอได้นานเลย...", en = "No rush... I can wait... I can wait a long time..." },
@@ -113,6 +138,50 @@ LanguageModule.Dialogues = {
 	Impatient_2 = { th = "ยังไม่เติมอีกเหรอ ยืนรอนานแล้วนะ", en = "Still not filling? I've been waiting a while." },
 	Impatient_3 = { th = "นี่จะเติมหรือไม่เติม! จะไปละนะ!", en = "Are you filling it or not?! I'm about to leave!" },
 	Pay_Slow = { th = "ช้าจริงๆ... ให้ {amount} บาทพอนะ", en = "So slow... {amount} baht is all you get." },
+
+	-- ---------------- คนเดินมาซื้อน้ำมันใส่แกลลอน (บอกว่าจะเอาไปเติมอะไร)
+	Walker_Order_1 = { th = "ขอซื้อใส่แกลลอนหน่อย รถไถจอดเสียอยู่ปากทาง น้ำมันหมดพอดี", en = "Fill this jug for me? My tractor ran dry at the end of the lane." },
+	Walker_Order_2 = { th = "เติมใส่แกลลอนให้หน่อย จะเอาไปเติมเครื่องสูบน้ำเข้านา", en = "Fill the jug, please. It's for the water pump in my field." },
+	Walker_Order_3 = { th = "ขอหลอดนึงใส่แกลลอน มอไซค์ลูกชายน้ำมันหมดกลางทาง", en = "One cylinder in the jug. My son's bike ran out on the road." },
+	Walker_Order_4 = { th = "เติมใส่แกลลอนหน่อย พรุ่งนี้จะตัดหญ้าหน้าบ้านแต่เช้า", en = "Fill the jug, please. I'm mowing the yard first thing tomorrow." },
+	Walker_Order_Rain_1 = { th = "ฝนตกไฟดับทั้งหมู่บ้านเลย ขอซื้อไปเติมเครื่องปั่นไฟหน่อย", en = "The rain knocked out power in the whole village. I need fuel for the generator." },
+	Walker_Order_Rain_2 = { th = "รถจอดเสียอยู่ข้างทาง ฝนก็ตก ขอแกลลอนนึงไปเติมหน่อยนะ", en = "My car stalled down the road in this rain. One jug, please." },
+	Anomaly_NoUmbrella = { th = "ฝนตกเหรอ... ไม่เห็นรู้สึกอะไรเลย... เติมให้หน่อยสิ", en = "Is it raining?... I can't feel a thing... fill it for me." },
+
+	-- ---------------- ฝนตก
+	RainTalk_1 = { th = "ฝนตกหนักจริงๆ เปียกไปหมดเลย", en = "This rain is something else. I'm soaked." },
+	RainTalk_2 = { th = "ถนนลื่นมากเลยคืนนี้ เกือบล้มแน่ะ", en = "The road's so slippery tonight. Nearly took a fall." },
+	RainTalk_3 = { th = "ฟ้าร้องทีไร ไฟในหมู่บ้านดับทุกที", en = "Every time it thunders, the village loses power." },
+	Ghost_RainTalk = { th = "ฝนเหรอ... ไม่เห็นรู้สึกเลย...", en = "Rain?... I don't feel any rain..." },
+
+	-- ---------------- คนแวะหลบฝน
+	Shelter_Ask = { th = "ขอหลบฝนตรงนี้หน่อยนะ ไม่ซื้ออะไรหรอก เดี๋ยวฝนหยุดก็ไป", en = "Mind if I wait out the rain here? I won't buy anything, I'll leave when it stops." },
+	ShelterGhost_Ask = { th = "ขอยืนตรงนี้ด้วยคนนะ... ฝนแบบนี้ไม่รู้จะไปไหน...", en = "May I stand here too?... nowhere to go in rain like this..." },
+	ShelterTalk_1 = { th = "ฝนแบบนี้ลูกค้าคงไม่ค่อยมาหรอกนะ", en = "Not many customers in weather like this, I bet." },
+	ShelterTalk_2 = { th = "รู้ไหม ตรงหัวโค้งนั่นเมื่อก่อนเคยเป็นป่าช้าเก่า", en = "You know that bend up there used to be an old graveyard?" },
+	ShelterTalk_3 = { th = "เถียงนากลางทุ่งนั่น คนแถวนี้ไม่มีใครกล้าเข้าไปตอนกลางคืนหรอก", en = "That hut in the field... nobody around here goes near it at night." },
+	ShelterTalk_4 = { th = "ร้านนี้เปิดดึกทุกคืนเลยเหรอ ไม่กลัวเหรอ", en = "You stay open this late every night? Aren't you scared?" },
+	ShelterTalk_5 = { th = "ถ้าเห็นใครมาเติมน้ำมันแต่ตัวไม่เปียกฝนเลยนะ... อย่าเติมให้ล่ะ", en = "If someone comes for fuel and isn't wet from the rain... don't serve them." },
+	ShelterGhostTalk_1 = { th = "ฉันรอรถอยู่... รอมาหลายปีแล้ว...", en = "I'm waiting for a ride... I've been waiting for years..." },
+	ShelterGhostTalk_2 = { th = "คืนนั้นก็ฝนตกแบบนี้แหละ... ถนนลื่นมาก...", en = "It rained just like this that night... the road was so slippery..." },
+	ShelterGhostTalk_3 = { th = "เธอเห็นฉันด้วยเหรอ... ไม่ค่อยมีใครเห็นหรอกนะ...", en = "You can see me?... not many people can..." },
+	Shelter_Leave = { th = "ฝนหยุดแล้ว ขอบใจนะที่ให้หลบ", en = "Rain's stopped. Thanks for letting me stay." },
+	ShelterGhost_Leave = { th = "ฝนหยุดแล้ว... ฉันต้องไปแล้วล่ะ...", en = "The rain stopped... I have to go now..." },
+
+	-- ---------------- คนหลบฝนคุยกับลูกค้า
+	Shelter_ToCustomer_1 = { th = "ฝนหนักนะ ขับดีๆ ล่ะ ถนนลื่น", en = "Heavy rain. Ride carefully, the road's slick." },
+	Shelter_ToCustomer_2 = { th = "อ้าว มาเติมน้ำมันตอนฝนตกแบบนี้เลยเหรอ", en = "Oh, out for fuel in this downpour?" },
+	Chat_Reply_1 = { th = "ขอบใจนะ ต้องรีบกลับบ้านก่อนน้ำท่วมทาง", en = "Thanks. Need to get home before the road floods." },
+	Chat_Reply_2 = { th = "นั่นสิ ถ้าน้ำมันไม่หมดก็ไม่ออกมาหรอก", en = "Right? Wouldn't be out if I hadn't run dry." },
+	Ghost_ShortReply = { th = "...", en = "..." },
+	Shelter_NoticeDry = { th = "เอ๊ะ... ฝนตกขนาดนี้ ทำไมตัวเขาไม่เปียกเลยล่ะ...", en = "Huh... in rain like this, how are they not wet at all..." },
+	Ghost_DryReply = { th = "เปียก?... ไม่เคยเปียกหรอก...", en = "Wet?... I never get wet..." },
+	ShelterGhost_ToCustomer = { th = "รีบกลับบ้านนะ... ก่อนจะเป็นเหมือนฉัน...", en = "Hurry home... before you end up like me..." },
+	Chat_WhoTalking = { th = "หือ? เมื่อกี้ใครพูดน่ะ... ไม่เห็นมีใครยืนอยู่เลย", en = "Huh? Who said that?... there's nobody standing there." },
+
+	-- ---------------- คันหลังในคิวแซว
+	Queue_Chime = { th = "รีบๆ หน่อยนะ รอคิวอยู่ข้างหลังเนี่ย", en = "Hurry it up, I'm waiting back here." },
+	Queue_ChimeGhost = { th = "ไม่ต้องรีบ... ข้ารอได้...", en = "No hurry... I can wait..." },
 }
 
 -- ชื่อลูกค้า (แสดงบนหัวกล่องคำพูด จะได้จำกันได้ ผีก็ปลอมใช้ชื่อเดียวกัน)
@@ -121,6 +190,17 @@ LanguageModule.Names = {
 	Name_Chaem = { th = "ป้าแช่ม", en = "Auntie Chaem" },
 	Name_Ton = { th = "น้องต้น", en = "Ton" },
 	Name_Boonmee = { th = "พี่บุญมี", en = "Boonmee" },
+	-- คนแวะหลบฝน
+	Name_Prik = { th = "ยายปริก", en = "Grandma Prik" },
+	Name_Daeng = { th = "พี่แดง", en = "Daeng" },
+	Name_Noi = { th = "น้าน้อย", en = "Auntie Noi" },
+	-- ขาจร
+	Name_Racer = { th = "เด็กแว้น", en = "Racer kid" },
+	Name_PartyDriver = { th = "คนขับรถซิ่ง", en = "Party truck driver" },
+	Name_Teen = { th = "วัยรุ่น", en = "Teen" },
+	Name_Coyote = { th = "สาวโคโยตี้", en = "Coyote girl" },
+	Name_ParadeHost = { th = "เจ้าภาพงานบวช", en = "Ordination host" },
+	Name_ParadeCrowd = { th = "ขบวนแห่", en = "Parade crowd" },
 }
 
 function LanguageModule.GetName(key: string, localeId: string?): string
@@ -162,22 +242,38 @@ LanguageModule.UI = {
 	Customer = { th = "ลูกค้า", en = "Customer" },
 	KeyClick = { th = "คลิก", en = "Click" },
 	HintFlashlight = { th = "เปิด/ปิดไฟฉาย", en = "Flashlight" },
-	HintHold = { th = "กดค้าง เติมน้ำมัน / ปิดร้าน", en = "Hold: Fill Up / Close Shop" },
+	HintHold = { th = "กดค้าง เติมน้ำมัน / เติมลม / ปิดร้าน", en = "Hold: Fuel / Air / Close Shop" },
 	-- ตอบราคา (ใครตอบก่อนได้ก่อน)
 	ReplyTitle = { th = "ตอบลูกค้า (ใครตอบก่อนได้ก่อน)", en = "Reply (first answer counts)" },
 	Reply_80 = { th = "80 บาท", en = "80 Baht" },
 	Reply_100 = { th = "100 บาท", en = "100 Baht" },
 	Reply_120 = { th = "120 บาท", en = "120 Baht" },
+	Reply_250 = { th = "250 บาท", en = "250 Baht" },
+	Reply_300 = { th = "300 บาท", en = "300 Baht" },
+	Reply_350 = { th = "350 บาท", en = "350 Baht" },
+	Reply_10 = { th = "10 บาท", en = "10 Baht" },
+	Reply_20 = { th = "20 บาท", en = "20 Baht" },
+	Reply_30 = { th = "30 บาท", en = "30 Baht" },
+	FillDiesel = { th = "เติมดีเซล", en = "Fill Diesel" },
+	DieselPump = { th = "ตู้ดีเซล", en = "Diesel Pump" },
+	PumpAir = { th = "เติมลม", en = "Pump Air" },
+	AirCompressorName = { th = "ถังลม", en = "Air Compressor" },
 	Reply_Hello = { th = "สวัสดี รับอะไรดี", en = "Hi, what can I get you?" },
 	Reply_GreetBoth = { th = "สวัสดีทั้งสองคน", en = "Evening, you two" },
 	-- เปิดร้านก่อนเริ่มคืน
 	OpenShop = { th = "เปิดร้าน", en = "Open Shop" },
+	-- จอตาย (แพ้)
+	AskRestart = { th = "เริ่มคืนใหม่ไหม?", en = "Start a new night?" },
+	Restart = { th = "เริ่มใหม่", en = "Restart" },
+	Quit = { th = "ออกจากเกม", en = "Quit" },
+	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
 	WaitOpen = { th = "ร้านยังปิดอยู่... ไปดึงเชือกเปิดแผงสังกะสีเพื่อเริ่มคืนนี้", en = "The shop is closed... pull the shutter rope to begin the night." },
 }
 
 -- ป้ายชื่อที่ลอยตามวัตถุในฉาก (ObjectLabels.client) ชื่อสั้น สุภาพ ไม่อธิบาย
 LanguageModule.Labels = {
 	GasPump = { th = "ตู้ปั๊มน้ำมัน", en = "Gas Pump" },
+	DieselPump = { th = "ตู้ดีเซล", en = "Diesel Pump" },
 	Radio = { th = "วิทยุ", en = "Radio" },
 	CutoutSwitch = { th = "สะพานไฟ", en = "Breaker Switch" },
 	RejectRope = { th = "เชือกแผงปิดร้าน", en = "Shutter Rope" },
