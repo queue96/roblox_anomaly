@@ -218,6 +218,7 @@ LanguageModule.UI = {
 	Win = { th = "ครบ 500฿ แล้ว! ปิดร้านกลับบ้านได้ รอดไปอีกคืน", en = "500 Baht reached! You survived the night." },
 	Lose = { th = "ธูปดับหมดแล้ว... ศาลพระภูมิคุ้มครองไม่ไหวอีกต่อไป", en = "All the incense is out... the shrine can no longer protect you." },
 	Jumpscare = { th = "คุณเติมน้ำมันให้ผี!", en = "You fueled a ghost!" },
+	JumpscareChased = { th = "อย่าตามผีไป!", en = "Never follow a ghost!" },
 	NewNight = { th = "คืนใหม่เริ่มแล้ว... ระวังลูกค้าแปลกๆ", en = "A new night begins... beware of strange customers." },
 	-- ปุ่ม ProximityPrompt (Client เปลี่ยนข้อความเองตามภาษาของผู้เล่น)
 	FillUp = { th = "เติมน้ำมัน", en = "Fill Up" },

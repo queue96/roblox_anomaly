@@ -18,15 +18,20 @@ end
 -- บังคับเปลี่ยนแสงเป็นตอนเที่ยงคืนมืดหลอนเฉพาะตอนกด Play เข้าเกม! (พอออกจากโหมด Play แมพจะกลับไปสว่างให้ Dev ง่ายๆ)
 MapBuilder.SetNightLighting()
 
--- ซ่อนจุดจอดรถ StopPoint ตอนเล่น (เป็นตัวช่วยของ Dev: ระบบรถยังใช้ตำแหน่งได้ตามปกติ, ตอน Edit ยังมองเห็น)
+-- ซ่อนจุดมาร์คของรถตอนเล่น: SpawnPoint (เขียว) / StopPoint (เหลือง) / ExitPoint (แดง)
+-- เป็นตัวช่วยของ Dev: ระบบรถยังใช้ตำแหน่งได้ตามปกติ, ตอน Edit ยังมองเห็น
 do
 	local waypoints = Workspace:FindFirstChild("VehicleWaypoints")
-	local stopPoint = waypoints and waypoints:FindFirstChild("StopPoint")
-	if stopPoint and stopPoint:IsA("BasePart") then
-		stopPoint.Transparency = 1
-		for _, d in ipairs(stopPoint:GetDescendants()) do
-			if d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+	if waypoints then
+		for _, d in ipairs(waypoints:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Transparency = 1
+				d.CanCollide = false
+				d.CastShadow = false
+			elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
 				d.Enabled = false
+			elseif d:IsA("Decal") or d:IsA("Texture") then
+				d.Transparency = 1
 			end
 		end
 	end

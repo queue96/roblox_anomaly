@@ -85,27 +85,38 @@ local function load(player: Player): { [string]: any }?
 	return nil
 end
 
+local inFlight = 0 -- จำนวนการบันทึกที่ยังไม่เสร็จ (ตอนปิดเซิร์ฟเวอร์ต้องรอให้เสร็จก่อน)
 local function save(player: Player)
 	if not store then
 		return
 	end
+	local key = keyFor(player) -- อ่านไว้ก่อน (ผู้เล่นอาจออกไปแล้วตอนบันทึกจริง)
 	local snapshot = {}
 	for name in pairs(SETTINGS) do
 		snapshot[name] = player:GetAttribute(name)
 	end
+	inFlight += 1
 	task.spawn(function()
-		local ok, err = pcall(function()
-			store:UpdateAsync(keyFor(player), function(old)
-				local data = if type(old) == "table" then old else {}
-				for k, v in pairs(snapshot) do
-					data[k] = v
-				end
-				return data
+		local ok, err
+		for attempt = 1, 3 do -- ลองใหม่ได้ 3 ครั้ง (DataStore ล่มชั่วคราว / โดนจำกัดความถี่)
+			ok, err = pcall(function()
+				store:UpdateAsync(key, function(old)
+					local data = if type(old) == "table" then old else {}
+					for k, v in pairs(snapshot) do
+						data[k] = v
+					end
+					return data
+				end)
 			end)
-		end)
+			if ok then
+				break
+			end
+			task.wait(attempt * 1.5)
+		end
 		if not ok then
 			warn("[PlayerSettings] บันทึกการตั้งค่าไม่สำเร็จ:", err)
 		end
+		inFlight -= 1
 	end)
 end
 
@@ -151,6 +162,20 @@ Players.PlayerRemoving:Connect(function(p)
 	if pendingSave[p] then
 		pendingSave[p] = nil
 		save(p)
+	end
+end)
+
+-- เซิร์ฟเวอร์กำลังปิด (คนสุดท้ายออก / อัปเดตเกม): บันทึกที่ค้างอยู่ทั้งหมด แล้วรอให้เสร็จ (สูงสุด ~25 วิ)
+game:BindToClose(function()
+	for _, p in ipairs(Players:GetPlayers()) do
+		if pendingSave[p] then
+			pendingSave[p] = nil
+			save(p)
+		end
+	end
+	local t0 = os.clock()
+	while inFlight > 0 and os.clock() - t0 < 25 do
+		task.wait(0.2)
 	end
 end)
 for _, p in ipairs(Players:GetPlayers()) do

@@ -1654,7 +1654,7 @@ local function serveCustomer(c: Customer)
 							chased = true
 							print("👻 [" .. p.Name .. "] วิ่งตามผีไป โดนหลอกล้มตึง")
 							CustomerSpeech:FireAllClients("Ghost_Chased", nil, speaker, nil)
-							TriggerJumpscare:FireClient(p, c.anomaly, v)
+							TriggerJumpscare:FireClient(p, c.anomaly, v, "chased") -- (ไม่ได้เติมน้ำมัน: ข้อความต่างจากตอนเติมให้ผี)
 							task.wait(0.35)
 							knockDown(p, CONFIG.KnockdownTime)
 							task.delay(3, function()

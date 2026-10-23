@@ -478,10 +478,11 @@ CustomerSpeech.OnClientEvent:Connect(function(key: string?, _head: BasePart?, wh
 end)
 
 -- ---------------------------------------------------------------- ผีหลอก (เติมน้ำมันให้ผี)
-TriggerJumpscare.OnClientEvent:Connect(function(_anomalyKey: string?)
+TriggerJumpscare.OnClientEvent:Connect(function(_anomalyKey: string?, _source: Instance?, reason: string?)
 	flash.BackgroundTransparency = 0.1
 	TweenService:Create(flash, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-	showBanner("Jumpscare", true, 3)
+	-- reason "chased" = วิ่งตามผีที่ไล่ไปแล้ว (ไม่ได้เติมน้ำมันให้)
+	showBanner(if reason == "chased" then "JumpscareChased" else "Jumpscare", true, 3)
 	local cam = workspace.CurrentCamera
 	if cam then
 		task.spawn(function()
