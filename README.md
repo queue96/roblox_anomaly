@@ -37,4 +37,4 @@
 
 ## 💻 วิธีสลับทำงานหรือให้ AI ตัวอื่นทำต่อ
 เมื่อต้องการคุยงานต่อกับ AI ตัวใหม่ ให้พิมพ์คำสั่งนี้ในแชท:
-> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ Phase 1 (ปั้นฉาก), Phase 2 (รถแม่แบบใน ServerStorage.VehicleTemplates) Phase 3 (Core Loop ใน src/server/CoreLoop.luau) และ Phase 4 (ผี 10 ตัวใน src/server/AnomalyManager.luau + ไฟฉาย) เสร็จแล้ว กำลังจะทำต่อในส่วน..."**
+> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ Phase 1 (ปั้นฉาก), Phase 2 (รถแม่แบบใน ServerStorage.VehicleTemplates) Phase 3 (Core Loop ใน src/server/CoreLoop.luau) Phase 4 (ผี 10 ตัวใน src/server/AnomalyManager.luau + ไฟฉาย) เสร็จแล้ว และ Phase 5 ทำ HUD + ระบบภาษาแล้ว (เหลือสมุดสะสมผี + Publish) พร้อมระบบเพิ่มเติม: ฝนตก, ลูกค้าเดิน/รถไทย, ขาจร, ผีหลอกเต็มจอ, จอตาย, ตั้งค่า กำลังจะทำต่อในส่วน..."**

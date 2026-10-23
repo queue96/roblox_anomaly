@@ -864,7 +864,7 @@ Anomalies = {<br>
                             <div class="check-box">✓</div>
                             <div>
                                 <div class="check-title">1. สร้างหน้าจอ HUD แสดงยอดเงิน (0/500฿) & คำพูดลูกค้า 2 ภาษา</div>
-                                <div class="check-sub">แสดงกล่องข้อความด้านล่างจอเวลารถจอดพูดสั่งน้ำมัน (ดึงคำแปล TH/EN จาก LanguageModule)</div>
+                                <div class="check-sub">แสดงกล่องข้อความด้านล่างจอเวลารถจอดพูดสั่งน้ำมัน (ดึงคำแปล TH/EN จาก LanguageModule) · ✅ HUD สไตล์ชนบทหลอน เงิน/ธูปขวาล่าง กล่องคำพูดมีชื่อลูกค้า แถบตอบราคา</div>
                             </div>
                         </div>
                         <div class="check-item" data-id="p5-2" onclick="toggleCheck(this)">
@@ -877,8 +877,8 @@ Anomalies = {<br>
                         <div class="check-item" data-id="p5-3" onclick="toggleCheck(this)">
                             <div class="check-box">✓</div>
                             <div>
-                                <div class="check-title">3. 🌐 เปิดใช้งาน AutoLocalize & Cloud Localization บนเว็บ Roblox</div>
-                                <div class="check-sub">เช็คว่า ScreenGui และ ProximityPrompt เปิด AutoLocalize = true และเปิด Automatic Translation ในหน้า Creator Dashboard</div>
+                                <div class="check-title">3. 🌐 ระบบภาษา ไทย / อังกฤษ (ตัดสินใจใช้ของเกมเองแทน Cloud Localization)</div>
+                                <div class="check-sub">✅ เข้าครั้งแรกดูประเทศ (ไทย = ไทย, อื่นๆ = อังกฤษ) เปลี่ยนได้ในหน้าตั้งค่า จำค่าต่อคนใน DataStore · UI ที่แปลเองปิด AutoLocalize กันแปลซ้ำ</div>
                             </div>
                         </div>
                         <div class="check-item" data-id="p5-4" onclick="toggleCheck(this)">
@@ -912,7 +912,49 @@ Anomalies = {<br>
                                 </tr>
                                 <tr>
                                     <td><strong>Update 1.2</strong></td>
-                                    <td>เพิ่มบอสบุกประชิด (Tier 3: ผีกระสือ & เปรต ต้องสับคัตเอาต์ดับไฟหมอบ) + ระบบฝนตกฟ้าร้อง</td>
+                                    <td>เพิ่มบอสบุกประชิด (Tier 3: ผีกระสือ & เปรต ต้องสับคัตเอาต์ดับไฟหมอบ) · <em>ระบบฝนตกฟ้าร้อง ✅ ทำแล้ว (ดูด้านล่าง)</em></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="panel-card">
+                        <h3>✅ งานที่เพิ่มนอกแผน (ทำเสร็จแล้ว อัปเดต 2026-10-23)</h3>
+                        <table class="spec-table">
+                            <thead>
+                                <tr>
+                                    <th>ระบบ</th>
+                                    <th>รายละเอียด</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>ตั้งค่า</strong></td>
+                                    <td>ภาษา, เสียงเพลง/เอฟเฟกต์ (100% = 50% จริง), ซ่อน HUD, ซ่อนป้ายชื่อวัตถุ · จำค่าต่อคน (DataStore)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>เริ่มคืน / ตาย</strong></td>
+                                    <td>ต้องดึงเชือกเปิดร้านก่อนลูกค้ามา · ธูปหมด = ล้มนอนตาย จอแดง ถามเริ่มใหม่ (ใครกดก่อนได้ก่อน)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ลูกค้า & บทสนทนา</strong></td>
+                                    <td>ลูกค้ามีชื่อ ทักทาย ถามราคา (ทุกคนตอบได้ ใครตอบก่อนได้ก่อน) จ่ายเงินตามราคา · มาเป็นระลอกแล้วพัก · รอนาน/เติมช้าลูกค้าไม่พอใจ · ทัก "ทั้งสองคน" แล้วผีซ้อนท้ายกระซิบ</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>รถไทย 8 แบบ</strong></td>
+                                    <td>กระบะ/เก๋ง = ดีเซลตู้ 2 (น้ำมันเขียว) · ตุ๊กตุ๊ก = น้ำมันหลอด · จักรยานยางแบนเข็นมาเติมลม · เติมผิดตู้ลูกค้าท้วง</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ขาจรช่วงพัก</strong></td>
+                                    <td>เด็กแว้นยกล้อ · รถซิ่งเปิดเพลง + สาวโคโยตี้ + วัยรุ่นเต้น · รถแห่งานบวช + นาค + ขบวนเต้น</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ฝนตก</strong></td>
+                                    <td>เม็ดฝน เสียงฝน พื้นเปียก แอ่งน้ำ ฟ้าแลบฟ้าร้อง · ลูกค้ามาน้อยลง กางร่ม (โมเดล Blender) · คนแวะหลบฝนชวนคุย ให้เบาะแส "ผีไม่เปียกฝน"</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ผี & ความหลอน</strong></td>
+                                    <td>ผี 11 แบบ (เพิ่ม "เดินฝ่าฝนไม่กางร่ม") · ผีโผล่เต็มจอ + เสียง/เอฟเฟกต์ตามชนิด · ไล่ผีแล้ววิ่งตามโดนล้มตึง · เสียงหลอนรอบแมพ (นกฮูก อีกา ร้องไห้ กระซิบ ฝีเท้า ระฆัง)</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -926,9 +968,9 @@ Anomalies = {<br>
     <script>
         const STORAGE_KEY = 'rural_gas_shack_dev_checks_v1';
         let savedChecks = {};
-        // งานที่ทำเสร็จแล้วใน repo (อัปเดต 2026-10-23): Phase 1 ปั้นแมพครบ, Phase 2 รถแม่แบบใน ServerStorage.VehicleTemplates ครบ, Phase 3 Core Loop (CoreLoop.luau) ครบ
+        // งานที่ทำเสร็จแล้วใน repo (อัปเดต 2026-10-23): Phase 1-4 ครบ, Phase 5 ข้อ 1 (HUD) และข้อ 3 (ระบบภาษา) เสร็จ — เหลือสมุดสะสมผี (p5-2) และ Publish/Co-op (p5-4)
         // ใช้เป็นค่าเริ่มต้นเมื่อเครื่องนี้ยังไม่เคยติ๊กข้อนั้นเอง (ค่าที่ติ๊กเองใน localStorage มีผลเหนือกว่า)
-        const DONE_IN_REPO = ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p1-5', 'p1-6', 'p1-7', 'p1-8', 'p2-1', 'p2-2', 'p2-3', 'p2-4', 'p2-5', 'p3-1', 'p3-2', 'p3-3', 'p3-4', 'p3-5', 'p4-1', 'p4-2', 'p4-3', 'p4-4'];
+        const DONE_IN_REPO = ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p1-5', 'p1-6', 'p1-7', 'p1-8', 'p2-1', 'p2-2', 'p2-3', 'p2-4', 'p2-5', 'p3-1', 'p3-2', 'p3-3', 'p3-4', 'p3-5', 'p4-1', 'p4-2', 'p4-3', 'p4-4', 'p5-1', 'p5-3'];
 
         function loadChecks() {
             try {
