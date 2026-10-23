@@ -263,6 +263,14 @@ LanguageModule.UI = {
 	Reply_GreetBoth = { th = "สวัสดีทั้งสองคน", en = "Evening, you two" },
 	-- เปิดร้านก่อนเริ่มคืน
 	OpenShop = { th = "เปิดร้าน", en = "Open Shop" },
+	-- สมุดบันทึกผี
+	BookButton = { th = "สมุดผี", en = "Ghost Book" },
+	BookTitle = { th = "สมุดบันทึกผีไทย", en = "Thai Ghost Journal" },
+	BookCount = { th = "เจอแล้ว {n} / {total}", en = "Found {n} / {total}" },
+	BookLockedName = { th = "???", en = "???" },
+	BookLockedHint = { th = "ยังไม่เคยรอดจากผีตัวนี้", en = "You have not survived this one yet." },
+	BookSurvived = { th = "รอดมาแล้ว {n} ครั้ง", en = "Survived {n} times" },
+	BookNew = { th = "บันทึกผีใหม่ลงสมุด", en = "New journal entry" },
 	-- จอตาย (แพ้)
 	AskRestart = { th = "เริ่มคืนใหม่ไหม?", en = "Start a new night?" },
 	Restart = { th = "เริ่มใหม่", en = "Restart" },
@@ -299,6 +307,77 @@ function LanguageModule.GetLabel(key: string, localeId: string?): string
 		return ""
 	end
 	return if LanguageModule.Normalize(localeId) == "th" then entry.th else entry.en
+end
+
+-- สมุดบันทึกผีไทย (Phase 5 ข้อ 2): ชื่อ + คำใบ้วิธีสังเกต เรียงตาม BookOrder
+LanguageModule.BookOrder = {
+	"Anomaly_Headless",
+	"Anomaly_Cemetery",
+	"Anomaly_WheelHair",
+	"Anomaly_NeckTwist",
+	"Anomaly_CreepySmile",
+	"Anomaly_Krasue",
+	"Anomaly_MonkRadio",
+	"Anomaly_Tani",
+	"Anomaly_Scarecrow",
+	"Anomaly_BloodFuel",
+	"Anomaly_NoUmbrella",
+}
+LanguageModule.Book = {
+	Anomaly_Headless = {
+		th = { "ผีหัวขาดซ้อนท้าย", "มีคนซ้อนท้ายแต่ไม่มีหัว คนขับไม่รู้ตัวเลย ลองทักว่า \"ทั้งสองคน\" ดู" },
+		en = { "Headless Pillion Rider", "Someone rides pillion with no head. The driver has no idea. Try greeting \"you two\"." },
+	},
+	Anomaly_Cemetery = {
+		th = { "ป้ายทะเบียนป่าช้า", "ป้ายทะเบียน 4444 จดทะเบียนจากป่าช้า ส่องไฟฉายดูป้ายก่อนเติม" },
+		en = { "Cemetery Plate", "Plate 4444, registered to the cemetery. Check the plate with your flashlight." },
+	},
+	Anomaly_WheelHair = {
+		th = { "ผมพันล้อ", "เส้นผมยาวสีดำพันล้อแน่น ลูกค้าบ่นว่าล้อหนักเหมือนมีใครดึง" },
+		en = { "Hair in the Wheels", "Long black hair wound tight around the wheels. The rider says something is pulling them." },
+	},
+	Anomaly_NeckTwist = {
+		th = { "คอหัก 180 องศา", "หัวคนขับหันกลับหลัง แต่ยังพูดคุยเหมือนปกติ" },
+		en = { "Twisted Neck", "The driver's head faces backward, yet they talk as if nothing is wrong." },
+	},
+	Anomaly_CreepySmile = {
+		th = { "ยิ้มฉีกถึงหู", "ตาโปน ยิ้มกว้างผิดธรรมชาติ แล้วขอให้คุณยิ้มตอบ" },
+		en = { "Ear-to-Ear Grin", "Bulging eyes and an unnatural grin that asks you to smile back." },
+	},
+	Anomaly_Krasue = {
+		th = { "กระสือ", "ไม่มีขา มีไส้ห้อยเรืองแสงอยู่ใต้ตัว และหิวเสมอ" },
+		en = { "Krasue", "No legs, glowing entrails hanging beneath, and always hungry." },
+	},
+	Anomaly_MonkRadio = {
+		th = { "วิทยุสวดศพ", "วิทยุในร้านเปลี่ยนเป็นเสียงพระสวดเอง แต่ลูกค้ากลับชมว่าเพลงเพราะ" },
+		en = { "Funeral Radio", "The shop radio switches to funeral chanting by itself, yet the customer praises the song." },
+	},
+	Anomaly_Tani = {
+		th = { "ผีตานี", "ผู้หญิงยืนรออยู่หลังกอกล้วย ลูกค้าถามว่าเธอรอใครอยู่" },
+		en = { "Phi Tani", "A woman waits behind the banana grove. The customer asks who she is waiting for." },
+	},
+	Anomaly_Scarecrow = {
+		th = { "หุ่นไล่กาเดินได้", "หุ่นไล่กาย้ายมายืนใกล้ร้าน ตาแดงเรือง ลูกค้าบอกว่ามันเดินตามมา" },
+		en = { "Wandering Scarecrow", "The scarecrow now stands near the shop, eyes glowing red. The customer says it followed them." },
+	},
+	Anomaly_BloodFuel = {
+		th = { "น้ำมันเลือด", "น้ำมันในหลอดแก้วกลายเป็นสีเลือด ลูกค้าบอกว่าหอมดี" },
+		en = { "Blood Fuel", "The fuel in the glass turns blood red. The customer says it smells good." },
+	},
+	Anomaly_NoUmbrella = {
+		th = { "คนตัวแห้งกลางฝน", "เดินฝ่าฝนหนักมาโดยไม่กางร่ม แต่ตัวแห้งสนิท" },
+		en = { "Dry in the Rain", "Walks in through the downpour without an umbrella, yet completely dry." },
+	},
+}
+
+-- คืน (ชื่อ, คำอธิบาย) ของผีในสมุด
+function LanguageModule.GetBook(key: string, localeId: string?): (string, string)
+	local entry = LanguageModule.Book[key]
+	if not entry then
+		return key, ""
+	end
+	local t = if LanguageModule.Normalize(localeId) == "th" then entry.th else entry.en
+	return t[1], t[2]
 end
 
 -- ภาษาที่รองรับมีแค่ "th" กับ "en" (ค่าอื่น / nil = "en")

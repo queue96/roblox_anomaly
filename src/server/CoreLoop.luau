@@ -308,6 +308,7 @@ end
 local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
 local Pedestrian = require(script.Parent:WaitForChild("Pedestrian"))
 local Weather = require(script.Parent:WaitForChild("Weather"))
+local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 local function pick(list: { any }): any
 	return list[math.random(#list)]
 end
@@ -532,6 +533,10 @@ devDecision.Event:Connect(function(choice: string)
 		devRoadEvent(choice) -- ขาจรบนถนน
 	elseif choice == "shelter" then
 		devSpawn("shelter") -- คนมาหลบฝน
+	elseif string.sub(choice, 1, 5) == "book:" then
+		AnomalyBook.Survived(string.sub(choice, 6)) -- ทดสอบปลดล็อกสมุด
+	elseif choice == "bookreset" then
+		AnomalyBook.Reset()
 	elseif choice == "rain" or choice == "clear" then
 		Weather.Set(choice == "rain")
 	elseif choice == "incense1" then
@@ -1612,6 +1617,9 @@ local function serveCustomer(c: Customer)
 		closeShutter()
 		if ghost then
 			money += CONFIG.RejectGhostReward
+			if c.anomaly then
+				AnomalyBook.Survived(c.anomaly) -- รอดจากผีตัวนี้ -> ปลดล็อกในสมุดของทุกคน
+			end
 			say("Ghost_Rejected", speaker)
 			print("✅ ไล่ผีถูกต้อง +" .. CONFIG.RejectGhostReward .. "฿ รวม " .. money)
 		else
