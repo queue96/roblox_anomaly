@@ -13,6 +13,9 @@
         "$ignoreUnknownInstances": false,
         "LanguageModule": {
           "$path": "src/shared/LanguageModule.luau"
+        },
+        "MapBuilder": {
+          "$path": "src/shared/MapBuilder.luau"
         }
       }
     },
