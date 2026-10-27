@@ -19,6 +19,13 @@
         }
       }
     },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "DevCommand": {
+        "$path": "src/lobby/dev/DevCommand.luau"
+      }
+    },
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "$ignoreUnknownInstances": true,

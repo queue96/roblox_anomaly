@@ -4826,18 +4826,83 @@ local function templeStore(): Folder
 	return store :: Folder
 end
 
+-- กรอบ (min, max) ของชิ้นส่วนหลังแปลงด้วย rel[p] (CFrame ของแต่ละชิ้นในกรอบอ้างอิงใหม่)
+local function boundsOfRel(parts: { BasePart }, rel: { [BasePart]: CFrame }): (Vector3, Vector3)
+	local mn = Vector3.new(math.huge, math.huge, math.huge)
+	local mx = -mn
+	for _, p in ipairs(parts) do
+		local h = p.Size / 2
+		for _, sx in ipairs({ -1, 1 }) do
+			for _, sy in ipairs({ -1, 1 }) do
+				for _, sz in ipairs({ -1, 1 }) do
+					local w = rel[p] * Vector3.new(sx * h.X, sy * h.Y, sz * h.Z)
+					mn = mn:Min(w)
+					mx = mx:Max(w)
+				end
+			end
+		end
+	end
+	return mn, mx
+end
+
+-- ทิศที่ 3D Importer หมุนโมเดลมา (เช่นตั้ง World Forward ต่างจากตอน export) ทุกไฟล์ในชุดวัดนำเข้าด้วยค่าเดียวกัน
+-- จึงวัดจากโบสถ์ (กรอบไม่สมมาตรหน้า-หลัง) ครั้งเดียว: ลองหมุน 0/90/180/270° หาอันที่กรอบตรงกับตอนปั้นที่สุด
+-- ต้องนำเข้าแบบ "Set Pivot to Scene Origin" (pivot ของโมเดล = จุดกำเนิดของฉากใน Blender)
+local templeImportFix: CFrame? = nil
+local function getTempleImportFix(store: Folder): CFrame
+	if templeImportFix then
+		return templeImportFix
+	end
+	local u = TEMPLE_UNITS.Ubosot
+	local tpl = store:FindFirstChild(u.file)
+	if not tpl then
+		return CFrame.identity
+	end
+	local parts, rel = {}, {}
+	local pv = tpl:GetPivot()
+	for _, n in ipairs(u.parts) do
+		local p = tpl:FindFirstChild(n, true)
+		if p and p:IsA("BasePart") then
+			table.insert(parts, p)
+			rel[p] = pv:ToObjectSpace(p.CFrame)
+		end
+	end
+	local mn, mx = boundsOfRel(parts, rel)
+	local s = (mx - mn).Magnitude / (u.bmax - u.bmin).Magnitude
+	local best, bestScore = 0, math.huge
+	for _, deg in ipairs({ 0, 90, 180, 270 }) do
+		local r = CFrame.Angles(0, math.rad(deg), 0)
+		local a, b = r * (u.bmin * s), r * (u.bmax * s)
+		local score = (mn - a:Min(b)).Magnitude + (mx - a:Max(b)).Magnitude
+		if score < bestScore then
+			best, bestScore = deg, score
+		end
+	end
+	if bestScore > 2 * s then
+		warn(("[MapBuilder] วัดทิศโมเดลวัดไม่ได้ (คลาด %.1f studs) ใช้ทิศเดิม — นำเข้าแบบ Set Pivot to Scene Origin หรือยัง?"):format(bestScore))
+		best = 0
+	end
+	print(("🧭 [MapBuilder] โมเดลวัดถูกหมุนตอนนำเข้า %d° (คลาด %.2f studs) หมุนกลับให้อัตโนมัติ"):format(best, bestScore))
+	templeImportFix = CFrame.Angles(0, -math.rad(best), 0)
+	return templeImportFix :: CFrame
+end
+
 -- วาง prop 1 ชุด: cf = ตำแหน่ง/ทิศของฐานกลาง prop (หน้า prop หันไป +Z ของ cf), scale = ขยาย (ค่าเริ่มต้น 1)
 local function placeTempleUnit(store: Folder, unitName: string, cf: CFrame, parent: Instance, scale: number?): Model
 	local u = TEMPLE_UNITS[unitName]
 	local tpl = store:FindFirstChild(u.file)
 	assert(tpl, "ไม่พบโมเดลนำเข้า " .. u.file .. " (นำเข้า " .. u.file .. ".fbx ก่อน)")
-	local parts = {}
+	local fix = getTempleImportFix(store)
+	local pv = tpl:GetPivot()
+	local parts, rel = {}, {}
 	for _, n in ipairs(u.parts) do
 		local p = tpl:FindFirstChild(n, true)
 		assert(p and p:IsA("BasePart"), "ไม่พบชิ้น " .. u.file .. "." .. n)
 		table.insert(parts, p)
+		-- ตำแหน่งเทียบ pivot ของไฟล์ แล้วหมุนกลับทิศที่ Importer หมุนมา
+		rel[p] = fix * pv:ToObjectSpace(p.CFrame)
 	end
-	local mn, mx = boundsOf(parts)
+	local mn, mx = boundsOfRel(parts, rel)
 	-- ตรวจหน่วยตอนนำเข้า: ถ้าขนาดไม่ตรงกับตอนปั้น ให้ย่อ/ขยายกลับ
 	local s = (mx - mn).Magnitude / (u.bmax - u.bmin).Magnitude
 	local offset = mn - u.bmin * s
@@ -4846,7 +4911,7 @@ local function placeTempleUnit(store: Folder, unitName: string, cf: CFrame, pare
 	m:SetAttribute("ImportedProp", true)
 	for _, p in ipairs(parts) do
 		local c = p:Clone()
-		c.CFrame = cf * (CFrame.new(-offset) * p.CFrame)
+		c.CFrame = cf * (CFrame.new(-offset) * rel[p])
 		c.Anchored = true
 		c.CanCollide = false
 		c.CanTouch = false
@@ -4926,7 +4991,8 @@ end
 
 -- origin = จุดกลางลานวัดบนพื้น (ค่าเริ่มต้น 0,0,600 ห่างจากแมพหลัก) · ประตูวัดหันไป +Z
 -- rebuild = true: ย้ายชุดเดิมไปเก็บ ServerStorage.ArchivedPlaceholders.TempleLobby แล้วสร้างใหม่
-function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
+-- spread = ขยายพื้นที่วัด (ค่าเริ่มต้น 3) รั้ว/พื้น/ลานกลางคูณตามนี้ แต่ขนาดอาคารเท่าเดิม (ควร ≥ 2 ไม่งั้นอาคารชิดกัน)
+function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread: number?)
 	local old = Workspace:FindFirstChild("TempleLobby")
 	if old then
 		if not rebuild then
@@ -4942,6 +5008,7 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	end
 	local O = origin or Vector3.new(0, 0, 600)
 	local G = O + Vector3.new(0, 0.1, 0)
+	local K = spread or 3
 	local function at(x: number, z: number, yaw: number?, y: number?): CFrame
 		return CFrame.new(G + Vector3.new(x, y or 0, z)) * CFrame.Angles(0, math.rad(yaw or 0), 0)
 	end
@@ -4952,23 +5019,54 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	-- พื้นลานวัด + ทางเดินปูนจากประตูถึงบันไดโบสถ์
 	local ground = Instance.new("Part")
 	ground.Name = "TempleGround"
-	ground.Size = Vector3.new(200, 1, 176)
-	ground.CFrame = CFrame.new(G + Vector3.new(0, -0.5, -2))
+	ground.Size = Vector3.new(200 * K, 1, 176 * K)
+	ground.CFrame = CFrame.new(G + Vector3.new(0, -0.5, -2 * K))
 	ground.Material = Enum.Material.Ground
 	ground.Color = Color3.fromRGB(66, 58, 48)
 	ground.Anchored = true
 	ground.Parent = lobby
+	-- ประตูวัด (FRONT) / รั้วหลัง (BACK) / รั้วข้าง (±X) ขยายตาม spread
+	-- โบสถ์ชิดด้านหลัง (UBZ) เพื่อเปิดลานโล่งกลางวัดไว้ให้ผู้เล่นรวมตัว ศาลา (ซ้าย) / กุฏิ (ขวา) อยู่ริมรั้ว
+	local FRONT, BACK, X = 62 * K, -70 * K, 81 * K
+	local UBZ = BACK + 45
+	local plazaBack, plazaFront = UBZ + 46, FRONT - 14
+	local plazaZ = (plazaBack + plazaFront) / 2
+	local plazaW = 2 * X - 130
+	local plaza = Instance.new("Part")
+	plaza.Name = "TemplePlaza"
+	plaza.Size = Vector3.new(plazaW, 0.2, plazaFront - plazaBack)
+	plaza.CFrame = CFrame.new(G + Vector3.new(0, 0.1, plazaZ))
+	plaza.Material = Enum.Material.Concrete
+	plaza.Color = Color3.fromRGB(104, 100, 92)
+	plaza.Anchored = true
+	plaza.Parent = lobby
+	-- ทางเดินจากบันไดโบสถ์ถึงหน้าประตู (ตัดกลางลาน)
+	local pathFrom, pathTo = UBZ + 32, FRONT + 6
 	local path = Instance.new("Part")
 	path.Name = "TemplePath"
-	path.Size = Vector3.new(10, 0.2, 48)
-	path.CFrame = CFrame.new(G + Vector3.new(0, 0.1, 44))
+	path.Size = Vector3.new(10, 0.2, pathTo - pathFrom)
+	path.CFrame = CFrame.new(G + Vector3.new(0, 0.15, (pathFrom + pathTo) / 2))
 	path.Material = Enum.Material.Concrete
 	path.Color = Color3.fromRGB(112, 110, 102)
 	path.Anchored = true
 	path.Parent = lobby
+	for i, c in ipairs({ { -1, plazaFront - 4 }, { 1, plazaFront - 4 }, { -1, plazaBack + 4 }, { 1, plazaBack + 4 } }) do
+		templeLight(lobby, "PlazaLamp_" .. i, G + Vector3.new(c[1] * (plazaW / 2 - 4), 14, c[2]), Color3.fromRGB(255, 196, 130), 0.8, 40)
+	end
+
+	-- จุดเกิดผู้เล่น: กลางลาน (ล่องหน ไม่ชน)
+	local lobbySpawn = Instance.new("SpawnLocation")
+	lobbySpawn.Name = "LobbySpawn"
+	lobbySpawn.Size = Vector3.new(8, 1, 8)
+	lobbySpawn.CFrame = CFrame.new(G + Vector3.new(14, 0.4, plazaZ))
+	lobbySpawn.Anchored = true
+	lobbySpawn.Transparency = 1
+	lobbySpawn.CanCollide = false
+	lobbySpawn.Neutral = true
+	lobbySpawn.Duration = 0
+	lobbySpawn.Parent = lobby
 
 	-- ประตูวัด + ป้ายชื่อวัด
-	local FRONT, BACK, X = 62, -70, 81
 	placeTempleUnit(store, "TempleGate", at(0, FRONT), lobby)
 	local sign = placeTempleUnit(store, "TempleNameSign", at(24, FRONT + 5), lobby)
 	templeLabels(sign:FindFirstChild("TempleNameSign_Plaque") :: BasePart, { { "วัดท้ายทุ่ง", 0.25, 0.42 }, { "WAT THAI THUNG", 0.75, 0.42 } })
@@ -4994,8 +5092,7 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	run(-X, BACK, -90, FRONT - BACK)
 	run(-X, FRONT, 0, X - 9)
 
-	-- โบสถ์กลางลาน หันหน้าเข้าหาประตู + พระ 3 องค์บนฐานชุกชี
-	local UBZ = -12
+	-- โบสถ์ท้ายลาน หันหน้าเข้าหาประตู + พระ 3 องค์บนฐานชุกชี
 	placeTempleUnit(store, "Ubosot", at(0, UBZ), lobby)
 	local trio = placeTempleUnit(store, "BuddhaTrio", at(0, UBZ - 15.6, 0, 2.86), lobby, 1.2)
 	trio.Name = "BuddhaTrio_Ubosot"
@@ -5004,37 +5101,38 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	templeLight(lobby, "UbosotCandleLight", G + Vector3.new(0, 9, UBZ - 8), Color3.fromRGB(255, 160, 80), 1.1, 24)
 
 	-- ศาลาการเปรียญ (ฝั่งซ้าย หันหน้าเข้าลาน) + พระ 3 องค์อีกชุด
-	local SALA = at(-55, 25, 90)
+	local SALA = at(-X + 28, plazaZ, 90)
 	placeTempleUnit(store, "Sala", SALA, lobby)
 	local trio2 = placeTempleUnit(store, "BuddhaTrio", SALA * CFrame.new(0, 2.99, -10.81), lobby, 1.4)
 	trio2.Name = "BuddhaTrio_Sala"
 	templeLabels(trio2:FindFirstChild("BuddhaTrio_Plaques") :: BasePart, NAMES, 40)
 	templeLight(lobby, "SalaLight", (SALA * CFrame.new(0, 11, -3.5)).Position, Color3.fromRGB(200, 215, 255), 0.5, 26)
 
-	-- กุฏิ 2 หลัง (ฝั่งขวา หันหน้าเข้าลาน)
-	placeTempleUnit(store, "Kuti", at(66, 40, -90), lobby)
-	placeTempleUnit(store, "Kuti", at(66, 8, -90), lobby).Name = "Kuti_2"
-	templeLight(lobby, "KutiLamp", G + Vector3.new(64, 15, 40), Color3.fromRGB(255, 176, 96), 0.5, 16)
+	-- กุฏิ 2 หลัง (ฝั่งขวา หันหน้าเข้าลาน) ย่อ 2/3 = ขนาดจริง (ไฟล์ปั้นไว้ใหญ่ 1.5 เท่า) ประตู ~5.4 × 7 studs
+	local KUTI = 1 / 1.5
+	placeTempleUnit(store, "Kuti", at(X - 12, plazaZ + 25, -90), lobby, KUTI)
+	placeTempleUnit(store, "Kuti", at(X - 12, plazaZ - 25, -90), lobby, KUTI).Name = "Kuti_2"
+	templeLight(lobby, "KutiLamp", G + Vector3.new(X - 14, 11, plazaZ + 25), Color3.fromRGB(255, 176, 96), 0.5, 16)
 
 	-- เมรุ (มุมหลังซ้าย) + แสงแดงจางๆ ที่ประตูเตาเผา
-	local MERU = at(-55, -45)
+	local MERU = at(-X + 25, BACK + 25)
 	placeTempleUnit(store, "Meru", MERU, lobby)
 	templeLight(lobby, "MeruFurnaceGlow", (MERU * CFrame.new(0, 7.5, 2.6)).Position, Color3.fromRGB(255, 70, 40), 0.5, 9)
 	templeLight(lobby, "GateLamp", G + Vector3.new(0, 15, FRONT - 3), Color3.fromRGB(190, 210, 255), 0.6, 24)
 
 	-- ป้ายบริจาค (หน้าป้ายเปล่า DonationBoard_Face ไว้ใส่ SurfaceGui ทำ dashboard ผู้บริจาค) หันเข้าลาน
-	placeTempleUnit(store, "DonationBoard", at(-24, 50, 180), lobby)
+	placeTempleUnit(store, "DonationBoard", at(-24, FRONT - 12, 180), lobby)
 	-- ตู้บริจาค (จุดกดโดเนท) ข้างทางเข้ากำแพงแก้วโบสถ์ หันเข้าหาทางเดิน
-	local box = placeTempleUnit(store, "DonationBox", at(-8.5, 28, 90), lobby)
+	local box = placeTempleUnit(store, "DonationBox", at(-8.5, UBZ + 40, 90), lobby)
 	local glass = box:FindFirstChild("DonationBox_Glass") :: BasePart
 	if glass then
 		glass.Material = Enum.Material.Glass
 		glass.Transparency = 0.55
 	end
 	-- รถเข็นขายทุกอย่าง (ร้านค้า) ฝั่งขวาของทางเดิน หันเข้าหาทางเดิน
-	local cart = placeTempleUnit(store, "ShopCart", at(22, 44, -90), lobby)
+	local cart = placeTempleUnit(store, "ShopCart", at(22, FRONT - 18, -90), lobby)
 	templeLabels(cart:FindFirstChild("ShopCart_Sign") :: BasePart, { { "ขายทุกอย่าง · All Goods", 0.5, 0.95 } }, 50)
-	templeLight(lobby, "ShopCartLamp", G + Vector3.new(21, 10.5, 44), Color3.fromRGB(255, 214, 150), 0.7, 14)
+	templeLight(lobby, "ShopCartLamp", G + Vector3.new(21, 10.5, FRONT - 18), Color3.fromRGB(255, 214, 150), 0.7, 14)
 
 	-- ธาตุเก็บกระดูก 2 กลุ่ม (บางองค์เอียงนิดๆ ให้ดูเก่า)
 	local stupas = Instance.new("Model")
@@ -5045,12 +5143,12 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	local spots = {}
 	for r = 0, 2 do
 		for c = 0, 3 do
-			table.insert(spots, { -38 + c * 6.5 + (r % 2) * 2, -62 + r * 7 })
+			table.insert(spots, { -31 - c * 6.5 - (r % 2) * 2, BACK + 8 + r * 7 })
 		end
 	end
 	for r = 0, 1 do
 		for c = 0, 3 do
-			table.insert(spots, { 28 + c * 6.5, -63 + r * 7 })
+			table.insert(spots, { 31 + c * 6.5, BACK + 7 + r * 7 })
 		end
 	end
 	for i, sp in ipairs(spots) do
@@ -5065,7 +5163,9 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 	-- ต้นมะม่วงในวัด (ใบไหวด้วย tag LeafFlutter จาก TagWindPlants ห้ามติด WindSway)
 	local mangoStore = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
 	if mangoStore and mangoStore:FindFirstChild("MangoTree") then
-		for i, p in ipairs({ { -30, 48, 30 }, { -20, 34, 140 }, { -72, -14, 250 }, { 70, -38, 80 }, { 12, -60, 200 } }) do
+		-- ปลูกรอบขอบลาน (ไม่ขวางกลางลาน) + มุมหลังขวา
+		local ex = plazaW / 2 + 8
+		for i, p in ipairs({ { -ex, plazaFront - 10, 30 }, { ex, plazaFront - 10, 140 }, { -ex, plazaBack + 10, 250 }, { ex, plazaBack + 10, 80 }, { X - 20, BACK + 20, 200 } }) do
 			local m = Instance.new("Model")
 			m.Name = "TempleMango_" .. i
 			m:SetAttribute("ImportedProp", true)
@@ -5083,7 +5183,7 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?)
 
 	lobby.Parent = Workspace
 	MapBuilder.TagWindPlants()
-	print("🛕 [MapBuilder] สร้างวัด Workspace.TempleLobby ที่ " .. tostring(O))
+	print("🛕 [MapBuilder] สร้างวัด Workspace.TempleLobby ที่ " .. tostring(O) .. " (spread " .. K .. ")")
 	return lobby
 end
 

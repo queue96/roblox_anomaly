@@ -5,6 +5,7 @@ echo   ⛽ ปั๊มหลอดท้ายทุ่ง - Rojo Live Sync (LO
 echo ========================================================
 
 "%~dp0tools\rojo.exe" plugin install >nul
+copy /Y "%~dp0tools\studio\ClaudeDevBridge.lua" "%LOCALAPPDATA%\Roblox\Plugins\ClaudeDevBridge.lua" >nul
 if exist "%LOCALAPPDATA%\Roblox\Plugins\Rojo.rbxm" del "%LOCALAPPDATA%\Roblox\Plugins\Rojo.rbxm"
 echo [OK] ติดตั้งปลั๊กอิน Rojo 7.7.1 (RojoManagedPlugin) เรียบร้อยแล้ว — ถ้า Studio เปิดอยู่ให้ปิดแล้วเปิดใหม่!
 echo.
