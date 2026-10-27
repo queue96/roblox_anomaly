@@ -62,4 +62,4 @@ end)
 local CoreLoop = require(script.Parent:WaitForChild("CoreLoop"))
 CoreLoop.Start()
 
-print("✅ [Server] ปั๊มหลอดท้ายทุ่ง: โหลดฉาก + ไฟนีออนกะพริบ + Core Loop (รถลูกค้า เงิน 500฿ ธูป 3 ดอก) เรียบร้อย!")
+print("✅ [Server] ปั๊มหลอดท้ายทุ่ง: โหลดฉาก + ไฟนีออนกะพริบ + Core Loop (รถลูกค้า เงินโควตา ธูป 3 ดอก) + พนมมือ เรียบร้อย!")

@@ -6,19 +6,22 @@
 --   -> ตรวจคำตอบจาก currentVehicleIsAnomaly: ถูกได้เงิน / เติมให้ผีธูปดับ 1 ดอก + หักเงิน
 --   -> รถขี่ออกไปทาง ExitPoint แล้วเสกคันต่อไป  ครบ 500฿ = ชนะ  ธูปดับครบ 3 ดอก = แพ้
 -- Phase 4: ชนิดผีทั้งหมดอยู่ใน AnomalyManager.luau (Apply ตอนเสกรถ, ResetAnomalies ตอนรถขี่ออกไป)
+-- พนมมือ (Prayer.luau, 2026-10-28): ผีเห็นได้เฉพาะคนที่พนมมือ / ลูกค้าทักคนที่พนมมือ / สวดตอนร้านว่างอาจเรียกผีมาเอง
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
+local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local CoreLoop = {}
+local backToLobby: (Player) -> ()
 
 -- ---------------------------------------------------------------- ค่าปรับเกม
 local CONFIG = {
-	TargetMoney = 500,
+	TargetMoney = 1500, -- (เดิม 500 จบเร็วเกิน ~5 นาที) ตอนนี้ ~15-20 นาทีต่อคืน
 	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ) [น้ำมันหลอด]
 	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
 	-- บริการแต่ละแบบ: ตู้ไหน / ราคาให้เลือก / คำถามราคา (เติมผิดตู้ ลูกค้าท้วง)
@@ -43,24 +46,24 @@ local CONFIG = {
 	GhostFuelPenalty = 100, -- เผลอเติมน้ำมันให้ผี (หักเงิน + ธูปดับ 1 ดอก)
 	StartIncense = 3,
 	AnomalyChance = 0.4,
-	InspectLock = 3, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู)
-	DecisionTime = 25, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง
+	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
+	DecisionTime = 35, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผี)
 	DriveSpeed = 24, -- studs / วินาที
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
 	-- จังหวะลูกค้าเป็น "ระลอก": มา 1-3 คัน -> พอร้านว่าง (ไม่มีรถเหลือ) พักตาม rest วินาที ให้ผู้เล่นเดินเล่น/สำรวจ
 	-- แล้วค่อยสุ่มระลอกถัดไป (น้ำหนัก = โอกาส)
 	Pacing = {
-		{ kind = "single", weight = 4, count = 1, rest = { 10, 20 } }, -- มาคันเดียว พักสั้นๆ
-		{ kind = "quiet", weight = 2, count = 1, rest = { 35, 55 } }, -- มาคันเดียว แล้วเงียบไปนาน
-		{ kind = "pair", weight = 2, count = 2, spacing = { 1.5, 3 }, rest = { 20, 35 } }, -- มาพร้อมกัน 2 คัน
-		{ kind = "rush", weight = 1, count = 3, spacing = { 3, 6 }, rest = { 30, 45 } }, -- มาต่อๆ กัน 3 คัน
+		{ kind = "single", weight = 4, count = 1, rest = { 20, 35 } }, -- มาคันเดียว พักสั้นๆ
+		{ kind = "quiet", weight = 2, count = 1, rest = { 45, 70 } }, -- มาคันเดียว แล้วเงียบไปนาน
+		{ kind = "pair", weight = 2, count = 2, spacing = { 1.5, 3 }, rest = { 30, 45 } }, -- มาพร้อมกัน 2 คัน
+		{ kind = "rush", weight = 1, count = 3, spacing = { 3, 6 }, rest = { 40, 60 } }, -- มาต่อๆ กัน 3 คัน
 	},
-	FirstWaveDelay = { 4, 8 }, -- หลังเปิดร้าน
+	FirstWaveDelay = { 10, 16 }, -- หลังเปิดร้าน
 	-- ฝนตก: ลูกค้ามาน้อยลง บางคนแค่แวะหลบฝน (ไม่ซื้อ) แล้วชวนคุย
 	RainPacing = {
-		{ kind = "shelter", weight = 3, count = 1, rest = { 18, 30 } },
-		{ kind = "single", weight = 3, count = 1, rest = { 25, 40 } },
-		{ kind = "quiet", weight = 2, count = 1, rest = { 40, 60 } },
+		{ kind = "shelter", weight = 3, count = 1, rest = { 25, 40 } },
+		{ kind = "single", weight = 3, count = 1, rest = { 35, 50 } },
+		{ kind = "quiet", weight = 2, count = 1, rest = { 50, 75 } },
 	},
 	WalkerChance = 0.25, -- ลูกค้าเดินมาถือแกลลอน (ปกติ)
 	WalkerChanceRain = 0.5, -- (ฝนตก) เดินกางร่มมา
@@ -81,7 +84,7 @@ local CONFIG = {
 	MaxQueue = 3, -- ที่ตู้ปั๊ม 1 + รอคิว 2
 	QueueSpacing = 9, -- ระยะห่างคันที่รอคิว (studs)
 	-- รอนานแล้วไม่พอใจ
-	ImpatientAfter = { 16, 24 }, -- วินาทีหลังเปิดปุ่ม (รวมช่วงถามราคา): บ่นครั้งที่ 1, 2
+	ImpatientAfter = { 22, 32 }, -- วินาทีหลังเปิดปุ่ม (รวมช่วงถามราคา): บ่นครั้งที่ 1, 2
 	QueueAnnoyedAfter = 14, -- รอคิวนานเกินนี้ มาถึงก็บ่นเลย
 	SlowPenaltyRatio = 0.2, -- เติมช้า (บ่นไปแล้ว) ลูกค้าจ่ายน้อยลง 20% (น้ำมันหลอด 100 -> 80, ดีเซล 300 -> 240, ลม 20 -> 16)
 	-- ไล่ผีไปแล้วยังวิ่งตามไป: ผีหันมาหลอก ล้มตึงลงพื้น
@@ -89,7 +92,19 @@ local CONFIG = {
 	ChaseRadius = 9, -- เข้าใกล้ผีที่กำลังออกไปเท่านี้ = โดน
 	ChaseMinFromShop = 10, -- ต้องออกมาห่างตู้ปั๊มเท่านี้ (ยืนในร้านเฉยๆ ไม่โดน)
 	KnockdownTime = 4, -- นอนกองกับพื้นกี่วินาที
-	RestartDelay = 12,
+	RestartDelay = 20, -- ชนะแล้วรอเท่านี้ก่อนเริ่มคืนใหม่ (ให้เวลากดปุ่ม "กลับ Lobby")
+	LobbyPlaceId = 70980777393906, -- ออกจากเกม = Teleport กลับวัด (Lobby, Start Place)
+	-- พนมมือ
+	PrayReactRadius = 30, -- ลูกค้าเห็นคนพนมมือในระยะนี้ แล้วทัก
+	PrayReactMax = 2, -- ลูกค้า 1 คนทักเรื่องพนมมือได้สูงสุดกี่ครั้ง
+	PrayReactAfter = 1.2, -- พนมมือนานเท่านี้ลูกค้าถึงจะสังเกต
+	PrayGhostLineChance = 0.6, -- ผีตอบแบบผี (ที่เหลือแกล้งทำตัวเป็นคนปกติ)
+	PraySummonAfter = 3, -- สวดตอนร้านว่างนานเท่านี้ ถึงจะสุ่มเรียกผี (1 ครั้งต่อการพนมมือ 1 รอบ)
+	PraySummonChance = 0.35,
+	PraySummonCooldown = 60, -- เรียกผีได้ครั้งเดียวในช่วงนี้ (ทั้งร้าน)
+	PraySummonDuration = { 15, 22 }, -- ผีที่สวดเรียกมาอยู่นานเท่านี้
+	PraySummonGhostNext = 0.5, -- โอกาสที่ลูกค้าคนถัดไป "ตามมา" เป็นผีแน่นอน
+	PraySummonKeys = { "Anomaly_Tani", "Anomaly_Scarecrow", "Anomaly_MonkRadio" },
 }
 
 -- ---------------------------------------------------------------- ฉากและของในฉาก
@@ -125,7 +140,9 @@ local DeathChoice = remote("DeathChoice") -- C->S ("restart" | "quit")  S->C ("r
 
 -- แพ้ (ธูปดับหมด): ผู้เล่นทุกคนล้มนอนตาย จอแดง รอให้มีคนกด "เริ่มใหม่" (ใครกดก่อนนับทั้งร้าน)
 -- ล้มหงายลงพื้น (ทำฝั่ง Server ทุกคนเห็นเหมือนกัน) ยึดตัวไว้ เดินไม่ได้ จนกว่าจะเกิดใหม่
+local Prayer = require(script.Parent:WaitForChild("Prayer"))
 local function collapse(player: Player)
+	Prayer.Stop(player) -- ล้มแล้วเลิกพนมมือ
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -169,6 +186,43 @@ local function knockDown(player: Player, seconds: number)
 		hum.AutoRotate = true
 	end)
 end
+-- ออกจากเกม: Teleport กลับ Lobby (ใน Studio Teleport ไม่ได้ / Teleport พลาด -> Kick พร้อมข้อความลาแทน)
+local leaving: { [Player]: boolean } = {}
+local function kickGoodbye(player: Player)
+	local th = player:GetAttribute("Lang") == "th"
+	player:Kick(if th then "ขอบคุณที่มาเฝ้าปั๊มหลอดท้ายทุ่ง... แล้วพบกันใหม่คืนหน้า" else "Thanks for minding the roadside pump... see you next night.")
+end
+function backToLobby(player: Player)
+	if leaving[player] then
+		return
+	end
+	leaving[player] = true
+	if RunService:IsStudio() then
+		print("🏯 [" .. player.Name .. "] กลับ Lobby (Studio Teleport ไม่ได้ -> Kick แทน)")
+		kickGoodbye(player)
+		return
+	end
+	print("🏯 [" .. player.Name .. "] กลับ Lobby")
+	local ok, err = pcall(function()
+		TeleportService:TeleportAsync(CONFIG.LobbyPlaceId, { player })
+	end)
+	if not ok then
+		warn("[CoreLoop] Teleport กลับ Lobby ไม่ได้:", err)
+		leaving[player] = nil
+		kickGoodbye(player)
+	end
+end
+TeleportService.TeleportInitFailed:Connect(function(player, result, msg)
+	if leaving[player] then
+		warn("[CoreLoop] Teleport กลับ Lobby ล้มเหลว:", result, msg)
+		leaving[player] = nil
+		kickGoodbye(player)
+	end
+end)
+Players.PlayerRemoving:Connect(function(p)
+	leaving[p] = nil
+end)
+
 local losePending = false
 local restartBy: string? = nil
 DeathChoice.OnServerEvent:Connect(function(player, choice: any)
@@ -177,8 +231,7 @@ DeathChoice.OnServerEvent:Connect(function(player, choice: any)
 		DeathChoice:FireAllClients("restart", player.DisplayName)
 		print("🔁 [" .. player.Name .. "] เลือกเริ่มใหม่")
 	elseif choice == "quit" then
-		local th = player:GetAttribute("Lang") == "th"
-		player:Kick(if th then "ขอบคุณที่มาเฝ้าปั๊มหลอดท้ายทุ่ง... แล้วพบกันใหม่คืนหน้า" else "Thanks for minding the roadside pump... see you next night.")
+		backToLobby(player)
 	end
 end)
 
@@ -446,11 +499,17 @@ local function setFuelLevel(frac: number, time: number)
 	end
 	local h = math.max(0.05, fuelFull.Y * frac)
 	local p = fuelLiquid.Position
-	local t = TweenService:Create(fuelLiquid, TweenInfo.new(time, Enum.EasingStyle.Sine), {
+	local goal = {
 		Size = Vector3.new(fuelFull.X, h, fuelFull.Z),
 		Position = Vector3.new(p.X, fuelBottom + h / 2, p.Z),
-	})
+	}
+	local t = TweenService:Create(fuelLiquid, TweenInfo.new(time, Enum.EasingStyle.Sine), goal)
 	t:Play()
+	-- น้ำมันเลือด (ผี Anomaly_BloodFuel เห็นเฉพาะตอนพนมมือ) ลดระดับตามน้ำมันจริง
+	local blood = gasPump:FindFirstChild("BloodFuel")
+	if blood and blood:IsA("BasePart") then
+		TweenService:Create(blood, TweenInfo.new(time, Enum.EasingStyle.Sine), goal):Play()
+	end
 	return t
 end
 
@@ -591,8 +650,10 @@ end
 -- ---------------------------------------------------------------- บทสนทนา
 -- speaker = { name = "Name_Sommai" } (ลูกค้า แปลชื่อฝั่ง Client) หรือ { player = "DisplayName" } (ผู้เล่นที่ตอบ)
 local currentHead: BasePart? = nil
+local speechBusyUntil = 0 -- ลูกค้ากำลังพูดถึงเมื่อไหร่ (คำทักเรื่องพนมมือรอให้พูดจบก่อน)
 local function say(key: string, speaker: { [string]: string }, vars: { [string]: any }?, hold: number?)
 	CustomerSpeech:FireAllClients(key, currentHead, speaker, vars)
+	speechBusyUntil = os.clock() + (hold or 2.4)
 	if hold then
 		task.wait(hold)
 	end
@@ -668,6 +729,7 @@ type Customer = {
 	serving: boolean,
 }
 local queue: { Customer } = {}
+local forceGhostNext = false -- สวดตอนร้านว่างแล้วเรียกของมา: ลูกค้าคนถัดไปเป็นผี
 
 local function pickTemplate(): Model
 	local bike = templates:FindFirstChild("CustomerBike") :: Model
@@ -817,8 +879,9 @@ local function spawnCustomer(kind: string?)
 		ghost = true
 	else
 		forced = nil
-		ghost = math.random() < CONFIG.AnomalyChance
+		ghost = forceGhostNext or math.random() < CONFIG.AnomalyChance
 	end
+	forceGhostNext = false
 
 	local v: Model
 	local service = "petrol"
@@ -1422,6 +1485,46 @@ local function waitDecisionImpatient(c: Customer, speaker, annoyed: number, prom
 	return decision, annoyed
 end
 
+-- ---------------------------------------------------------------- ลูกค้าทักคนที่พนมมือ
+local PRAY_ASK = { "Pray_Ask_1", "Pray_Ask_2", "Pray_Ask_3", "Pray_Ask_4" }
+local PRAY_GHOST = { "Pray_Ghost_1", "Pray_Ghost_2", "Pray_Ghost_3" }
+local PRAY_REPLY = { "Pray_Reply_1", "Pray_Reply_2", "Pray_Reply_3", "Pray_Reply_4" }
+local PRAY_AFTER = { "Pray_After_1", "Pray_After_2" }
+local PRAY_GHOST_AFTER = { "Pray_GhostAfter_1", "Pray_GhostAfter_2" }
+
+-- ทำงานตลอดที่ลูกค้าคนนี้อยู่ที่ตู้ (หยุดเมื่อ alive() = false)
+local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: () -> boolean)
+	local reacted = 0
+	local seen: { [Player]: number } = {} -- พนมมือรอบไหนที่ทักไปแล้ว (เวลาเริ่มพนมมือ)
+	while alive() and reacted < CONFIG.PrayReactMax and not gameOver do
+		task.wait(0.3)
+		-- ทักได้แม้ตัวเลือกตอบราคาเปิดอยู่ (ตัวเลือกแสดงแยกจากกล่องคำพูด) แค่รอให้ประโยคก่อนหน้าจบ
+		if os.clock() < speechBusyUntil or decision then
+			continue
+		end
+		for _, p in ipairs(Prayer.PrayingNear(c.v:GetPivot().Position, CONFIG.PrayReactRadius)) do
+			local started = Prayer.StartedAt(p)
+			local dur = Prayer.Duration(p)
+			if started and dur and dur >= CONFIG.PrayReactAfter and seen[p] ~= started then
+				seen[p] = started
+				reacted += 1
+				local ghostLine = c.ghost and math.random() < CONFIG.PrayGhostLineChance
+				print("🙏 ลูกค้าเห็น [" .. p.Name .. "] พนมมือ" .. (if ghostLine then " (ผีไม่ชอบ)" else ""))
+				say(pick(if ghostLine then PRAY_GHOST else PRAY_ASK), speaker, nil, 2.8)
+				if not alive() then
+					break
+				end
+				say(pick(PRAY_REPLY), { player = p.DisplayName }, nil, 2.4)
+				if not alive() then
+					break
+				end
+				say(pick(if ghostLine then PRAY_GHOST_AFTER else PRAY_AFTER), speaker, nil, 2.6)
+				break
+			end
+		end
+	end
+end
+
 local function serveCustomer(c: Customer)
 	local v = c.v
 	c.serving = true
@@ -1441,6 +1544,10 @@ local function serveCustomer(c: Customer)
 	customerTalking = true
 	currentHead = v:FindFirstChild("DriverNPC") and v.DriverNPC:FindFirstChild("Head")
 	local annoyed = 0
+	local present = true -- ลูกค้ายังคุยอยู่ที่ตู้ (ทักคนพนมมือได้)
+	task.spawn(watchPrayers, c, speaker, function()
+		return present and v.Parent ~= nil
+	end)
 
 	-- ทัก (ถ้ารอคิวนานจะบ่นก่อน)
 	if c.queuedSince and os.clock() - c.queuedSince > CONFIG.QueueAnnoyedAfter and not ghost then
@@ -1593,6 +1700,7 @@ local function serveCustomer(c: Customer)
 			if incense <= 0 then
 				-- ธูปดอกสุดท้ายดับ: ตายทันทีหลังผีหลอก ไม่ต้องรอลูกค้าพูด/ขี่ออก
 				broadcastHUD()
+				present = false
 				task.wait(1.1)
 				CustomerSpeech:FireAllClients(nil)
 				currentHead = nil
@@ -1632,6 +1740,7 @@ local function serveCustomer(c: Customer)
 		say(if ghost then "Ghost_NoOne" else pick({ "NoOne_1", "NoOne_2" }), speaker)
 		print("⌛ ไม่มีใครตัดสินใจ ลูกค้าขับออกไปเอง")
 	end
+	present = false
 	task.wait(2.6) -- ให้อ่านประโยคสุดท้ายทัน
 	CustomerSpeech:FireAllClients(nil)
 	currentHead = nil
@@ -1715,11 +1824,77 @@ local function clearQueue()
 	AnomalyManager.ResetAnomalies()
 end
 
+-- ---------------------------------------------------------------- สวดตอนร้านว่าง: บางทีเรียกของมาเอง
+local lastSummonAt = -math.huge
+local summoned: string? = nil
+local SUMMON_WHISPER = { "Pray_Summon_1", "Pray_Summon_2", "Pray_Summon_3" }
+
+local function summonByPrayer(p: Player)
+	local pool = {}
+	for _, k in ipairs(CONFIG.PraySummonKeys) do
+		if AnomalyManager.Anomalies[k] then
+			table.insert(pool, k)
+		end
+	end
+	if #pool == 0 then
+		return
+	end
+	local key = pick(pool)
+	summoned = key
+	lastSummonAt = os.clock()
+	AnomalyManager.Apply(key, nil :: any)
+	if math.random() < CONFIG.PraySummonGhostNext then
+		forceGhostNext = true
+	end
+	print("🕯️ [" .. p.Name .. "] สวดตอนร้านว่าง เรียก " .. key .. " มา" .. (if forceGhostNext then " (ลูกค้าคนถัดไปเป็นผี)" else ""))
+	if not customerTalking and not replyOpen then
+		CustomerSpeech:FireAllClients(pick(SUMMON_WHISPER), nil, { ghost = "WhisperSpeaker" }, nil)
+		task.delay(3.2, function()
+			if not customerTalking and not replyOpen then
+				CustomerSpeech:FireAllClients(nil)
+			end
+		end)
+	end
+	local dur = rand(CONFIG.PraySummonDuration)
+	task.delay(dur, function()
+		-- ลูกค้าที่ตู้ตอนนี้ไม่ได้ใช้ผีตัวเดียวกัน -> เก็บผีที่เรียกมากลับ
+		if summoned == key and currentAnomaly ~= key then
+			AnomalyManager.Reset(key)
+		end
+		if summoned == key then
+			summoned = nil
+		end
+	end)
+end
+
+local function prayerSummonLoop()
+	local rolled: { [Player]: number } = {} -- สุ่มไปแล้วกับการพนมมือรอบไหน
+	while true do
+		task.wait(0.5)
+		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and not roadEventRunning and summoned == nil
+		if idle and os.clock() - lastSummonAt > CONFIG.PraySummonCooldown then
+			for _, p in ipairs(Prayer.Praying()) do
+				local started = Prayer.StartedAt(p)
+				local dur = Prayer.Duration(p)
+				if started and dur and dur >= CONFIG.PraySummonAfter and rolled[p] ~= started then
+					rolled[p] = started
+					if math.random() < CONFIG.PraySummonChance then
+						summonByPrayer(p)
+						break
+					end
+				end
+			end
+		end
+	end
+end
+
 -- ---------------------------------------------------------------- ลูปเกม
 local function resetGame()
 	money = 0
 	incense = CONFIG.StartIncense
 	gameOver = false
+	forceGhostNext = false
+	summoned = nil
 	clearQueue()
 	Weather.Reset()
 	refreshIncense()
@@ -1770,6 +1945,7 @@ function CoreLoop.Start()
 		end
 	end
 	AnomalyManager.Init()
+	task.spawn(prayerSummonLoop)
 	Weather.Start(function()
 		return remotes:GetAttribute("ShopOpen") == true and not gameOver
 	end)

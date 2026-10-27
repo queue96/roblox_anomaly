@@ -7,7 +7,7 @@ trigger: always_on
 
 ## 1. คอนเซ็ปต์หลักที่ตกลงกันไว้แล้ว
 - **บรรยากาศ:** ชนบทไทยมืดๆ ที่ความเจริญเข้าไม่ค่อยถึง (ถนนดินลูกรัง, ทุ่งนามืด, หุ่นไล่กา, ดงกล้วยตานี, เพิงสังกะสีไม้ไผ่, ตู้ปั๊มน้ำมันหลอดแก้วมือหมุน, ถังปั๊มลมปะยาง)
-- **เงื่อนไขการชนะ (Win Condition - Quota System):** ให้บริการรถชาวบ้านที่แวะมาตอนดึกจนเก็บเงินในกระป๋องครบ **500 บาท** (คนปกติเติมน้ำมันได้ +100฿ / ปิดร้านหนีผีได้โบนัส +50฿)
+- **เงื่อนไขการชนะ (Win Condition - Quota System):** ให้บริการรถชาวบ้านที่แวะมาตอนดึกจนเก็บเงินในกระป๋องครบ **1,500 บาท** (`CoreLoop.CONFIG.TargetMoney`, เดิม 500 แต่จบเร็วไป ~5 นาที ปรับเมื่อ 2026-10-28) (คนปกติเติมน้ำมันได้ +100฿ / ปิดร้านหนีผีได้โบนัส +50฿)
 - **พลังชีวิตทีม:** ใช้ **ธูป 3 ดอกที่ศาลพระภูมิข้างเพิง** แทนหลอดเลือด HP (ถ้าเผลอเติมน้ำมันให้ผี ธูปจะดับทีละ 1 ดอก พร้อมโดนหักเงิน -100฿ ถ้าดับครบ 3 ดอก = Game Over)
 - **โทนของเกม:** หลอนบรรยากาศชนบทไทยแท้ 70% + ตลก/มีมโบ๊ะบ๊ะเวลาเล่นกับเพื่อน 30%
 - **การรองรับภาษา:** รองรับ 2 ภาษา (**ไทย TH / อังกฤษ EN**) ทั้งป้ายในฉาก, คำพูดลูกค้า (`LanguageModule.luau`), และ `AutoLocalize`
@@ -44,9 +44,25 @@ trigger: always_on
 - `src/shared/MapBuilder.luau`: โมดูลสร้างและตกแต่งฉากทั้งหมด พร้อมระบบแยกส่วน (Modular Non-Destructive Functions)
 - `src/shared/LanguageModule.luau`: ตารางข้อความ 2 ภาษา (`TH` / `EN`) สำหรับป้าย, บทพูดลูกค้า, และ UI
 - `src/server/GameManager.server.luau`: สคริปต์หลักฝั่ง Server (ตั้งค่าแสงกลางคืนตอนกด Play, ระบบไฟนีออนเสาไม้กะพริบ, ระบบดึงเชือก `RejectRope` ปิดแผงสังกะสี `ShutterDoor`)
-- `src/client/HUDController.client.luau`: สคริปต์ฝั่ง Client แสดง HUD ยอดเงิน `฿0 / ฿500` และสถานะธูป 3 ดอก `🕯️🕯️🕯️`
+- `src/client/HUDController.client.luau`: สคริปต์ฝั่ง Client แสดง HUD ยอดเงิน `฿0 / ฿1500` และสถานะธูป 3 ดอก `🕯️🕯️🕯️`
+- `src/server/Prayer.luau` + `src/client/PrayerController.client.luau`: ระบบพนมมือ (ดูหัวข้อ 🙏 ด้านล่าง)
 - `src/client/GrassWind.client.luau`: ระบบลมฝั่ง Client (หญ้า, ตะไคร้, ต้นข้าว, ต้นกล้วย และต้นไม้เอนตามลม และใบต้นไทร/ต้นมะม่วงไหว) — รายละเอียดดูหัวข้อ 🌬️ ด้านล่าง
 - `src/client/AmbienceController.client.luau`: บรรยากาศกลางคืนฝั่ง Client (เสียงจิ้งหรีดเหงาๆ + หมอกหนาวน่ากลัว) — รายละเอียดดูหัวข้อ 🌙 ด้านล่าง
+
+### 🙏 ระบบพนมมือ (เพิ่มเมื่อ 2026-10-28) — ผีเห็นได้เฉพาะตอนพนมมือ
+- **ปุ่ม:** กดค้าง **G** (คีย์บอร์ด) / **Y** (จอย) / ปุ่ม **🙏** บนจอมือถือ (`ContextActionService` ใน `src/client/PrayerController.client.luau`) ปล่อย = เลิก · แถบปุ่มคีย์ขวาล่างมี "G กดค้าง พนมมือ (เห็นผี)" (`HUDController`)
+- **Server (`src/server/Prayer.luau`, require จาก `CoreLoop`):** `Remotes.Pray:FireServer(true/false)` → `player:SetAttribute("Praying", true)` + ท่าพนมมือ R15 (หมุน `C0` ของ `RightShoulder`/`LeftShoulder`/`RightElbow`/`LeftElbow` + ก้มคอ `Neck` ฝั่ง Server ทุกคนเห็น, ท่าเดิมจำไว้ใน attribute `RestC0` ของ Motor6D) + ยืนนิ่ง (WalkSpeed/Jump = 0) + เก็บไฟฉาย · `collapse()` (ผีหลอกล้ม/ตาย) เรียก `Prayer.Stop` ก่อนเสมอ · API: `Prayer.Duration(p)`, `StartedAt(p)`, `Praying()`, `PrayingNear(pos, r)`
+- **ตาทิพย์ (Client):** พนมมือครบ 1.5 วิ (`SIGHT_DELAY`) → จอโทนเย็นซีด (`Lighting.PrayerSight`) + แถบ "👁 ตาทิพย์เปิดแล้ว" แล้วสลับ "ม่าน" ให้เฉพาะเครื่องตัวเอง:
+  - tag **`GhostOnly`** = ของผี เห็นเฉพาะตอนตาทิพย์เปิด · tag **`NormalOnly`** = ของปกติที่ผีบังไว้ หายไปตอนตาทิพย์เปิด
+  - attribute บนชิ้นนั้น: `VeilProp` (`Transparency` / `Enabled` / `Volume`), `VeilShow`, `VeilHide`, `VeilFade` (วินาที) · Server เก็บสถานะ "ไม่ได้พนมมือ" เสมอ (ผีล่องหน/เงียบ) Client ทับค่าเอง · Server เอา tag ออก = Client คืนค่าปกติ
+  - helper ใน `AnomalyManager.luau`: `ghostOnly(root, showT?, useShowAttr?, fade?)`, `normalOnly(root)`, `unveil(root)`, `apparition(src, name)` (Clone ของในฉากเป็นร่างผีแยกชิ้น — ใช้เมื่อผีต้องย้าย/หมุนของ เพราะ Client ทับ CFrame ของ Server ไม่ได้)
+  - ผีแต่ละตัว: คนซ้อนไร้หัว / ผมพันล้อ / หน้ายิ้ม = `GhostOnly` · ป้ายทะเบียน = `NormalPlate` NormalOnly + `GhostPlate` GhostOnly · คอหมุน = Clone หัว `TwistedHead` · กระสือ = ขา NormalOnly + ไส้/แสงแดง GhostOnly · วิทยุสวดศพ = เพลง NormalOnly + เสียงสวด/คลื่นแทรก GhostOnly (คนไม่พนมมือยังได้ยินเพลง) · ผีตานี = GhostOnly ค่อยๆ ปรากฏ 3 วิ · หุ่นไล่กา = Clone `AnomalyProps.ScarecrowApparition` ใกล้ร้าน + ตัวจริงกลางทุ่ง NormalOnly · น้ำมันเลือด = Clone `GasPump.BloodFuel` (`setFuelLevel` เลื่อนระดับตาม) · ไม่กางร่มกลางฝน = ร่ม NormalOnly
+  - ⚠️ **ผีตัวใหม่ต้องใช้ helper พวกนี้** ห้ามตั้ง Transparency ให้เห็นตรงๆ ไม่งั้นทุกคนเห็นโดยไม่ต้องพนมมือ · จอผีหลอก (`JumpscareController`) โชว์ร่างจริงเสมอ (อ่าน `VeilShow`/`VeilHide` จากร่าง Clone)
+- **ลูกค้าทักคนพนมมือ (`CoreLoop.watchPrayers`):** ระหว่างลูกค้าอยู่ที่ตู้ ถ้ามีคนพนมมือในระยะ 30 studs นาน ≥ 1.2 วิ ลูกค้าทัก (`Pray_Ask_1..4` เช่น "พนมมือทำไมน่ะ?" / "สวดมนต์อยู่เหรอ?" / "ขออะไรอยู่ล่ะนั่น?") → ผู้เล่นตอบ (`Pray_Reply_1..4`) → ลูกค้าพูดต่อ (`Pray_After_*`) · ลูกค้าผี 60% ตอบแบบผี (`Pray_Ghost_*` / `Pray_GhostAfter_*`) ที่เหลือแกล้งทำเป็นคน · สูงสุด 2 ครั้งต่อลูกค้า ไม่พูดทับตอนกำลังตอบราคา/ลูกค้ากำลังพูด (`speechBusyUntil`)
+- **สวดตอนร้านว่างเรียกผี (`CoreLoop.prayerSummonLoop`):** ร้านเปิด ไม่มีลูกค้า ไม่มีขาจร พนมมือนาน ≥ 3 วิ → สุ่ม 35% (1 ครั้งต่อการพนมมือ 1 รอบ, คูลดาวน์ทั้งร้าน 60 วิ) เรียกผีตานี / หุ่นไล่กา / วิทยุสวดศพ มาอยู่ 15–22 วิ + เสียงกระซิบ `Pray_Summon_*` + 50% ลูกค้าคนถัดไปเป็นผีแน่นอน (`forceGhostNext`) · ค่าทั้งหมดอยู่ใน `CONFIG.Pray*`
+- **จังหวะเกม (ปรับช้าลงพร้อมกัน):** `TargetMoney` 500 → 1500, `FirstWaveDelay` 4–8 → 10–16 วิ, พักระหว่างระลอก single 10–20 → 20–35 / quiet 35–55 → 45–70 / pair 20–35 → 30–45 / rush 30–45 → 40–60 (ฝน shelter 25–40 / single 35–50 / quiet 50–75), `InspectLock` 3 → 4, `DecisionTime` 25 → 35, `ImpatientAfter` 16/24 → 22/32 → ประมาณ 15–20 นาทีต่อคืน (ลูกค้าราว 16 คน)
+- **จบเกมแล้วกลับ Lobby (2026-10-28):** แพ้ = ปุ่ม "🏯 กลับ Lobby" ในจอตาย (`DeathScreen`), ชนะ = ปุ่มเดียวกันใต้แถบประกาศ (`HUDController`, ขึ้นจนคืนใหม่เริ่ม — `CONFIG.RestartDelay` เพิ่มเป็น 20 วิ) → `DeathChoice:FireServer("quit")` → `CoreLoop.backToLobby()` เรียก `TeleportService:TeleportAsync(CONFIG.LobbyPlaceId = 70980777393906, { player })` ทีละคน · ใน Studio Teleport ไม่ได้ จึง Kick พร้อมข้อความลาแทน (ทดสอบ Teleport จริงต้อง Publish แล้วเล่นในเกมจริง) · Teleport พลาด (`TeleportInitFailed`) ก็ Kick แทน
+- 💡 ต่อยอด: Lobby จะส่ง `difficulty` / `maxPlayers` มาใน TeleportData — ปรับ `TargetMoney` และเงินรางวัลตามความยากได้ที่ `CoreLoop.CONFIG`
 
 ### 🌙 ระบบบรรยากาศกลางคืน (`AmbienceController.client.luau`, เพิ่มเมื่อ 2026-10-22)
 ทำฝั่ง Client ทั้งหมด (เสียง/หมอกเป็นของเฉพาะผู้เล่นแต่ละคน) สคริปต์จะรอจน Server สั่ง `SetNightLighting()` ให้ `Lighting.ClockTime` เป็นตอนกลางคืนก่อน แล้วค่อยปรับค่าทับ
