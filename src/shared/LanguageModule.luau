@@ -182,6 +182,27 @@ LanguageModule.Dialogues = {
 	-- ---------------- คันหลังในคิวแซว
 	Queue_Chime = { th = "รีบๆ หน่อยนะ รอคิวอยู่ข้างหลังเนี่ย", en = "Hurry it up, I'm waiting back here." },
 	Queue_ChimeGhost = { th = "ไม่ต้องรีบ... ข้ารอได้...", en = "No hurry... I can wait..." },
+
+	-- ---------------- ลูกค้าเห็นคนพนมมือ (Prayer, 2026-10-28)
+	Pray_Ask_1 = { th = "อ้าว พนมมือทำไมน่ะ?", en = "Huh? Why are your hands pressed together?" },
+	Pray_Ask_2 = { th = "สวดมนต์อยู่เหรอ? ดึกป่านนี้แล้ว", en = "Are you praying? At this hour?" },
+	Pray_Ask_3 = { th = "ขออะไรอยู่ล่ะนั่น?", en = "What are you praying for?" },
+	Pray_Ask_4 = { th = "เห็นอะไรเข้าเหรอ ถึงได้ยืนพนมมือแบบนั้น?", en = "Did you see something? Why are you praying like that?" },
+	Pray_Reply_1 = { th = "ขอให้คืนนี้ขายดีๆ หน่อย", en = "Just praying for good sales tonight." },
+	Pray_Reply_2 = { th = "ขอให้คืนนี้ไม่เจออะไรแปลกๆ", en = "Praying nothing weird shows up tonight." },
+	Pray_Reply_3 = { th = "ไหว้เจ้าที่ไว้ก่อน เดี๋ยวท่านงอน", en = "Paying respect to the land spirit. Don't want to upset it." },
+	Pray_Reply_4 = { th = "นะโม ตัสสะ... เอ่อ เปล่าๆ ไม่มีอะไร", en = "Namo tassa... uh, nothing, never mind." },
+	Pray_After_1 = { th = "ดีๆ ไหว้ไว้ก่อน แถวนี้มันเฮี้ยนจริง", en = "Good idea. This place really is haunted." },
+	Pray_After_2 = { th = "ฮ่าๆ ขอเผื่อกันด้วยนะ", en = "Haha, say one for me too." },
+	Pray_Ghost_1 = { th = "...หยุดสวดเดี๋ยวนี้", en = "...Stop praying. Now." },
+	Pray_Ghost_2 = { th = "สวดไปก็ไม่ช่วยอะไรหรอก...", en = "Praying won't help you..." },
+	Pray_Ghost_3 = { th = "เอามือลงเถอะ... มองข้าตรงๆ สิ", en = "Put your hands down... look at me properly." },
+	Pray_GhostAfter_1 = { th = "...ข้าได้ยินนะ ทุกคำเลย", en = "...I heard that. Every word." },
+	Pray_GhostAfter_2 = { th = "เสียงสวดมันแสบหู... แสบหูเหลือเกิน", en = "That chanting burns... it burns my ears." },
+	-- สวดตอนร้านว่าง แล้วมีอะไรตอบรับ
+	Pray_Summon_1 = { th = "...ใครเรียก...", en = "...who called me..." },
+	Pray_Summon_2 = { th = "...ได้ยินแล้ว... กำลังไป...", en = "...I heard you... I'm coming..." },
+	Pray_Summon_3 = { th = "...สวดให้ข้าเหรอ...", en = "...are you praying for me..." },
 }
 
 -- ชื่อลูกค้า (แสดงบนหัวกล่องคำพูด จะได้จำกันได้ ผีก็ปลอมใช้ชื่อเดียวกัน)
@@ -215,7 +236,7 @@ end
 LanguageModule.UI = {
 	Money = { th = "เงินในกระป๋อง", en = "Money Tin" },
 	Incense = { th = "ธูปศาลพระภูมิ", en = "Shrine Incense" },
-	Win = { th = "ครบ 500฿ แล้ว! ปิดร้านกลับบ้านได้ รอดไปอีกคืน", en = "500 Baht reached! You survived the night." },
+	Win = { th = "เก็บเงินครบโควตาแล้ว! ปิดร้านกลับบ้านได้ รอดไปอีกคืน", en = "Quota reached! You survived the night." },
 	Lose = { th = "ธูปดับหมดแล้ว... ศาลพระภูมิคุ้มครองไม่ไหวอีกต่อไป", en = "All the incense is out... the shrine can no longer protect you." },
 	Jumpscare = { th = "คุณเติมน้ำมันให้ผี!", en = "You fueled a ghost!" },
 	JumpscareChased = { th = "อย่าตามผีไป!", en = "Never follow a ghost!" },
@@ -244,6 +265,10 @@ LanguageModule.UI = {
 	KeyClick = { th = "คลิก", en = "Click" },
 	HintFlashlight = { th = "เปิด/ปิดไฟฉาย", en = "Flashlight" },
 	HintHold = { th = "กดค้าง เติมน้ำมัน / เติมลม / ปิดร้าน", en = "Hold: Fuel / Air / Close Shop" },
+	-- พนมมือ (PrayerController)
+	HintPray = { th = "กดค้าง พนมมือ (เห็นผี)", en = "Hold: Pray (see ghosts)" },
+	PrayChanting = { th = "🙏 นะโม ตัสสะ ภะคะวะโต...", en = "🙏 Namo tassa bhagavato..." },
+	PraySightOpen = { th = "👁 ตาทิพย์เปิดแล้ว — มองหาสิ่งผิดปกติ", en = "👁 Spirit sight open — look for anything wrong" },
 	-- ตอบราคา (ใครตอบก่อนได้ก่อน)
 	ReplyTitle = { th = "ตอบลูกค้า (ใครตอบก่อนได้ก่อน)", en = "Reply (first answer counts)" },
 	Reply_80 = { th = "80 บาท", en = "80 Baht" },

@@ -394,6 +394,7 @@ local hints = new("Frame", { Name = "KeyHints", AnchorPoint = Vector2.new(1, 1),
 new("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, hints)
 local hintClickKey, hintClick = keyHint(hints, "", 1)
 local hintEKey, hintE = keyHint(hints, "E", 2)
+local _hintGKey, hintG = keyHint(hints, "G", 3) -- พนมมือ (PrayerController)
 
 -- ---------------------------------------------------------------- ซ่อน/แสดง HUD ตามการตั้งค่า (คำพูดลูกค้า + แถบประกาศแสดงเสมอ)
 local function applyShowHUD()
@@ -536,6 +537,7 @@ local function refreshLanguage()
 	hintClickKey.Text = ui("KeyClick")
 	hintClick.Text = ui("HintFlashlight")
 	hintE.Text = ui("HintHold")
+	hintG.Text = ui("HintPray")
 	drawSpeaker()
 	drawReplies()
 	if bannerKey and bannerBar.Visible then

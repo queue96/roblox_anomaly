@@ -124,9 +124,27 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 	local focusPart: BasePart? = nil
 	local function addClone(inst: Instance)
 		local c = inst:Clone()
+		-- ผีหันหัวกลับ: ใช้หัวที่หมุนแล้ว (TwistedHead) แทนหัวจริง
+		local twisted = c:FindFirstChild("TwistedHead", true)
+		if twisted and twisted.Parent then
+			local orig = twisted.Parent:FindFirstChild("Head")
+			if orig then
+				orig:Destroy()
+			end
+			twisted.Name = "Head"
+		end
 		for _, d in ipairs(c:GetDescendants()) do
 			if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Sound") or d:IsA("BillboardGui") or d:IsA("ParticleEmitter") or d:IsA("Light") then
 				d:Destroy()
+			elseif d:HasTag("GhostOnly") or d:HasTag("NormalOnly") then
+				-- ตอนผีหลอกเห็นร่างจริงเสมอ (ไม่ต้องพนมมือ): ของผีแสดง ของปกติที่ผีบังไว้ซ่อน
+				local prop = d:GetAttribute("VeilProp")
+				local value = if d:HasTag("GhostOnly") then d:GetAttribute("VeilShow") else d:GetAttribute("VeilHide")
+				if type(prop) == "string" and value ~= nil then
+					(d :: any)[prop] = value
+				end
+				d:RemoveTag("GhostOnly")
+				d:RemoveTag("NormalOnly")
 			end
 		end
 		c.Parent = m
