@@ -111,10 +111,11 @@ local function ensureSign(pad: BasePart): TextLabel
 	if not gui then
 		local g = Instance.new("BillboardGui")
 		g.Name = "RoomSign"
-		g.Size = UDim2.fromOffset(260, 90)
-		g.StudsOffsetWorldSpace = Vector3.new(0, 9, 0)
-		g.MaxDistance = 140
-		g.AlwaysOnTop = false
+		-- ลอยสูงเหนือวง + AlwaysOnTop ไม่ให้ตัวหนังสือจมพื้น/โดนหมอกกลืน
+		g.Size = UDim2.fromScale(14, 4.5)
+		g.StudsOffsetWorldSpace = Vector3.new(0, 11, 0)
+		g.MaxDistance = 120
+		g.AlwaysOnTop = true
 		g.LightInfluence = 0
 		local t = Instance.new("TextLabel")
 		t.Name = "Text"

@@ -5484,26 +5484,46 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 		wall.CanQuery = false
 	end
 
-	-- โซนสร้างห้อง: วงหินแดงหม่น 4 วงเรียงหน้าลาน (tag RoomPad + attribute PadIndex) LobbyServer ใช้หาว่าใครยืนอยู่วงไหน
+	-- โซนสร้างห้อง: วงไฟนีออนแดง 6 วง (รัศมี 10) เรียง 2 แถวซ้าย-ขวาของลาน แถวละ 3 วงจากหน้าลานไปหลังลาน
+	-- พื้นในวงเป็นพื้นลานเดิม; RoomPad_n เป็นแผ่นล่องหน (tag RoomPad + attribute PadIndex) ให้ LobbyServer ใช้หาว่าใครยืนวงไหน
 	local pads = Instance.new("Folder")
 	pads.Name = "RoomPads"
 	pads.Parent = lobby
-	for i, px in ipairs({ -66, -22, 22, 66 }) do
-		local c = G + Vector3.new(px, 0, plazaFront - 24)
-		local ring = block("RoomPadRing", Vector3.new(0.2, 15.4, 15.4), CFrame.new(c + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(170, 50, 36), Enum.Material.Neon, pads)
-		ring.Shape = Enum.PartType.Cylinder
-		ring.Transparency = 0.35
-		ring.CanCollide = false
-		ring.CastShadow = false
-		local pad = block("RoomPad_" .. i, Vector3.new(0.4, 14, 14), CFrame.new(c + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(58, 40, 34), Enum.Material.Slate, pads)
-		pad.Shape = Enum.PartType.Cylinder
-		pad:SetAttribute("PadIndex", i)
-		CollectionService:AddTag(pad, "RoomPad")
-		local post = block("RoomPadPost", Vector3.new(0.5, 7, 0.5), CFrame.new(c + Vector3.new(0, 3.5, -8.5)), Color3.fromRGB(70, 52, 36), Enum.Material.Wood, pads)
-		local lantern = block("RoomPadLantern", Vector3.new(0.8, 1, 0.8), CFrame.new(c + Vector3.new(0, 7.4, -8.5)), Color3.fromRGB(255, 120, 70), Enum.Material.Neon, pads)
-		lantern.CastShadow = false
-		lamp(lantern, Color3.fromRGB(255, 120, 70), 1, 18, i % 2 == 0)
-		post.CanCollide = false
+	local PAD_R = 10
+	local padCol = plazaW / 3
+	local padRows = { plazaFront - 24, plazaFront - 80, plazaFront - 136 }
+	local idx = 0
+	for _, side in ipairs({ -1, 1 }) do
+		for _, pz in ipairs(padRows) do
+			idx += 1
+			local c = G + Vector3.new(side * padCol, 0, pz)
+			local ring = Instance.new("Model")
+			ring.Name = "RoomPadRing_" .. idx
+			ring.Parent = pads
+			local SEG = 36
+			for k = 0, SEG - 1 do
+				local a = (k + 0.5) / SEG * math.pi * 2
+				local seg = block("RingSeg", Vector3.new(0.5, 0.12, 2 * math.pi * PAD_R / SEG + 0.08), CFrame.new(c + Vector3.new(math.cos(a) * PAD_R, 0.27, math.sin(a) * PAD_R)) * CFrame.Angles(0, -a, 0), Color3.fromRGB(255, 50, 36), Enum.Material.Neon, ring)
+				seg.CanCollide = false
+				seg.CanQuery = false
+				seg.CastShadow = false
+			end
+			local pad = block("RoomPad_" .. idx, Vector3.new(0.4, PAD_R * 2, PAD_R * 2), CFrame.new(c + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, pads)
+			pad.Shape = Enum.PartType.Cylinder
+			pad.Transparency = 1
+			pad.CanCollide = false
+			pad.CanQuery = false
+			pad.CastShadow = false
+			pad:SetAttribute("PadIndex", idx)
+			CollectionService:AddTag(pad, "RoomPad")
+			-- เสาตะเกียงริมวงด้านนอกลาน
+			local pc = c + Vector3.new(side * (PAD_R + 1.5), 0, 0)
+			local post = block("RoomPadPost", Vector3.new(0.5, 7, 0.5), CFrame.new(pc + Vector3.new(0, 3.5, 0)), Color3.fromRGB(70, 52, 36), Enum.Material.Wood, pads)
+			post.CanCollide = false
+			local lantern = block("RoomPadLantern", Vector3.new(0.8, 1, 0.8), CFrame.new(pc + Vector3.new(0, 7.4, 0)), Color3.fromRGB(255, 120, 70), Enum.Material.Neon, pads)
+			lantern.CastShadow = false
+			lamp(lantern, Color3.fromRGB(255, 90, 60), 1, 20, idx % 2 == 0)
+		end
 	end
 
 	-- เงาคนผมยาวชุดขาวยืนนิ่งใต้ต้นไทร (LobbyClient ทำให้จางหายเมื่อผู้เล่นเดินเข้าใกล้)
