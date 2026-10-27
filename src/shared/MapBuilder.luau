@@ -4991,7 +4991,7 @@ end
 
 -- origin = จุดกลางลานวัดบนพื้น (ค่าเริ่มต้น 0,0,600 ห่างจากแมพหลัก) · ประตูวัดหันไป +Z
 -- rebuild = true: ย้ายชุดเดิมไปเก็บ ServerStorage.ArchivedPlaceholders.TempleLobby แล้วสร้างใหม่
--- spread = ขยายพื้นที่วัด (ค่าเริ่มต้น 3) รั้ว/พื้น/ลานกลางคูณตามนี้ แต่ขนาดอาคารเท่าเดิม (ควร ≥ 2 ไม่งั้นอาคารชิดกัน)
+-- spread = ขยายพื้นที่วัด (ค่าเริ่มต้น 2) รั้ว/พื้น/ลานกลางคูณตามนี้ แต่ขนาดอาคารเท่าเดิม (ควร ≥ 2 ไม่งั้นอาคารชิดกัน)
 function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread: number?)
 	local old = Workspace:FindFirstChild("TempleLobby")
 	if old then
@@ -5008,7 +5008,7 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	end
 	local O = origin or Vector3.new(0, 0, 600)
 	local G = O + Vector3.new(0, 0.1, 0)
-	local K = spread or 3
+	local K = spread or 2
 	local function at(x: number, z: number, yaw: number?, y: number?): CFrame
 		return CFrame.new(G + Vector3.new(x, y or 0, z)) * CFrame.Angles(0, math.rad(yaw or 0), 0)
 	end
@@ -5050,9 +5050,6 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	path.Color = Color3.fromRGB(112, 110, 102)
 	path.Anchored = true
 	path.Parent = lobby
-	for i, c in ipairs({ { -1, plazaFront - 4 }, { 1, plazaFront - 4 }, { -1, plazaBack + 4 }, { 1, plazaBack + 4 } }) do
-		templeLight(lobby, "PlazaLamp_" .. i, G + Vector3.new(c[1] * (plazaW / 2 - 4), 14, c[2]), Color3.fromRGB(255, 196, 130), 0.8, 40)
-	end
 
 	-- จุดเกิดผู้เล่น: กลางลาน (ล่องหน ไม่ชน)
 	local lobbySpawn = Instance.new("SpawnLocation")
@@ -5163,9 +5160,9 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	-- ต้นมะม่วงในวัด (ใบไหวด้วย tag LeafFlutter จาก TagWindPlants ห้ามติด WindSway)
 	local mangoStore = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
 	if mangoStore and mangoStore:FindFirstChild("MangoTree") then
-		-- ปลูกรอบขอบลาน (ไม่ขวางกลางลาน) + มุมหลังขวา
+		-- ปลูกรอบขอบลาน (ไม่ขวางกลางลาน) มุมหลังขวาเป็นต้นไทร (ดูช่วงบรรยากาศหลอนด้านล่าง)
 		local ex = plazaW / 2 + 8
-		for i, p in ipairs({ { -ex, plazaFront - 10, 30 }, { ex, plazaFront - 10, 140 }, { -ex, plazaBack + 10, 250 }, { ex, plazaBack + 10, 80 }, { X - 20, BACK + 20, 200 } }) do
+		for i, p in ipairs({ { -ex, plazaFront - 10, 30 }, { ex, plazaFront - 10, 140 }, { -ex, plazaBack + 10, 250 }, { ex, plazaBack + 10, 80 } }) do
 			local m = Instance.new("Model")
 			m.Name = "TempleMango_" .. i
 			m:SetAttribute("ImportedProp", true)
@@ -5180,6 +5177,214 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	else
 		warn("[MapBuilder] BuildTempleLobby: ไม่พบ ImportedProps.MangoTree ข้ามการปลูกต้นไม้")
 	end
+
+	-- ---------------------------------------------------------------- บรรยากาศหลอน
+	-- งานสวดอภิธรรมในศาลา, ต้นไทรพันผ้าสามสี + ศาลพระภูมิ, ดงกล้วยตานีมุมหน้า, ธงขาวหน้าเมรุ,
+	-- เสาไฟไม้หลอดสลัวรอบลาน (tag FlickerLamp ให้ LobbyClient กะพริบ), หญ้ารกริมรั้ว และเงาคนยืนใต้ต้นไทร (tag Apparition)
+	local CollectionService = game:GetService("CollectionService")
+	local props = mangoStore :: Folder?
+	local spooky = Instance.new("Model")
+	spooky.Name = "SpookyDecor"
+	spooky.Parent = lobby
+	local function block(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?, parent: Instance?): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = material or Enum.Material.SmoothPlastic
+		p.Anchored = true
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Parent = parent or spooky
+		return p
+	end
+	local function lamp(p: BasePart, color: Color3, brightness: number, range: number, flicker: boolean)
+		local l = Instance.new("PointLight")
+		l.Color = color
+		l.Brightness = brightness
+		l.Range = range
+		l.Shadows = true
+		l.Parent = p
+		if flicker then
+			CollectionService:AddTag(p, "FlickerLamp")
+		end
+	end
+	local GOLD = Color3.fromRGB(214, 172, 92)
+	local CANDLE = Color3.fromRGB(255, 150, 70)
+
+	-- งานศพในศาลา: โลงขาวขอบทองบนแท่น, รูปผู้ตายกรอบดำ, เทียนสองข้าง, พวงหรีดเรียงหน้าศาลา
+	local funeral = Instance.new("Model")
+	funeral.Name = "SalaFuneral"
+	funeral.Parent = spooky
+	local FLOOR = 2.99
+	block("CoffinStand", Vector3.new(8.4, 1.6, 3.2), SALA * CFrame.new(0, FLOOR + 0.8, 1.5), Color3.fromRGB(92, 28, 24), Enum.Material.Wood, funeral)
+	block("Coffin", Vector3.new(7.4, 2.2, 2.6), SALA * CFrame.new(0, FLOOR + 2.7, 1.5), Color3.fromRGB(236, 232, 222), Enum.Material.SmoothPlastic, funeral)
+	block("CoffinTrim", Vector3.new(7.6, 0.25, 2.8), SALA * CFrame.new(0, FLOOR + 3.85, 1.5), GOLD, Enum.Material.Metal, funeral)
+	block("PortraitFrame", Vector3.new(2.4, 3, 0.2), SALA * CFrame.new(0, FLOOR + 6.1, 3.1) * CFrame.Angles(math.rad(-8), 0, 0), Color3.fromRGB(15, 15, 15), Enum.Material.Wood, funeral)
+	block("PortraitPhoto", Vector3.new(1.9, 2.4, 0.22), SALA * CFrame.new(0, FLOOR + 6.1, 3.12) * CFrame.Angles(math.rad(-8), 0, 0), Color3.fromRGB(150, 146, 140), Enum.Material.SmoothPlastic, funeral)
+	block("PortraitEasel", Vector3.new(0.2, 4.4, 0.2), SALA * CFrame.new(0, FLOOR + 4.4, 3.4), Color3.fromRGB(40, 30, 24), Enum.Material.Wood, funeral)
+	for _, sx in ipairs({ -4.6, 4.6 }) do
+		block("CandleStand", Vector3.new(0.5, 3.6, 0.5), SALA * CFrame.new(sx, FLOOR + 1.8, 3), GOLD, Enum.Material.Metal, funeral)
+		local candle = block("Candle", Vector3.new(0.35, 1.2, 0.35), SALA * CFrame.new(sx, FLOOR + 4.2, 3), Color3.fromRGB(240, 236, 220), Enum.Material.SmoothPlastic, funeral)
+		local flame = block("CandleFlame", Vector3.new(0.18, 0.4, 0.18), SALA * CFrame.new(sx, FLOOR + 5, 3), CANDLE, Enum.Material.Neon, funeral)
+		flame.CastShadow = false
+		flame.CanCollide = false
+		lamp(flame, CANDLE, 1.2, 14, true)
+		candle.CanCollide = false
+	end
+	local wreathColors = { Color3.fromRGB(235, 232, 225), Color3.fromRGB(230, 200, 80), Color3.fromRGB(150, 110, 170), Color3.fromRGB(235, 232, 225) }
+	for i = 0, 6 do
+		local x = -18 + i * 6
+		local base = SALA * CFrame.new(x, 0, 21.5)
+		block("WreathLegL", Vector3.new(0.15, 6, 0.15), base * CFrame.new(-1, 3, -0.6) * CFrame.Angles(math.rad(-10), 0, 0), Color3.fromRGB(60, 44, 30), Enum.Material.Wood, funeral)
+		block("WreathLegR", Vector3.new(0.15, 6, 0.15), base * CFrame.new(1, 3, -0.6) * CFrame.Angles(math.rad(-10), 0, 0), Color3.fromRGB(60, 44, 30), Enum.Material.Wood, funeral)
+		local disc = block("Wreath", Vector3.new(0.5, 4.2, 4.2), base * CFrame.new(0, 5.2, 0) * CFrame.Angles(0, math.rad(90), 0), wreathColors[i % #wreathColors + 1], Enum.Material.Fabric, funeral)
+		disc.Shape = Enum.PartType.Cylinder
+		block("WreathRibbon", Vector3.new(1.4, 2.6, 0.08), base * CFrame.new(0, 2.6, 0.3), Color3.fromRGB(245, 245, 245), Enum.Material.Fabric, funeral)
+	end
+
+	-- ธงขาว (ธงกระดาษงานศพ) ปักหน้าเมรุ
+	for i, sx in ipairs({ -12, -4, 4, 12 }) do
+		local base = MERU * CFrame.new(sx, 0, 24 + (i % 2) * 3)
+		block("FuneralFlagPole", Vector3.new(0.3, 16, 0.3), base * CFrame.new(0, 8, 0), Color3.fromRGB(120, 104, 70), Enum.Material.Wood)
+		local flag = block("FuneralFlag", Vector3.new(1.4, 7, 0.06), base * CFrame.new(0.85, 12, 0) * CFrame.Angles(0, 0, math.rad(4)), Color3.fromRGB(240, 238, 230), Enum.Material.Fabric)
+		flag.CanCollide = false
+	end
+
+	if props then
+		-- ต้นไทรใหญ่พันผ้าสามสี (ไม่มีใบ เหลือแต่กิ่ง/รากอากาศ) + ศาลพระภูมิ + ของเซ่นแตกๆ มุมหลังขวา
+		local banyanBase = G + Vector3.new(X - 42, 0, BACK + 42)
+		if props:FindFirstChild("SacredBanyanTree") then
+			local m = Instance.new("Model")
+			m.Name = "LobbyBanyanTree"
+			m:SetAttribute("ImportedProp", true)
+			local pl = placeGroup(props, "SacredBanyanTree", { "BanyanTrunk", "BanyanRoots", "BanyanLimbs", "BanyanTwigs", "BanyanAerialRoots", "SacredThaiRibbons" }, banyanBase, 200, "origin", m)
+			for _, n in ipairs({ "BanyanTwigs", "BanyanAerialRoots", "BanyanLimbs", "SacredThaiRibbons" }) do
+				pl[n].CanCollide = false
+			end
+			m.PrimaryPart = pl.BanyanTrunk
+			m.Parent = spooky
+		end
+		if props:FindFirstChild("SpiritHouseOnStilts") then
+			local pl = placeGroup(props, "SpiritHouseOnStilts", { "SpiritHouseOnStilts", "Incense1", "Incense2", "Incense3", "Incense1_Neon", "Incense2_Neon", "Incense3_Neon" }, banyanBase + Vector3.new(-26, 0, 18), 135, "bottom", spooky)
+			for k = 1, 3 do
+				makeNeon(pl["Incense" .. k .. "_Neon"], Color3.fromRGB(255, 90, 30))
+			end
+			lamp(pl.Incense2_Neon, Color3.fromRGB(255, 110, 50), 0.8, 10, true)
+		end
+		if props:FindFirstChild("SacredBanyanProps") then
+			placeGroup(props, "SacredBanyanProps", { "BrokenOfferings" }, banyanBase + Vector3.new(-14, 0, 12), 160, "bottom", spooky)
+			placeGroup(props, "SacredBanyanProps", { "OldMarbleBenchSet" }, banyanBase + Vector3.new(-30, 0, -6), 20, "bottom", spooky)
+		end
+
+		-- ดงกล้วยตานีมุมหน้าซ้าย/ขวา (ชื่อขึ้นต้น BananaTree ให้ TagWindPlants ติด tag ลม)
+		if props:FindFirstChild("BananaClump") then
+			local rngB = Random.new(4040)
+			local n = 0
+			for _, side in ipairs({ -1, 1 }) do
+				for k = 0, 5 do
+					n += 1
+					local bx = side * (X - 12 - (k % 3) * 11 + rngB:NextNumber(-2, 2))
+					local bz = FRONT - 12 - math.floor(k / 3) * 12 + rngB:NextNumber(-2, 2)
+					local base = G + Vector3.new(bx, -0.2, bz)
+					local yaw = rngB:NextNumber(0, 360)
+					local m = Instance.new("Model")
+					m.Name = "BananaTree_Lobby_" .. n
+					m:SetAttribute("ImportedProp", true)
+					local pl = placeGroup(props, "BananaClump", { "BananaClump", "BananaClump_B", "BananaClump_Base" }, base, yaw, "origin", m)
+					m.PrimaryPart = pl.BananaClump
+					m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+					m.Parent = spooky
+				end
+			end
+		end
+
+		-- เสาไฟไม้หลอดสลัวรอบลาน (แทนไฟล่องหน)
+		if props:FindFirstChild("TvAntennaAndPoles") then
+			local half = (plazaFront - plazaBack) / 2
+			local px = plazaW / 2 + 3
+			for i, c in ipairs({ { -px, plazaZ - half + 8 }, { -px, plazaZ }, { -px, plazaZ + half - 8 }, { px, plazaZ - half + 8 }, { px, plazaZ }, { px, plazaZ + half - 8 } }) do
+				local m = Instance.new("Model")
+				m.Name = "PlazaPole_" .. i
+				m.Parent = spooky
+				local pl = placeGroup(props, "TvAntennaAndPoles", { "WoodenPole", "WoodenPole_Neon" }, G + Vector3.new(c[1], 0, c[2]), if c[1] < 0 then 90 else -90, "bottom", m)
+				makeNeon(pl.WoodenPole_Neon, Color3.fromRGB(255, 226, 170))
+				lamp(pl.WoodenPole_Neon, Color3.fromRGB(255, 214, 160), 0.9, 36, i % 2 == 1)
+			end
+		end
+
+		-- โอ่งมังกรหน้ากุฏิ
+		if props:FindFirstChild("DragonJar") then
+			for _, dz in ipairs({ 25, -25 }) do
+				placeGroup(props, "DragonJar", { "DragonJar", "DragonJar_Water" }, G + Vector3.new(X - 40, 0, plazaZ + dz + 9), 0, "bottom", spooky)
+			end
+		end
+
+		-- หญ้ารกริมรั้ว (ไม่ขึ้นในลาน/ทางเดิน/ใต้อาคาร)
+		if props:FindFirstChild("ThaiGrasses") then
+			local keepOut = {
+				{ -plazaW / 2 - 4, plazaW / 2 + 4, plazaBack - 4, plazaFront + 4 }, -- ลาน
+				{ -8, 8, UBZ, FRONT + 8 }, -- ทางเดิน
+				{ -30, 30, UBZ - 36, UBZ + 46 }, -- โบสถ์
+				{ -X, -X + 52, plazaZ - 30, plazaZ + 30 }, -- ศาลา + พวงหรีด
+				{ X - 44, X, plazaZ - 40, plazaZ + 40 }, -- กุฏิ
+				{ -X, -X + 44, BACK, BACK + 70 }, -- เมรุ + ธง
+				{ -60, 60, BACK, BACK + 30 }, -- ธาตุ
+				{ X - 80, X, BACK, BACK + 80 }, -- ต้นไทร
+				{ -X, X, FRONT - 32, FRONT }, -- ดงกล้วย / ประตู
+			}
+			local rngG = Random.new(5151)
+			local count = 0
+			for _ = 1, 400 do
+				if count >= 70 then
+					break
+				end
+				local gx, gz = rngG:NextNumber(-X + 3, X - 3), rngG:NextNumber(BACK + 3, FRONT - 3)
+				local ok = true
+				for _, r in ipairs(keepOut) do
+					if gx > r[1] and gx < r[2] and gz > r[3] and gz < r[4] then
+						ok = false
+						break
+					end
+				end
+				if ok then
+					count += 1
+					local kind = if count % 3 == 0 then "LemongrassClump" else "WildGrassClump"
+					local base = G + Vector3.new(gx, -0.1, gz)
+					local yaw = rngG:NextNumber(0, 360)
+					local m = Instance.new("Model")
+					m.Name = "LobbyGrass_" .. count
+					m:SetAttribute("ImportedProp", true)
+					local pl = placeGroup(props, "ThaiGrasses", { kind }, base, yaw, "origin", m)
+					m.PrimaryPart = pl[kind]
+					m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+					m.Parent = spooky
+					m:ScaleTo(rngG:NextNumber(0.6, 0.95))
+				end
+			end
+		end
+	end
+
+	-- เงาคนผมยาวชุดขาวยืนนิ่งใต้ต้นไทร (LobbyClient ทำให้จางหายเมื่อผู้เล่นเดินเข้าใกล้)
+	local ghost = Instance.new("Model")
+	ghost.Name = "LobbyApparition"
+	local gbase = G + Vector3.new(X - 58, 0, BACK + 58)
+	local gcf = CFrame.lookAt(gbase, Vector3.new(G.X, gbase.Y, plazaZ + G.Z))
+	local dress = block("Dress", Vector3.new(1.8, 4.6, 1), gcf * CFrame.new(0, 2.3, 0), Color3.fromRGB(226, 226, 220), Enum.Material.Fabric, ghost)
+	local head = block("Head", Vector3.new(1.1, 1.2, 1.1), gcf * CFrame.new(0, 5.2, 0), Color3.fromRGB(20, 18, 18), Enum.Material.Fabric, ghost)
+	block("Hair", Vector3.new(1.3, 2.6, 0.5), gcf * CFrame.new(0, 4.3, -0.45), Color3.fromRGB(14, 12, 12), Enum.Material.Fabric, ghost)
+	for _, p in ipairs(ghost:GetChildren()) do
+		local bp = p :: BasePart
+		bp.CanCollide = false
+		bp.CanQuery = false
+		bp.CastShadow = false
+		bp.Transparency = 0.15
+	end
+	ghost.PrimaryPart = dress
+	head.Shape = Enum.PartType.Ball
+	CollectionService:AddTag(ghost, "Apparition")
+	ghost.Parent = spooky
 
 	lobby.Parent = Workspace
 	MapBuilder.TagWindPlants()
