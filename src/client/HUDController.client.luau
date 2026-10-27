@@ -29,6 +29,7 @@ local TriggerJumpscare = remotes:WaitForChild("TriggerJumpscare") :: RemoteEvent
 local CustomerSpeech = remotes:WaitForChild("CustomerSpeech") :: RemoteEvent
 local GameState = remotes:WaitForChild("GameState") :: RemoteEvent
 local DialogueReply = remotes:WaitForChild("DialogueReply") :: RemoteEvent
+local DeathChoice = remotes:WaitForChild("DeathChoice") :: RemoteEvent -- ("quit") = กลับ Lobby
 
 -- ---------------------------------------------------------------- สีและฟอนต์
 local C = {
@@ -198,6 +199,37 @@ local bannerBar = new("Frame", {
 fadeEdges(bannerBar, 0.15)
 local banner = text(bannerBar, { Name = "Text", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(0.8, 0, 0, 40), TextXAlignment = Enum.TextXAlignment.Center, MaxTextSize = 32 })
 tremble(banner, 2, true)
+
+-- ปุ่ม "กลับ Lobby" ใต้แถบประกาศ (ขึ้นตอนชนะ จนกว่าคืนใหม่จะเริ่ม)
+local lobbyBtn = new("TextButton", {
+	Name = "BackToLobby",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.2, 44),
+	Size = UDim2.new(0, 200, 0, 40),
+	BackgroundColor3 = C.Ink,
+	BackgroundTransparency = 0.15,
+	BorderSizePixel = 0,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+	TextSize = 20,
+	AutoLocalize = false,
+	AutoButtonColor = false,
+	Modal = true, -- ปลดล็อกเมาส์
+	Visible = false,
+	ZIndex = 12,
+}, gui)
+new("UIStroke", { Color = C.Ember, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, lobbyBtn)
+lobbyBtn.MouseEnter:Connect(function()
+	lobbyBtn.BackgroundColor3 = C.Bar
+end)
+lobbyBtn.MouseLeave:Connect(function()
+	lobbyBtn.BackgroundColor3 = C.Ink
+end)
+lobbyBtn.Activated:Connect(function()
+	lobbyBtn.Active = false
+	lobbyBtn.Text = ui("GoingToLobby")
+	DeathChoice:FireServer("quit")
+end)
 
 -- จอแดงวาบตอนผีหลอก
 local flash = new("Frame", { Name = "ScareFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(90, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 10 }, gui)
@@ -498,10 +530,13 @@ end)
 
 -- ---------------------------------------------------------------- ชนะ / แพ้ / คืนใหม่
 GameState.OnClientEvent:Connect(function(state: string)
+	lobbyBtn.Visible = state == "Win"
 	if state == "Win" then
 		showBanner("Win", false, 10)
+		lobbyBtn.Text = ui("Quit")
+		lobbyBtn.Active = true
 	elseif state == "Lose" then
-		-- แพ้: จอตายสีแดง + ถามเริ่มใหม่ อยู่ใน DeathScreen.client.luau
+		-- แพ้: จอตายสีแดง + ถามเริ่มใหม่ / กลับ Lobby อยู่ใน DeathScreen.client.luau
 	elseif state == "Waiting" then
 		showNarration("WaitOpen") -- ค้างไว้จนกว่าจะมีคนเปิดร้าน
 	elseif state == "Playing" then
@@ -541,6 +576,9 @@ local function refreshLanguage()
 	hintG.Text = ui("HintPray")
 	drawSpeaker()
 	drawReplies()
+	if lobbyBtn.Visible and lobbyBtn.Active then
+		lobbyBtn.Text = ui("Quit")
+	end
 	if bannerKey and bannerBar.Visible then
 		banner.Text = ui(bannerKey)
 	end

@@ -12,10 +12,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
+local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local CoreLoop = {}
+local backToLobby: (Player) -> ()
 
 -- ---------------------------------------------------------------- ค่าปรับเกม
 local CONFIG = {
@@ -90,7 +92,8 @@ local CONFIG = {
 	ChaseRadius = 9, -- เข้าใกล้ผีที่กำลังออกไปเท่านี้ = โดน
 	ChaseMinFromShop = 10, -- ต้องออกมาห่างตู้ปั๊มเท่านี้ (ยืนในร้านเฉยๆ ไม่โดน)
 	KnockdownTime = 4, -- นอนกองกับพื้นกี่วินาที
-	RestartDelay = 12,
+	RestartDelay = 20, -- ชนะแล้วรอเท่านี้ก่อนเริ่มคืนใหม่ (ให้เวลากดปุ่ม "กลับ Lobby")
+	LobbyPlaceId = 70980777393906, -- ออกจากเกม = Teleport กลับวัด (Lobby, Start Place)
 	-- พนมมือ
 	PrayReactRadius = 30, -- ลูกค้าเห็นคนพนมมือในระยะนี้ แล้วทัก
 	PrayReactMax = 2, -- ลูกค้า 1 คนทักเรื่องพนมมือได้สูงสุดกี่ครั้ง
@@ -183,6 +186,43 @@ local function knockDown(player: Player, seconds: number)
 		hum.AutoRotate = true
 	end)
 end
+-- ออกจากเกม: Teleport กลับ Lobby (ใน Studio Teleport ไม่ได้ / Teleport พลาด -> Kick พร้อมข้อความลาแทน)
+local leaving: { [Player]: boolean } = {}
+local function kickGoodbye(player: Player)
+	local th = player:GetAttribute("Lang") == "th"
+	player:Kick(if th then "ขอบคุณที่มาเฝ้าปั๊มหลอดท้ายทุ่ง... แล้วพบกันใหม่คืนหน้า" else "Thanks for minding the roadside pump... see you next night.")
+end
+function backToLobby(player: Player)
+	if leaving[player] then
+		return
+	end
+	leaving[player] = true
+	if RunService:IsStudio() then
+		print("🏯 [" .. player.Name .. "] กลับ Lobby (Studio Teleport ไม่ได้ -> Kick แทน)")
+		kickGoodbye(player)
+		return
+	end
+	print("🏯 [" .. player.Name .. "] กลับ Lobby")
+	local ok, err = pcall(function()
+		TeleportService:TeleportAsync(CONFIG.LobbyPlaceId, { player })
+	end)
+	if not ok then
+		warn("[CoreLoop] Teleport กลับ Lobby ไม่ได้:", err)
+		leaving[player] = nil
+		kickGoodbye(player)
+	end
+end
+TeleportService.TeleportInitFailed:Connect(function(player, result, msg)
+	if leaving[player] then
+		warn("[CoreLoop] Teleport กลับ Lobby ล้มเหลว:", result, msg)
+		leaving[player] = nil
+		kickGoodbye(player)
+	end
+end)
+Players.PlayerRemoving:Connect(function(p)
+	leaving[p] = nil
+end)
+
 local losePending = false
 local restartBy: string? = nil
 DeathChoice.OnServerEvent:Connect(function(player, choice: any)
@@ -191,8 +231,7 @@ DeathChoice.OnServerEvent:Connect(function(player, choice: any)
 		DeathChoice:FireAllClients("restart", player.DisplayName)
 		print("🔁 [" .. player.Name .. "] เลือกเริ่มใหม่")
 	elseif choice == "quit" then
-		local th = player:GetAttribute("Lang") == "th"
-		player:Kick(if th then "ขอบคุณที่มาเฝ้าปั๊มหลอดท้ายทุ่ง... แล้วพบกันใหม่คืนหน้า" else "Thanks for minding the roadside pump... see you next night.")
+		backToLobby(player)
 	end
 end)
 

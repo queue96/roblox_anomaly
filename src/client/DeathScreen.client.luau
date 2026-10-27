@@ -1,6 +1,6 @@
 -- DeathScreen.client.luau
 -- แพ้ (ธูปดับหมด): ตัวละครล้มนอนตาย (Server ทำ), ควบคุมไม่ได้, กล้องค่อยๆ ลอยขึ้นมองร่างตัวเอง, จอแดง
--- แล้วถาม "เริ่มคืนใหม่ไหม?" [เริ่มใหม่] [ออกจากเกม]  ใครกดเริ่มใหม่ก่อนนับทั้งร้าน
+-- แล้วถาม "เริ่มคืนใหม่ไหม?" [เริ่มใหม่] [กลับ Lobby (Teleport)]  ใครกดเริ่มใหม่ก่อนนับทั้งร้าน
 -- เกิดใหม่ (Server LoadCharacter) แล้วจอนี้หายไปเอง
 
 local Players = game:GetService("Players")
@@ -255,7 +255,9 @@ restartBtn.Activated:Connect(function()
 	end
 end)
 quitBtn.Activated:Connect(function()
-	if dead then
+	if dead and quitBtn.Active then
+		quitBtn.Active = false
+		quitBtn.Text = ui("GoingToLobby") -- Server Teleport กลับ Lobby
 		DeathChoice:FireServer("quit")
 	end
 end)

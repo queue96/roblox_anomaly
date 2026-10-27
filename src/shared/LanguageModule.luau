@@ -300,7 +300,8 @@ LanguageModule.UI = {
 	-- จอตาย (แพ้)
 	AskRestart = { th = "เริ่มคืนใหม่ไหม?", en = "Start a new night?" },
 	Restart = { th = "เริ่มใหม่", en = "Restart" },
-	Quit = { th = "ออกจากเกม", en = "Quit" },
+	Quit = { th = "🏯 กลับ Lobby", en = "🏯 Back to Lobby" },
+	GoingToLobby = { th = "กำลังกลับวัด...", en = "Heading back to the temple..." },
 	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
 	WaitOpen = { th = "ร้านยังปิดอยู่... ไปดึงเชือกเปิดแผงสังกะสีเพื่อเริ่มคืนนี้", en = "The shop is closed... pull the shutter rope to begin the night." },
 }
