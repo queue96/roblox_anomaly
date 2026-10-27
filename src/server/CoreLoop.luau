@@ -1459,7 +1459,8 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 	local seen: { [Player]: number } = {} -- พนมมือรอบไหนที่ทักไปแล้ว (เวลาเริ่มพนมมือ)
 	while alive() and reacted < CONFIG.PrayReactMax and not gameOver do
 		task.wait(0.3)
-		if replyOpen or os.clock() < speechBusyUntil or decision then
+		-- ทักได้แม้ตัวเลือกตอบราคาเปิดอยู่ (ตัวเลือกแสดงแยกจากกล่องคำพูด) แค่รอให้ประโยคก่อนหน้าจบ
+		if os.clock() < speechBusyUntil or decision then
 			continue
 		end
 		for _, p in ipairs(Prayer.PrayingNear(c.v:GetPivot().Position, CONFIG.PrayReactRadius)) do
@@ -1471,11 +1472,11 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 				local ghostLine = c.ghost and math.random() < CONFIG.PrayGhostLineChance
 				print("🙏 ลูกค้าเห็น [" .. p.Name .. "] พนมมือ" .. (if ghostLine then " (ผีไม่ชอบ)" else ""))
 				say(pick(if ghostLine then PRAY_GHOST else PRAY_ASK), speaker, nil, 2.8)
-				if not alive() or replyOpen then
+				if not alive() then
 					break
 				end
 				say(pick(PRAY_REPLY), { player = p.DisplayName }, nil, 2.4)
-				if not alive() or replyOpen then
+				if not alive() then
 					break
 				end
 				say(pick(if ghostLine then PRAY_GHOST_AFTER else PRAY_AFTER), speaker, nil, 2.6)
