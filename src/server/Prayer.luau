@@ -109,6 +109,7 @@ function Prayer.Start(player: Player): boolean
 	hum.JumpHeight = 0
 	applyPose(char, s)
 	player:SetAttribute("Praying", true)
+	print("🙏 [" .. player.Name .. "] พนมมือ")
 	return true
 end
 
@@ -120,6 +121,7 @@ function Prayer.Stop(player: Player)
 	sessions[player] = nil
 	player:SetAttribute("Praying", false)
 	clearPose(s)
+	print(string.format("🙏 [%s] เลิกพนมมือ (%.1f วิ)", player.Name, os.clock() - s.started))
 	local char = player.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
