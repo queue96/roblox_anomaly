@@ -32,6 +32,10 @@ trigger: always_on
 
 ### 📂 โครงสร้างไฟล์โค้ด (Rojo Sync บนพอร์ต `localhost:34872`)
 - `default.project.json` & `start_rojo.bat`: ตั้งค่า Rojo ซิงค์โฟลเดอร์ `src/` เข้ากับ `RuralGasShack.rbxl`
+- **แยก Rojo 2 place (เพิ่มเมื่อ 2026-10-28):** experience มี 2 place — **Lobby** (Start Place, PlaceId `70980777393906`) และ **Pump Lot** (แมพเกม, PlaceId `114125276809667`)
+  - เกม → `default.project.json` + `start_rojo.bat` พอร์ต `34872` → กด Connect ในหน้าต่าง **Pump Lot** เท่านั้น (`blockedPlaceIds` กันไม่ให้ Connect เข้า Lobby)
+  - Lobby → `lobby.project.json` + `start_rojo_lobby.bat` พอร์ต `34873` (`servePort`) → กด Connect ในหน้าต่าง **Lobby** และเปลี่ยน Port ในปลั๊กอินเป็น 34873 (`servePlaceIds` ยอมเฉพาะ Lobby)
+  - โค้ด Lobby อยู่ `src/lobby/server` → `ServerScriptService.Server`, `src/lobby/client` → `StarterPlayerScripts.Client`, และดึง `src/shared/LanguageModule.luau` ไฟล์เดียวไป `ReplicatedStorage.Shared` (ตั้งชื่อโฟลเดอร์ตรงกับของเกม เพื่อให้ Rojo ลบสคริปต์เกมรุ่นเก่าที่ค้างใน Lobby ออกเองตอน Connect)
 - `src/shared/MapBuilder.luau`: โมดูลสร้างและตกแต่งฉากทั้งหมด พร้อมระบบแยกส่วน (Modular Non-Destructive Functions)
 - `src/shared/LanguageModule.luau`: ตารางข้อความ 2 ภาษา (`TH` / `EN`) สำหรับป้าย, บทพูดลูกค้า, และ UI
 - `src/server/GameManager.server.luau`: สคริปต์หลักฝั่ง Server (ตั้งค่าแสงกลางคืนตอนกด Play, ระบบไฟนีออนเสาไม้กะพริบ, ระบบดึงเชือก `RejectRope` ปิดแผงสังกะสี `ShutterDoor`)

@@ -1,0 +1,38 @@
+{
+  "name": "RuralGasShackLobby",
+  "servePort": 34873,
+  "servePlaceIds": [70980777393906],
+  "tree": {
+    "$className": "DataModel",
+    "$ignoreUnknownInstances": true,
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "Shared": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": false,
+        "LanguageModule": {
+          "$path": "src/shared/LanguageModule.luau"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "Server": {
+        "$path": "src/lobby/server"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "Client": {
+          "$path": "src/lobby/client"
+        }
+      }
+    }
+  }
+}

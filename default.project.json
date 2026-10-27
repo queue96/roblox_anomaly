@@ -1,5 +1,6 @@
 {
   "name": "RuralGasShackAnomaly",
+  "blockedPlaceIds": [70980777393906],
   "tree": {
     "$className": "DataModel",
     "$ignoreUnknownInstances": true,
