@@ -16,6 +16,9 @@
         },
         "MapBuilder": {
           "$path": "src/shared/MapBuilder.luau"
+        },
+        "Difficulty": {
+          "$path": "src/shared/Difficulty.luau"
         }
       }
     },

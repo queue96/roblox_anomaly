@@ -2,7 +2,7 @@
 -- ไม่ถูกรันตอนเล่นเกม; ผลลัพธ์ print ขึ้นต้น DEVCMD| ให้อ่านจาก log ของ Studio
 
 return {
-	id = "rebuild-temple-3",
+	id = "rebuild-temple-4",
 	placeId = 70980777393906,
 	run = function()
 		local MapBuilder = require(game:GetService("ReplicatedStorage").Shared.MapBuilder:Clone())
@@ -11,18 +11,29 @@ return {
 		if arch then
 			arch:Destroy()
 		end
-		local spooky = lobby.SpookyDecor
-		local poles, lights = 0, 0
-		for _, c in ipairs(spooky:GetChildren()) do
-			if c.Name:match("^PlazaPole_") then
-				poles += 1
+		local mango, banana = 0, 0
+		for _, c in ipairs(lobby.Forest:GetChildren()) do
+			if c.Name:match("^ForestMango") then
+				mango += 1
+			else
+				banana += 1
 			end
 		end
+		local parts = 0
 		for _, d in ipairs(lobby:GetDescendants()) do
-			if d:IsA("PointLight") then
-				lights += 1
+			if d:IsA("BasePart") then
+				parts += 1
 			end
 		end
-		print(("DEVCMD|poles=%d wires=%d pointLights=%d"):format(poles, #spooky.PowerWires:GetChildren(), lights))
+		local pads = #game:GetService("CollectionService"):GetTagged("RoomPad")
+		print(("DEVCMD|forest mango=%d banana=%d walls=%d pads=%d totalParts=%d ground=%s"):format(
+			mango, banana, #lobby.InvisibleWalls:GetChildren(), pads, parts, tostring(lobby.TempleGround.Size)))
+		print("DEVCMD|Shared: " .. table.concat((function()
+			local t = {}
+			for _, c in ipairs(game:GetService("ReplicatedStorage").Shared:GetChildren()) do
+				table.insert(t, c.Name)
+			end
+			return t
+		end)(), ", "))
 	end,
 }

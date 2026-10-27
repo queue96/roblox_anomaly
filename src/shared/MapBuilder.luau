@@ -5420,6 +5420,92 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 		end
 	end
 
+	-- ป่ารอบวัด 2 แนวนอกรั้ว (มะม่วงใบบาง + กอกล้วย) เว้นทางหน้าประตู + กำแพงล่องหนตามแนวรั้ว (ปิดประตูด้วย)
+	-- หมอก (LobbyServer) กลืนป่าแนวนอกจนมองไม่เห็นขอบพื้น
+	ground.Size = Vector3.new(2 * X + 170, 1, (FRONT - BACK) + 170)
+	ground.CFrame = CFrame.new(G + Vector3.new(0, -0.5, (FRONT + BACK) / 2))
+	if props and props:FindFirstChild("MangoTree") and props:FindFirstChild("BananaClump") then
+		local forest = Instance.new("Model")
+		forest.Name = "Forest"
+		forest.Parent = lobby
+		local rngF = Random.new(31337)
+		local n = 0
+		for _, d in ipairs({ 16, 40 }) do
+			local x0, x1, z0, z1 = -X - d, X + d, BACK - d, FRONT + d
+			local edges = { { x0, z0, x1, z0 }, { x1, z0, x1, z1 }, { x1, z1, x0, z1 }, { x0, z1, x0, z0 } }
+			for _, e in ipairs(edges) do
+				local len = Vector3.new(e[3] - e[1], 0, e[4] - e[2]).Magnitude
+				local steps = math.floor(len / 22)
+				for s = 0, steps - 1 do
+					local t = (s + rngF:NextNumber(0.2, 0.8)) / steps
+					local fx = e[1] + (e[3] - e[1]) * t + rngF:NextNumber(-5, 5)
+					local fz = e[2] + (e[4] - e[2]) * t + rngF:NextNumber(-5, 5)
+					if not (math.abs(fx) < 22 and fz > FRONT) then
+						n += 1
+						local base = G + Vector3.new(fx, -0.3, fz)
+						local yaw = rngF:NextNumber(0, 360)
+						local m = Instance.new("Model")
+						m:SetAttribute("ImportedProp", true)
+						if rngF:NextNumber() < 0.55 then
+							m.Name = "ForestMango_" .. n
+							local pl = placeGroup(props, "MangoTree", { "MangoTrunk", "MangoTwigs" }, base, yaw, "origin", m)
+							pl.MangoTwigs.CanCollide = false
+							m.PrimaryPart = pl.MangoTrunk
+							m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+							m.Parent = forest
+							m:ScaleTo(rngF:NextNumber(0.85, 1.3))
+							MapBuilder.AddMangoLeaves(m, true, true)
+						else
+							m.Name = "BananaTree_Forest_" .. n
+							local pl = placeGroup(props, "BananaClump", { "BananaClump", "BananaClump_B", "BananaClump_Base" }, base, yaw, "origin", m)
+							m.PrimaryPart = pl.BananaClump
+							m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
+							m.Parent = forest
+							m:ScaleTo(rngF:NextNumber(0.9, 1.25))
+						end
+					end
+				end
+			end
+		end
+	end
+	local walls = Instance.new("Folder")
+	walls.Name = "InvisibleWalls"
+	walls.Parent = lobby
+	local WALL_H = 80
+	for _, w in ipairs({
+		{ Vector3.new(2 * X + 4, WALL_H, 2), Vector3.new(0, WALL_H / 2, FRONT + 1.5) },
+		{ Vector3.new(2 * X + 4, WALL_H, 2), Vector3.new(0, WALL_H / 2, BACK - 1.5) },
+		{ Vector3.new(2, WALL_H, FRONT - BACK + 4), Vector3.new(X + 1.5, WALL_H / 2, (FRONT + BACK) / 2) },
+		{ Vector3.new(2, WALL_H, FRONT - BACK + 4), Vector3.new(-X - 1.5, WALL_H / 2, (FRONT + BACK) / 2) },
+	}) do
+		local wall = block("InvisibleWall", w[1], CFrame.new(G + w[2]), Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, walls)
+		wall.Transparency = 1
+		wall.CastShadow = false
+		wall.CanQuery = false
+	end
+
+	-- โซนสร้างห้อง: วงหินแดงหม่น 4 วงเรียงหน้าลาน (tag RoomPad + attribute PadIndex) LobbyServer ใช้หาว่าใครยืนอยู่วงไหน
+	local pads = Instance.new("Folder")
+	pads.Name = "RoomPads"
+	pads.Parent = lobby
+	for i, px in ipairs({ -66, -22, 22, 66 }) do
+		local c = G + Vector3.new(px, 0, plazaFront - 24)
+		local ring = block("RoomPadRing", Vector3.new(0.2, 15.4, 15.4), CFrame.new(c + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(170, 50, 36), Enum.Material.Neon, pads)
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Transparency = 0.35
+		ring.CanCollide = false
+		ring.CastShadow = false
+		local pad = block("RoomPad_" .. i, Vector3.new(0.4, 14, 14), CFrame.new(c + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(58, 40, 34), Enum.Material.Slate, pads)
+		pad.Shape = Enum.PartType.Cylinder
+		pad:SetAttribute("PadIndex", i)
+		CollectionService:AddTag(pad, "RoomPad")
+		local post = block("RoomPadPost", Vector3.new(0.5, 7, 0.5), CFrame.new(c + Vector3.new(0, 3.5, -8.5)), Color3.fromRGB(70, 52, 36), Enum.Material.Wood, pads)
+		local lantern = block("RoomPadLantern", Vector3.new(0.8, 1, 0.8), CFrame.new(c + Vector3.new(0, 7.4, -8.5)), Color3.fromRGB(255, 120, 70), Enum.Material.Neon, pads)
+		lantern.CastShadow = false
+		lamp(lantern, Color3.fromRGB(255, 120, 70), 1, 18, i % 2 == 0)
+		post.CanCollide = false
+	end
+
 	-- เงาคนผมยาวชุดขาวยืนนิ่งใต้ต้นไทร (LobbyClient ทำให้จางหายเมื่อผู้เล่นเดินเข้าใกล้)
 	local ghost = Instance.new("Model")
 	ghost.Name = "LobbyApparition"
