@@ -96,7 +96,8 @@ CollectionService:GetInstanceAddedSignal("Apparition"):Connect(haunt)
 
 -- ---------------------------------------------------------------- โซนสร้างห้อง (UI)
 -- OpenSetup(padIndex) -> หน้าต่างเลือกจำนวนผู้เล่น 1–6 + ความยาก (แสดงตัวคูณเงินรางวัล) -> ConfirmRoom
--- RoomState(state) -> แผงสถานะห้องมุมจอ (จำนวนคน, ความยาก, นับถอยหลัง, ปุ่มเริ่มเลยสำหรับเจ้าของห้อง)
+-- RoomState(state) -> แผงห้องขวาบน (จำนวนคน, ความยาก, เวลาปิดห้อง, ปุ่มเริ่มเกมของเจ้าของห้อง)
+-- ปุ่มสมุดผี / ตั้งค่า มาจาก BookController / SettingsController ตัวเดียวกับเกม (sync ผ่าน lobby.project.json)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Difficulty = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Difficulty"))
 local remotes = ReplicatedStorage:WaitForChild("LobbyRemotes")
@@ -107,167 +108,406 @@ local StartNow = remotes:WaitForChild("StartNow") :: RemoteEvent
 local RoomState = remotes:WaitForChild("RoomState") :: RemoteEvent
 local Notice = remotes:WaitForChild("Notice") :: RemoteEvent
 
-local TH = string.sub(string.lower(player.LocaleId), 1, 2) == "th"
+local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
+-- ภาษาเดียวกับหน้าตั้งค่า (Attribute "Lang" จาก PlayerSettings) ถ้ายังไม่มีใช้ภาษาเครื่อง
+local function isTH(): boolean
+	return LanguageModule.Normalize((player:GetAttribute("Lang") :: string?) or player.LocaleId) == "th"
+end
 local function tr(th: string, en: string): string
-	return if TH then th else en
+	return if isTH() then th else en
+end
+local refreshers: { () -> () } = {}
+player:GetAttributeChangedSignal("Lang"):Connect(function()
+	for _, f in ipairs(refreshers) do
+		f()
+	end
+end)
+
+-- สไตล์เดียวกับหน้าตั้งค่า/HUD ของเกม: แผงดำขอบเส้นบาง หัวข้อแถบเทาหม่น ตัวหนังสือครีม ฟอนต์พิมพ์ดีด ปุ่มที่เลือกเป็นสีเลือด
+local C = {
+	Ink = Color3.fromRGB(8, 7, 6),
+	Bar = Color3.fromRGB(58, 54, 46),
+	Cream = Color3.fromRGB(236, 228, 208),
+	Dim = Color3.fromRGB(150, 142, 124),
+	Blood = Color3.fromRGB(150, 18, 16),
+	Line = Color3.fromRGB(80, 72, 60),
+	Paper = Color3.fromRGB(226, 218, 196),
+}
+local FONT_BODY = Font.fromEnum(Enum.Font.SpecialElite)
+
+local function new(className: string, props: { [string]: any }, parent: Instance?): any
+	local o = Instance.new(className)
+	for k, v in pairs(props) do
+		(o :: any)[k] = v
+	end
+	if parent then
+		o.Parent = parent
+	end
+	return o
 end
 
-local INK = Color3.fromRGB(235, 222, 204)
-local PANEL = Color3.fromRGB(22, 18, 18)
-local BLOOD = Color3.fromRGB(150, 36, 30)
+local gui = new("ScreenGui", {
+	Name = "LobbyRoomGui",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	AutoLocalize = false,
+	DisplayOrder = 4,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, player:WaitForChild("PlayerGui"))
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "LobbyRoomGui"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.Parent = player:WaitForChild("PlayerGui")
-
-local function frame(parent: Instance, size: UDim2, pos: UDim2, anchor: Vector2?): Frame
-	local f = Instance.new("Frame")
-	f.Size = size
-	f.Position = pos
-	f.AnchorPoint = anchor or Vector2.zero
-	f.BackgroundColor3 = PANEL
-	f.BackgroundTransparency = 0.12
-	f.BorderSizePixel = 0
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 10)
-	c.Parent = f
-	local s = Instance.new("UIStroke")
-	s.Color = BLOOD
-	s.Thickness = 2
-	s.Parent = f
-	f.Parent = parent
-	return f
+local function panelFrame(name: string, width: number, props: { [string]: any }): Frame
+	local p = new("Frame", {
+		Name = name,
+		Size = UDim2.new(0, width, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = C.Ink,
+		BackgroundTransparency = 0.12,
+		BorderSizePixel = 0,
+		Visible = false,
+	}, gui)
+	for k, v in pairs(props) do
+		(p :: any)[k] = v
+	end
+	new("UIStroke", { Color = C.Line, Thickness = 1 }, p)
+	new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, p)
+	new("UIPadding", { PaddingBottom = UDim.new(0, 14) }, p)
+	return p
 end
-local function text(parent: Instance, str: string, size: UDim2, pos: UDim2, scale: number?): TextLabel
-	local t = Instance.new("TextLabel")
-	t.BackgroundTransparency = 1
-	t.Size = size
-	t.Position = pos
-	t.Text = str
-	t.TextColor3 = INK
-	t.Font = Enum.Font.GothamMedium
-	t.TextScaled = true
-	t.TextWrapped = true
-	local c = Instance.new("UITextSizeConstraint")
-	c.MaxTextSize = scale or 22
-	c.Parent = t
-	t.Parent = parent
-	return t
+local function header(parent: Instance): TextLabel
+	return new("TextLabel", {
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundColor3 = C.Bar,
+		BackgroundTransparency = 0.05,
+		BorderSizePixel = 0,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Cream,
+		TextSize = 22,
+		LayoutOrder = 0,
+	}, parent)
 end
-local function button(parent: Instance, str: string, size: UDim2, pos: UDim2): TextButton
-	local b = Instance.new("TextButton")
-	b.Size = size
-	b.Position = pos
-	b.Text = str
-	b.TextColor3 = INK
-	b.Font = Enum.Font.GothamBold
-	b.TextScaled = true
-	b.AutoButtonColor = true
-	b.BackgroundColor3 = Color3.fromRGB(48, 38, 36)
-	b.BorderSizePixel = 0
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
-	c.Parent = b
-	local k = Instance.new("UITextSizeConstraint")
-	k.MaxTextSize = 20
-	k.Parent = b
-	b.Parent = parent
+-- 1 แถว = ชื่อซ้าย + ตัวควบคุมขวา
+local function row(parent: Instance, order: number, height: number?): (Frame, TextLabel)
+	local r = new("Frame", { Size = UDim2.new(1, 0, 0, height or 40), BackgroundTransparency = 1, LayoutOrder = order }, parent)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, r)
+	local l = new("TextLabel", {
+		Size = UDim2.new(0.4, 0, 1, 0),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Cream,
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, r)
+	return r, l
+end
+local function button(parent: Instance, props: { [string]: any }): TextButton
+	local b = new("TextButton", {
+		BackgroundColor3 = C.Ink,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Cream,
+		TextSize = 17,
+		AutoButtonColor = false,
+	}, parent)
+	new("UIStroke", { Color = C.Line, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+	for k, v in pairs(props) do
+		(b :: any)[k] = v
+	end
 	return b
 end
+-- ปุ่มปิด X (เส้นไขว้ 2 เส้น เหมือนหน้าตั้งค่า)
+local function closeButton(head: Instance, onClick: () -> ())
+	local x = new("TextButton", {
+		Name = "Close",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -6, 0.5, 0),
+		Size = UDim2.new(0, 28, 0, 28),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		Modal = true,
+	}, head)
+	local lines = {}
+	for _, angle in ipairs({ 45, -45 }) do
+		table.insert(lines, new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(0, 18, 0, 2),
+			Rotation = angle,
+			BackgroundColor3 = C.Dim,
+			BorderSizePixel = 0,
+		}, x))
+	end
+	x.MouseEnter:Connect(function()
+		for _, l in ipairs(lines) do
+			l.BackgroundColor3 = Color3.fromRGB(220, 60, 50)
+		end
+	end)
+	x.MouseLeave:Connect(function()
+		for _, l in ipairs(lines) do
+			l.BackgroundColor3 = C.Dim
+		end
+	end)
+	x.Activated:Connect(onClick)
+end
 
--- หน้าต่างตั้งห้อง
-local setup = frame(gui, UDim2.fromOffset(420, 330), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5))
-setup.Visible = false
-local setupTitle = text(setup, "", UDim2.new(1, -20, 0, 34), UDim2.fromOffset(10, 10), 26)
-text(setup, tr("จำนวนผู้เล่น", "Players"), UDim2.new(1, -20, 0, 22), UDim2.fromOffset(10, 52), 18)
+-- ---------------------------------------------------------------- หน้าต่างตั้งห้อง (กลางจอ)
+-- ตั้งห้องภายใน 30 วิ ไม่งั้นหน้าต่างปิด ดีดกลับจุดเกิด (Server เป็นคนตัดสิน ตรงนี้แค่โชว์เวลา)
+local setup = panelFrame("RoomSetup", 460, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+local setupHead = header(setup)
+local setupPad = 0
+local setupDeadline = 0
 local chosenPlayers, chosenDiff = 4, Difficulty.Default
+
+closeButton(setupHead, function()
+	setup.Visible = false
+	CancelSetup:FireServer()
+end)
+
+local countRow, countLabel = row(setup, 1)
 local countButtons: { TextButton } = {}
 for i = 1, Difficulty.MaxPlayers do
-	local b = button(setup, tostring(i), UDim2.fromOffset(56, 40), UDim2.fromOffset(10 + (i - 1) * 67, 78))
-	countButtons[i] = b
-	b.Activated:Connect(function()
-		chosenPlayers = i
-		for k, other in ipairs(countButtons) do
-			other.BackgroundColor3 = if k == i then BLOOD else Color3.fromRGB(48, 38, 36)
-		end
-	end)
+	countButtons[i] = button(countRow, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -(Difficulty.MaxPlayers - i) * 36, 0.5, 0),
+		Size = UDim2.new(0, 30, 0, 30),
+		Text = tostring(i),
+	})
 end
-text(setup, tr("ความยาก (ยิ่งยาก เงินรางวัลตอนจบยิ่งเยอะ)", "Difficulty (harder = bigger reward)"), UDim2.new(1, -20, 0, 22), UDim2.fromOffset(10, 128), 18)
+
+local diffRow, diffLabel = row(setup, 2)
 local diffButtons: { [string]: TextButton } = {}
 for i, id in ipairs(Difficulty.Order) do
-	local d = Difficulty.Levels[id]
-	local b = button(setup, ("%s\n×%s"):format(if TH then d.th else d.en, tostring(d.reward)), UDim2.fromOffset(95, 62), UDim2.fromOffset(10 + (i - 1) * 101, 154))
-	diffButtons[id] = b
-	b.TextColor3 = d.color
+	diffButtons[id] = button(diffRow, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -(#Difficulty.Order - i) * 64, 0.5, 0),
+		Size = UDim2.new(0, 58, 0, 30),
+	})
+end
+
+local function valueLabel(parent: Instance): TextLabel
+	return new("TextLabel", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.new(0.6, 0, 1, 0),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Dim,
+		TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Right,
+	}, parent)
+end
+local rewardRow, rewardLabel = row(setup, 3, 30)
+local rewardValue = valueLabel(rewardRow)
+
+local confirmRow = new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1, LayoutOrder = 4 }, setup)
+new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, confirmRow)
+local setupTimer = new("TextLabel", {
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 0, 0.5, 0),
+	Size = UDim2.new(0.5, 0, 1, 0),
+	BackgroundTransparency = 1,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Dim,
+	TextSize = 16,
+	TextXAlignment = Enum.TextXAlignment.Left,
+}, confirmRow)
+local confirm = button(confirmRow, {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, 0, 0.5, 0),
+	Size = UDim2.new(0, 160, 0, 34),
+	BackgroundColor3 = C.Blood,
+	TextSize = 19,
+})
+
+local function drawSetup()
+	setupHead.Text = tr(("ตั้งห้องที่ %d"):format(setupPad), ("Set up room %d"):format(setupPad))
+	countLabel.Text = tr("จำนวนผู้เล่น", "Players")
+	diffLabel.Text = tr("ความยาก", "Difficulty")
+	rewardLabel.Text = tr("เงินรางวัลตอนจบ", "End reward")
+	confirm.Text = tr("สร้างห้อง", "Create room")
+	for i, b in ipairs(countButtons) do
+		b.BackgroundColor3 = if i == chosenPlayers then C.Blood else C.Ink
+	end
+	for id, b in pairs(diffButtons) do
+		local d = Difficulty.Levels[id]
+		b.Text = if isTH() then d.th else d.en
+		b.BackgroundColor3 = if id == chosenDiff then C.Blood else C.Ink
+	end
+	local d = Difficulty.Get(chosenDiff)
+	rewardValue.Text = tr(("×%s  ยิ่งยาก ยิ่งได้เยอะ"):format(tostring(d.reward)), ("×%s  harder pays more"):format(tostring(d.reward)))
+end
+table.insert(refreshers, drawSetup)
+for i, b in ipairs(countButtons) do
 	b.Activated:Connect(function()
-		chosenDiff = id
-		for k, other in pairs(diffButtons) do
-			other.BackgroundColor3 = if k == id then Color3.fromRGB(70, 30, 28) else Color3.fromRGB(48, 38, 36)
-		end
+		chosenPlayers = i
+		drawSetup()
 	end)
 end
-local confirm = button(setup, tr("สร้างห้อง", "Create room"), UDim2.fromOffset(190, 46), UDim2.fromOffset(10, 270))
-confirm.BackgroundColor3 = BLOOD
-local cancel = button(setup, tr("ยกเลิก", "Cancel"), UDim2.fromOffset(190, 46), UDim2.fromOffset(220, 270))
-local function selectDefaults()
-	countButtons[chosenPlayers].BackgroundColor3 = BLOOD
-	diffButtons[chosenDiff].BackgroundColor3 = Color3.fromRGB(70, 30, 28)
+for id, b in pairs(diffButtons) do
+	b.Activated:Connect(function()
+		chosenDiff = id
+		drawSetup()
+	end)
 end
-selectDefaults()
 confirm.Activated:Connect(function()
 	setup.Visible = false
 	ConfirmRoom:FireServer(chosenPlayers, chosenDiff)
 end)
-cancel.Activated:Connect(function()
-	setup.Visible = false
-	CancelSetup:FireServer()
-end)
-OpenSetup.OnClientEvent:Connect(function(padIndex: number?)
+OpenSetup.OnClientEvent:Connect(function(padIndex: number?, seconds: number?)
 	if padIndex then
-		setupTitle.Text = tr(("ตั้งห้องที่ %d"):format(padIndex), ("Set up room %d"):format(padIndex))
+		setupPad = padIndex
+		setupDeadline = os.clock() + (seconds or 30)
+		drawSetup()
 		setup.Visible = true
 	else
 		setup.Visible = false
 	end
 end)
 
--- แผงสถานะห้อง (มุมขวาบน)
-local status = frame(gui, UDim2.fromOffset(280, 150), UDim2.new(1, -16, 0, 70), Vector2.new(1, 0))
-status.Visible = false
-local statusText = text(status, "", UDim2.new(1, -20, 0, 92), UDim2.fromOffset(10, 8), 20)
-statusText.TextXAlignment = Enum.TextXAlignment.Left
-local startBtn = button(status, tr("ออกเดินทางเลย", "Leave now"), UDim2.new(1, -20, 0, 36), UDim2.fromOffset(10, 106))
-startBtn.BackgroundColor3 = BLOOD
+-- ---------------------------------------------------------------- แผงห้อง (ขวาบน ใต้ปุ่มสมุดผี/ตั้งค่า)
+-- เจ้าของห้องกด "เริ่มเกม" = ไป place เกมทันที, ไม่กดใน 30 วิ = ห้องปิด ดีดทุกคนกลับจุดเกิด
+local status = panelFrame("RoomStatus", 320, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 60) })
+local statusHead = header(status)
+statusHead.TextSize = 19
+local function infoRow(order: number): (TextLabel, TextLabel)
+	local r, l = row(status, order, 26)
+	l.TextSize = 16
+	l.TextColor3 = C.Dim
+	local v = valueLabel(r)
+	v.TextColor3 = C.Cream
+	return l, v
+end
+local playersL, playersV = infoRow(1)
+local diffL, diffV = infoRow(2)
+local timeL, timeV = infoRow(3)
+local leaveHint = new("TextLabel", {
+	Size = UDim2.new(1, 0, 0, 22),
+	BackgroundTransparency = 1,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Dim,
+	TextSize = 15,
+	LayoutOrder = 4,
+}, status)
+local startRow = new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 5 }, status)
+new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, startRow)
+local startBtn = button(startRow, { Size = UDim2.new(1, 0, 0, 32), Position = UDim2.new(0, 0, 0.5, -16), BackgroundColor3 = C.Blood, TextSize = 18 })
 startBtn.Activated:Connect(function()
+	startBtn.Visible = false
 	StartNow:FireServer()
 end)
-RoomState.OnClientEvent:Connect(function(s)
+
+local lastState = nil
+local function drawStatus()
+	local s = lastState
 	if not s then
 		status.Visible = false
 		return
 	end
 	local d = Difficulty.Get(s.difficulty)
 	status.Visible = true
-	startBtn.Visible = s.isHost and not s.launching
-	status.Size = UDim2.fromOffset(280, if startBtn.Visible then 150 else 108)
-	local line3 = if s.launching
-		then tr("กำลังออกเดินทาง...", "Departing...")
-		else tr(("ออกเดินทางใน %d วิ · เดินออกจากวงเพื่อออก"):format(s.countdown), ("Leaving in %ds · step out to leave"):format(s.countdown))
-	statusText.Text = ("%s\n%s · %d/%d · ×%s\n%s"):format(
-		tr("ห้องของ ", "Room of ") .. s.hostName,
-		if TH then d.th else d.en,
-		s.count,
-		s.maxPlayers,
-		tostring(d.reward),
-		line3
-	)
+	statusHead.Text = tr("ห้องของ ", "Room of ") .. s.hostName
+	playersL.Text = tr("ผู้เล่น", "Players")
+	playersV.Text = ("%d / %d"):format(s.count, s.maxPlayers)
+	diffL.Text = tr("ความยาก", "Difficulty")
+	diffV.Text = ("%s  ×%s"):format(if isTH() then d.th else d.en, tostring(d.reward))
+	diffV.TextColor3 = d.color
+	if s.launching then
+		timeL.Text = tr("สถานะ", "Status")
+		timeV.Text = tr("กำลังไปที่ปั๊ม...", "Heading to the pump...")
+	else
+		timeL.Text = tr("ห้องปิดใน", "Closes in")
+		timeV.Text = tr(("%d วิ"):format(s.countdown), ("%ds"):format(s.countdown))
+		timeV.TextColor3 = if s.countdown <= 10 then Color3.fromRGB(220, 60, 50) else C.Cream
+	end
+	leaveHint.Text = if s.isHost
+		then tr("กดเริ่มเกมภายในเวลา ไม่งั้นห้องปิด", "Press Start in time or the room closes")
+		else tr("รอเจ้าของห้องกดเริ่ม · เดินออกจากวงเพื่อออก", "Waiting for host · step out to leave")
+	startBtn.Text = tr("เริ่มเกม", "Start")
+	startRow.Visible = s.isHost and not s.launching
+	startBtn.Visible = true
+end
+table.insert(refreshers, drawStatus)
+RoomState.OnClientEvent:Connect(function(s)
+	lastState = s
+	drawStatus()
 end)
 
--- ข้อความแจ้งเตือนสั้นๆ กลางจอล่าง
-local toast = text(gui, "", UDim2.fromOffset(520, 40), UDim2.new(0.5, -260, 1, -120), 22)
-toast.TextStrokeTransparency = 0.3
+-- เวลาที่เหลือในหน้าต่างตั้งห้อง
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		if setup.Visible then
+			local left = math.max(0, math.ceil(setupDeadline - os.clock()))
+			setupTimer.Text = tr(("ปิดใน %d วิ"):format(left), ("Closes in %ds"):format(left))
+			setupTimer.TextColor3 = if left <= 10 then Color3.fromRGB(220, 60, 50) else C.Dim
+		end
+	end
+end)
+
+-- ---------------------------------------------------------------- คำอธิบายปุ่ม (ขวาล่าง แบบป้ายกระดาษเหมือน HUD ในเกม)
+local hints = new("Frame", { Name = "KeyHints", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -30, 1, -40), Size = UDim2.new(0, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.XY, BackgroundTransparency = 1 }, gui)
+new("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, hints)
+local function keyHint(order: number): (TextLabel, TextLabel)
+	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, 0, 0, 28), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, hints)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, holder)
+	local badge = new("TextLabel", {
+		BackgroundColor3 = C.Paper,
+		Size = UDim2.new(0, 0, 0, 26),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Ink,
+		TextSize = 16,
+		Rotation = math.random(-3, 3),
+		LayoutOrder = 1,
+	}, holder)
+	new("UICorner", { CornerRadius = UDim.new(0, 3) }, badge)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 7), PaddingRight = UDim.new(0, 7) }, badge)
+	new("UIStroke", { Color = Color3.fromRGB(90, 80, 62), Thickness = 1 }, badge)
+	local label = new("TextLabel", {
+		BackgroundTransparency = 1,
+		Size = UDim2.new(0, 0, 0, 26),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Cream,
+		TextSize = 17,
+		LayoutOrder = 0, -- คำอธิบายอยู่ซ้าย ป้ายคีย์อยู่ขวา
+	}, holder)
+	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.35 }, label)
+	return badge, label
+end
+-- { ป้าย TH, ป้าย EN, คำอธิบาย TH, คำอธิบาย EN }
+local HINTS = {
+	{ "WASD", "WASD", "เดิน", "Walk" },
+	{ "วงแดง", "Ring", "เดินเข้าวง สร้าง / เข้าห้อง", "Walk into a ring to host / join" },
+	{ "ออกวง", "Step out", "ออกจากห้อง", "Leave the room" },
+}
+local hintLabels = {}
+for i in ipairs(HINTS) do
+	hintLabels[i] = { keyHint(i) }
+end
+local function drawHints()
+	for i, h in ipairs(HINTS) do
+		hintLabels[i][1].Text = tr(h[1], h[2])
+		hintLabels[i][2].Text = tr(h[3], h[4])
+	end
+end
+table.insert(refreshers, drawHints)
+drawHints()
+
+-- ---------------------------------------------------------------- ข้อความแจ้งเตือนสั้นๆ (กลางจอล่าง)
+local toast = new("TextLabel", {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -110),
+	Size = UDim2.new(0, 560, 0, 30),
+	BackgroundTransparency = 1,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+	TextSize = 20,
+	Text = "",
+}, gui)
+new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.2 }, toast)
 local toastId = 0
 Notice.OnClientEvent:Connect(function(th: string, en: string)
 	toastId += 1

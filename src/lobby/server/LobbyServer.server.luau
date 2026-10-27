@@ -3,8 +3,9 @@
 -- 1) บรรยากาศวัดร้างตอนเที่ยงคืน
 -- 2) โซนสร้างห้อง: เดินเข้าวง RoomPad ที่ว่าง = เป็นเจ้าของห้อง เลือกจำนวนผู้เล่น (1–6) + ความยาก
 --    คนอื่นเดินเข้าวงเดียวกัน = เข้าห้อง (จนเต็ม), เดินออกจากวง = ออกจากห้อง (เจ้าของออก = ปิดห้อง)
---    นับถอยหลัง 30 วิ (ห้องเต็มเหลือ 5 วิ, เจ้าของกดเริ่มเหลือ 3 วิ) -> ReserveServer + TeleportAsync ไป Pump Lot
+--    เจ้าของห้องกด "เริ่มเกม" = ReserveServer + TeleportAsync ไป Pump Lot ทันที
 --    พร้อม TeleportData { roomId, difficulty, maxPlayers, hostUserId } (ดูสัญญาใน Shared.Difficulty)
+--    ไม่กดเริ่มใน 30 วิ = ปิดห้อง ดีดทุกคนกลับจุดเกิด ต้องสร้างใหม่ · กดยกเลิก/ไม่ตั้งห้องใน 30 วิ = ดีดกลับจุดเกิด
 
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
@@ -22,6 +23,9 @@ local IS_STUDIO = RunService:IsStudio()
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Difficulty = require(Shared:WaitForChild("Difficulty"))
+-- สมุดผีชุดเดียวกับเกม (DataStore เดียวกันทั้ง experience) ให้ปุ่ม "สมุดผี" ใน Lobby เปิดดูของที่สะสมไว้ได้
+-- การตั้งค่า (ภาษา/เสียง) มาจาก PlayerSettings.server.luau ที่ sync เข้ามาโฟลเดอร์เดียวกัน
+require(script.Parent:WaitForChild("AnomalyBook"))
 
 -- ---------------------------------------------------------------- 1) บรรยากาศ
 -- ใช้แสงกลางคืนชุดเดียวกับแมพเกม แล้วกดให้ซีดและเย็นกว่า
@@ -67,10 +71,18 @@ grade.TintColor = Color3.fromRGB(215, 225, 240)
 grade.Parent = Lighting
 
 -- ---------------------------------------------------------------- 2) โซนสร้างห้อง
-local COUNTDOWN = 30
-local FULL_COUNTDOWN = 5
-local START_COUNTDOWN = 3
-local REJOIN_COOLDOWN = 6 -- วินาที หลังห้องปิด/ส่งไม่สำเร็จ ก่อนวงจะถามสร้างห้องใหม่
+local COUNTDOWN = 30 -- วินาทีที่เจ้าของห้องต้องกดเริ่ม (และเวลาตั้งห้องในหน้าต่างเลือก)
+local REJOIN_COOLDOWN = 3 -- วินาที หลังห้องปิด/ส่งไม่สำเร็จ ก่อนวงจะถามสร้างห้องใหม่
+
+-- ดีดกลับจุดเกิด (กลางลาน)
+local function sendToSpawn(player: Player)
+	local char = player.Character
+	local lobby = workspace:FindFirstChild("TempleLobby")
+	local spawn = lobby and lobby:FindFirstChild("LobbySpawn") :: BasePart?
+	if char and spawn then
+		char:PivotTo(spawn.CFrame + Vector3.new(math.random(-3, 3), 4, math.random(-3, 3)))
+	end
+end
 
 local remotes = Instance.new("Folder")
 remotes.Name = "LobbyRemotes"
@@ -102,6 +114,7 @@ type Room = {
 local pads: { BasePart } = {}
 local rooms: { [BasePart]: Room } = {}
 local pendingHost: { [BasePart]: Player } = {}
+local pendingSince: { [BasePart]: number } = {}
 local onPad: { [Player]: BasePart? } = {}
 local cooldownUntil: { [Player]: number } = {}
 
@@ -146,7 +159,7 @@ local function refresh(pad: BasePart)
 	local room = rooms[pad]
 	if room then
 		local d = Difficulty.Get(room.difficulty)
-		label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nออกเดินทางใน %d วิ"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.countdown)
+		label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nรอเริ่มเกม · ปิดใน %d วิ"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.countdown)
 		label.TextColor3 = d.color
 		for _, p in ipairs(room.members) do
 			RoomState:FireClient(p, {
@@ -221,13 +234,11 @@ local function enterPad(player: Player, pad: BasePart)
 			return
 		end
 		table.insert(room.members, player)
-		if #room.members >= room.maxPlayers then
-			room.countdown = math.min(room.countdown, FULL_COUNTDOWN)
-		end
 		refresh(pad)
 	elseif not pendingHost[pad] then
 		pendingHost[pad] = player
-		OpenSetup:FireClient(player, pad:GetAttribute("PadIndex"))
+		pendingSince[pad] = os.clock()
+		OpenSetup:FireClient(player, pad:GetAttribute("PadIndex"), COUNTDOWN)
 		refresh(pad)
 	end
 end
@@ -246,7 +257,11 @@ local function launch(room: Room)
 		for _, p in ipairs(room.members) do
 			Notice:FireClient(p, "เทสใน Studio: Teleport ใช้ไม่ได้ ดูข้อมูลห้องใน Output", "Studio test: teleport is disabled, see Output")
 		end
+		local list = table.clone(room.members)
 		closeRoom(room.pad, "ห้องถูกรีเซ็ต (เทสใน Studio)", "Room reset (Studio test)")
+		for _, p in ipairs(list) do
+			sendToSpawn(p)
+		end
 		return
 	end
 	local ok, err = pcall(function()
@@ -289,9 +304,6 @@ ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, diff
 		countdown = COUNTDOWN,
 		launching = false,
 	}
-	if room.maxPlayers == 1 then
-		room.countdown = FULL_COUNTDOWN
-	end
 	rooms[pad] = room
 	-- คนที่ยืนรออยู่ในวงก่อนแล้วได้เข้าห้องเลย
 	for other, p in pairs(onPad) do
@@ -308,14 +320,15 @@ CancelSetup.OnServerEvent:Connect(function(player: Player)
 		pendingHost[pad] = nil
 		cooldownUntil[player] = os.clock() + REJOIN_COOLDOWN
 		refresh(pad)
+		sendToSpawn(player)
 	end
 end)
 
+-- เจ้าของห้องกดเริ่มเกม = ส่งไปเกมทันที
 StartNow.OnServerEvent:Connect(function(player: Player)
 	for _, room in pairs(rooms) do
 		if room.host == player and not room.launching then
-			room.countdown = math.min(room.countdown, START_COUNTDOWN)
-			refresh(room.pad)
+			task.spawn(launch, room)
 		end
 	end
 end)
@@ -374,14 +387,29 @@ task.spawn(function()
 		end
 		tick += 1
 		if tick % 4 == 0 then
+			-- ห้องที่เจ้าของไม่กดเริ่มใน 30 วิ: ปิดห้อง ดีดทุกคนกลับจุดเกิด
 			for pad, room in pairs(rooms) do
 				if not room.launching then
 					room.countdown -= 1
 					if room.countdown <= 0 then
-						task.spawn(launch, room)
+						local list = table.clone(room.members)
+						closeRoom(pad, "หมดเวลา ห้องถูกปิด สร้างห้องใหม่ได้", "Time's up, the room closed. Create a new one")
+						for _, p in ipairs(list) do
+							sendToSpawn(p)
+						end
 					else
 						refresh(pad)
 					end
+				end
+			end
+			-- หน้าต่างตั้งห้องค้างเกิน 30 วิ: ปิดหน้าต่าง ดีดกลับจุดเกิด
+			for pad, p in pairs(pendingHost) do
+				if os.clock() - (pendingSince[pad] or 0) > COUNTDOWN then
+					pendingHost[pad] = nil
+					OpenSetup:FireClient(p, nil)
+					Notice:FireClient(p, "หมดเวลาตั้งห้อง", "Room setup timed out")
+					refresh(pad)
+					sendToSpawn(p)
 				end
 			end
 		end

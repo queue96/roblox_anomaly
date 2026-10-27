@@ -33,7 +33,13 @@
       "$className": "ServerScriptService",
       "$ignoreUnknownInstances": true,
       "Server": {
-        "$path": "src/lobby/server"
+        "$path": "src/lobby/server",
+        "PlayerSettings": {
+          "$path": "src/server/PlayerSettings.server.luau"
+        },
+        "AnomalyBook": {
+          "$path": "src/server/AnomalyBook.luau"
+        }
       }
     },
     "StarterPlayer": {
@@ -43,7 +49,13 @@
         "$className": "StarterPlayerScripts",
         "$ignoreUnknownInstances": true,
         "Client": {
-          "$path": "src/lobby/client"
+          "$path": "src/lobby/client",
+          "SettingsController": {
+            "$path": "src/client/SettingsController.client.luau"
+          },
+          "BookController": {
+            "$path": "src/client/BookController.client.luau"
+          }
         }
       }
     }
