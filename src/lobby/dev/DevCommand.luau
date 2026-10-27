@@ -2,30 +2,27 @@
 -- ไม่ถูกรันตอนเล่นเกม; ผลลัพธ์ print ขึ้นต้น DEVCMD| ให้อ่านจาก log ของ Studio
 
 return {
-	id = "clean-archive-1",
+	id = "rebuild-temple-3",
 	placeId = 70980777393906,
 	run = function()
+		local MapBuilder = require(game:GetService("ReplicatedStorage").Shared.MapBuilder:Clone())
+		local lobby = MapBuilder.BuildTempleLobby(Vector3.zero, true, 2)
 		local arch = game:GetService("ServerStorage"):FindFirstChild("ArchivedPlaceholders")
-		local folder = arch and arch:FindFirstChild("TempleLobby")
-		local n = folder and #folder:GetChildren() or 0
-		if folder then
-			folder:Destroy()
-		end
-		if arch and #arch:GetChildren() == 0 then
+		if arch then
 			arch:Destroy()
 		end
-		local spooky = workspace.TempleLobby:FindFirstChild("SpookyDecor")
-		local counts = {}
+		local spooky = lobby.SpookyDecor
+		local poles, lights = 0, 0
 		for _, c in ipairs(spooky:GetChildren()) do
-			local k = c.Name:gsub("_%d+$", "")
-			counts[k] = (counts[k] or 0) + 1
+			if c.Name:match("^PlazaPole_") then
+				poles += 1
+			end
 		end
-		local list = {}
-		for k, v in pairs(counts) do
-			table.insert(list, k .. "×" .. v)
+		for _, d in ipairs(lobby:GetDescendants()) do
+			if d:IsA("PointLight") then
+				lights += 1
+			end
 		end
-		table.sort(list)
-		print("DEVCMD|removed archived lobbies: " .. n)
-		print("DEVCMD|SpookyDecor: " .. table.concat(list, ", "))
+		print(("DEVCMD|poles=%d wires=%d pointLights=%d"):format(poles, #spooky.PowerWires:GetChildren(), lights))
 	end,
 }

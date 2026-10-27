@@ -15,8 +15,10 @@ local IS_STUDIO = RunService:IsStudio()
 -- บรรยากาศวัดร้างตอนเที่ยงคืน: ใช้แสงกลางคืนชุดเดียวกับแมพเกม แล้วกดให้ซีดและเย็นกว่า
 local MapBuilder = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MapBuilder"):Clone())
 MapBuilder.SetNightLighting()
-Lighting.Ambient = Color3.fromRGB(10, 14, 18)
-Lighting.OutdoorAmbient = Color3.fromRGB(14, 18, 24)
+-- แสงจันทร์จางๆ พอเห็นรูปทรงอาคารทั้งวัด (มืดกว่านี้แล้วกลางลานดำสนิท)
+Lighting.Brightness = 0.6
+Lighting.Ambient = Color3.fromRGB(24, 28, 36)
+Lighting.OutdoorAmbient = Color3.fromRGB(36, 42, 54)
 local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
 if atmo then
 	atmo.Density = 0.45

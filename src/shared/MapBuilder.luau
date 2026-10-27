@@ -5096,6 +5096,8 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	local NAMES = { { "พระแก่นจันทร์", 0.115, 0.22 }, { "พระประธาน", 0.5, 0.22 }, { "พระเกษร", 0.885, 0.22 } }
 	templeLabels(trio:FindFirstChild("BuddhaTrio_Plaques") :: BasePart, NAMES, 40)
 	templeLight(lobby, "UbosotCandleLight", G + Vector3.new(0, 9, UBZ - 8), Color3.fromRGB(255, 160, 80), 1.1, 24)
+	-- ไฟสาดหน้าโบสถ์สีขาวอมฟ้า ให้เห็นหน้าบันลอยขึ้นมาจากความมืดเมื่อมองจากลาน
+	templeLight(lobby, "UbosotFacadeLight", G + Vector3.new(0, 6, UBZ + 52), Color3.fromRGB(190, 210, 255), 1, 48)
 
 	-- ศาลาการเปรียญ (ฝั่งซ้าย หันหน้าเข้าลาน) + พระ 3 องค์อีกชุด
 	local SALA = at(-X + 28, plazaZ, 90)
@@ -5300,17 +5302,69 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 			end
 		end
 
-		-- เสาไฟไม้หลอดสลัวรอบลาน (แทนไฟล่องหน)
+		-- เสาไฟไม้ 4 แถว × 3 (ริมลาน 2 แถว + กลางลาน 2 แถว) หลอดสลัวบางดวงกะพริบ
+		-- ทุกเสาโยงสายไฟหย่อนๆ ถึงกัน: ตามแถวหน้า-หลัง และขวางลานทั้ง 3 แนว
 		if props:FindFirstChild("TvAntennaAndPoles") then
 			local half = (plazaFront - plazaBack) / 2
-			local px = plazaW / 2 + 3
-			for i, c in ipairs({ { -px, plazaZ - half + 8 }, { -px, plazaZ }, { -px, plazaZ + half - 8 }, { px, plazaZ - half + 8 }, { px, plazaZ }, { px, plazaZ + half - 8 } }) do
-				local m = Instance.new("Model")
-				m.Name = "PlazaPole_" .. i
-				m.Parent = spooky
-				local pl = placeGroup(props, "TvAntennaAndPoles", { "WoodenPole", "WoodenPole_Neon" }, G + Vector3.new(c[1], 0, c[2]), if c[1] < 0 then 90 else -90, "bottom", m)
-				makeNeon(pl.WoodenPole_Neon, Color3.fromRGB(255, 226, 170))
-				lamp(pl.WoodenPole_Neon, Color3.fromRGB(255, 214, 160), 0.9, 36, i % 2 == 1)
+			local cols = { -(plazaW / 2 + 3), -plazaW / 6, plazaW / 6, plazaW / 2 + 3 }
+			local rows = { plazaZ - half + 8, plazaZ, plazaZ + half - 8 }
+			local tops: { { Vector3 } } = {}
+			local n = 0
+			for ci, cx in ipairs(cols) do
+				tops[ci] = {}
+				for ri, rz in ipairs(rows) do
+					n += 1
+					local m = Instance.new("Model")
+					m.Name = "PlazaPole_" .. n
+					m.Parent = spooky
+					local pl = placeGroup(props, "TvAntennaAndPoles", { "WoodenPole", "WoodenPole_Neon" }, G + Vector3.new(cx, 0, rz), if cx < 0 then 90 else -90, "bottom", m)
+					makeNeon(pl.WoodenPole_Neon, Color3.fromRGB(255, 226, 170))
+					lamp(pl.WoodenPole_Neon, Color3.fromRGB(255, 214, 160), 1.3, 46, n % 3 == 1)
+					local pole = pl.WoodenPole
+					tops[ci][ri] = Vector3.new(G.X + cx, pole.Position.Y + pole.Size.Y / 2 - 0.8, G.Z + rz)
+				end
+			end
+			local wires = Instance.new("Model")
+			wires.Name = "PowerWires"
+			wires.Parent = spooky
+			-- สายไฟ 2 เส้นต่อช่วง หย่อนลงกลางช่วง 5% ของระยะ (แบ่งเป็นท่อนสั้นๆ ตามเส้นโค้ง)
+			local function wire(a: Vector3, b: Vector3)
+				local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+				local side = if flat.Magnitude > 0 then flat.Unit:Cross(Vector3.yAxis) * 0.7 else Vector3.zero
+				local sag = (b - a).Magnitude * 0.05
+				for _, off in ipairs({ side, -side }) do
+					local SEG = 8
+					local prev = a + off
+					for k = 1, SEG do
+						local t = k / SEG
+						local p = a:Lerp(b, t) + off - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+						local len = (p - prev).Magnitude
+						local w = Instance.new("Part")
+						w.Name = "Wire"
+						w.Shape = Enum.PartType.Cylinder
+						w.Size = Vector3.new(len + 0.05, 0.12, 0.12)
+						w.CFrame = CFrame.lookAt((prev + p) / 2, p) * CFrame.Angles(0, math.rad(90), 0)
+						w.Color = Color3.fromRGB(22, 20, 18)
+						w.Material = Enum.Material.SmoothPlastic
+						w.Anchored = true
+						w.CanCollide = false
+						w.CanQuery = false
+						w.CanTouch = false
+						w.CastShadow = false
+						w.Parent = wires
+						prev = p
+					end
+				end
+			end
+			for ci = 1, #cols do
+				for ri = 1, #rows - 1 do
+					wire(tops[ci][ri], tops[ci][ri + 1])
+				end
+			end
+			for ri = 1, #rows do
+				for ci = 1, #cols - 1 do
+					wire(tops[ci][ri], tops[ci + 1][ri])
+				end
 			end
 		end
 
