@@ -5489,7 +5489,7 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	local pads = Instance.new("Folder")
 	pads.Name = "RoomPads"
 	pads.Parent = lobby
-	local PAD_R = 10
+	local PAD_R = 12
 	local padCol = plazaW / 3
 	local padRows = { plazaFront - 24, plazaFront - 80, plazaFront - 136 }
 	local idx = 0
@@ -5507,6 +5507,18 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 				seg.CanCollide = false
 				seg.CanQuery = false
 				seg.CastShadow = false
+			end
+			-- กำแพงม่านพลังจางๆ รอบวง (ซ่อนไว้) LobbyServer เปิดตอนเจ้าของห้องกำลังตั้งห้อง: คนข้างนอกเข้าไม่ได้ เจ้าของออกไม่ได้
+			local wall = Instance.new("Model")
+			wall.Name = "RoomPadWall_" .. idx
+			wall.Parent = pads
+			for k = 0, SEG - 1 do
+				local a = (k + 0.5) / SEG * math.pi * 2
+				local w = block("WallSeg", Vector3.new(0.4, 10, 2 * math.pi * PAD_R / SEG + 0.12), CFrame.new(c + Vector3.new(math.cos(a) * PAD_R, 5.2, math.sin(a) * PAD_R)) * CFrame.Angles(0, -a, 0), Color3.fromRGB(255, 60, 40), Enum.Material.ForceField, wall)
+				w.Transparency = 1
+				w.CanCollide = false
+				w.CanQuery = false
+				w.CastShadow = false
 			end
 			local pad = block("RoomPad_" .. idx, Vector3.new(0.4, PAD_R * 2, PAD_R * 2), CFrame.new(c + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, pads)
 			pad.Shape = Enum.PartType.Cylinder

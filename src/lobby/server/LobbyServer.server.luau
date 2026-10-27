@@ -115,6 +115,25 @@ local pads: { BasePart } = {}
 local rooms: { [BasePart]: Room } = {}
 local pendingHost: { [BasePart]: Player } = {}
 local pendingSince: { [BasePart]: number } = {}
+
+-- กำแพงม่านพลังรอบวง (TempleLobby.RoomPads.RoomPadWall_n จาก MapBuilder): เปิดตอนกำลังตั้งห้อง
+local function setWall(pad: BasePart, on: boolean)
+	local wall = pad.Parent and pad.Parent:FindFirstChild("RoomPadWall_" .. tostring(pad:GetAttribute("PadIndex")))
+	if not wall then
+		return
+	end
+	for _, w in ipairs(wall:GetChildren()) do
+		if w:IsA("BasePart") then
+			w.CanCollide = on
+			w.Transparency = if on then 0.15 else 1
+		end
+	end
+end
+local function setPending(pad: BasePart, player: Player?)
+	pendingHost[pad] = player
+	pendingSince[pad] = if player then os.clock() else nil
+	setWall(pad, player ~= nil)
+end
 local onPad: { [Player]: BasePart? } = {}
 local cooldownUntil: { [Player]: number } = {}
 
@@ -198,7 +217,7 @@ end
 
 local function leaveRoom(player: Player, pad: BasePart)
 	if pendingHost[pad] == player then
-		pendingHost[pad] = nil
+		setPending(pad, nil)
 		OpenSetup:FireClient(player, nil)
 		refresh(pad)
 		return
@@ -236,8 +255,7 @@ local function enterPad(player: Player, pad: BasePart)
 		table.insert(room.members, player)
 		refresh(pad)
 	elseif not pendingHost[pad] then
-		pendingHost[pad] = player
-		pendingSince[pad] = os.clock()
+		setPending(pad, player)
 		OpenSetup:FireClient(player, pad:GetAttribute("PadIndex"), COUNTDOWN)
 		refresh(pad)
 	end
@@ -293,7 +311,7 @@ ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, diff
 	if type(maxPlayers) ~= "number" or not Difficulty.IsValid(difficulty) then
 		return
 	end
-	pendingHost[pad] = nil
+	setPending(pad, nil)
 	local room: Room = {
 		id = HttpService:GenerateGUID(false),
 		pad = pad,
@@ -317,7 +335,7 @@ end)
 CancelSetup.OnServerEvent:Connect(function(player: Player)
 	local pad = onPad[player]
 	if pad and pendingHost[pad] == player then
-		pendingHost[pad] = nil
+		setPending(pad, nil)
 		cooldownUntil[player] = os.clock() + REJOIN_COOLDOWN
 		refresh(pad)
 		sendToSpawn(player)
@@ -405,7 +423,7 @@ task.spawn(function()
 			-- หน้าต่างตั้งห้องค้างเกิน 30 วิ: ปิดหน้าต่าง ดีดกลับจุดเกิด
 			for pad, p in pairs(pendingHost) do
 				if os.clock() - (pendingSince[pad] or 0) > COUNTDOWN then
-					pendingHost[pad] = nil
+					setPending(pad, nil)
 					OpenSetup:FireClient(p, nil)
 					Notice:FireClient(p, "หมดเวลาตั้งห้อง", "Room setup timed out")
 					refresh(pad)

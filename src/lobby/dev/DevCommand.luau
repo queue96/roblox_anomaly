@@ -2,7 +2,7 @@
 -- ไม่ถูกรันตอนเล่นเกม; ผลลัพธ์ print ขึ้นต้น DEVCMD| ให้อ่านจาก log ของ Studio
 
 return {
-	id = "rebuild-temple-5",
+	id = "rebuild-temple-6",
 	placeId = 70980777393906,
 	run = function()
 		local MapBuilder = require(game:GetService("ReplicatedStorage").Shared.MapBuilder:Clone())
