@@ -9,6 +9,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
 
 local AnomalyBook = {}
 
@@ -106,6 +107,7 @@ function AnomalyBook.Survived(key: string)
 			publish(p)
 			dirty[p] = true
 			if first then
+				LeaderboardStats.Increment("anomalies", p.UserId, 1)
 				unlocked:FireClient(p, key)
 				print("📘 [" .. p.Name .. "] ปลดล็อกผีในสมุด: " .. key)
 			end

@@ -5107,31 +5107,55 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	templeLabels(trio2:FindFirstChild("BuddhaTrio_Plaques") :: BasePart, NAMES, 40)
 	templeLight(lobby, "SalaLight", (SALA * CFrame.new(0, 11, -3.5)).Position, Color3.fromRGB(200, 215, 255), 0.5, 26)
 
-	-- กุฏิ 2 หลัง (ฝั่งขวา หันหน้าเข้าลาน) ย่อ 2/3 = ขนาดจริง (ไฟล์ปั้นไว้ใหญ่ 1.5 เท่า) ประตู ~5.4 × 7 studs
+	-- กุฏิ 3 หลัง (ฝั่งขวา หันหน้าเข้าลาน) เว้นระยะสม่ำเสมอและพ้นต้นมะม่วง/ต้นไทร
 	local KUTI = 1 / 1.5
-	placeTempleUnit(store, "Kuti", at(X - 12, plazaZ + 25, -90), lobby, KUTI)
-	placeTempleUnit(store, "Kuti", at(X - 12, plazaZ - 25, -90), lobby, KUTI).Name = "Kuti_2"
-	templeLight(lobby, "KutiLamp", G + Vector3.new(X - 14, 11, plazaZ + 25), Color3.fromRGB(255, 176, 96), 0.5, 16)
+	local KUTI_X = X - 22
+	-- หลังที่สามกลับไปอยู่ใกล้ต้นมะม่วงตามตำแหน่งเดิม
+	local KUTI_ANNEX_X = X - 28
+	local KUTI_ANNEX_Z = plazaBack - 14
+	placeTempleUnit(store, "Kuti", at(KUTI_X, plazaZ + 48, -90), lobby, KUTI)
+	placeTempleUnit(store, "Kuti", at(KUTI_X, plazaZ - 48, -90), lobby, KUTI).Name = "Kuti_2"
+	placeTempleUnit(store, "Kuti", at(KUTI_ANNEX_X, KUTI_ANNEX_Z, -90), lobby, KUTI).Name = "Kuti_3_Annex"
+	templeLight(lobby, "KutiLamp", G + Vector3.new(KUTI_X - 2, 11, plazaZ + 48), Color3.fromRGB(255, 176, 96), 0.5, 16)
+	templeLight(lobby, "KutiOldLamp", G + Vector3.new(KUTI_X - 2, 9, plazaZ - 48), Color3.fromRGB(125, 155, 190), 0.28, 14)
+	templeLight(lobby, "KutiAnnexLamp", G + Vector3.new(KUTI_ANNEX_X - 2, 10, KUTI_ANNEX_Z), Color3.fromRGB(210, 165, 92), 0.32, 14)
 
-	-- เมรุ (มุมหลังซ้าย) + แสงแดงจางๆ ที่ประตูเตาเผา
+	-- เมรุกลับไปมุมหลังซ้าย ให้พื้นที่กลางระหว่างกุฏิเป็นที่วางป้าย leaderboard
 	local MERU = at(-X + 25, BACK + 25)
 	placeTempleUnit(store, "Meru", MERU, lobby)
-	templeLight(lobby, "MeruFurnaceGlow", (MERU * CFrame.new(0, 7.5, 2.6)).Position, Color3.fromRGB(255, 70, 40), 0.5, 9)
+	templeLight(lobby, "MeruFurnaceGlow", (MERU * CFrame.new(0, 7.5, 2.6)).Position, Color3.fromRGB(255, 76, 42), 0.68, 11)
+	-- แสงหน้าเมรุสลัวพอให้เห็นขอบอาคารในหมอก ไม่สว่างจนกลายเป็นไฟสนาม
+	templeLight(lobby, "MeruEmberLeft", (MERU * CFrame.new(-7, 5.5, 8)).Position, Color3.fromRGB(255, 115, 58), 0.22, 15)
+	templeLight(lobby, "MeruEmberRight", (MERU * CFrame.new(7, 5.5, 8)).Position, Color3.fromRGB(255, 115, 58), 0.22, 15)
 	templeLight(lobby, "GateLamp", G + Vector3.new(0, 15, FRONT - 3), Color3.fromRGB(190, 210, 255), 0.6, 24)
 
-	-- ป้ายบริจาค (หน้าป้ายเปล่า DonationBoard_Face ไว้ใส่ SurfaceGui ทำ dashboard ผู้บริจาค) หันเข้าลาน
-	placeTempleUnit(store, "DonationBoard", at(-24, FRONT - 12, 180), lobby)
-	-- ตู้บริจาค (จุดกดโดเนท) ข้างทางเข้ากำแพงแก้วโบสถ์ หันเข้าหาทางเดิน
-	local box = placeTempleUnit(store, "DonationBox", at(-8.5, UBZ + 40, 90), lobby)
+	-- Dashboard 3 ป้ายชิดรั้วด้านข้าง หันเข้าลาน เพื่อเว้นประตูและทางเดินกลางให้โล่ง
+	local donationBoard = placeTempleUnit(store, "DonationBoard", at(-58, FRONT - 18, 180), lobby)
+	donationBoard.Name = "LeaderboardDonations"
+	templeLabels(donationBoard:FindFirstChild("DonationBoard_Face", true) :: BasePart, { { "ผู้ร่วมทำบุญสูงสุด\nกำลังโหลดอันดับ...", 0.5, 0.9 } }, 44)
+	local completionBoard = placeTempleUnit(store, "DonationBoard", at(58, FRONT - 18, 180), lobby)
+	completionBoard.Name = "LeaderboardCompletions"
+	templeLabels(completionBoard:FindFirstChild("DonationBoard_Face", true) :: BasePart, { { "จบเกมมากที่สุด\nกำลังโหลดอันดับ...", 0.5, 0.9 } }, 44)
+	-- ป้ายที่สามอยู่กลางระหว่างกุฏิสองหลัง หันเข้าหาลาน
+	local anomalyBoard = placeTempleUnit(store, "DonationBoard", at(KUTI_X, plazaZ, -90), lobby)
+	anomalyBoard.Name = "LeaderboardAnomalies"
+	templeLabels(anomalyBoard:FindFirstChild("DonationBoard_Face", true) :: BasePart, { { "สะสมสิ่งผิดปกติมากที่สุด\nกำลังโหลดอันดับ...", 0.5, 0.9 } }, 44)
+	-- ตู้บริจาคหันออกสู่ลานใหญ่ (หน้าโมเดลหัน +Z) พร้อม ProximityPrompt mockup จาก TempleMerit
+	local box = placeTempleUnit(store, "DonationBox", at(-8.5, UBZ + 40), lobby)
 	local glass = box:FindFirstChild("DonationBox_Glass") :: BasePart
 	if glass then
 		glass.Material = Enum.Material.Glass
 		glass.Transparency = 0.55
 	end
-	-- รถเข็นขายทุกอย่าง (ร้านค้า) ฝั่งขวาของทางเดิน หันเข้าหาทางเดิน
-	local cart = placeTempleUnit(store, "ShopCart", at(22, FRONT - 18, -90), lobby)
+	-- รถเข็นขายทุกอย่าง 2 ร้าน หันเข้าหาลานกว้าง
+	local cart = placeTempleUnit(store, "ShopCart", at(22, FRONT - 38, 180), lobby)
+	cart.Name = "ShopCart_Main"
 	templeLabels(cart:FindFirstChild("ShopCart_Sign") :: BasePart, { { "ขายทุกอย่าง · All Goods", 0.5, 0.95 } }, 50)
-	templeLight(lobby, "ShopCartLamp", G + Vector3.new(21, 10.5, FRONT - 18), Color3.fromRGB(255, 214, 150), 0.7, 14)
+	templeLight(lobby, "ShopCartLamp", G + Vector3.new(21, 10.5, FRONT - 38), Color3.fromRGB(255, 214, 150), 0.7, 14)
+	local cart2 = placeTempleUnit(store, "ShopCart", at(-22, FRONT - 38, 180), lobby)
+	cart2.Name = "ShopCart_2"
+	templeLabels(cart2:FindFirstChild("ShopCart_Sign") :: BasePart, { { "ของไหว้ · Temple Goods", 0.5, 0.95 } }, 50)
+	templeLight(lobby, "ShopCartLamp_2", G + Vector3.new(-21, 10.5, FRONT - 38), Color3.fromRGB(255, 188, 116), 0.55, 14)
 
 	-- ธาตุเก็บกระดูก 2 กลุ่ม (บางองค์เอียงนิดๆ ให้ดูเก่า)
 	local stupas = Instance.new("Model")
@@ -5148,6 +5172,12 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	for r = 0, 1 do
 		for c = 0, 3 do
 			table.insert(spots, { 31 + c * 6.5, BACK + 7 + r * 7 })
+		end
+	end
+	-- กลุ่มธาตุเก่าข้างศาลา ทำให้เห็นสุสานย่อมๆ จากลานโดยไม่ขวางทางเดิน
+	for r = 0, 1 do
+		for c = 0, 3 do
+			table.insert(spots, { -X + 58 + c * 6.5, BACK + 68 + r * 7 })
 		end
 	end
 	for i, sp in ipairs(spots) do
@@ -5214,6 +5244,87 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	end
 	local GOLD = Color3.fromRGB(214, 172, 92)
 	local CANDLE = Color3.fromRGB(255, 150, 70)
+
+	-- หมอกจริงระดับพื้น: emitter หลายก้อนขนาดใหญ่ ใช้ smoke texture ของ Roblox และอยู่ต่ำจนไม่กลืนท้องฟ้า/อาคาร
+	local mist = Instance.new("Folder")
+	mist.Name = "GroundMist"
+	mist.Parent = spooky
+	local function fogBank(name: string, center: Vector3, size: Vector3, rate: number)
+		local source = block(name, size, CFrame.new(center), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, mist)
+		source.Transparency = 1
+		source.CanCollide = false
+		source.CanQuery = false
+		source.CanTouch = false
+		source.CastShadow = false
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Name = "LowMist"
+		emitter.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		emitter.Color = ColorSequence.new(Color3.fromRGB(104, 119, 132), Color3.fromRGB(78, 91, 104))
+		emitter.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.18, 0.82),
+			NumberSequenceKeypoint.new(0.7, 0.88),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 14),
+			NumberSequenceKeypoint.new(0.55, 25),
+			NumberSequenceKeypoint.new(1, 32),
+		})
+		emitter.Lifetime = NumberRange.new(14, 20)
+		emitter.Rate = math.max(1, math.floor(rate * 0.55))
+		emitter.Speed = NumberRange.new(0.12, 0.35)
+		emitter.Drag = 1
+		emitter.SpreadAngle = Vector2.new(18, 18)
+		emitter.Acceleration = Vector3.new(0.05, 0.02, -0.03)
+		emitter.Orientation = Enum.ParticleOrientation.FacingCamera
+		emitter.LightInfluence = 0
+		emitter.LightEmission = 0.08
+		emitter.Shape = Enum.ParticleEmitterShape.Box
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		emitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+		emitter.Parent = source
+	end
+	for i, bank in ipairs({
+		-- ลานกลางวัด
+		{ -plazaW * 0.32, plazaZ - 48, 50, 42, 7 },
+		{ plazaW * 0.3, plazaZ - 26, 52, 44, 8 },
+		{ -plazaW * 0.36, plazaZ + 38, 48, 40, 7 },
+		{ plazaW * 0.34, plazaZ + 48, 54, 44, 8 },
+		{ 0, plazaBack - 10, 72, 34, 6 },
+		-- รอบอาคารและมุมวัด
+		{ -X + 30, plazaZ + 44, 38, 52, 4 }, -- ศาลา
+		{ X - 30, plazaZ + 26, 40, 50, 4 }, -- กุฏิ
+		{ -X + 34, BACK + 34, 46, 46, 4 }, -- เมรุ
+		{ X - 36, BACK + 44, 48, 48, 4 }, -- ต้นไทร/ศาลพระภูมิ
+		{ 0, FRONT - 20, 88, 40, 5 }, -- ลานหน้าประตู
+		-- แนวป่ารอบรั้ว เพื่อค่อยๆ กลืนขอบแมพ
+		{ -X - 30, plazaZ, 76, 100, 3 },
+		{ X + 30, plazaZ, 76, 100, 3 },
+		{ 0, FRONT + 32, 170, 62, 4 },
+		{ 0, BACK - 30, 170, 58, 4 },
+	}) do
+		fogBank("FogBank_" .. i, G + Vector3.new(bank[1], 0.45, bank[2]), Vector3.new(bank[3], 0.2, bank[4]), bank[5])
+	end
+
+	-- ลานธาตุเก่า: เทียนไหวๆ และของเซ่นเล็กน้อยให้มุมสุสานมีจุดนำสายตาในหมอก
+	local ossuary = Instance.new("Model")
+	ossuary.Name = "OssuaryOfferings"
+	ossuary.Parent = spooky
+	for i, p in ipairs({ Vector3.new(-101, 0, BACK + 67), Vector3.new(-88, 0, BACK + 75), Vector3.new(-108, 0, BACK + 77) }) do
+		local base = G + p
+		local tray = block("OfferingTray", Vector3.new(2.1, 0.25, 1.45), CFrame.new(base + Vector3.new(0, 0.13, 0)), Color3.fromRGB(72, 54, 36), Enum.Material.Wood, ossuary)
+		tray.CanCollide = false
+		local candle = block("OssuaryCandle", Vector3.new(0.24, 0.72, 0.24), CFrame.new(base + Vector3.new(-0.45, 0.48, 0)), Color3.fromRGB(225, 220, 196), Enum.Material.SmoothPlastic, ossuary)
+		candle.CanCollide = false
+		local flame = block("OssuaryFlame", Vector3.new(0.16, 0.3, 0.16), CFrame.new(base + Vector3.new(-0.45, 0.98, 0)), CANDLE, Enum.Material.Neon, ossuary)
+		flame.CanCollide = false
+		flame.CanQuery = false
+		flame.CastShadow = false
+		lamp(flame, CANDLE, 0.7, 8, i ~= 2)
+		local flowers = block("WiltedFlowers", Vector3.new(0.7, 0.18, 0.55), CFrame.new(base + Vector3.new(0.38, 0.28, 0)), Color3.fromRGB(90, 52, 62), Enum.Material.Fabric, ossuary)
+		flowers.CanCollide = false
+	end
 
 	-- งานศพในศาลา: โลงขาวขอบทองบนแท่น, รูปผู้ตายกรอบดำ, เทียนสองข้าง, พวงหรีดเรียงหน้าศาลา
 	local funeral = Instance.new("Model")
@@ -5382,7 +5493,8 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 				{ -8, 8, UBZ, FRONT + 8 }, -- ทางเดิน
 				{ -30, 30, UBZ - 36, UBZ + 46 }, -- โบสถ์
 				{ -X, -X + 52, plazaZ - 30, plazaZ + 30 }, -- ศาลา + พวงหรีด
-				{ X - 44, X, plazaZ - 40, plazaZ + 40 }, -- กุฏิ
+				{ X - 70, X, plazaZ - 66, plazaZ + 66 }, -- กุฏิ + ป้ายกลาง
+				{ KUTI_ANNEX_X - 26, KUTI_ANNEX_X + 26, KUTI_ANNEX_Z - 30, KUTI_ANNEX_Z + 30 }, -- กุฏิหลังที่ 3
 				{ -X, -X + 44, BACK, BACK + 70 }, -- เมรุ + ธง
 				{ -60, 60, BACK, BACK + 30 }, -- ธาตุ
 				{ X - 80, X, BACK, BACK + 80 }, -- ต้นไทร
@@ -5390,8 +5502,8 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 			}
 			local rngG = Random.new(5151)
 			local count = 0
-			for _ = 1, 400 do
-				if count >= 70 then
+			for _ = 1, 560 do
+				if count >= 120 then
 					break
 				end
 				local gx, gz = rngG:NextNumber(-X + 3, X - 3), rngG:NextNumber(BACK + 3, FRONT - 3)
@@ -5420,8 +5532,8 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 		end
 	end
 
-	-- ป่ารอบวัด 2 แนวนอกรั้ว (มะม่วงใบบาง + กอกล้วย) เว้นทางหน้าประตู + กำแพงล่องหนตามแนวรั้ว (ปิดประตูด้วย)
-	-- หมอก (LobbyServer) กลืนป่าแนวนอกจนมองไม่เห็นขอบพื้น
+	-- ป่ารอบวัด 3 แนวนอกรั้ว (มะม่วงใบบาง + กอกล้วย) เว้นทางหน้าประตู + กำแพงล่องหนตามแนวรั้ว (ปิดประตูด้วย)
+	-- แนวนอกสุดอยู่ชิดขอบพื้น แล้วให้หมอก LobbyServer กลืนเป็นฉากหลังเพื่อไม่ให้เห็นขอบแมพ
 	ground.Size = Vector3.new(2 * X + 170, 1, (FRONT - BACK) + 170)
 	ground.CFrame = CFrame.new(G + Vector3.new(0, -0.5, (FRONT + BACK) / 2))
 	if props and props:FindFirstChild("MangoTree") and props:FindFirstChild("BananaClump") then
@@ -5430,7 +5542,7 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 		forest.Parent = lobby
 		local rngF = Random.new(31337)
 		local n = 0
-		for _, d in ipairs({ 16, 40 }) do
+		for _, d in ipairs({ 16, 46, 78 }) do
 			local x0, x1, z0, z1 = -X - d, X + d, BACK - d, FRONT + d
 			local edges = { { x0, z0, x1, z0 }, { x1, z0, x1, z1 }, { x1, z1, x0, z1 }, { x0, z1, x0, z0 } }
 			for _, e in ipairs(edges) do

@@ -362,6 +362,7 @@ local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
 local Pedestrian = require(script.Parent:WaitForChild("Pedestrian"))
 local Weather = require(script.Parent:WaitForChild("Weather"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
+local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
 local function pick(list: { any }): any
 	return list[math.random(#list)]
 end
@@ -1963,6 +1964,9 @@ function CoreLoop.Start()
 						print("💀 ธูปดับครบ 3 ดอก Game Over")
 					elseif money >= CONFIG.TargetMoney then
 						gameOver = true
+						for _, player in ipairs(Players:GetPlayers()) do
+							LeaderboardStats.Increment("completions", player.UserId, 1)
+						end
 						GameState:FireAllClients("Win")
 						print("🏆 ครบ " .. CONFIG.TargetMoney .. "฿ ชนะ!")
 					end

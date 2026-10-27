@@ -23,7 +23,7 @@ local function loop(name: string, id: string, volume: number)
 end
 loop("LobbyCrickets", "rbxassetid://9112764023", 0.35)
 loop("LobbyCricketsFar", "rbxassetid://9112764040", 0.2)
-loop("LobbyEerieAir", "rbxassetid://9114244841", 0.25)
+loop("LobbyEerieAir", "rbxassetid://9114244841", 0.32)
 
 -- หลอดไฟ/เทียนกะพริบ: ปกติสว่างนิ่ง แล้วสะดุดวูบเป็นพักๆ (สุ่มจังหวะแยกกันทุกดวง)
 local function flicker(part: Instance)
@@ -105,6 +105,7 @@ local OpenSetup = remotes:WaitForChild("OpenSetup") :: RemoteEvent
 local ConfirmRoom = remotes:WaitForChild("ConfirmRoom") :: RemoteEvent
 local CancelSetup = remotes:WaitForChild("CancelSetup") :: RemoteEvent
 local StartNow = remotes:WaitForChild("StartNow") :: RemoteEvent
+local LeaveRoom = remotes:WaitForChild("LeaveRoom") :: RemoteEvent
 local RoomState = remotes:WaitForChild("RoomState") :: RemoteEvent
 local Notice = remotes:WaitForChild("Notice") :: RemoteEvent
 
@@ -367,7 +368,7 @@ OpenSetup.OnClientEvent:Connect(function(padIndex: number?, seconds: number?)
 end)
 
 -- ---------------------------------------------------------------- แผงห้อง (ขวาบน ใต้ปุ่มสมุดผี/ตั้งค่า)
--- เจ้าของห้องกด "เริ่มเกม" = ไป place เกมทันที, ไม่กดใน 30 วิ = ห้องปิด ดีดทุกคนกลับจุดเกิด
+-- เจ้าของกดเริ่มได้ตลอดช่วงรอ; ห้องเต็มนับ 5 วิแล้วไปเอง; ออกจากห้องด้วยปุ่มนี้เท่านั้น
 local status = panelFrame("RoomStatus", 320, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 60) })
 local statusHead = header(status)
 statusHead.TextSize = 19
@@ -390,12 +391,17 @@ local leaveHint = new("TextLabel", {
 	TextSize = 15,
 	LayoutOrder = 4,
 }, status)
-local startRow = new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 5 }, status)
-new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, startRow)
-local startBtn = button(startRow, { Size = UDim2.new(1, 0, 0, 32), Position = UDim2.new(0, 0, 0.5, -16), BackgroundColor3 = C.Blood, TextSize = 18 })
+local actionRow = new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 5 }, status)
+new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, actionRow)
+local startBtn = button(actionRow, { Size = UDim2.new(0.49, 0, 0, 32), Position = UDim2.new(0, 0, 0.5, -16), BackgroundColor3 = C.Blood, TextSize = 18 })
+local leaveBtn = button(actionRow, { Size = UDim2.new(0.49, 0, 0, 32), Position = UDim2.new(0.51, 0, 0.5, -16), BackgroundColor3 = C.Bar, TextSize = 18 })
 startBtn.Activated:Connect(function()
 	startBtn.Visible = false
 	StartNow:FireServer()
+end)
+leaveBtn.Activated:Connect(function()
+	leaveBtn.Visible = false
+	LeaveRoom:FireServer()
 end)
 
 local lastState = nil
@@ -416,17 +422,31 @@ local function drawStatus()
 	if s.launching then
 		timeL.Text = tr("สถานะ", "Status")
 		timeV.Text = tr("กำลังไปที่ปั๊ม...", "Heading to the pump...")
+	elseif s.fullCountdown then
+		timeL.Text = tr("เต็มแล้ว · ไปเกมใน", "Full · teleporting in")
+		timeV.Text = tr(("%d"):format(s.fullCountdown), ("%d"):format(s.fullCountdown))
+		timeV.TextColor3 = Color3.fromRGB(220, 60, 50)
 	else
-		timeL.Text = tr("ห้องปิดใน", "Closes in")
+		timeL.Text = tr("รอผู้เล่น", "Waiting for players")
 		timeV.Text = tr(("%d วิ"):format(s.countdown), ("%ds"):format(s.countdown))
 		timeV.TextColor3 = if s.countdown <= 10 then Color3.fromRGB(220, 60, 50) else C.Cream
 	end
 	leaveHint.Text = if s.isHost
-		then tr("กดเริ่มเกมภายในเวลา ไม่งั้นห้องปิด", "Press Start in time or the room closes")
-		else tr("รอเจ้าของห้องกดเริ่ม · เดินออกจากวงเพื่อออก", "Waiting for host · step out to leave")
+		then tr("กดเริ่มได้ทุกเมื่อ · ออกจากห้องด้วยปุ่มด้านล่าง", "Start anytime · use the button below to leave")
+		else tr("รอเจ้าของห้องเริ่ม · ออกจากห้องด้วยปุ่มด้านล่าง", "Waiting for the host · use the button below to leave")
 	startBtn.Text = tr("เริ่มเกม", "Start")
-	startRow.Visible = s.isHost and not s.launching
-	startBtn.Visible = true
+	leaveBtn.Text = tr("ออกจากห้อง", "Leave")
+	actionRow.Visible = not s.launching
+	startBtn.Visible = s.isHost and not s.launching
+	leaveBtn.Visible = not s.launching
+	if s.isHost then
+		startBtn.Size = UDim2.new(0.49, 0, 0, 32)
+		leaveBtn.Size = UDim2.new(0.49, 0, 0, 32)
+		leaveBtn.Position = UDim2.new(0.51, 0, 0.5, -16)
+	else
+		leaveBtn.Size = UDim2.new(1, 0, 0, 32)
+		leaveBtn.Position = UDim2.new(0, 0, 0.5, -16)
+	end
 end
 table.insert(refreshers, drawStatus)
 RoomState.OnClientEvent:Connect(function(s)
@@ -481,7 +501,7 @@ end
 local HINTS = {
 	{ "WASD", "WASD", "เดิน", "Walk" },
 	{ "วงแดง", "Ring", "เดินเข้าวง สร้าง / เข้าห้อง", "Walk into a ring to host / join" },
-	{ "ออกวง", "Step out", "ออกจากห้อง", "Leave the room" },
+	{ "ออกห้อง", "Leave", "ใช้ปุ่มออกจากห้อง", "Use the Leave button" },
 }
 local hintLabels = {}
 for i in ipairs(HINTS) do
@@ -496,10 +516,10 @@ end
 table.insert(refreshers, drawHints)
 drawHints()
 
--- ---------------------------------------------------------------- ข้อความแจ้งเตือนสั้นๆ (กลางจอล่าง)
+-- ---------------------------------------------------------------- ข้อความแจ้งเตือนสั้นๆ (กลางจอบน ไม่บังพื้นที่พื้น/วงห้อง)
 local toast = new("TextLabel", {
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -110),
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 92),
 	Size = UDim2.new(0, 560, 0, 30),
 	BackgroundTransparency = 1,
 	FontFace = FONT_BODY,

@@ -19,6 +19,9 @@
         },
         "Difficulty": {
           "$path": "src/shared/Difficulty.luau"
+        },
+        "LeaderboardStats": {
+          "$path": "src/shared/LeaderboardStats.luau"
         }
       }
     },
