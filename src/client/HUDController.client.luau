@@ -265,7 +265,8 @@ local typeToken = 0
 local function drawSpeaker()
 	local sp = bubbleSpeaker
 	if sp and sp.ghost then
-		speaker.Text = sp.ghost -- เสียงกระซิบไม่รู้ที่มา
+		-- เสียงกระซิบไม่รู้ที่มา (ถ้าเป็นคีย์ใน LanguageModule.UI ให้แปลตามภาษา)
+		speaker.Text = if LanguageModule.UI[sp.ghost] then ui(sp.ghost) else sp.ghost
 		speaker.TextColor3 = C.BloodLit
 	elseif sp and sp.player then
 		speaker.Text = sp.player

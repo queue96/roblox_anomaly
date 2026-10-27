@@ -268,6 +268,7 @@ LanguageModule.UI = {
 	-- พนมมือ (PrayerController)
 	HintPray = { th = "กดค้าง พนมมือ (เห็นผี)", en = "Hold: Pray (see ghosts)" },
 	PrayChanting = { th = "🙏 นะโม ตัสสะ ภะคะวะโต...", en = "🙏 Namo tassa bhagavato..." },
+	WhisperSpeaker = { th = "เสียงกระซิบ... (ไม่ใช่ลูกค้า)", en = "A whisper... (not a customer)" },
 	PraySightOpen = { th = "👁 ตาทิพย์เปิดแล้ว — มองหาสิ่งผิดปกติ", en = "👁 Spirit sight open — look for anything wrong" },
 	-- ตอบราคา (ใครตอบก่อนได้ก่อน)
 	ReplyTitle = { th = "ตอบลูกค้า (ใครตอบก่อนได้ก่อน)", en = "Reply (first answer counts)" },

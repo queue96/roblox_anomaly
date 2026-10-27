@@ -1809,7 +1809,7 @@ local function summonByPrayer(p: Player)
 	end
 	print("🕯️ [" .. p.Name .. "] สวดตอนร้านว่าง เรียก " .. key .. " มา" .. (if forceGhostNext then " (ลูกค้าคนถัดไปเป็นผี)" else ""))
 	if not customerTalking and not replyOpen then
-		CustomerSpeech:FireAllClients(pick(SUMMON_WHISPER), nil, { ghost = "???" }, nil)
+		CustomerSpeech:FireAllClients(pick(SUMMON_WHISPER), nil, { ghost = "WhisperSpeaker" }, nil)
 		task.delay(3.2, function()
 			if not customerTalking and not replyOpen then
 				CustomerSpeech:FireAllClients(nil)
