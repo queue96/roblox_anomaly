@@ -427,7 +427,7 @@ local function drawStatus()
 		timeV.Text = tr(("%d"):format(s.fullCountdown), ("%d"):format(s.fullCountdown))
 		timeV.TextColor3 = Color3.fromRGB(220, 60, 50)
 	else
-		timeL.Text = tr("รอผู้เล่น", "Waiting for players")
+		timeL.Text = tr("เริ่มเกมอัตโนมัติใน", "Auto-start in")
 		timeV.Text = tr(("%d วิ"):format(s.countdown), ("%ds"):format(s.countdown))
 		timeV.TextColor3 = if s.countdown <= 10 then Color3.fromRGB(220, 60, 50) else C.Cream
 	end

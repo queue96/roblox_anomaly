@@ -363,6 +363,7 @@ local Pedestrian = require(script.Parent:WaitForChild("Pedestrian"))
 local Weather = require(script.Parent:WaitForChild("Weather"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
+local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local function pick(list: { any }): any
 	return list[math.random(#list)]
 end
@@ -475,6 +476,7 @@ local shutterOpenY = shutterDoor.Position.Y
 local shutterDrop = (shutterDoor:GetAttribute("OpenY") or 15.5) - (shutterDoor:GetAttribute("ClosedY") or 6)
 
 local function closeShutter()
+	SoundBank.PlayOneShot("ShutterCloseSlam", shutterDoor, 75, 2.0)
 	local p = shutterDoor.Position
 	local t = TweenService:Create(shutterDoor, TweenInfo.new(0.45, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
 		Position = Vector3.new(p.X, shutterOpenY - shutterDrop, p.Z),
@@ -484,6 +486,7 @@ local function closeShutter()
 end
 
 local function openShutter()
+	SoundBank.PlayOneShot("ShutterOpenPull", shutterDoor, 65, 1.5)
 	local p = shutterDoor.Position
 	local t = TweenService:Create(shutterDoor, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
 		Position = Vector3.new(p.X, shutterOpenY, p.Z),
@@ -574,7 +577,7 @@ end)
 local devDecision = ServerStorage:FindFirstChild("DevDecision") or Instance.new("BindableEvent")
 devDecision.Name = "DevDecision"
 devDecision.Parent = ServerStorage
-local chooseReply: (string, string) -> boolean
+local chooseReply: (string, string, string?) -> boolean
 local devSpawn: (string) -> ()
 local devRoadEvent: (string) -> ()
 local shopOpened = false
@@ -652,8 +655,22 @@ end
 -- speaker = { name = "Name_Sommai" } (ลูกค้า แปลชื่อฝั่ง Client) หรือ { player = "DisplayName" } (ผู้เล่นที่ตอบ)
 local currentHead: BasePart? = nil
 local speechBusyUntil = 0 -- ลูกค้ากำลังพูดถึงเมื่อไหร่ (คำทักเรื่องพนมมือรอให้พูดจบก่อน)
-local function say(key: string, speaker: { [string]: string }, vars: { [string]: any }?, hold: number?)
-	CustomerSpeech:FireAllClients(key, currentHead, speaker, vars)
+local function getHead(m: Instance?): BasePart?
+	if not m then
+		return nil
+	end
+	local drv = m:FindFirstChild("DriverNPC")
+	local h = (drv and drv:FindFirstChild("Head")) or m:FindFirstChild("Head", true)
+	if h and h:IsA("BasePart") then
+		return h
+	end
+	if m:IsA("Model") and m.PrimaryPart then
+		return m.PrimaryPart
+	end
+	return m:FindFirstChildWhichIsA("BasePart", true)
+end
+local function say(key: string, speaker: { [string]: any }, vars: { [string]: any }?, hold: number?, headOverride: BasePart?)
+	CustomerSpeech:FireAllClients(key, headOverride or currentHead, speaker, vars)
 	speechBusyUntil = os.clock() + (hold or 2.4)
 	if hold then
 		task.wait(hold)
@@ -666,7 +683,8 @@ local replyOpen = false
 local replyOptions: { { id: string, key: string } } = {}
 local replyId: string? = nil
 local replyBy: string? = nil
-function chooseReply(id: string, who: string): boolean
+local replyGender: string = "M"
+function chooseReply(id: string, who: string, gender: string?): boolean
 	if not replyOpen then
 		return false
 	end
@@ -675,6 +693,7 @@ function chooseReply(id: string, who: string): boolean
 			replyOpen = false
 			replyId = id
 			replyBy = who
+			replyGender = gender or "M"
 			DialogueReply:FireAllClients("close", who, id)
 			return true
 		end
@@ -683,7 +702,7 @@ function chooseReply(id: string, who: string): boolean
 end
 DialogueReply.OnServerEvent:Connect(function(player, id: any)
 	if type(id) == "string" or type(id) == "number" then
-		chooseReply(tostring(id), player.DisplayName)
+		chooseReply(tostring(id), player.DisplayName, SoundBank.DetectPlayerGender(player))
 	end
 end)
 
@@ -959,6 +978,21 @@ local function spawnCustomer(kind: string?)
 	v:PivotTo(CFrame.lookAt(start, Vector3.new(stopPoint.Position.X, start.Y, stopPoint.Position.Z)))
 	v.Name = "Customer"
 	v.Parent = Workspace
+	-- เสียงเครื่องยนต์รถลูกค้าเดินเบาทุ้มๆ ไม่แสบหู (เล่นเฉพาะเมื่ออัปโหลดไฟล์ .wav เข้า UploadedSounds แล้ว ไม่ใช้เสียงเบิ้ลตัดสำรอง)
+	if not walking then
+		local engPart = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
+		local engPresetName = if k == "car" then "DieselIdle" else "MotoIdle"
+		local engPreset = SoundBank.Presets[engPresetName]
+		if engPart and engPreset then
+			local _, isCustom = SoundBank.ResolveId(engPreset)
+			if isCustom then
+				local engSnd = SoundBank.CreateSound(engPresetName, engPart, 70)
+				if engSnd then
+					engSnd:Play()
+				end
+			end
+		end
+	end
 	table.insert(queue, c)
 	print("🛵 ลูกค้ามา [" .. k .. "/" .. service .. "] (" .. (if ghost then "ผี " .. tostring(anomaly) else "ปกติ") .. ") คิว " .. #queue)
 
@@ -1019,7 +1053,7 @@ local function shelterSay(sh: Shelter, key: string, hold: number)
 		return false
 	end
 	shelterSpeaking = true
-	CustomerSpeech:FireAllClients(key, nil, { name = sh.who.name }, nil)
+	CustomerSpeech:FireAllClients(key, getHead(sh.v), { name = sh.who.name, voice = sh.who.voice, ghost = sh.ghost }, nil)
 	task.wait(hold)
 	if not customerTalking and not replyOpen then
 		CustomerSpeech:FireAllClients(nil)
@@ -1131,16 +1165,29 @@ local PARTY_MUSIC = "rbxassetid://9040293936" -- เพลงแดนซ์
 local PARADE_CROWD = "rbxassetid://9112779173" -- โห่ฮิ้ว แตรขบวนแห่
 local PARADE_DRUMS = "rbxassetid://9043078311" -- กลองเดินขบวน
 
-local function eventSound(parent: Instance, id: string, volume: number, looped: boolean, range: number, music: boolean): Sound
+local function eventSound(parent: Instance, presetOrId: string, volume: number, looped: boolean, range: number, music: boolean): Sound
+	local preset = SoundBank.Presets[presetOrId]
+	if preset then
+		local snd = SoundBank.CreateSound(presetOrId, parent, range) :: Sound
+		snd.Name = if music then "EventMusic" else "EventSound"
+		snd.Looped = looped
+		snd.RollOffMode = Enum.RollOffMode.Linear
+		snd.RollOffMinDistance = 15
+		snd.RollOffMaxDistance = range
+		snd:SetAttribute("SoundCategory", if music then "Music" else "SFX")
+		snd:Play()
+		return snd
+	end
 	local snd = Instance.new("Sound")
 	snd.Name = if music then "EventMusic" else "EventSound"
-	snd.SoundId = id
+	snd.SoundId = presetOrId
 	snd.Volume = volume
 	snd.Looped = looped
 	snd.RollOffMode = Enum.RollOffMode.Linear
 	snd.RollOffMinDistance = 15
 	snd.RollOffMaxDistance = range
 	snd:SetAttribute("SoundCategory", if music then "Music" else "SFX")
+	SoundBank.ApplyWarmEffects(snd, { low = 5, mid = 2, high = -18 })
 	snd.Parent = parent
 	snd:Play()
 	return snd
@@ -1162,11 +1209,11 @@ local function roadVehicle(name: string): Model?
 	return v
 end
 
-local function roadSay(key: string, nameKey: string, hold: number)
+local function roadSay(key: string, nameKey: string, hold: number, srcModel: Instance?)
 	if customerTalking or replyOpen then
 		return
 	end
-	CustomerSpeech:FireAllClients(key, nil, { name = nameKey }, nil)
+	CustomerSpeech:FireAllClients(key, getHead(srcModel), { name = nameKey }, nil)
 	task.wait(hold)
 	if not customerTalking and not replyOpen then
 		CustomerSpeech:FireAllClients(nil)
@@ -1225,7 +1272,7 @@ local function eventRacers()
 				return
 			end
 			local root = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
-			eventSound(root :: Instance, RACER_REV, 1.2, true, 160, false)
+			eventSound(root :: Instance, "RacerMotoRevCut", 0.48, true, 160, false)
 			local stop = stopPoint.Position
 			local wheelieAt = stop - ROAD_DIR * 14 + Vector3.new(0, 0, 2.5 * (i - 1))
 			driveTo(v, wheelieAt, false, 40)
@@ -1243,9 +1290,9 @@ local function eventRacers()
 				task.wait()
 			end
 			if i == 1 then
-				task.spawn(roadSay, pick({ "Racer_Shout_1", "Racer_Shout_2" }), "Name_Racer", 2.6)
+				task.spawn(roadSay, pick({ "Racer_Shout_1", "Racer_Shout_2" }), "Name_Racer", 2.6, v)
 			end
-			eventSound(root :: Instance, RACER_PASS, 1, false, 200, false)
+			eventSound(root :: Instance, "RacerWheeliePass", 0.52, false, 200, false)
 			driveTo(v, exitPos(), false, 46)
 			v:Destroy()
 		end)
@@ -1261,7 +1308,8 @@ local function eventParty()
 	end
 	local len = v:GetExtentsSize().Z
 	local root = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
-	local music = eventSound(root :: Instance, PARTY_MUSIC, 1.4, true, 170, true)
+	local partyTrack = if math.random() < 0.5 then "DanceMusic1_SaiYor" else "DanceMusic2_MorlamEDM"
+	local music = eventSound(root :: Instance, partyTrack, 0.50, true, 170, true)
 	local people = {}
 	-- สาวโคโยตี้ ยืนข้างรถฝั่งร้าน (ยืนเฉยๆ ไม่เต้น)
 	local coyote = Pedestrian.Build({ shirt = Color3.fromRGB(220, 60, 140), pants = Color3.fromRGB(30, 30, 35) })
@@ -1281,9 +1329,9 @@ local function eventParty()
 	local stopFollow = followVehicle(v, people)
 	local stopAt = stopPoint.Position + ROAD_DIR * 4 + Vector3.new(0, 0, -2)
 	driveTo(v, stopAt, true, 14)
-	roadSay("Party_Line", "Name_PartyDriver", 3)
-	roadSay("Teen_Line", "Name_Teen", 2.6)
-	roadSay("Coyote_Line", "Name_Coyote", 3)
+	roadSay("Party_Line", "Name_PartyDriver", 3, v)
+	roadSay("Teen_Line", "Name_Teen", 2.6, people[2] and people[2].m or v)
+	roadSay("Coyote_Line", "Name_Coyote", 3, coyote)
 	task.wait(6)
 	driveTo(v, exitPos(), false, 12)
 	music:Stop()
@@ -1300,7 +1348,8 @@ local function eventParade()
 	local len = v:GetExtentsSize().Z
 	local root = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
 	local crowd = eventSound(root :: Instance, PARADE_CROWD, 1.2, true, 180, false)
-	local drums = eventSound(root :: Instance, PARADE_DRUMS, 1.1, true, 180, true)
+	local paradeTrack = if math.random() < 0.5 then "ParadeMusic1_RotHae" else "ParadeMusic2_KlongYao"
+	local drums = eventSound(root :: Instance, paradeTrack, 0.48, true, 180, true)
 	local people = {}
 	-- นาค (ชุดขาว ร่มทอง) เดินหน้าขบวนท้ายรถ
 	local naga = Pedestrian.Build({ umbrella = true, shirt = Color3.fromRGB(235, 232, 225), pants = Color3.fromRGB(235, 232, 225), umbrellaColor = Color3.fromRGB(210, 170, 50) })
@@ -1320,8 +1369,8 @@ local function eventParade()
 	-- แห่ผ่านหน้าร้านช้าๆ ชวนไปงาน
 	local mid = stopPoint.Position + ROAD_DIR * 10
 	driveTo(v, mid, false, 6)
-	roadSay("Parade_Invite", "Name_ParadeHost", 3.4)
-	roadSay("Parade_Cheer", "Name_ParadeCrowd", 2.4)
+	roadSay("Parade_Invite", "Name_ParadeHost", 3.4, v)
+	roadSay("Parade_Cheer", "Name_ParadeCrowd", 2.4, naga)
 	driveTo(v, exitPos(), false, 6)
 	crowd:Stop()
 	drums:Stop()
@@ -1515,7 +1564,7 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 				if not alive() then
 					break
 				end
-				say(pick(PRAY_REPLY), { player = p.DisplayName }, nil, 2.4)
+				say(pick(PRAY_REPLY), { player = p.DisplayName, userId = p.UserId, gender = SoundBank.DetectPlayerGender(p) }, nil, 2.4)
 				if not alive() then
 					break
 				end
@@ -1536,14 +1585,15 @@ local function serveCustomer(c: Customer)
 	if c.deferredWorld then
 		AnomalyManager.Apply(c.deferredWorld, v)
 	end
+	AnomalyManager.SetGhostPresent(c.ghost)
 	publishState()
 
 	local ghost = c.ghost
 	local who = c.who
-	local speaker = { name = who.name }
+	local speaker = { name = who.name, voice = who.voice, ghost = ghost }
 	local arrivedAt = os.clock()
 	customerTalking = true
-	currentHead = v:FindFirstChild("DriverNPC") and v.DriverNPC:FindFirstChild("Head")
+	currentHead = getHead(v)
 	local annoyed = 0
 	local present = true -- ลูกค้ายังคุยอยู่ที่ตู้ (ทักคนพนมมือได้)
 	task.spawn(watchPrayers, c, speaker, function()
@@ -1560,7 +1610,7 @@ local function serveCustomer(c: Customer)
 	-- ผู้เล่นทักตอบ (ทักคนเดียว / ทักทั้งสองคน)
 	local greet = askReply(GREET_OPTIONS, CONFIG.GreetReplyTime)
 	if greet then
-		say(if greet == "both" then "PlayerGreetBoth" else "PlayerHello", { player = replyBy :: string }, nil, 1.6)
+		say(if greet == "both" then "PlayerGreetBoth" else "PlayerHello", { player = replyBy :: string, gender = replyGender }, nil, 1.6)
 		if greet == "both" then
 			local passenger = v:FindFirstChild("GhostPassenger")
 			local hasPassenger = c.anomaly == "Anomaly_Headless" and passenger ~= nil
@@ -1584,15 +1634,15 @@ local function serveCustomer(c: Customer)
 	-- คนหลบฝนใต้ชายคาทักลูกค้า (เป็นเบาะแสได้: ผีไม่เปียกฝน / ลูกค้ามองไม่เห็นคนหลบฝนที่เป็นผี)
 	local sh = anyShelter()
 	if sh and math.random() < 0.7 then
-		local shSpeaker = { name = sh.who.name }
+		local shSpeaker = { name = sh.who.name, voice = sh.who.voice, ghost = sh.ghost }
 		if sh.ghost and not ghost then
-			say("ShelterGhost_ToCustomer", shSpeaker, nil, 2.8)
+			say("ShelterGhost_ToCustomer", shSpeaker, nil, 2.8, getHead(sh.v))
 			say("Chat_WhoTalking", speaker, nil, 2.8)
 		elseif ghost and raining then
-			say("Shelter_NoticeDry", shSpeaker, nil, 3)
+			say("Shelter_NoticeDry", shSpeaker, nil, 3, getHead(sh.v))
 			say("Ghost_DryReply", speaker, nil, 2.6)
 		else
-			say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6)
+			say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6, getHead(sh.v))
 			say(if ghost then "Ghost_ShortReply" else pick({ "Chat_Reply_1", "Chat_Reply_2" }), speaker, nil, 2.4)
 		end
 	end
@@ -1602,7 +1652,7 @@ local function serveCustomer(c: Customer)
 	-- คิวคันหลังแซวให้รีบ
 	local nextInLine = queue[2]
 	if nextInLine and nextInLine.queuedSince and os.clock() - nextInLine.queuedSince > 6 and math.random() < 0.4 then
-		say(if nextInLine.ghost then "Queue_ChimeGhost" else "Queue_Chime", { name = nextInLine.who.name }, nil, 2.4)
+		say(if nextInLine.ghost then "Queue_ChimeGhost" else "Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
 	end
 	-- ล็อกปุ่มอย่างน้อย InspectLock วิหลังรถจอด (ให้ส่องไฟฉายดู)
 	task.wait(math.max(0, CONFIG.InspectLock - (os.clock() - arrivedAt)))
@@ -1624,7 +1674,7 @@ local function serveCustomer(c: Customer)
 		local answered = askReply(options, CONFIG.ReplyTime)
 		if answered then
 			price = tonumber(answered) :: number
-			say("PlayerQuote", { player = replyBy :: string }, { amount = price }, 1.6)
+			say("PlayerQuote", { player = replyBy :: string, gender = replyGender }, { amount = price }, 1.6)
 			if ghost then
 				say("Ghost_Price", speaker, nil, 2.4)
 			elseif price < svc.normal then
@@ -1685,6 +1735,9 @@ local function serveCustomer(c: Customer)
 			task.wait(2)
 			airHiss:Stop()
 		else
+			local targetBody = if c.service == "diesel" and not ghost then dieselBody else pumpBody
+			SoundBank.PlayOneShot("PumpCrankLoop", targetBody, 55, 2.0)
+			SoundBank.PlayOneShot("FuelGlugLoop", targetBody, 50, 2.0)
 			local fillTween = if c.service == "diesel" and not ghost then setDieselLevel(0.2, 2) else setFuelLevel(0.15, 2)
 			if fillTween then
 				fillTween.Completed:Wait()
@@ -1696,6 +1749,10 @@ local function serveCustomer(c: Customer)
 			incense -= 1
 			money = math.max(0, money - CONFIG.GhostFuelPenalty)
 			refreshIncense()
+			local spiritPart = spirit:FindFirstChildWhichIsA("BasePart", true)
+			if spiritPart then
+				SoundBank.PlayOneShot("IncenseExtinguish", spiritPart, 85, 3.0)
+			end
 			TriggerJumpscare:FireAllClients(c.anomaly, v)
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
 			if incense <= 0 then
@@ -1712,10 +1769,14 @@ local function serveCustomer(c: Customer)
 		elseif annoyed > 0 then
 			local paid = math.max(1, price - math.floor(price * CONFIG.SlowPenaltyRatio + 0.5))
 			money += paid
+			local tin = interactive:FindFirstChild("MoneyTin")
+			SoundBank.PlayOneShot("CoinTinDrop2", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			say("Pay_Slow", speaker, { amount = paid })
 			print("😒 เติมช้า ลูกค้าจ่ายแค่ " .. paid .. "฿ รวม " .. money)
 		else
 			money += price
+			local tin = interactive:FindFirstChild("MoneyTin")
+			SoundBank.PlayOneShot("CoinTinDrop1", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price })
 			print("💰 ลูกค้าปกติ +" .. price .. "฿ รวม " .. money)
 		end
@@ -1726,6 +1787,8 @@ local function serveCustomer(c: Customer)
 		closeShutter()
 		if ghost then
 			money += CONFIG.RejectGhostReward
+			local tin = interactive:FindFirstChild("MoneyTin")
+			SoundBank.PlayOneShot("CoinTinDrop1", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			if c.anomaly then
 				AnomalyBook.Survived(c.anomaly) -- รอดจากผีตัวนี้ -> ปลดล็อกในสมุดของทุกคน
 			end
@@ -1755,6 +1818,7 @@ local function serveCustomer(c: Customer)
 	currentVehicle = nil
 	currentVehicleIsAnomaly = false
 	currentAnomaly = nil
+	AnomalyManager.SetGhostPresent(false)
 	publishState()
 	task.wait(1)
 	-- ผีที่โดนปิดร้านใส่: ออกไปช้าๆ ถ้าใครวิ่งตามไปใกล้ๆ ผีหันมาหลอกแล้วคนนั้นล้มตึง
@@ -1771,7 +1835,7 @@ local function serveCustomer(c: Customer)
 						if d < CONFIG.ChaseRadius and fromShop > CONFIG.ChaseMinFromShop then
 							chased = true
 							print("👻 [" .. p.Name .. "] วิ่งตามผีไป โดนหลอกล้มตึง")
-							CustomerSpeech:FireAllClients("Ghost_Chased", nil, speaker, nil)
+							CustomerSpeech:FireAllClients("Ghost_Chased", getHead(v), speaker, nil)
 							TriggerJumpscare:FireClient(p, c.anomaly, v, "chased") -- (ไม่ได้เติมน้ำมัน: ข้อความต่างจากตอนเติมให้ผี)
 							task.wait(0.35)
 							knockDown(p, CONFIG.KnockdownTime)

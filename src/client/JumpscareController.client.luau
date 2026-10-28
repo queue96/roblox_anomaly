@@ -50,12 +50,18 @@ local FX = {
 local DEFAULT_FX = { focus = "head", tint = Color3.fromRGB(120, 0, 0), sounds = { { "Sting", 1 } } }
 
 -- ---------------------------------------------------------------- เสียง
-local JUMPSCARE_BOOST = 3 -- ผีหลอกดังกว่าเสียงอื่นชัดเจน (กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
+local JUMPSCARE_BOOST = 1.65 -- ผีหลอกเด่นกว่าเสียงพื้นหลัง แต่ไม่ดังระเบิดหู (กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
 local sfxGroup = SoundService:FindFirstChild("SFX")
 local function play(key: string, volume: number, length: number?)
 	local s = Instance.new("Sound")
 	s.SoundId = SND[key]
 	s.Volume = volume * JUMPSCARE_BOOST
+	-- ตัดย่านเสียงแหลมแสบหูออก (Warm Low-Pass EQ)
+	local eq = Instance.new("EqualizerSoundEffect")
+	eq.LowGain = 3
+	eq.MidGain = 0
+	eq.HighGain = -18
+	eq.Parent = s
 	if sfxGroup and sfxGroup:IsA("SoundGroup") then
 		s.SoundGroup = sfxGroup
 	end

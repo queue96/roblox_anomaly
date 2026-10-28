@@ -14,6 +14,7 @@ local TweenService = game:GetService("TweenService")
 
 local localPlayer = Players.LocalPlayer
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
+local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local function lang(): string
 	return LanguageModule.Normalize(localPlayer:GetAttribute("Lang") :: string?)
 end
@@ -228,6 +229,9 @@ end)
 lobbyBtn.Activated:Connect(function()
 	lobbyBtn.Active = false
 	lobbyBtn.Text = ui("GoingToLobby")
+	if _G.ShowTeleportScreen then
+		_G.ShowTeleportScreen({ destination = "lobby" })
+	end
 	DeathChoice:FireServer("quit")
 end)
 
@@ -483,7 +487,7 @@ local function showNarration(key: string, seconds: number?)
 	end
 end
 
-CustomerSpeech.OnClientEvent:Connect(function(key: string?, _head: BasePart?, who: { [string]: string }?, vars: { [string]: any }?)
+CustomerSpeech.OnClientEvent:Connect(function(key: string?, head: BasePart?, who: { [string]: any }?, vars: { [string]: any }?)
 	if key then
 		narrationKey = nil -- ลูกค้าพูดทับข้อความบรรยาย
 		setHeader(true)
@@ -509,10 +513,14 @@ CustomerSpeech.OnClientEvent:Connect(function(key: string?, _head: BasePart?, wh
 	dialog.Visible = true
 	drawSpeaker()
 	typeLine(LanguageModule.GetText(key, lang(), vars))
+	-- เล่นเสียงพากย์ตามประโยคและเพศตัวละครผู้พูด (ลูกค้าชาย/หญิง หรือผู้เล่นชาย/หญิง)
+	local voiceKey = if key == "PlayerQuote" and vars and vars.amount then "PlayerQuote_" .. tostring(vars.amount) else key
+	SoundBank.PlayDialogueVoice(voiceKey, who, head)
 end)
 
 -- ---------------------------------------------------------------- ผีหลอก (เติมน้ำมันให้ผี)
 TriggerJumpscare.OnClientEvent:Connect(function(_anomalyKey: string?, _source: Instance?, reason: string?)
+	SoundBank.PlayReaction("Fear", SoundBank.DetectPlayerGender(localPlayer))
 	flash.BackgroundTransparency = 0.1
 	TweenService:Create(flash, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
 	-- reason "chased" = วิ่งตามผีที่ไล่ไปแล้ว (ไม่ได้เติมน้ำมันให้)

@@ -14,8 +14,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local SoundService = game:GetService("SoundService")
 local localPlayer = Players.LocalPlayer
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
+local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local function ui(key: string): string
 	return LanguageModule.GetUI(key, LanguageModule.Normalize(localPlayer:GetAttribute("Lang") :: string?))
 end
@@ -104,7 +106,7 @@ for k, v in pairs(NO_GRADE) do
 	(grade :: any)[k] = v
 end
 
--- ---------------------------------------------------------------- HUD: แถบสวด
+-- ---------------------------------------------------------------- HUD: แถบสวด (อยู่ด้านข้างขวาเหนือปุ่มคีย์ ไม่มี Emoji มีแค่ข้อความสั้นๆ "กำลังสวด" + หลอดส้ม)
 local gui = Instance.new("ScreenGui")
 gui.Name = "PrayerHUD"
 gui.ResetOnSpawn = false
@@ -114,55 +116,134 @@ gui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local bar = Instance.new("Frame")
 bar.Name = "PrayBar"
-bar.AnchorPoint = Vector2.new(0.5, 1)
-bar.Position = UDim2.new(0.5, 0, 1, -222) -- เหนือกล่องคำพูดลูกค้า
-bar.Size = UDim2.new(0, 380, 0, 44)
-bar.BackgroundColor3 = Color3.fromRGB(8, 7, 6)
-bar.BackgroundTransparency = 0.35
+bar.AnchorPoint = Vector2.new(1, 1)
+bar.Position = UDim2.new(1, -30, 1, -238) -- ชิดขวา เหนือแถบปุ่มคีย์ ไม่บังกลางจอ
+bar.Size = UDim2.new(0, 150, 0, 30)
+bar.BackgroundTransparency = 1
 bar.BorderSizePixel = 0
 bar.Visible = false
 bar.Parent = gui
-local grad = Instance.new("UIGradient")
-grad.Transparency = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.15, 0),
-	NumberSequenceKeypoint.new(0.85, 0),
-	NumberSequenceKeypoint.new(1, 1),
-})
-grad.Parent = bar
 
 local label = Instance.new("TextLabel")
 label.Name = "Text"
 label.BackgroundTransparency = 1
-label.Position = UDim2.new(0, 0, 0, 4)
-label.Size = UDim2.new(1, 0, 0, 28)
+label.Position = UDim2.new(0, 0, 0, 0)
+label.Size = UDim2.new(1, 0, 0, 20)
 label.FontFace = Font.fromEnum(Enum.Font.SpecialElite)
 label.TextColor3 = Color3.fromRGB(236, 228, 208)
+label.TextXAlignment = Enum.TextXAlignment.Right
 label.TextScaled = true
 label.AutoLocalize = false
 label.Parent = bar
 local sizeLimit = Instance.new("UITextSizeConstraint")
-sizeLimit.MaxTextSize = 20
+sizeLimit.MaxTextSize = 16
 sizeLimit.Parent = label
 local stroke = Instance.new("UIStroke")
 stroke.Thickness = 1
-stroke.Transparency = 0.3
+stroke.Transparency = 0.35
 stroke.Parent = label
 
 local track = Instance.new("Frame")
 track.Name = "Track"
-track.AnchorPoint = Vector2.new(0.5, 0)
-track.Position = UDim2.new(0.5, 0, 0, 36)
-track.Size = UDim2.new(0, 240, 0, 3)
-track.BackgroundColor3 = Color3.fromRGB(58, 54, 46)
+track.AnchorPoint = Vector2.new(1, 0)
+track.Position = UDim2.new(1, 0, 0, 23)
+track.Size = UDim2.new(1, 0, 0, 4)
+track.BackgroundColor3 = Color3.fromRGB(48, 44, 38)
 track.BorderSizePixel = 0
 track.Parent = bar
+local trackCorner = Instance.new("UICorner")
+trackCorner.CornerRadius = UDim.new(1, 0)
+trackCorner.Parent = track
+
 local fill = Instance.new("Frame")
 fill.Name = "Fill"
 fill.Size = UDim2.fromScale(0, 1)
-fill.BackgroundColor3 = Color3.fromRGB(230, 120, 50)
+fill.BackgroundColor3 = Color3.fromRGB(230, 120, 50) -- หลอดสีส้ม
 fill.BorderSizePixel = 0
 fill.Parent = track
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(1, 0)
+fillCorner.Parent = fill
+
+-- ---------------------------------------------------------------- เสียงสวดมนต์เฉพาะตัวผู้เล่น (ดังที่ตัว Player เอง และได้ยินเฉพาะเครื่องตัวเองเท่านั้น)
+local myChantSound: Sound? = nil
+local currentChantIndex = 0
+local currentChantScared = false
+
+local function isGhostDetectedNow(): boolean
+	if remotes:GetAttribute("IsAnomaly") == true then
+		return true
+	end
+	for _, d in ipairs(CollectionService:GetTagged(GHOST_TAG)) do
+		if d:IsDescendantOf(Workspace) then
+			return true
+		end
+	end
+	return false
+end
+
+local function stopMyChant()
+	if myChantSound then
+		local s = myChantSound
+		myChantSound = nil
+		TweenService:Create(s, TweenInfo.new(0.2), { Volume = 0 }):Play()
+		task.delay(0.22, function()
+			if s then
+				s:Stop()
+				s:Destroy()
+			end
+		end)
+	end
+end
+
+local function playOrUpdateMyChant(scaredMode: boolean, forceNewIndex: boolean?)
+	if forceNewIndex or currentChantIndex == 0 then
+		currentChantIndex = (currentChantIndex % 4) + 1
+	end
+	currentChantScared = scaredMode
+	local preset = SoundBank.GetChantPreset(currentChantIndex, scaredMode)
+	if not preset then
+		return
+	end
+	local soundId, isCustom = SoundBank.ResolveId(preset)
+	if not isCustom then
+		-- ถ้ายังไม่ได้ลากไฟล์ chant_thai_*.wav เข้า UploadedSounds ไม่ต้องเอาเสียงพระวัดสำรองมาเล่น
+		return
+	end
+	local char = localPlayer.Character
+	local head = (char and char:FindFirstChild("Head") :: BasePart?) or SoundService
+	if not myChantSound or not myChantSound.Parent then
+		local s = Instance.new("Sound")
+		s.Name = "PlayerSelfChant"
+		s.Looped = true
+		s.RollOffMode = Enum.RollOffMode.InverseTapered
+		s.RollOffMinDistance = 8
+		s.RollOffMaxDistance = 35
+		SoundBank.ApplyWarmEffects(s, { low = 2, mid = 3, high = -14 })
+		s.Parent = head
+		myChantSound = s
+	end
+	local snd = myChantSound :: Sound
+	snd.PlaybackSpeed = preset.speed or 1.0
+	if snd.SoundId ~= soundId then
+		snd.SoundId = soundId
+		snd.Volume = preset.volume or 0.48
+		snd:Play()
+	elseif not snd.IsPlaying then
+		snd.Volume = preset.volume or 0.48
+		snd:Play()
+	end
+end
+
+-- ถ้าระหว่างพนมมืออยู่แล้วผีโผล่มา (หรือตาทิพย์เปิดแล้วเห็นผี) ให้สลับเสียงสวดของตัวเองเป็นโหมดสวดเร็วกลัวผีทันที!
+remotes:GetAttributeChangedSignal("IsAnomaly"):Connect(function()
+	if localPlayer:GetAttribute("Praying") == true and sightOpen then
+		local ghostNow = isGhostDetectedNow()
+		if ghostNow ~= currentChantScared then
+			playOrUpdateMyChant(ghostNow, false)
+		end
+	end
+end)
 
 -- ---------------------------------------------------------------- สถานะพนมมือ (ยึดตาม attribute ที่ Server ตั้ง)
 local prayToken = 0
@@ -175,7 +256,13 @@ local function setSight(open: boolean)
 	grade.Enabled = true
 	TweenService:Create(grade, TweenInfo.new(if open then 0.8 else 0.5), if open then SIGHT_GRADE else NO_GRADE):Play()
 	label.Text = ui(if open then "PraySightOpen" else "PrayChanting")
-	label.TextColor3 = if open then Color3.fromRGB(190, 215, 240) else Color3.fromRGB(236, 228, 208)
+	label.TextColor3 = Color3.fromRGB(236, 228, 208)
+	if open and localPlayer:GetAttribute("Praying") == true then
+		-- พอตาทิพย์เปิด ถ้ามีผีอยู่ตรงหน้า ให้เปลี่ยนจากสวดปกติเป็นสวดเร็วกลัวผีทันที!
+		if isGhostDetectedNow() and not currentChantScared then
+			playOrUpdateMyChant(true, false)
+		end
+	end
 end
 
 local function onPrayingChanged()
@@ -187,6 +274,8 @@ local function onPrayingChanged()
 		label.Text = ui("PrayChanting")
 		label.TextColor3 = Color3.fromRGB(236, 228, 208)
 		fill.Size = UDim2.fromScale(0, 1)
+		-- เริ่มสวดด้วยโหมดปกติที่ตัวผู้เล่นเอง (ถ้าตาทิพย์เปิดแล้วเจอผี จะสลับเป็นสวดเร็วอัตโนมัติ)
+		playOrUpdateMyChant(false, true)
 		TweenService:Create(fill, TweenInfo.new(SIGHT_DELAY, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1) }):Play()
 		task.delay(SIGHT_DELAY, function()
 			if prayToken == token then
@@ -195,6 +284,7 @@ local function onPrayingChanged()
 		end)
 	else
 		bar.Visible = false
+		stopMyChant()
 		setSight(false)
 	end
 end
@@ -222,7 +312,7 @@ local function onPray(_name: string, state: Enum.UserInputState, _input: InputOb
 	return Enum.ContextActionResult.Sink
 end
 ContextActionService:BindAction("Pray", onPray, true, Enum.KeyCode.G, Enum.KeyCode.ButtonY)
-ContextActionService:SetTitle("Pray", "🙏")
+ContextActionService:SetTitle("Pray", "สวด")
 ContextActionService:SetPosition("Pray", UDim2.new(1, -170, 1, -150))
 
 -- เกิดใหม่ระหว่างกดค้าง: Server ล้างสถานะแล้ว ฝั่งนี้ก็ล้างด้วย

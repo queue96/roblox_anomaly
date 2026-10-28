@@ -267,9 +267,9 @@ LanguageModule.UI = {
 	HintHold = { th = "กดค้าง เติมน้ำมัน / เติมลม / ปิดร้าน", en = "Hold: Fuel / Air / Close Shop" },
 	-- พนมมือ (PrayerController)
 	HintPray = { th = "กดค้าง พนมมือ (เห็นผี)", en = "Hold: Pray (see ghosts)" },
-	PrayChanting = { th = "🙏 นะโม ตัสสะ ภะคะวะโต...", en = "🙏 Namo tassa bhagavato..." },
+	PrayChanting = { th = "กำลังสวด", en = "Chanting" },
 	WhisperSpeaker = { th = "เสียงกระซิบ... (ไม่ใช่ลูกค้า)", en = "A whisper... (not a customer)" },
-	PraySightOpen = { th = "👁 ตาทิพย์เปิดแล้ว — มองหาสิ่งผิดปกติ", en = "👁 Spirit sight open — look for anything wrong" },
+	PraySightOpen = { th = "กำลังสวด", en = "Chanting" },
 	-- ตอบราคา (ใครตอบก่อนได้ก่อน)
 	ReplyTitle = { th = "ตอบลูกค้า (ใครตอบก่อนได้ก่อน)", en = "Reply (first answer counts)" },
 	Reply_80 = { th = "80 บาท", en = "80 Baht" },

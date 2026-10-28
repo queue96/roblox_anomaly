@@ -150,13 +150,25 @@ local cooldownUntil: { [Player]: number } = {}
 
 -- ป้ายลอยเหนือวง (Server แก้ข้อความ ทุกคนเห็นตรงกัน)
 local function ensureSign(pad: BasePart): TextLabel
+	local anchor = pad:FindFirstChild("SignAnchor") :: Attachment?
+	if not anchor then
+		local a = Instance.new("Attachment")
+		a.Name = "SignAnchor"
+		a.Parent = pad
+		a.WorldPosition = pad.Position + Vector3.new(0, 7.5, 0)
+		anchor = a
+	else
+		anchor.WorldPosition = pad.Position + Vector3.new(0, 7.5, 0)
+	end
+
 	local gui = pad:FindFirstChild("RoomSign") :: BillboardGui?
 	if not gui then
 		local g = Instance.new("BillboardGui")
 		g.Name = "RoomSign"
-		-- ลอยสูงเหนือวง + AlwaysOnTop ไม่ให้ตัวหนังสือจมพื้น/โดนหมอกกลืน
+		g.Adornee = anchor
 		g.Size = UDim2.fromScale(14, 4.5)
-		g.StudsOffsetWorldSpace = Vector3.new(0, 32, 0)
+		g.StudsOffset = Vector3.zero
+		g.StudsOffsetWorldSpace = Vector3.zero
 		g.MaxDistance = 120
 		g.AlwaysOnTop = true
 		g.LightInfluence = 0
@@ -171,6 +183,10 @@ local function ensureSign(pad: BasePart): TextLabel
 		t.Parent = g
 		g.Parent = pad
 		gui = g
+	else
+		gui.Adornee = anchor
+		gui.StudsOffset = Vector3.zero
+		gui.StudsOffsetWorldSpace = Vector3.zero
 	end
 	return (gui :: BillboardGui):FindFirstChild("Text") :: TextLabel
 end
@@ -194,7 +210,7 @@ local function refresh(pad: BasePart)
 		elseif room.fullCountdown then
 			label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.fullCountdown)
 		else
-			label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nรอผู้เล่น · ปิดใน %d วิ"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.countdown)
+			label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.countdown)
 		end
 		label.TextColor3 = d.color
 		for _, p in ipairs(room.members) do
@@ -219,7 +235,7 @@ local function refresh(pad: BasePart)
 	end
 end
 
-local function closeRoom(pad: BasePart, th: string, en: string)
+local function closeRoom(pad: BasePart, th: string, en: string, keepPosition: boolean?)
 	local room = rooms[pad]
 	if not room then
 		return
@@ -231,7 +247,9 @@ local function closeRoom(pad: BasePart, th: string, en: string)
 		Notice:FireClient(p, th, en)
 		cooldownUntil[p] = os.clock() + REJOIN_COOLDOWN
 		onPad[p] = nil
-		sendToSpawn(p)
+		if not keepPosition then
+			sendToSpawn(p)
+		end
 	end
 	refresh(pad)
 end
@@ -299,6 +317,9 @@ local function enterPad(player: Player, pad: BasePart)
 end
 
 local function launch(room: Room)
+	if room.launching then
+		return
+	end
 	room.launching = true
 	refresh(room.pad)
 	local data = {
@@ -308,30 +329,49 @@ local function launch(room: Room)
 		hostUserId = room.host.UserId,
 	}
 	if IS_STUDIO then
-		print(("🚚 [Lobby] (Studio) จะส่ง %d คนไป PlaceId %d | %s"):format(#room.members, GAME_PLACE_ID, HttpService:JSONEncode(data)))
-		for _, p in ipairs(room.members) do
-			Notice:FireClient(p, "เทสใน Studio: Teleport ใช้ไม่ได้ ดูข้อมูลห้องใน Output", "Studio test: teleport is disabled, see Output")
-		end
-		closeRoom(room.pad, "ห้องถูกรีเซ็ต (เทสใน Studio)", "Room reset (Studio test)")
+		print(("🚚 [Lobby] (Studio) Teleport -> PlaceId %d | %s"):format(GAME_PLACE_ID, HttpService:JSONEncode(data)))
+		task.wait(1.5)
+		closeRoom(
+			room.pad,
+			"เริ่มเกมแล้ว! (ใน Roblox Studio วาร์ปข้าม Place ไม่ได้ — ต้อง Publish แล้วเล่นในแอป Roblox จริง)",
+			"Game started! (Roblox Studio cannot teleport between places ? publish & test in Roblox app)",
+			true
+		)
 		return
 	end
 	local ok, err = pcall(function()
-		local code = TeleportService:ReserveServer(GAME_PLACE_ID)
 		local options = Instance.new("TeleportOptions")
-		options.ReservedServerAccessCode = code
+		options.ShouldReserveServer = true
 		options:SetTeleportData(data)
 		TeleportService:TeleportAsync(GAME_PLACE_ID, room.members, options)
 	end)
 	if not ok then
-		warn("[Lobby] Teleport ไม่สำเร็จ: " .. tostring(err))
-		closeRoom(room.pad, "ส่งไปเกมไม่สำเร็จ ลองใหม่อีกครั้ง", "Teleport failed, please try again")
+		warn("[Lobby] Teleport (ShouldReserveServer) failed, retrying standard TeleportAsync: " .. tostring(err))
+		ok, err = pcall(function()
+			local fallbackOptions = Instance.new("TeleportOptions")
+			fallbackOptions:SetTeleportData(data)
+			TeleportService:TeleportAsync(GAME_PLACE_ID, room.members, fallbackOptions)
+		end)
+	end
+	if not ok then
+		warn("[Lobby] Teleport failed: " .. tostring(err))
+		closeRoom(
+			room.pad,
+			"ส่งไปเกมไม่สำเร็จ ลองใหม่อีกครั้ง",
+			"Teleport failed, please try again",
+			true
+		)
 		return
 	end
-	print(("🚚 [Lobby] ส่ง %d คนไปเกม | %s"):format(#room.members, HttpService:JSONEncode(data)))
-	-- ห้องปิดเมื่อผู้เล่นออกจากเซิร์ฟเวอร์ไปแล้ว (PlayerRemoving) หรือครบ 15 วิ ถ้า Teleport ค้าง
-	task.delay(15, function()
+	print(("🚚 [Lobby] Teleporting %d players | %s"):format(#room.members, HttpService:JSONEncode(data)))
+	task.delay(20, function()
 		if rooms[room.pad] == room then
-			closeRoom(room.pad, "ส่งไปเกมไม่สำเร็จ ลองใหม่อีกครั้ง", "Teleport failed, please try again")
+			closeRoom(
+				room.pad,
+				"ส่งไปเกมไม่สำเร็จ ลองใหม่อีกครั้ง",
+				"Teleport failed, please try again",
+				true
+			)
 		end
 	end)
 end
@@ -473,7 +513,11 @@ task.spawn(function()
 					else
 						room.countdown -= 1
 						if room.countdown <= 0 then
-							closeRoom(pad, "หมดเวลารอผู้เล่น ห้องถูกปิด", "Waiting time expired, the room is closed")
+							if #room.members > 0 then
+								task.spawn(launch, room)
+							else
+								closeRoom(pad, "หมดเวลารอผู้เล่น ห้องถูกปิด", "Waiting time expired, the room is closed")
+							end
 						else
 							refresh(pad)
 						end

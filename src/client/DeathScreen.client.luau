@@ -258,6 +258,9 @@ quitBtn.Activated:Connect(function()
 	if dead and quitBtn.Active then
 		quitBtn.Active = false
 		quitBtn.Text = ui("GoingToLobby") -- Server Teleport กลับ Lobby
+		if _G.ShowTeleportScreen then
+			_G.ShowTeleportScreen({ destination = "lobby" })
+		end
 		DeathChoice:FireServer("quit")
 	end
 end)

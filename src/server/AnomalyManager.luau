@@ -10,6 +10,10 @@
 
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 
 local AnomalyManager = {}
 
@@ -188,16 +192,81 @@ local function radioSound(name: string, id: string, volume: number, looped: bool
 	snd.RollOffMaxDistance = 60
 	return snd
 end
-local RADIO_VOLUME = { music = 0.35, chant = 0.6, static = 0.5 }
+local RADIO_VOLUME = { music = 0.35, chant = 0.52, static = 0.38 }
 local radioMusic = radioSound("RadioMusic", SOUNDS.RadioMusic, RADIO_VOLUME.music, true)
 local radioChant = radioSound("MonkChant", SOUNDS.MonkChant, RADIO_VOLUME.chant, true)
 local radioStatic = radioSound("RadioStatic", SOUNDS.RadioStatic, RADIO_VOLUME.static, false)
 if radioChant then
-	local eq = Instance.new("EqualizerSoundEffect") -- เสียงแตกๆ เหมือนคลื่นวิทยุเพี้ยน
+	local eq = Instance.new("EqualizerSoundEffect") -- เสียงแตกๆ เหมือนคลื่นวิทยุเพี้ยน แต่ไม่แสบหู
 	eq.LowGain = -12
-	eq.MidGain = 4
-	eq.HighGain = -6
+	eq.MidGain = 3
+	eq.HighGain = -18
 	eq.Parent = radioChant
+end
+if radioStatic then
+	local eq = Instance.new("EqualizerSoundEffect")
+	eq.LowGain = -10
+	eq.MidGain = 0
+	eq.HighGain = -20 -- ตัดเสียงซ่าแหลมๆ ออกให้ฟังสบายหู
+	eq.Parent = radioStatic
+end
+
+-- ระบบสลับสถานีวิทยุลูกทุ่งเหงาๆ หลอนๆ 5 คลื่น (สำหรับวิทยุในร้านเท่านั้น)
+local currentStationIdx = 0
+
+local function tuneLukThungStation(idx: number?)
+	if not radioMusic then
+		return
+	end
+	if radioChant and radioChant.IsPlaying then
+		radioChant:Stop()
+	end
+	local stations = SoundBank.RadioStations
+	if #stations == 0 then
+		return
+	end
+	currentStationIdx = idx or ((currentStationIdx % #stations) + 1)
+	local st = stations[currentStationIdx]
+	if radioStatic then
+		radioStatic.TimePosition = 0
+		radioStatic:Play()
+		task.delay(0.45, function()
+			if radioStatic then
+				radioStatic:Stop()
+			end
+		end)
+	end
+	local resolvedId = SoundBank.ResolveId(st :: any)
+	radioMusic.SoundId = resolvedId
+	radioMusic.Volume = st.volume
+	radioMusic.PlaybackSpeed = st.speed or 1
+	SoundBank.ApplyWarmEffects(radioMusic, st)
+	if not radioMusic.IsPlaying then
+		radioMusic:Play()
+	end
+end
+
+function AnomalyManager.SetGhostPresent(_isGhost: boolean)
+	-- (สถานะผีส่งผ่าน Remotes:SetAttribute("IsAnomaly") ให้ฝั่ง Client ใช้ปรับเสียงสวดมนต์ของตัวผู้เล่นเอง)
+end
+
+-- ให้ผู้เล่นเดินไปกดเปลี่ยนคลื่นเพลงลูกทุ่งที่ตัววิทยุในเพิงได้
+if radioPart then
+	local tunePrompt = radioPart:FindFirstChild("TuneRadioPrompt") :: ProximityPrompt?
+	if not tunePrompt then
+		tunePrompt = Instance.new("ProximityPrompt")
+		tunePrompt.Name = "TuneRadioPrompt"
+		tunePrompt.ActionText = "หมุนคลื่นวิทยุลูกทุ่ง / Tune Radio"
+		tunePrompt.ObjectText = "วิทยุทรานซิสเตอร์"
+		tunePrompt.KeyboardKeyCode = Enum.KeyCode.R
+		tunePrompt.HoldDuration = 0.2
+		tunePrompt.MaxActivationDistance = 8
+		tunePrompt.RequiresLineOfSight = false
+		tunePrompt.Parent = radioPart
+	end
+	tunePrompt.Triggered:Connect(function()
+		tuneLukThungStation()
+	end)
 end
 
 local function radioNormal()
@@ -211,8 +280,12 @@ local function radioNormal()
 	if radioMusic then
 		unveil(radioMusic)
 	end
-	if radioMusic and not radioMusic.IsPlaying then
-		radioMusic:Play()
+	if radioMusic then
+		if currentStationIdx == 0 then
+			tuneLukThungStation(1)
+		elseif not radioMusic.IsPlaying then
+			radioMusic:Play()
+		end
 	end
 end
 
@@ -333,11 +406,10 @@ AnomalyManager.Anomalies = {
 			ghostOnly(glow)
 		end,
 	},
-	-- 7. วิทยุในร้านเปลี่ยนจากเพลงเป็นเสียงพระสวดศพ
+	-- 7. วิทยุในร้านเปลี่ยนจากเพลงเป็นเสียงพระสวดศพ (ใช้เสียงพระสวดวัดของวิทยุ ไม่เอาเสียงพูดของผู้เล่นมาปน)
 	Anomaly_MonkRadio = {
 		-- คนไม่ได้พนมมือยังได้ยินเพลงวิทยุตามปกติ คนพนมมือได้ยินเสียงสวดศพแทน
 		apply = function(_v)
-			-- ใช้ความดังคงที่ (Server ตั้ง Volume ของเสียงผีเป็น 0 ไว้ อ่านค่าปัจจุบันไม่ได้)
 			if radioStatic then
 				veil(radioStatic, GHOST_TAG, "Volume", RADIO_VOLUME.static, 0)
 				radioStatic:Play()
@@ -347,6 +419,8 @@ AnomalyManager.Anomalies = {
 			end
 			task.delay(0.8, function()
 				if radioChant then
+					radioChant.SoundId = SOUNDS.MonkChant
+					radioChant.PlaybackSpeed = 1
 					veil(radioChant, GHOST_TAG, "Volume", RADIO_VOLUME.chant, 0)
 					radioChant:Play()
 				end
@@ -536,14 +610,14 @@ end
 --   segment = เล่นแค่ช่วงหนึ่งของไฟล์ยาว (เริ่มสุ่มตำแหน่ง แล้วหยุดเมื่อครบเวลา)
 --   near = ดังใกล้ร้าน (เช่น เสียงฝีเท้า เสียงกระซิบ) ไม่ใช่ไกลกลางทุ่ง
 local AMBIENT = {
-	{ name = "DogHowl", id = "rbxassetid://748228812", weight = 4, volume = 0.7, speed = { 0.9, 1.1 } },
-	{ name = "Owl", id = "rbxassetid://9117181875", weight = 3, volume = 0.6, speed = { 0.95, 1.05 } },
+	{ name = "DogHowl", id = "rbxassetid://748228812", weight = 4, volume = 0.7 },
+	{ name = "Owl", id = "rbxassetid://9117181875", weight = 3, volume = 0.6 },
 	{ name = "Crows", id = "rbxassetid://190872950", weight = 2, volume = 0.5, segment = 6 },
-	{ name = "Crying", id = "rbxassetid://75664285683608", weight = 2, volume = 0.45, speed = { 0.85, 0.95 } },
-	{ name = "Laugh", id = "rbxassetid://91272160888434", weight = 1, volume = 0.4, speed = { 0.8, 0.9 } },
+	{ name = "Crying", id = "rbxassetid://75664285683608", weight = 2, volume = 0.45 },
+	{ name = "Laugh", id = "rbxassetid://91272160888434", weight = 1, volume = 0.4 },
 	{ name = "Bells", id = "rbxassetid://119445319966378", weight = 1, volume = 0.35 },
 	{ name = "Whisper", id = "rbxassetid://2643071410", weight = 2, volume = 0.5, segment = 5, near = true },
-	{ name = "Footsteps", id = "rbxassetid://135952279207329", weight = 2, volume = 0.6, segment = 3, near = true, speed = { 0.7, 0.8 } },
+	{ name = "Footsteps", id = "rbxassetid://135952279207329", weight = 2, volume = 0.6, segment = 3, near = true },
 	{ name = "Eerie", id = "rbxassetid://9112775624", weight = 1, volume = 0.6, segment = 10 },
 }
 local THUNDER_ID = "rbxassetid://9120016037"
@@ -584,13 +658,16 @@ function AnomalyManager.StartAmbience()
 		snd.Name = a.name
 		snd.SoundId = a.id
 		snd.Volume = a.volume * AMBIENT_SCALE
+		snd.PlaybackSpeed = 1.0
 		snd.RollOffMode = Enum.RollOffMode.Linear
 		snd.RollOffMinDistance = if a.near then 10 else 40
 		snd.RollOffMaxDistance = if a.near then 70 else 260
-		local reverb = Instance.new("ReverbSoundEffect")
-		reverb.DecayTime = 2.5
-		reverb.WetLevel = -4
-		reverb.Parent = snd
+		local warmEq = Instance.new("EqualizerSoundEffect")
+		warmEq.Name = "WarmAmbientEQ"
+		warmEq.LowGain = 1
+		warmEq.MidGain = 0
+		warmEq.HighGain = -8 -- ตัดย่านแหลมเบาๆ ไม่ให้เสียงยืดหรืออู้อี้
+		warmEq.Parent = snd
 		snd.Parent = emitter
 		sounds[a.name] = snd
 	end
@@ -598,7 +675,12 @@ function AnomalyManager.StartAmbience()
 	local thunder = Instance.new("Sound")
 	thunder.Name = "Thunder"
 	thunder.SoundId = THUNDER_ID
-	thunder.Volume = 0.5
+	thunder.Volume = 0.42
+	local thunderEq = Instance.new("EqualizerSoundEffect")
+	thunderEq.LowGain = 3
+	thunderEq.MidGain = 0
+	thunderEq.HighGain = -10 -- ฟ้าร้องทุ้มลึก ไม่แสบหู
+	thunderEq.Parent = thunder
 	thunder.Parent = game:GetService("SoundService")
 	local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
 
@@ -624,7 +706,7 @@ function AnomalyManager.StartAmbience()
 			local snd = sounds[a.name]
 			local list = if a.near then NEAR_SPOTS else FAR_SPOTS
 			emitter.Position = list[math.random(#list)]
-			snd.PlaybackSpeed = if a.speed then a.speed[1] + math.random() * (a.speed[2] - a.speed[1]) else 1
+			snd.PlaybackSpeed = 1.0
 			if a.segment and snd.TimeLength > a.segment + 1 then
 				snd.TimePosition = math.random() * (snd.TimeLength - a.segment)
 			else
@@ -645,8 +727,17 @@ function AnomalyManager.StartAmbience()
 			if remotes:GetAttribute("Weather") == "Rain" then
 				remotes:SetAttribute("ThunderAt", os.clock()) -- Client: ฟ้าแลบก่อน
 				task.wait(0.4 + math.random() * 0.8) -- แล้วเสียงตามมา
-				thunder.PlaybackSpeed = 0.9 + math.random() * 0.2
+				thunder.PlaybackSpeed = 1.0
 				thunder:Play()
+			end
+		end
+	end)
+	-- สุ่มหมุนเปลี่ยนคลื่นวิทยุลูกทุ่งเหงาๆ อัตโนมัติทุกๆ 70 - 130 วินาที (เฉพาะตอนที่ไม่ได้เป็นเสียงสวดศพ)
+	task.spawn(function()
+		while true do
+			task.wait(math.random(70, 130))
+			if radioChant and not radioChant.IsPlaying then
+				tuneLukThungStation()
 			end
 		end
 	end)
