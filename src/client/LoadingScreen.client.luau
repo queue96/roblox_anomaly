@@ -1,12 +1,12 @@
 -- LoadingScreen.client.luau
--- หน้าจอโหลดทรัพยากรตอนเข้าเกม (มี Progress Bar 0-100% + ปุ่มข้าม)
--- และหน้าจอคั่นระดับมืออาชีพระหว่าง Teleport ข้าม Place (Lobby <-> Pump Lot)
+-- 1) ตอนเข้าแมพ Lobby (เข้าเกมครั้งแรก): แสดงหน้าจอโหลดทรัพยากรพร้อม Progress Bar 0-100% + ปุ่มข้าม (Skip)
+-- 2) ตอนโหลดเข้าแมพเล่นจริง (Pump Lot): แสดงเฉพาะภาพ Key Art + ชื่อฉาก/คำแนะนำ (ไม่มีหลอดโหลดทรัพยากร) ค้างไว้อย่างน้อย 3 วินาทีให้พร้อมกันก่อนเข้าเกม
+-- 3) ตอนวาร์ปข้าม Place (Lobby <-> Pump Lot): แสดงหน้าจอคั่นภาพ Key Art ระดับมืออาชีพผ่าน TeleportService:SetTeleportGui
 
 local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
@@ -22,6 +22,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- ภาพประกอบฉากหลังปั๊มหลอด & วัดท้ายทุ่งยามเที่ยงคืน (อัปโหลดไว้บน Roblox Asset Server)
 local KEY_ART_ID = "rbxassetid://98063047584423"
 local LOBBY_PLACE_ID = 70980777393906
+local GAME_SPLASH_MIN_SECONDS = 3.0
 
 local FONT_TITLE = Font.new("rbxasset://fonts/families/Srisakdi.json", Enum.FontWeight.Bold)
 local FONT_BODY = Font.new("rbxasset://fonts/families/Sarabun.json", Enum.FontWeight.Regular)
@@ -36,7 +37,6 @@ local C = {
 	Cream = Color3.fromRGB(238, 230, 212),
 	Dim = Color3.fromRGB(172, 162, 144),
 	Blood = Color3.fromRGB(168, 36, 28),
-	BloodBright = Color3.fromRGB(220, 62, 48),
 }
 
 local function isTH(): boolean
@@ -48,7 +48,13 @@ local function tr(th: string, en: string): string
 end
 
 local function isLobbyPlace(): boolean
-	return game.PlaceId == LOBBY_PLACE_ID or Workspace:FindFirstChild("TempleLobby") ~= nil
+	if game.PlaceId == LOBBY_PLACE_ID then
+		return true
+	end
+	if game.PlaceId ~= 0 and game.PlaceId ~= LOBBY_PLACE_ID then
+		return false
+	end
+	return Workspace:FindFirstChild("TempleLobby") ~= nil
 end
 
 local TIPS = {
@@ -233,7 +239,7 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	percentLabel.Text = "0%"
 	percentLabel.Parent = bottomPanel
 
-	-- แถบ Progress Bar
+	-- แถบ Progress Bar (แสดงเฉพาะตอนเข้าแมพ Lobby ครั้งแรก)
 	local barTrack = Instance.new("Frame")
 	barTrack.Name = "BarTrack"
 	barTrack.Position = UDim2.new(0, 24, 0, 78)
@@ -310,7 +316,6 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	}
 end
 
--- สร้าง GUI หลัก
 local gui, ui = makeLoadingGui("RuralLoadingScreen")
 gui.Parent = playerGui
 
@@ -353,6 +358,14 @@ task.spawn(function()
 		end
 	end
 end)
+
+local function setProgressMode(showBar: boolean)
+	ui.barTrack.Visible = showBar
+	ui.percentLabel.Visible = showBar
+	ui.skipBtn.Visible = showBar
+	ui.bottomPanel.Size = if showBar then UDim2.new(1, -96, 0, 118) else UDim2.new(1, -96, 0, 82)
+	ui.statusLabel.Size = if showBar then UDim2.new(0.65, 0, 0, 26) else UDim2.new(1, -48, 0, 26)
+end
 
 local function setProgress(fraction: number, statusText: string?)
 	local clamped = math.clamp(fraction, 0, 1)
@@ -411,7 +424,9 @@ local function resetGuiOpacity()
 end
 
 -- ================================================================
--- 1) ช่วงโหลดทรัพยากรตอนเข้าเกม (Initial Resource Preload + ปุ่มข้าม)
+-- 1) ตอนเข้า Place:
+--    - ถ้าเป็นแมพ Lobby: โหลดทรัพยากรพร้อมหลอด Progress Bar 0-100% + ปุ่มข้าม (Skip)
+--    - ถ้าเป็นแมพเล่นจริง (Pump Lot): แสดงเฉพาะหน้าจอภาพ Key Art (ไม่มีหลอดโหลด/ปุ่มข้าม) ค้างไว้อย่างน้อย 3 วินาทีให้ทุกคนเข้าพร้อมกัน
 -- ================================================================
 local skipped = false
 ui.skipBtn.Activated:Connect(function()
@@ -432,76 +447,81 @@ task.spawn(function()
 	ui.subtitle.Text = if inLobby
 		then tr("จุดรวมตัวก่อนออกกะดึก · เลือกความยากและสมาชิกทีม", "Gather your crew and choose your difficulty")
 		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost")
-	ui.skipBtn.Visible = true
-	ui.skipBtn.Text = tr("ข้าม (Skip) ⏭", "Skip ⏭")
-	ui.barTrack.Size = UDim2.new(1, -196, 0, 18)
-	ui.percentLabel.Position = UDim2.new(1, -172, 0, 44)
 
-	setProgress(0.02, tr("กำลังเตรียมฉากและโหลดภาพพื้นหลัง...", "Preparing scene & key art..."))
 	pcall(function()
 		ContentProvider:PreloadAsync({ ui.bgImage })
 	end)
 
-	if not game:IsLoaded() and not skipped then
-		setProgress(0.10, tr("กำลังเชื่อมต่อและซิงค์ฉากจากเซิร์ฟเวอร์...", "Syncing world from server..."))
-		while not game:IsLoaded() and not skipped do
-			task.wait(0.1)
-		end
-	end
+	if inLobby then
+		-- แมพ Lobby: มีหลอด Progress Bar 0-100% + ปุ่มข้าม
+		setProgressMode(true)
+		ui.skipBtn.Text = tr("ข้าม (Skip) ⏭", "Skip ⏭")
+		setProgress(0.05, tr("กำลังเตรียมฉาก...", "Preparing scene..."))
 
-	-- รวบรวมทรัพยากรหลักในฉากมาโหลดทีละชุด พร้อมแสดง % จริง
-	local assetsToLoad = {}
-	for _, container in ipairs({ Workspace, ReplicatedStorage, SoundService }) do
-		for _, inst in ipairs(container:GetDescendants()) do
-			if inst:IsA("Sound") or inst:IsA("Decal") or inst:IsA("Texture") or inst:IsA("MeshPart") or inst:IsA("SpecialMesh") or inst:IsA("Animation") or inst:IsA("ParticleEmitter") then
-				table.insert(assetsToLoad, inst)
+		if not game:IsLoaded() and not skipped then
+			setProgress(0.12, tr("กำลังซิงค์ฉากจากเซิร์ฟเวอร์...", "Syncing world from server..."))
+			while not game:IsLoaded() and not skipped do
+				task.wait(0.1)
 			end
 		end
-	end
 
-	local total = #assetsToLoad
-	if total == 0 then
-		total = 1
-	end
+		local assetsToLoad = {}
+		for _, container in ipairs({ Workspace, ReplicatedStorage, SoundService }) do
+			for _, inst in ipairs(container:GetDescendants()) do
+				if inst:IsA("Sound") or inst:IsA("Decal") or inst:IsA("Texture") or inst:IsA("MeshPart") or inst:IsA("SpecialMesh") or inst:IsA("Animation") or inst:IsA("ParticleEmitter") then
+					table.insert(assetsToLoad, inst)
+				end
+			end
+		end
 
-	local BATCH_SIZE = 20
-	local loaded = 0
-	for i = 1, #assetsToLoad, BATCH_SIZE do
-		if skipped then
-			break
-		end
-		local batch = {}
-		local batchEnd = math.min(i + BATCH_SIZE - 1, #assetsToLoad)
-		for j = i, batchEnd do
-			table.insert(batch, assetsToLoad[j])
-		end
-		pcall(function()
-			ContentProvider:PreloadAsync(batch)
-		end)
-		loaded = batchEnd
-		local frac = 0.12 + (loaded / total) * 0.88
-		setProgress(
-			frac,
-			tr(
-				("กำลังโหลดทรัพยากร... (%d / %d)"):format(loaded, total),
-				("Loading resources... (%d / %d)"):format(loaded, total)
+		local total = math.max(1, #assetsToLoad)
+		local BATCH_SIZE = 20
+		for i = 1, #assetsToLoad, BATCH_SIZE do
+			if skipped then
+				break
+			end
+			local batch = {}
+			local batchEnd = math.min(i + BATCH_SIZE - 1, #assetsToLoad)
+			for j = i, batchEnd do
+				table.insert(batch, assetsToLoad[j])
+			end
+			pcall(function()
+				ContentProvider:PreloadAsync(batch)
+			end)
+			local frac = 0.12 + (batchEnd / total) * 0.88
+			setProgress(
+				frac,
+				tr(
+					("กำลังโหลดทรัพยากร... (%d / %d)"):format(batchEnd, total),
+					("Loading resources... (%d / %d)"):format(batchEnd, total)
+				)
 			)
-		)
-		task.wait(0.03)
-	end
+			task.wait(0.03)
+		end
 
-	if not skipped then
-		setProgress(1, tr("โหลดทรัพยากรเสร็จสมบูรณ์ 100%", "Resources loaded 100%"))
-		task.wait(0.35)
+		if not skipped then
+			setProgress(1, tr("โหลดทรัพยากรเสร็จสมบูรณ์ 100%", "Resources loaded 100%"))
+			task.wait(0.3)
+		end
 	else
-		setProgress(1, tr("ข้ามการโหลด เข้าสู่เกมทันที...", "Skipping preload..."))
+		-- แมพเล่นเกม (Pump Lot): ไม่มีหลอด Progress Bar โหลดทรัพยากร แสดงเฉพาะหน้าจอภาพค้างไว้อย่างน้อย 3 วินาที
+		setProgressMode(false)
+		ui.statusLabel.Text = tr("กำลังเข้าสู่กะดึกที่ปั๊มหลอดท้ายทุ่ง...", "Entering the midnight shift at the gas shack...")
+		local startTime = os.clock()
+		if not game:IsLoaded() then
+			game.Loaded:Wait()
+		end
+		local elapsed = os.clock() - startTime
+		if elapsed < GAME_SPLASH_MIN_SECONDS then
+			task.wait(GAME_SPLASH_MIN_SECONDS - elapsed)
+		end
 	end
 
 	fadeOutGui(0.55)
 end)
 
 -- ================================================================
--- 2) หน้าจอคั่นระหว่างวาร์ปข้าม Place (Teleport Transition Screen)
+-- 2) หน้าจอคั่นระหว่างวาร์ปข้าม Place (Teleport Transition Screen — แสดงภาพ Key Art ไม่มีหลอด %)
 -- ================================================================
 local teleportActive = false
 local teleportLoopToken = 0
@@ -509,17 +529,14 @@ local teleportLoopToken = 0
 local function showTeleportScreen(opts: { destination: string?, subtitleTH: string?, subtitleEN: string? }?)
 	teleportActive = true
 	teleportLoopToken += 1
-	local myToken = teleportLoopToken
 
 	skipped = true -- ปิดลูปโหลดตอนเข้าเกมถ้ายังทำงานอยู่
 	gui.Enabled = true
 	resetGuiOpacity()
 	updateTipText()
+	setProgressMode(false)
 
 	local dest = (opts and opts.destination) or (if isLobbyPlace() then "game" else "lobby")
-	ui.skipBtn.Visible = false
-	ui.barTrack.Size = UDim2.new(1, -48, 0, 18)
-	ui.percentLabel.Position = UDim2.new(1, -24, 0, 44)
 
 	if dest == "game" then
 		ui.badge.Text = tr("  🚚 กำลังเดินทางเข้าสู่กะดึก  ", "  🚚 HEADING TO NIGHT SHIFT  ")
@@ -536,25 +553,13 @@ local function showTeleportScreen(opts: { destination: string?, subtitleTH: stri
 			opts and opts.subtitleEN or "Reconnecting to the Temple Lobby plaza"
 		)
 	end
+	ui.statusLabel.Text = tr("กำลังเชื่อมต่อเซิร์ฟเวอร์ปลายทาง กรุณารอสักครู่...", "Connecting to destination server, please wait...")
 
 	-- ส่ง ScreenGui ชุดนี้ให้ TeleportService คงไว้บนจอระหว่างสลับเซิร์ฟเวอร์
 	pcall(function()
 		local tpClone = gui:Clone()
 		tpClone.Name = "TeleportBridgeGui"
 		TeleportService:SetTeleportGui(tpClone)
-	end)
-
-	-- อนิเมชันแถบโหลดระหว่างรอ TeleportService ย้ายเซิร์ฟเวอร์
-	task.spawn(function()
-		local p = 0.08
-		while teleportActive and teleportLoopToken == myToken do
-			p = math.min(0.96, p + (1 - p) * 0.14)
-			setProgress(
-				p,
-				tr("กำลังเชื่อมต่อเซิร์ฟเวอร์ปลายทาง กรุณารอสักครู่...", "Connecting to destination server, please wait...")
-			)
-			task.wait(0.25)
-		end
 	end)
 end
 
@@ -580,7 +585,7 @@ task.spawn(function()
 				if state and state.launching then
 					local subTH = ("ห้องที่ %s · สมาชิก %d/%d คน · กำลังเคลื่อนย้ายไปแมพปั๊ม..."):format(
 						tostring(state.pad or "?"),
-						 tonumber(state.count) or 1,
+						tonumber(state.count) or 1,
 						tonumber(state.maxPlayers) or 4
 					)
 					local subEN = ("Room %s · Crew %d/%d · Transporting to the gas shack..."):format(
@@ -594,7 +599,6 @@ task.spawn(function()
 						subtitleEN = subEN,
 					})
 				elseif state == nil and teleportActive then
-					-- กรณีเทสใน Studio หรือ Teleport ล้มเหลวแล้วห้องรีเซ็ต ให้ค่อยๆ จางหน้าจอลง
 					hideTeleportScreen()
 				end
 			end)
