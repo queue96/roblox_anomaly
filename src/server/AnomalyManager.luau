@@ -651,23 +651,27 @@ function AnomalyManager.ResetAnomalies()
 	end
 end
 
--- ---------------------------------------------------------------- บรรยากาศทุ่ง: เสียงหลอนแบบสุ่มรอบๆ แมพ
--- เสียงเล่นฝั่ง Server (ทุกคนได้ยินเหมือนกัน เป็นเสียง 3D จากจุดนั้นจริงๆ) ทุก 14-32 วิ สุ่ม 1 เสียงตามน้ำหนัก
---   segment = เล่นแค่ช่วงหนึ่งของไฟล์ยาว (เริ่มสุ่มตำแหน่ง แล้วหยุดเมื่อครบเวลา)
---   near = ดังใกล้ร้าน (เช่น เสียงฝีเท้า เสียงกระซิบ) ไม่ใช่ไกลกลางทุ่ง
+-- ---------------------------------------------------------------- บรรยากาศทุ่ง: ระบบเสียงธรรมชาติสุ่มรอบแมพ (Field Recordings จาก ProSoundEffects)
+-- เสียงเล่นฝั่ง Server (ทุกคนได้ยินเหมือนกัน เป็นเสียง 3D จากจุดนั้นจริงๆ)
 local AMBIENT = {
-	{ name = "DogHowl", id = "rbxassetid://748228812", weight = 4, volume = 0.7 },
-	{ name = "Owl", id = "rbxassetid://9117181875", weight = 3, volume = 0.6 },
-	{ name = "Crows", id = "rbxassetid://190872950", weight = 2, volume = 0.5, segment = 6 },
-	{ name = "Crying", id = "rbxassetid://75664285683608", weight = 2, volume = 0.45 },
-	{ name = "Laugh", id = "rbxassetid://91272160888434", weight = 1, volume = 0.4 },
-	{ name = "Bells", id = "rbxassetid://119445319966378", weight = 1, volume = 0.35 },
-	{ name = "Whisper", id = "rbxassetid://2643071410", weight = 2, volume = 0.5, segment = 5, near = true },
-	{ name = "Footsteps", id = "rbxassetid://135952279207329", weight = 2, volume = 0.6, segment = 3, near = true },
-	{ name = "Eerie", id = "rbxassetid://9112775624", weight = 1, volume = 0.6, segment = 10 },
+	-- 1. เสียงหมาหอนแว่วจากทุ่งนาไกลๆ (Dog Howling)
+	{ name = "DogHowl", id = "rbxassetid://748228812", weight = 3, volume = 0.85 },
+	-- 2. ลมหนาวพัดวูบผ่านยอดไม้/ใบกล้วยเสียดสีกัน (Leaves Rustle Wind Blowing Through Trees 1 & 2)
+	{ name = "WindLeaves1", id = "rbxassetid://9116258071", weight = 3, volume = 0.65, near = true, segment = 5.5, fade = true },
+	{ name = "WindLeaves2", id = "rbxassetid://9116258282", weight = 2, volume = 0.60, near = true, segment = 5.0, fade = true },
+	-- 3. ลมทุ่งพัดกรรโชกเอื่อยๆ (Ambient Wind)
+	{ name = "WindGust", id = "rbxassetid://5799870105", weight = 2, volume = 0.55, segment = 6.0, fade = true },
+	-- 4. เสียงกบ/เขียดร้องแว่วจากคันนาไกลๆ (Jungle Frogs)
+	{ name = "NightFrogs", id = "rbxassetid://9112807844", weight = 2, volume = 0.45, segment = 5.0, fade = true },
+	-- 5. เสียงกิ่งไม้ใหญ่แถวต้นไทร/หลังร้านลั่นตามแรงลม (Wood Creaking)
+	{ name = "TreeBranchCreak", id = "rbxassetid://9125407169", weight = 2, volume = 0.50, near = true },
+	-- 6. เสียงโครงไม้และแผ่นสังกะสีเพิงร้านขยับเบาๆ ตอนลมตี (Wood & Metal Creaking)
+	{ name = "ShackTinWoodCreak", id = "rbxassetid://9126282474", weight = 2, volume = 0.42, near = true, segment = 3.2, fade = true },
+	-- 7. เสียงนกกลางคืนกระพือปีกบินผ่านยอดไม้ไปเงียบๆ (Bird Wings Flap Flutter)
+	{ name = "NightBirdWings", id = "rbxassetid://9114787449", weight = 1, volume = 0.48, near = true, segment = 2.5, fade = true },
 }
 local THUNDER_ID = "rbxassetid://9120016037"
-local AMBIENT_SCALE = 0.45 -- เสียงพื้นหลังเบาลง ให้ผีหลอกเด่นกว่า
+local AMBIENT_SCALE = 0.65 -- ความดังรวมของเสียงสุ่มรอบทุ่ง
 local FAR_SPOTS = {
 	Vector3.new(-90, 4, 70),
 	Vector3.new(80, 4, -70),
@@ -706,8 +710,8 @@ function AnomalyManager.StartAmbience()
 		snd.Volume = a.volume * AMBIENT_SCALE
 		snd.PlaybackSpeed = 1.0
 		snd.RollOffMode = Enum.RollOffMode.Linear
-		snd.RollOffMinDistance = if a.near then 10 else 40
-		snd.RollOffMaxDistance = if a.near then 70 else 260
+		snd.RollOffMinDistance = if a.near then 12 else 65
+		snd.RollOffMaxDistance = if a.near then 80 else 300
 		local warmEq = Instance.new("EqualizerSoundEffect")
 		warmEq.Name = "WarmAmbientEQ"
 		warmEq.LowGain = 1
@@ -746,21 +750,35 @@ function AnomalyManager.StartAmbience()
 	end
 
 	task.spawn(function()
+		-- สุ่มเสียงธรรมชาติทุกๆ 1 นาที (60 วินาที)
 		while true do
-			task.wait(math.random(14, 32))
+			task.wait(60)
 			local a = pickAmbient()
 			local snd = sounds[a.name]
 			local list = if a.near then NEAR_SPOTS else FAR_SPOTS
 			emitter.Position = list[math.random(#list)]
-			snd.PlaybackSpeed = 1.0
+			local targetVol = a.volume * AMBIENT_SCALE
+			snd.PlaybackSpeed = 0.94 + math.random() * 0.10
 			if a.segment and snd.TimeLength > a.segment + 1 then
 				snd.TimePosition = math.random() * (snd.TimeLength - a.segment)
 			else
 				snd.TimePosition = 0
 			end
-			snd:Play()
+			if a.fade then
+				snd.Volume = 0
+				snd:Play()
+				TweenService:Create(snd, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { Volume = targetVol }):Play()
+			else
+				snd.Volume = targetVol
+				snd:Play()
+			end
 			if a.segment then
 				local seg = a.segment
+				if a.fade and seg > 1.5 then
+					task.delay(seg - 1.2, function()
+						TweenService:Create(snd, TweenInfo.new(1.1, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+					end)
+				end
 				task.delay(seg, function()
 					snd:Stop()
 				end)

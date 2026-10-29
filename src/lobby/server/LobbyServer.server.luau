@@ -30,6 +30,7 @@ require(script.Parent:WaitForChild("AnomalyBook"))
 -- ---------------------------------------------------------------- 1) บรรยากาศ
 -- ใช้แสงกลางคืนชุดเดียวกับแมพเกม แล้วกดให้ซีดและเย็นกว่า
 local MapBuilder = require(Shared:WaitForChild("MapBuilder"):Clone())
+MapBuilder.OptimizeShadowsAndCleanup()
 MapBuilder.SetNightLighting()
 -- แสงจันทร์จางและเย็น: หมอกจริงทำด้วยอนุภาคต่ำเหนือพื้น จึงไม่ใช้ Atmosphere หนาเกินจนฉากซีดขาว
 Lighting.Brightness = 0.5

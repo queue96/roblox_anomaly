@@ -554,6 +554,16 @@ camViewFolder.Name = "CameraFlashlightViewmodel"
 camViewFolder.Parent = workspace
 local camViewParts: { { part: BasePart, relCF: CFrame } } = {}
 local camViewSourceTool: Tool? = nil
+local camViewVisibleState: boolean? = nil
+
+local function hideHandToolInstance(d: Instance)
+	if d:IsA("BasePart") then
+		d.LocalTransparencyModifier = 1
+		d.CastShadow = false
+	elseif d:IsA("SpotLight") or d:IsA("PointLight") or d:IsA("SurfaceLight") then
+		d.Enabled = false
+	end
+end
 
 local function rebuildCameraFlashlightView(tool: Tool)
 	if camViewSourceTool == tool and #camViewParts > 0 then
@@ -562,6 +572,7 @@ local function rebuildCameraFlashlightView(tool: Tool)
 	camViewFolder:ClearAllChildren()
 	table.clear(camViewParts)
 	camViewSourceTool = tool
+	camViewVisibleState = nil
 
 	local handle = tool:FindFirstChild("Handle")
 	if not handle or not handle:IsA("BasePart") then
@@ -587,10 +598,16 @@ local function rebuildCameraFlashlightView(tool: Tool)
 				relCF = handle.CFrame:ToObjectSpace(d.CFrame),
 			})
 		end
+		-- ซ่อนโมเดลไฟฉายที่ติดมือตัวละครระดับเอวเพียงครั้งเดียวตอนสร้าง Viewmodel
+		hideHandToolInstance(d)
 	end
 end
 
 local function setCameraViewVisible(visible: boolean)
+	if camViewVisibleState == visible then
+		return
+	end
+	camViewVisibleState = visible
 	for _, item in ipairs(camViewParts) do
 		item.part.Transparency = if visible then 0 else 1
 	end
@@ -601,25 +618,13 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 	if not cam then
 		return
 	end
-	if camLightPart.Parent ~= workspace then
-		camLightPart.Parent = workspace
-	end
-	if camClosePart.Parent ~= workspace then
-		camClosePart.Parent = workspace
-	end
-	if camViewFolder.Parent ~= workspace then
-		camViewFolder.Parent = workspace
-	end
 
 	if isEquipped and tool then
 		rebuildCameraFlashlightView(tool)
-		-- ซ่อนโมเดลไฟฉายที่ติดมือตัวละครระดับเอว และแสดงโมเดลที่ล็อกติดมุมกล้องแทน
-		for _, d in ipairs(tool:GetDescendants()) do
-			if d:IsA("BasePart") then
-				d.LocalTransparencyModifier = 1
-				d.CastShadow = false
-			elseif d:IsA("SpotLight") or d:IsA("PointLight") or d:IsA("SurfaceLight") then
-				d.Enabled = false
+		local handle = tool:FindFirstChild("Handle") :: BasePart?
+		if handle and handle.LocalTransparencyModifier < 1 then
+			for _, d in ipairs(tool:GetDescendants()) do
+				hideHandToolInstance(d)
 			end
 		end
 		local aimPoint = cam.CFrame.Position + cam.CFrame.LookVector * 45
@@ -633,21 +638,36 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		-- ถอยจุดกำเนิด SpotLight ไปด้านหลังกล้อง 1.5 studs ตามแนวสายตา เพื่อให้ตอนก้มมองพื้นใต้เท้าระยะห่างพอให้ Voxel สว่าง
 		camLightPart.CFrame = cam.CFrame * CFrame.new(0, 0, 1.5)
 		camClosePart.CFrame = cam.CFrame * CFrame.new(0, 0, -2.2)
-		camSpotLight.Enabled = true
-		camCloseLight.Enabled = true
+		if not camSpotLight.Enabled then
+			camSpotLight.Enabled = true
+			camCloseLight.Enabled = true
+		end
 	else
 		setCameraViewVisible(false)
-		camSpotLight.Enabled = false
-		camCloseLight.Enabled = false
+		if camSpotLight.Enabled then
+			camSpotLight.Enabled = false
+			camCloseLight.Enabled = false
+		end
 	end
 end
 
+local lastSlotHasTool: boolean? = nil
+local lastSlotEquipped: boolean? = nil
+local lastSlotShowHUD: boolean? = nil
+
 local function updateFlashlightSlot()
 	local tool, isEquipped = findFlashlight()
-	flashlightSlot.Visible = (tool ~= nil) and (localPlayer:GetAttribute("ShowHUD") ~= false)
-	slotStroke.Color = if isEquipped then Color3.fromRGB(185, 140, 88) else Color3.fromRGB(70, 64, 54)
-	slotLabel.TextColor3 = if isEquipped then C.Cream else C.Dim
-	slotKeyBadge.TextColor3 = if isEquipped then C.Cream else C.Dim
+	local hasTool = tool ~= nil
+	local showHUD = localPlayer:GetAttribute("ShowHUD") ~= false
+	if hasTool ~= lastSlotHasTool or isEquipped ~= lastSlotEquipped or showHUD ~= lastSlotShowHUD then
+		lastSlotHasTool = hasTool
+		lastSlotEquipped = isEquipped
+		lastSlotShowHUD = showHUD
+		flashlightSlot.Visible = hasTool and showHUD
+		slotStroke.Color = if isEquipped then Color3.fromRGB(185, 140, 88) else Color3.fromRGB(70, 64, 54)
+		slotLabel.TextColor3 = if isEquipped then C.Cream else C.Dim
+		slotKeyBadge.TextColor3 = if isEquipped then C.Cream else C.Dim
+	end
 	updateCameraFlashlight(tool, isEquipped)
 end
 
@@ -1081,24 +1101,36 @@ local mouseModalBtn = new("TextButton", {
 	Modal = true,
 	Visible = false,
 }, gui)
+local cachedBookWin: GuiObject? = nil
+local cachedSetWin: GuiObject? = nil
+local cachedDeathGui: ScreenGui? = nil
+local cachedDeathOverlay: GuiObject? = nil
+
 local function isAnyModalOpen(): boolean
 	if mouseUnlocked or lobbyBtn.Visible or mgFrame.Visible then
 		return true
 	end
-	local bookGui = playerGui:FindFirstChild("BookGui")
-	local bookWin = bookGui and (bookGui:FindFirstChild("Panel") or bookGui:FindFirstChild("Window")) :: GuiObject?
-	if bookWin and bookWin.Visible then
+	if not cachedBookWin or not cachedBookWin.Parent then
+		local bookGui = playerGui:FindFirstChild("BookGui")
+		cachedBookWin = bookGui and (bookGui:FindFirstChild("Panel") or bookGui:FindFirstChild("Window")) :: GuiObject?
+	end
+	if cachedBookWin and cachedBookWin.Visible then
 		return true
 	end
-	local setGui = playerGui:FindFirstChild("SettingsGui")
-	local setWin = setGui and (setGui:FindFirstChild("Panel") or setGui:FindFirstChild("Window")) :: GuiObject?
-	if setWin and setWin.Visible then
+	if not cachedSetWin or not cachedSetWin.Parent then
+		local setGui = playerGui:FindFirstChild("SettingsGui")
+		cachedSetWin = setGui and (setGui:FindFirstChild("Panel") or setGui:FindFirstChild("Window")) :: GuiObject?
+	end
+	if cachedSetWin and cachedSetWin.Visible then
 		return true
 	end
-	local deathGui = playerGui:FindFirstChild("DeathScreen")
-	if deathGui and deathGui:IsA("ScreenGui") and deathGui.Enabled then
-		local overlay = deathGui:FindFirstChild("Overlay") :: GuiObject?
-		if not overlay or overlay.Visible then
+	if not cachedDeathGui or not cachedDeathGui.Parent then
+		local dg = playerGui:FindFirstChild("DeathScreen")
+		cachedDeathGui = if dg and dg:IsA("ScreenGui") then dg else nil
+		cachedDeathOverlay = cachedDeathGui and cachedDeathGui:FindFirstChild("Overlay") :: GuiObject?
+	end
+	if cachedDeathGui and cachedDeathGui.Enabled then
+		if not cachedDeathOverlay or cachedDeathOverlay.Visible then
 			return true
 		end
 	end
@@ -1324,19 +1356,31 @@ local PROMPTS = {
 	DieselFuelPrompt = { "FillDiesel", "DieselPump" },
 	AirPumpPrompt = { "PumpAir", "AirCompressorName" },
 }
+local trackedPrompts: { [ProximityPrompt]: boolean } = {}
 local function localizePrompt(p: Instance)
 	local keys = PROMPTS[p.Name]
 	if keys and p:IsA("ProximityPrompt") then
+		trackedPrompts[p] = true
 		p.AutoLocalize = false
 		p.ActionText = ui(keys[1])
 		p.ObjectText = ui(keys[2])
 	end
 end
-local interactive = workspace -- ปุ่มอยู่ทั้งใน InteractiveProps และถังลม (Workspace.AirCompressor)
-for _, d in ipairs(interactive:GetDescendants()) do
-	localizePrompt(d)
+-- สแกนเฉพาะโฟลเดอร์ที่มีปุ่มกดจริง (InteractiveProps และ AirCompressor) แทนการกวาดทั้ง Workspace 55,000+ ชิ้น
+local interactiveProps = workspace:WaitForChild("InteractiveProps", 10)
+if interactiveProps then
+	for _, d in ipairs(interactiveProps:GetDescendants()) do
+		localizePrompt(d)
+	end
+	interactiveProps.DescendantAdded:Connect(localizePrompt)
 end
-interactive.DescendantAdded:Connect(localizePrompt)
+local airCompRoot = workspace:FindFirstChild("AirCompressor")
+if airCompRoot then
+	for _, d in ipairs(airCompRoot:GetDescendants()) do
+		localizePrompt(d)
+	end
+	airCompRoot.DescendantAdded:Connect(localizePrompt)
+end
 
 -- เปลี่ยนภาษาทุกข้อความที่แสดงอยู่
 local function refreshLanguage()
@@ -1361,8 +1405,12 @@ local function refreshLanguage()
 		line.Text = LanguageModule.GetText(bubbleKey, lang(), bubbleVars)
 		line.MaxVisibleGraphemes = -1
 	end
-	for _, d in ipairs(interactive:GetDescendants()) do
-		localizePrompt(d)
+	for p in pairs(trackedPrompts) do
+		if p.Parent then
+			localizePrompt(p)
+		else
+			trackedPrompts[p] = nil
+		end
 	end
 end
 refreshLanguage()

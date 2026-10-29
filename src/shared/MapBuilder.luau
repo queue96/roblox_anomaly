@@ -9,7 +9,7 @@ local StarterPack = game:GetService("StarterPack")
 local MapBuilder = {}
 
 -- ป้ายชื่อลอยขนาดกะทัดรัด (สามารถตั้ง SHOW_LABELS = false ได้ถ้าต้องการปิดป้ายทั้งหมด)
-MapBuilder.SHOW_LABELS = true
+MapBuilder.SHOW_LABELS = false
 
 local function addLabel(parent: Instance, titleText: string, color: Color3?)
 	local existing = parent:FindFirstChild("ZoneLabel")
@@ -1349,6 +1349,15 @@ function MapBuilder.SetNightLighting()
 	atmo.Decay = Color3.fromRGB(10, 12, 15)
 	atmo.Glare = 0.1
 	atmo.Haze = 1.5
+
+	local sky = Lighting:FindFirstChildOfClass("Sky")
+	if not sky then
+		sky = Instance.new("Sky")
+		sky.Name = "NightSky"
+		sky.Parent = Lighting
+	end
+	sky.StarCount = 0
+	sky.CelestialBodiesShown = true
 end
 
 -- ฟังก์ชันดึงต้นกล้วยจาก Toolbox (ทั้งต้นใหญ่และต้นเล็กที่โหลดเพิ่ม) ไปปลูกแบบผสมไล่ระดับ "กอกล้วยธรรมชาติ" รอบร้าน!
@@ -6287,6 +6296,151 @@ function MapBuilder.SpreadBananaGrove()
 		local delta = Vector3.new(tx - curPivot.Position.X, newY - oldY, tz - curPivot.Position.Z)
 		tree:PivotTo(curPivot + delta)
 	end
+end
+
+-- ลด/ปิดเงา (CastShadow = false) บนใบไม้ ต้นข้าว กอหญ้า ต้นไม้ขอบแมพ และลบสำเนาเก่าใน ServerStorage
+function MapBuilder.OptimizeShadowsAndCleanup(): (number, number)
+	local shadowOffCount = 0
+	local removedArchivedCount = 0
+
+	local function disableShadowsIn(root: Instance?)
+		if not root then
+			return
+		end
+		if root:IsA("BasePart") then
+			if root.CastShadow then
+				root.CastShadow = false
+				shadowOffCount += 1
+			end
+		end
+		for _, d in ipairs(root:GetDescendants()) do
+			if d:IsA("BasePart") and d.CastShadow then
+				d.CastShadow = false
+				shadowOffCount += 1
+			end
+		end
+	end
+
+	-- 1. ลบสำเนาเก่าใน ServerStorage ที่ไม่ได้ใช้แล้ว (ArchivedPlaceholders, ArchivedToolboxSpiritHouse)
+	local serverStorage = game:GetService("ServerStorage")
+	for _, folderName in ipairs({ "ArchivedPlaceholders", "ArchivedToolboxSpiritHouse" }) do
+		local archived = serverStorage:FindFirstChild(folderName)
+		if archived then
+			removedArchivedCount += #archived:GetDescendants() + 1
+			archived:Destroy()
+		end
+	end
+
+	-- 2. ปิดเงาของต้นไม้ใบหญ้าที่ติดแท็ก LeafFlutter และ WindSway ทั้งหมด (ใบมะม่วง, ใบไทร, แผ่นต้นข้าว, กอหญ้า, ตะไคร้, ต้นกล้วย, ต้นไม้ชายทุ่ง)
+	local collectionService = game:GetService("CollectionService")
+	for _, inst in ipairs(collectionService:GetTagged("LeafFlutter")) do
+		disableShadowsIn(inst)
+	end
+	for _, inst in ipairs(collectionService:GetTagged("WindSway")) do
+		disableShadowsIn(inst)
+	end
+
+	-- 3. ปิดเงาในโฟลเดอร์ทุ่งนาและแนวป่าขอบแมพ (Pump Lot) เผื่อชิ้นที่ไม่ได้ติดแท็ก (ยกเว้นเถียงนาและหุ่นไล่กา)
+	local mapEnv = Workspace:FindFirstChild("MapEnvironment")
+	if mapEnv then
+		for _, fieldName in ipairs({ "RiceField", "LeftRiceField", "RightRiceField", "BackRiceField" }) do
+			local field = mapEnv:FindFirstChild(fieldName)
+			if field then
+				for _, child in ipairs(field:GetChildren()) do
+					if child.Name ~= "DistantRiceHut" and child.Name ~= "Scarecrow" then
+						disableShadowsIn(child)
+					end
+				end
+			end
+		end
+		disableShadowsIn(mapEnv:FindFirstChild("OuterTreeLine"))
+		disableShadowsIn(mapEnv:FindFirstChild("MountainTrees"))
+		disableShadowsIn(mapEnv:FindFirstChild("BundClumps"))
+		disableShadowsIn(mapEnv:FindFirstChild("BananaGrove"))
+		local banyan = mapEnv:FindFirstChild("GiantBanyanTree")
+		if banyan then
+			disableShadowsIn(banyan:FindFirstChild("BanyanLeaves"))
+		end
+		for _, child in ipairs(mapEnv:GetChildren()) do
+			if child.Name == "MangoTree" then
+				disableShadowsIn(child:FindFirstChild("MangoLeaves"))
+			elseif child.Name == "WildGrassClump" or child.Name == "LemongrassClump" then
+				disableShadowsIn(child)
+			end
+		end
+	end
+
+	-- 4. ปิดเงาแนวป่ารอบวัดและกอหญ้าในแมพ TempleLobby
+	local templeLobby = Workspace:FindFirstChild("TempleLobby")
+	if templeLobby then
+		disableShadowsIn(templeLobby:FindFirstChild("Forest"))
+		local spooky = templeLobby:FindFirstChild("SpookyDecor")
+		if spooky then
+			for _, child in ipairs(spooky:GetChildren()) do
+				if child.Name == "GrassClump" then
+					disableShadowsIn(child)
+				end
+			end
+		end
+	end
+
+	return shadowOffCount, removedArchivedCount
+end
+
+-- ลบป้ายข้อความลอยเหนืออุปกรณ์/วัตถุ (ZoneLabel) ทั้งหมดออกจากฉาก
+function MapBuilder.RemoveZoneLabels(): number
+	local removed = 0
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("BillboardGui") and d.Name == "ZoneLabel" then
+			d:Destroy()
+			removed += 1
+		end
+	end
+	return removed
+end
+
+-- ปรับสีต้นข้าว (RiceTile) และกอหญ้าคันนาให้เข้มขึ้นและตัดแสงสะท้อนโลหะ (MetalnessMap) เวลาโดนไฟฉายส่องตอนกลางคืน
+function MapBuilder.DarkenRiceAndFoliage(): number
+	local updated = 0
+	local riceBaseColor = Color3.fromRGB(48, 64, 38)
+	local riceTintColor = Color3.fromRGB(70, 86, 56) -- กดความสว่างของ Texture ต้นข้าวลงให้กลืนกับบรรยากาศกลางคืน
+	local grassTintColor = Color3.fromRGB(125, 138, 110)
+
+	local function tuneContainer(root: Instance?)
+		if not root then
+			return
+		end
+		for _, d in ipairs(root:GetDescendants()) do
+			if d:IsA("BasePart") then
+				if d.Name == "RiceTile" then
+					d.Material = Enum.Material.LeafyGrass
+					d.Color = riceBaseColor
+					d.Reflectance = 0
+					local sa = d:FindFirstChildOfClass("SurfaceAppearance")
+					if sa then
+						sa.Color = riceTintColor
+						pcall(function()
+							sa.MetalnessMap = ""
+						end)
+					end
+					updated += 1
+				elseif d.Name == "WildGrassClump" or d.Name == "LemongrassClump" then
+					d.Reflectance = 0
+					local sa = d:FindFirstChildOfClass("SurfaceAppearance")
+					if sa then
+						sa.Color = grassTintColor
+						pcall(function()
+							sa.MetalnessMap = ""
+						end)
+					end
+				end
+			end
+		end
+	end
+
+	tuneContainer(Workspace)
+	tuneContainer(game:GetService("ServerStorage"):FindFirstChild("ImportedProps"))
+	return updated
 end
 
 return MapBuilder

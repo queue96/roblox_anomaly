@@ -2,11 +2,17 @@
 -- ไม่ถูกรันตอนเล่นเกม; ผลลัพธ์ print ขึ้นต้น DEVCMD| ให้อ่านจาก log ของ Studio
 
 return {
-	id = "spread-banana-grove-2",
-	placeId = 114125276809667,
+	id = "set-sky-no-stars-1",
 	run = function()
-		local MapBuilder = require(game:GetService("ReplicatedStorage").Shared.MapBuilder:Clone())
-		MapBuilder.SpreadBananaGrove()
-		print("DEVCMD|SpreadBananaGrove done")
+		local Lighting = game:GetService("Lighting")
+		local sky = Lighting:FindFirstChildOfClass("Sky")
+		if not sky then
+			sky = Instance.new("Sky")
+			sky.Name = "NightSky"
+			sky.Parent = Lighting
+		end
+		sky.StarCount = 0
+		sky.CelestialBodiesShown = true
+		print("DEVCMD|Sky StarCount=0 done")
 	end,
 }

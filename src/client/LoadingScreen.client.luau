@@ -22,7 +22,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- ภาพประกอบฉากหลังปั๊มหลอด & วัดท้ายทุ่งยามเที่ยงคืน (อัปโหลดไว้บน Roblox Asset Server)
 local KEY_ART_ID = "rbxassetid://98063047584423"
 local LOBBY_PLACE_ID = 70980777393906
-local GAME_SPLASH_MIN_SECONDS = 3.0
+local GAME_SPLASH_MIN_SECONDS = 1.2
 
 local FONT_TITLE = Font.new("rbxasset://fonts/families/Srisakdi.json", Enum.FontWeight.Bold)
 local FONT_BODY = Font.new("rbxasset://fonts/families/Sarabun.json", Enum.FontWeight.Regular)
@@ -466,16 +466,31 @@ task.spawn(function()
 		end
 
 		local assetsToLoad = {}
+		local seenAssetIds: { [string]: boolean } = {}
+		local function addUniqueAsset(inst: Instance, assetId: string?)
+			if type(assetId) == "string" and assetId ~= "" and not seenAssetIds[assetId] then
+				seenAssetIds[assetId] = true
+				table.insert(assetsToLoad, inst)
+			end
+		end
 		for _, container in ipairs({ Workspace, ReplicatedStorage, SoundService }) do
 			for _, inst in ipairs(container:GetDescendants()) do
-				if inst:IsA("Sound") or inst:IsA("Decal") or inst:IsA("Texture") or inst:IsA("MeshPart") or inst:IsA("SpecialMesh") or inst:IsA("Animation") or inst:IsA("ParticleEmitter") then
-					table.insert(assetsToLoad, inst)
+				if inst:IsA("Sound") then
+					addUniqueAsset(inst, inst.SoundId)
+				elseif inst:IsA("Decal") or inst:IsA("Texture") or inst:IsA("ParticleEmitter") then
+					addUniqueAsset(inst, (inst :: any).Texture)
+				elseif inst:IsA("MeshPart") then
+					addUniqueAsset(inst, inst.MeshId ~= "" and inst.MeshId or inst.TextureID)
+				elseif inst:IsA("SpecialMesh") then
+					addUniqueAsset(inst, inst.MeshId ~= "" and inst.MeshId or inst.TextureId)
+				elseif inst:IsA("Animation") then
+					addUniqueAsset(inst, inst.AnimationId)
 				end
 			end
 		end
 
 		local total = math.max(1, #assetsToLoad)
-		local BATCH_SIZE = 20
+		local BATCH_SIZE = 45
 		for i = 1, #assetsToLoad, BATCH_SIZE do
 			if skipped then
 				break
@@ -496,12 +511,12 @@ task.spawn(function()
 					("Loading resources... (%d / %d)"):format(batchEnd, total)
 				)
 			)
-			task.wait(0.03)
+			task.wait(0.01)
 		end
 
 		if not skipped then
 			setProgress(1, tr("โหลดทรัพยากรเสร็จสมบูรณ์ 100%", "Resources loaded 100%"))
-			task.wait(0.3)
+			task.wait(0.15)
 		end
 	else
 		-- แมพเล่นเกม (Pump Lot): ไม่มีหลอด Progress Bar โหลดทรัพยากร แสดงเฉพาะหน้าจอภาพค้างไว้อย่างน้อย 3 วินาที

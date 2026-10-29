@@ -53,6 +53,11 @@ MapBuilder.SpreadBananaGrove()
 -- บังคับเปลี่ยนแสงเป็นตอนเที่ยงคืนมืดหลอนเฉพาะตอนกด Play เข้าเกม! (พอออกจากโหมด Play แมพจะกลับไปสว่างให้ Dev ง่ายๆ)
 MapBuilder.SetNightLighting()
 
+-- ปิดเงาใบไม้/ทุ่งนา/ต้นไม้ขอบแมพ, ลบสำเนาเก่าใน ServerStorage, ลบป้ายข้อความลอย และปรับสีต้นข้าวไม่ให้สะท้อนไฟฉายสว่างเกินไป
+MapBuilder.OptimizeShadowsAndCleanup()
+MapBuilder.RemoveZoneLabels()
+MapBuilder.DarkenRiceAndFoliage()
+
 -- ซ่อนจุดมาร์คของรถตอนเล่น: SpawnPoint (เขียว) / StopPoint (เหลือง) / ExitPoint (แดง)
 -- เป็นตัวช่วยของ Dev: ระบบรถยังใช้ตำแหน่งได้ตามปกติ, ตอน Edit ยังมองเห็น
 do
@@ -91,17 +96,17 @@ task.spawn(function()
 	flickerLight.Range = 52
 
 	while true do
-		task.wait(math.random(3, 8))
-		-- กะพริบ 2-3 ครั้ง
-		for _ = 1, math.random(2, 4) do
+		task.wait(math.random(25, 55))
+		-- กะพริบเบาๆ 1-2 ครั้ง นานๆ ที ไม่ให้ถี่จนลายตา
+		for _ = 1, math.random(1, 2) do
 			flickerLight.Enabled = true
-			flickerLight.Brightness = 0.25
+			flickerLight.Brightness = 0.35
 			neonPart.Color = Color3.fromRGB(90, 85, 70)
-			task.wait(0.07)
+			task.wait(0.06)
 			flickerLight.Enabled = true
 			flickerLight.Brightness = 2.2
 			neonPart.Color = Color3.fromRGB(255, 240, 200)
-			task.wait(0.09)
+			task.wait(0.08)
 		end
 	end
 end)

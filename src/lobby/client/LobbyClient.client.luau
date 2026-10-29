@@ -35,14 +35,14 @@ local function flicker(part: Instance)
 	task.spawn(function()
 		local rng = Random.new()
 		while part.Parent do
-			task.wait(rng:NextNumber(2, 9))
-			for _ = 1, rng:NextInteger(2, 5) do
-				light.Brightness = base * rng:NextNumber(0.05, 0.4)
+			task.wait(rng:NextNumber(20, 48))
+			for _ = 1, rng:NextInteger(1, 2) do
+				light.Brightness = base * rng:NextNumber(0.15, 0.45)
 				part.Transparency = 0.6
-				task.wait(rng:NextNumber(0.04, 0.12))
+				task.wait(rng:NextNumber(0.04, 0.1))
 				light.Brightness = base
 				part.Transparency = 0
-				task.wait(rng:NextNumber(0.05, 0.2))
+				task.wait(rng:NextNumber(0.06, 0.16))
 			end
 		end
 	end)

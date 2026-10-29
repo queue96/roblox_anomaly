@@ -20,9 +20,9 @@ local BASE_LEAN = math.rad(4) -- มุมเอนตามลมพื้น�
 local SWAY = math.rad(5) -- มุมแกว่งเพิ่มตามจังหวะลม
 local PUSH_RADIUS = 3.5 -- ระยะที่ตัวละครเดินชนแล้วกอเอนหลบ
 local PUSH_ANGLE = math.rad(32)
-local ACTIVE_RANGE = 110 -- อัปเดตเฉพาะกอที่อยู่ในระยะนี้จากกล้อง
+local ACTIVE_RANGE = 85 -- อัปเดตเฉพาะกอที่อยู่ในระยะสายตากลางคืน (หมอกบังเกิน ~65 studs)
 local UPDATE_HZ = 30
-local LEAF_RANGE = 75 -- พุ่มใบไม้ใหญ่มีใบหลายพันแผ่น (ไทร ~700, มะม่วง ~110/ต้น) ขยับเฉพาะพุ่มใกล้ๆ
+local LEAF_RANGE = 60 -- พุ่มใบไม้ใหญ่มีใบหลายพันแผ่น ขยับเฉพาะพุ่มใกล้กล้อง
 local LEAF_HZ = 12 -- ใบไม้อัปเดตถี่น้อยกว่าหญ้า (ทดสอบแล้ว: ขยับใบทั้งแมพ ~6000 แผ่นที่ 30Hz ทำ FPS ตก 37 -> 28)
 local LEAF_FLUTTER = math.rad(5) -- มุมไหวของใบแต่ละใบ
 local LEAF_DRIFT = 0.35 -- ระยะ (studs) ที่ยอดพุ่มโยกไปตามลม
@@ -57,8 +57,14 @@ local function add(inst: Instance)
 	if inst:IsA("Model") then
 		local cf, size = inst:GetBoundingBox()
 		bottomY = cf.Position.Y - size.Y / 2
+		for _, d in ipairs(inst:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.CastShadow = false
+			end
+		end
 	else
 		local part = inst :: BasePart
+		part.CastShadow = false
 		bottomY = math.min(pivot.Position.Y, part.Position.Y - part.Size.Y / 2)
 	end
 	local e: Entry = {
@@ -102,6 +108,7 @@ local function addLeaves(inst: Instance)
 	}
 	for _, p in ipairs(inst:GetDescendants()) do
 		if p:IsA("BasePart") then
+			p.CastShadow = false
 			local flat = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1))
 			table.insert(g.leaves, {
 				part = p,
@@ -128,17 +135,26 @@ local function removeLeaves(inst: Instance)
 	end
 end
 
-for _, inst in ipairs(CollectionService:GetTagged(TAG)) do
-	add(inst)
-end
 CollectionService:GetInstanceAddedSignal(TAG):Connect(add)
 CollectionService:GetInstanceRemovedSignal(TAG):Connect(remove)
-
-for _, inst in ipairs(CollectionService:GetTagged(LEAF_TAG)) do
-	addLeaves(inst)
-end
 CollectionService:GetInstanceAddedSignal(LEAF_TAG):Connect(addLeaves)
 CollectionService:GetInstanceRemovedSignal(LEAF_TAG):Connect(removeLeaves)
+
+-- ทยอยลงทะเบียนต้นไม้และพุ่มใบไม้เป็นชุดๆ ตอนเริ่มเกม เพื่อไม่ให้เฟรมแรกสะดุดจากการคำนวณ GetBoundingBox พร้อมกันหลายร้อยต้น
+task.spawn(function()
+	for i, inst in ipairs(CollectionService:GetTagged(TAG)) do
+		add(inst)
+		if i % 60 == 0 then
+			task.wait()
+		end
+	end
+	for i, inst in ipairs(CollectionService:GetTagged(LEAF_TAG)) do
+		addLeaves(inst)
+		if i % 8 == 0 then
+			task.wait()
+		end
+	end
+end)
 
 local function characterRoots(): { Vector3 }
 	local list = {}

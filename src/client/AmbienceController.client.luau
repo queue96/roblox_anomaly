@@ -48,6 +48,15 @@ atmo.Decay = Color3.fromRGB(10, 12, 15)
 atmo.Glare = 0.1
 atmo.Haze = 1.5
 
+local sky = Lighting:FindFirstChildOfClass("Sky")
+if not sky then
+	sky = Instance.new("Sky")
+	sky.Name = "NightSky"
+	sky.Parent = Lighting
+end
+sky.StarCount = 0
+sky.CelestialBodiesShown = true
+
 local grade = Lighting:FindFirstChild("ColdNightGrade") or Instance.new("ColorCorrectionEffect")
 grade.Name = "ColdNightGrade"
 grade.TintColor = Color3.fromRGB(235, 245, 235)
@@ -458,22 +467,8 @@ SoundService:GetAttributeChangedSignal("DebugHaunt"):Connect(function()
 	end
 end)
 
-task.spawn(function()
-	task.wait(18)
-	while true do
-		task.wait(math.random(22, 48))
-		triggerRandomHaunt()
-	end
-end)
-
--- ลมหนาวพัดผ่าน: บางช่วงผู้เล่นจะส่งเสียงหนาวสั่นเบาๆ ตามเพศตัวละคร (ชาย/หญิง)
-task.spawn(function()
-	task.wait(32)
-	while true do
-		task.wait(math.random(55, 105))
-		SoundBank.PlayReaction("Cold", SoundBank.DetectPlayerGender(localPlayer))
-	end
-end)
+-- ปิดการสุ่มเสียงหลอกผู้เล่นอัตโนมัติ (หายใจรดต้นคอ / เดินรอบร้าน / เดินบนหลังคา / ปีนต้นไม้ / หนาวสั่น)
+-- ให้เหลือเฉพาะเสียงหมาหอนจากฝั่ง Server (AnomalyManager) ตามที่ผู้พัฒนากำหนด
 
 ---------------------------------------------------------------------
 -- 5. เสียงฝีเท้าตัวละครผู้เล่นตามพื้นผิวจริง (Rural Horror Footsteps)
@@ -515,60 +510,28 @@ local function setupCharacterFootsteps(char: Model)
 	stepSound.SoundId = "rbxassetid://135952279207329"
 	stepSound.Looped = true
 	stepSound.Volume = 0
-	stepSound.PlaybackSpeed = 0.90
+	stepSound.PlaybackSpeed = 0.98
 	stepSound.RollOffMode = Enum.RollOffMode.InverseTapered
 	stepSound.RollOffMinDistance = 4
-	stepSound.RollOffMaxDistance = 38
+	stepSound.RollOffMaxDistance = 32
 	if sfxGroup then
 		stepSound.SoundGroup = sfxGroup
 	end
 
+	-- ใช้ EQ บางๆ ตัดปลายแหลมเล็กน้อย ไม่ใส่ PitchShift/Reverb หนักๆ ที่ทำให้เสียงเท้าหลอนแปลกๆ หรือก้องอู้อี้
 	local stepEQ = Instance.new("EqualizerSoundEffect")
-	stepEQ.LowGain = 5
-	stepEQ.MidGain = 1
-	stepEQ.HighGain = -18
+	stepEQ.LowGain = 1
+	stepEQ.MidGain = 0
+	stepEQ.HighGain = -8
 	stepEQ.Parent = stepSound
-
-	local stepPitch = Instance.new("PitchShiftSoundEffect")
-	stepPitch.Octave = 0.90
-	stepPitch.Parent = stepSound
-
-	local stepReverb = Instance.new("ReverbSoundEffect")
-	stepReverb.DecayTime = 1.5
-	stepReverb.Density = 0.7
-	stepReverb.Diffusion = 0.8
-	stepReverb.DryLevel = 0
-	stepReverb.WetLevel = -12
-	stepReverb.Parent = stepSound
 
 	stepSound.Parent = root
 	stepSound:Play()
-
-	-- เสียงไม้กระดานลั่นเอี๊ยดเบาๆ เวลาเดินในเพิงร้าน
-	local creakSound = Instance.new("Sound")
-	creakSound.Name = "WoodFloorCreak"
-	creakSound.SoundId = "rbxassetid://9113542694"
-	creakSound.Volume = 0.22
-	creakSound.PlaybackSpeed = 0.82
-	if sfxGroup then
-		creakSound.SoundGroup = sfxGroup
-	end
-	local creakEQ = Instance.new("EqualizerSoundEffect")
-	creakEQ.LowGain = 6
-	creakEQ.MidGain = -1
-	creakEQ.HighGain = -24
-	creakEQ.Parent = creakSound
-	local creakReverb = Instance.new("ReverbSoundEffect")
-	creakReverb.DecayTime = 1.4
-	creakReverb.WetLevel = -10
-	creakReverb.Parent = creakSound
-	creakSound.Parent = root
 
 	local rayParams = RaycastParams.new()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	rayParams.FilterDescendantsInstances = { char }
 
-	local nextCreakAt = os.clock() + 2.5
 	local currentSurface = ""
 
 	local conn: RBXScriptConnection
@@ -582,7 +545,7 @@ local function setupCharacterFootsteps(char: Model)
 		local isMovingOnGround = horizVel > 1.2 and hum.FloorMaterial ~= Enum.Material.Air and not root.Anchored
 
 		if not isMovingOnGround then
-			stepSound.Volume = math.max(0, stepSound.Volume - dt * 4.5)
+			stepSound.Volume = math.max(0, stepSound.Volume - dt * 5.0)
 			return
 		end
 
@@ -608,43 +571,27 @@ local function setupCharacterFootsteps(char: Model)
 		if surfaceKind ~= currentSurface then
 			currentSurface = surfaceKind
 			if surfaceKind == "wood" then
-				-- พื้นไม้กระดานเก่าในเพิง: ทุ้มลึก หนักแน่น
-				stepPitch.Octave = 0.76
-				stepEQ.LowGain = 7
-				stepEQ.MidGain = -2
-				stepEQ.HighGain = -22
-				stepReverb.WetLevel = -10
+				stepEQ.LowGain = 2
+				stepEQ.MidGain = -1
+				stepEQ.HighGain = -10
 			elseif surfaceKind == "mud" then
-				-- พื้นดินโคลนชื้น/หลังฝนตก: หนืดและทุ้มต่ำ
-				stepPitch.Octave = 0.84
-				stepEQ.LowGain = 6
+				stepEQ.LowGain = 2
 				stepEQ.MidGain = 0
-				stepEQ.HighGain = -20
-				stepReverb.WetLevel = -11
+				stepEQ.HighGain = -9
 			else
-				-- พื้นดินลูกรังและหญ้ากลางทุ่ง: กรอบนุ่มกังวานในความมืด
-				stepPitch.Octave = 0.92
-				stepEQ.LowGain = 5
-				stepEQ.MidGain = 1
-				stepEQ.HighGain = -18
-				stepReverb.WetLevel = -12
+				stepEQ.LowGain = 1
+				stepEQ.MidGain = 0
+				stepEQ.HighGain = -7
 			end
 		end
 
-		local speedRatio = math.clamp(horizVel / 10, 0.65, 1.25)
-		local basePlayback = if surfaceKind == "wood" then 0.86 elseif surfaceKind == "mud" then 0.88 else 0.92
+		local speedRatio = math.clamp(horizVel / 10, 0.85, 1.15)
+		local basePlayback = if surfaceKind == "wood" then 0.95 elseif surfaceKind == "mud" then 0.96 else 1.0
 		stepSound.PlaybackSpeed = basePlayback * speedRatio
 
-		local targetVol = if surfaceKind == "wood" then 0.46 elseif surfaceKind == "mud" then 0.54 else 0.50
-		stepSound.Volume = math.min(targetVol, stepSound.Volume + dt * 3.8)
-
-		-- ถ้าเดินบนพื้นไม้กระดานในเพิง สุ่มเล่นเสียงไม้ลั่นเอี๊ยดเบาๆ เป็นระยะ
-		if surfaceKind == "wood" and os.clock() >= nextCreakAt then
-			nextCreakAt = os.clock() + 2.8 + math.random() * 2.2
-			creakSound.PlaybackSpeed = 0.74 + math.random() * 0.18
-			creakSound.Volume = 0.18 + math.random() * 0.08
-			creakSound:Play()
-		end
+		-- ลดความดังเสียงฝีเท้าลงให้เบาและเป็นธรรมชาติ (เดิม 0.46-0.54 ดังกลบเสียงบรรยากาศ)
+		local targetVol = if surfaceKind == "wood" then 0.16 elseif surfaceKind == "mud" then 0.20 else 0.18
+		stepSound.Volume = math.min(targetVol, stepSound.Volume + dt * 2.5)
 	end)
 end
 

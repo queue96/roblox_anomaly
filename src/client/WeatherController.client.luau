@@ -39,16 +39,21 @@ baseRain.Color = ColorSequence.new(Color3.fromRGB(200, 208, 220))
 baseRain.LightEmission = 0.1
 baseRain.LightInfluence = 0.7
 
--- คำนวณขอบเขตหลังคาเพิงร้าน (ShackStructure) ในแกนโลกจริง (World Space) เพื่อเว้นช่องว่างไม่ให้ฝนตกในกระท่อม
--- (ไม่ใช้ GetBoundingBox() ตรงๆ เพราะถ้าชิ้นส่วนเพิงหมุน 90° หรือยังโหลดไม่ครบตอนเริ่มเกม ค่า X/Z จะเพี้ยน)
+-- คำนวณขอบเขตหลังคาเพิงร้าน (ShackStructure) ในแกนโลกจริง (World Space) และแคชค่าไว้ไม่ให้คำนวณซ้ำทุกเฟรม
+local cachedBounds: { number }? = nil
 local function getShackBounds(): (number, number, number, number)
+	if cachedBounds then
+		return cachedBounds[1], cachedBounds[2], cachedBounds[3], cachedBounds[4]
+	end
 	local minX, maxX = -18.5, 18.5
 	local minZ, maxZ = 5.0, 30.0
 	local env = Workspace:FindFirstChild("MapEnvironment")
 	local shack = env and env:FindFirstChild("ShackStructure")
+	local foundPart = false
 	if shack then
 		for _, d in ipairs(shack:GetDescendants()) do
 			if d:IsA("BasePart") then
+				foundPart = true
 				local cf = d.CFrame
 				local hx, hy, hz = d.Size.X * 0.5, d.Size.Y * 0.5, d.Size.Z * 0.5
 				for _, sx in ipairs({ -hx, hx }) do
@@ -72,6 +77,9 @@ local function getShackBounds(): (number, number, number, number)
 				end
 			end
 		end
+	end
+	if foundPart then
+		cachedBounds = { minX, maxX, minZ, maxZ }
 	end
 	return minX, maxX, minZ, maxZ
 end
@@ -106,7 +114,12 @@ addRainZone("Left", 1, 0.35)
 addRainZone("Right", 1, 0.35)
 addRainZone("Back", 1, 0.65)
 
-local function updateRainZoneTransforms(y: number)
+local lastRainY = -9999
+local function updateRainZoneTransforms(y: number, forceSize: boolean?)
+	if not forceSize and math.abs(y - lastRainY) < 0.25 and cachedBounds ~= nil then
+		return
+	end
+	lastRainY = y
 	local sMinX, sMaxX, sMinZ, sMaxZ = getShackBounds()
 	-- เว้นระยะห่างรอบชายคาเพิงอีกด้านละ 3.5 studs ไม่ให้เม็ดฝนตกเฉียดขอบหลังคาเข้ามาด้านใน
 	local padMinX = sMinX - 3.5
@@ -119,22 +132,30 @@ local function updateRainZoneTransforms(y: number)
 
 	for _, z in ipairs(rainZones) do
 		if z.name == "Front" then
-			z.part.Size = Vector3.new(110, 1, 56)
+			if forceSize then
+				z.part.Size = Vector3.new(110, 1, 56)
+			end
 			z.part.CFrame = CFrame.new(shackCenterX, y, padMinZ - 28)
 		elseif z.name == "Left" then
-			z.part.Size = Vector3.new(42, 1, shackDepth)
+			if forceSize then
+				z.part.Size = Vector3.new(42, 1, shackDepth)
+			end
 			z.part.CFrame = CFrame.new(padMinX - 21, y, shackCenterZ)
 		elseif z.name == "Right" then
-			z.part.Size = Vector3.new(42, 1, shackDepth)
+			if forceSize then
+				z.part.Size = Vector3.new(42, 1, shackDepth)
+			end
 			z.part.CFrame = CFrame.new(padMaxX + 21, y, shackCenterZ)
 		elseif z.name == "Back" then
-			z.part.Size = Vector3.new(110, 1, 36)
+			if forceSize then
+				z.part.Size = Vector3.new(110, 1, 36)
+			end
 			z.part.CFrame = CFrame.new(shackCenterX, y, padMaxZ + 18)
 		end
 	end
 end
 
-updateRainZoneTransforms(42)
+updateRainZoneTransforms(42, true)
 
 local function setAllRainRates(baseRate: number)
 	for _, z in ipairs(rainZones) do
