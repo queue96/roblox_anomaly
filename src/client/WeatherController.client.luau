@@ -16,43 +16,139 @@ local RAIN_TEXTURE = "rbxassetid://99672676947809" -- เส้นเม็ด�
 local RAIN_SOUND = "rbxassetid://13039198193" -- heavy rain loop
 local RAIN_RATE = 1300 -- ต่อตัวปล่อย (มี 2 ตัว)
 
--- ---------------------------------------------------------------- เม็ดฝน
-local emitterPart = Instance.new("Part")
-emitterPart.Name = "RainEmitter"
-emitterPart.Anchored = true
-emitterPart.CanCollide = false
-emitterPart.CanQuery = false
-emitterPart.CanTouch = false
-emitterPart.CastShadow = false
-emitterPart.Transparency = 1
-emitterPart.Size = Vector3.new(80, 1, 80) -- แคบลงให้ฝนรอบตัวหนาแน่น
-emitterPart.Parent = Workspace
+-- ---------------------------------------------------------------- เม็ดฝน (แบ่งโซนปล่อยฝนรอบนอกกระท่อม ไม่ให้เม็ดฝนทะลุหลังคาลงมาในเพิงร้าน)
+local emitterFolder = Instance.new("Folder")
+emitterFolder.Name = "RainEmitters"
+emitterFolder.Parent = Workspace
 
-local rain = Instance.new("ParticleEmitter")
-rain.Name = "Rain"
-rain.Texture = RAIN_TEXTURE
-rain.Rate = 0
-rain.Lifetime = NumberRange.new(0.55, 0.7)
-rain.Speed = NumberRange.new(85, 95)
-rain.EmissionDirection = Enum.NormalId.Bottom
-rain.SpreadAngle = Vector2.new(3, 3)
-rain.Acceleration = Vector3.new(5, 0, 2) -- ลมพัดเฉียงนิดๆ
-rain.Size = NumberSequence.new(2.4)
-rain.Orientation = Enum.ParticleOrientation.FacingCamera -- (VelocityParallel ทำให้เส้นนอนขวาง)
-rain.Transparency = NumberSequence.new(0.25)
-rain.Color = ColorSequence.new(Color3.fromRGB(200, 208, 220))
-rain.LightEmission = 0.1
-rain.LightInfluence = 0.7
-rain.Parent = emitterPart
-local rain2 = rain:Clone() -- ตัวปล่อยที่ 2 (ตัวเดียวปล่อยได้ไม่หนาพอ)
-rain2.Name = "Rain2"
-rain2.Parent = emitterPart
+local baseRain = Instance.new("ParticleEmitter")
+baseRain.Name = "Rain"
+baseRain.Texture = RAIN_TEXTURE
+baseRain.Shape = Enum.ParticleEmitterShape.Box
+baseRain.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+baseRain.Rate = 0
+baseRain.Lifetime = NumberRange.new(0.55, 0.7)
+baseRain.Speed = NumberRange.new(85, 95)
+baseRain.EmissionDirection = Enum.NormalId.Bottom
+baseRain.SpreadAngle = Vector2.new(0, 0) -- ตกตรงลงพื้น 100% ไม่ปลิวเฉียงลอดชายคาเข้าเพิง
+baseRain.Acceleration = Vector3.zero
+baseRain.Size = NumberSequence.new(2.4)
+baseRain.Orientation = Enum.ParticleOrientation.FacingCamera -- (VelocityParallel ทำให้เส้นนอนขวาง)
+baseRain.Transparency = NumberSequence.new(0.25)
+baseRain.Color = ColorSequence.new(Color3.fromRGB(200, 208, 220))
+baseRain.LightEmission = 0.1
+baseRain.LightInfluence = 0.7
+
+-- คำนวณขอบเขตหลังคาเพิงร้าน (ShackStructure) ในแกนโลกจริง (World Space) เพื่อเว้นช่องว่างไม่ให้ฝนตกในกระท่อม
+-- (ไม่ใช้ GetBoundingBox() ตรงๆ เพราะถ้าชิ้นส่วนเพิงหมุน 90° หรือยังโหลดไม่ครบตอนเริ่มเกม ค่า X/Z จะเพี้ยน)
+local function getShackBounds(): (number, number, number, number)
+	local minX, maxX = -18.5, 18.5
+	local minZ, maxZ = 5.0, 30.0
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	if shack then
+		for _, d in ipairs(shack:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local cf = d.CFrame
+				local hx, hy, hz = d.Size.X * 0.5, d.Size.Y * 0.5, d.Size.Z * 0.5
+				for _, sx in ipairs({ -hx, hx }) do
+					for _, sy in ipairs({ -hy, hy }) do
+						for _, sz in ipairs({ -hz, hz }) do
+							local wp = cf:PointToWorldSpace(Vector3.new(sx, sy, sz))
+							if wp.X < minX then
+								minX = wp.X
+							end
+							if wp.X > maxX then
+								maxX = wp.X
+							end
+							if wp.Z < minZ then
+								minZ = wp.Z
+							end
+							if wp.Z > maxZ then
+								maxZ = wp.Z
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return minX, maxX, minZ, maxZ
+end
+
+local rainZones: { { name: string, part: BasePart, emitters: { ParticleEmitter }, scale: number } } = {}
+local function addRainZone(name: string, emitterCount: number, rateScale: number)
+	local p = Instance.new("Part")
+	p.Name = "RainZone_" .. name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Transparency = 1
+	p.Size = Vector3.new(10, 1, 10)
+	p.CFrame = CFrame.new(0, 42, 0)
+	p.Parent = emitterFolder
+
+	local list = {}
+	for i = 1, emitterCount do
+		local em = baseRain:Clone()
+		em.Name = "Rain" .. i
+		em.Parent = p
+		table.insert(list, em)
+	end
+	table.insert(rainZones, { name = name, part = p, emitters = list, scale = rateScale })
+end
+
+-- 4 โซนรอบนอกเพิงร้าน: ด้านหน้าถนน+ตู้ปั๊ม, ด้านซ้าย, ด้านขวา (ศาลพระภูมิ), ด้านหลังเพิง
+addRainZone("Front", 2, 1.0)
+addRainZone("Left", 1, 0.35)
+addRainZone("Right", 1, 0.35)
+addRainZone("Back", 1, 0.65)
+
+local function updateRainZoneTransforms(y: number)
+	local sMinX, sMaxX, sMinZ, sMaxZ = getShackBounds()
+	-- เว้นระยะห่างรอบชายคาเพิงอีกด้านละ 3.5 studs ไม่ให้เม็ดฝนตกเฉียดขอบหลังคาเข้ามาด้านใน
+	local padMinX = sMinX - 3.5
+	local padMaxX = sMaxX + 3.5
+	local padMinZ = sMinZ - 3.5
+	local padMaxZ = sMaxZ + 3.5
+	local shackCenterZ = (padMinZ + padMaxZ) * 0.5
+	local shackDepth = padMaxZ - padMinZ
+	local shackCenterX = (padMinX + padMaxX) * 0.5
+
+	for _, z in ipairs(rainZones) do
+		if z.name == "Front" then
+			z.part.Size = Vector3.new(110, 1, 56)
+			z.part.CFrame = CFrame.new(shackCenterX, y, padMinZ - 28)
+		elseif z.name == "Left" then
+			z.part.Size = Vector3.new(42, 1, shackDepth)
+			z.part.CFrame = CFrame.new(padMinX - 21, y, shackCenterZ)
+		elseif z.name == "Right" then
+			z.part.Size = Vector3.new(42, 1, shackDepth)
+			z.part.CFrame = CFrame.new(padMaxX + 21, y, shackCenterZ)
+		elseif z.name == "Back" then
+			z.part.Size = Vector3.new(110, 1, 36)
+			z.part.CFrame = CFrame.new(shackCenterX, y, padMaxZ + 18)
+		end
+	end
+end
+
+updateRainZoneTransforms(42)
+
+local function setAllRainRates(baseRate: number)
+	for _, z in ipairs(rainZones) do
+		local r = baseRate * z.scale
+		for _, em in ipairs(z.emitters) do
+			em.Rate = r
+		end
+	end
+end
 
 RunService.RenderStepped:Connect(function()
 	local cam = Workspace.CurrentCamera
-	if cam and rain.Rate > 0 then
-		local p = cam.CFrame.Position
-		emitterPart.CFrame = CFrame.new(p.X, p.Y + 38, p.Z)
+	if cam and rainZones[1] and rainZones[1].emitters[1].Rate > 0 then
+		updateRainZoneTransforms(cam.CFrame.Position.Y + 38)
 	end
 end)
 
@@ -168,8 +264,7 @@ task.spawn(function()
 		local dt = task.wait(0.25)
 		local targetRate = if raining then RAIN_RATE else 0
 		rateNow += math.clamp(targetRate - rateNow, -RAIN_RATE * dt / 3, RAIN_RATE * dt / 4)
-		rain.Rate = rateNow
-		rain2.Rate = rateNow
+		setAllRainRates(rateNow)
 		local target = if raining then 1 else 0
 		local speed = if raining then dt / 20 else dt / 60
 		local before = wetness

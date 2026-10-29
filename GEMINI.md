@@ -6,25 +6,27 @@ trigger: always_on
 คุณกำลังช่วยผู้พัฒนาสร้างเกม **Roblox แนว Co-op Horror Anomaly (รองรับผู้เล่น 1–4 คน)** ชื่อโปรเจกต์ **"ปั๊มหลอดท้ายทุ่ง (Midnight Rural Gas & Tire)"**
 
 ## 1. คอนเซ็ปต์หลักที่ตกลงกันไว้แล้ว
-- **บรรยากาศ:** ชนบทไทยมืดๆ ที่ความเจริญเข้าไม่ค่อยถึง (ถนนดินลูกรัง, ทุ่งนามืด, หุ่นไล่กา, ดงกล้วยตานี, เพิงสังกะสีไม้ไผ่, ตู้ปั๊มน้ำมันหลอดแก้วมือหมุน, ถังปั๊มลมปะยาง)
+- **บรรยากาศ:** ชนบทไทยมืดๆ ที่ความเจริญเข้าไม่ค่อยถึง (ถนนดินลูกรัง, ทุ่งนามืด, หุ่นไล่กา, ดงกล้วยตานี, เพิงสังกะสีไม้ไผ่, ตู้ปั๊มน้ำมันหลอดแก้วมือหมุน, ถังปั๊มลมปะยาง) และมี **Lobby วัดไทยชนบทตอนกลางคืน** แยกเป็น Start Place ต่างหาก
+- **วิธีสังเกตสิ่งผิดปกติ (Core Mechanic - พนมมือสวดมนต์เปิดตาทิพย์):** เปลี่ยนจากการใช้ไฟฉายส่องดูผี มาเป็นการ **กดค้าง `G` (PC) / `Y` (จอย) / ปุ่ม `🙏` (มือถือ) พนมมือสวดมนต์ 1.5 วินาที เพื่อเปิด "ตาทิพย์" (`PrayerSight`)** มองเห็นสิ่งที่ติด tag `GhostOnly` (และซ่อน `NormalOnly`) เฉพาะบนหน้าจอของคนที่พนมมือเท่านั้น! (ขณะพนมมือจะเก็บไฟฉายและเดินไม่ได้ ส่วนไฟฉายกบ `FrogFlashlight` ใช้สำหรับส่องทางในความมืดตามปกติ)
 - **เงื่อนไขการชนะ (Win Condition - Quota System):** ให้บริการรถชาวบ้านที่แวะมาตอนดึกจนเก็บเงินในกระป๋องครบ **1,500 บาท** (`CoreLoop.CONFIG.TargetMoney`, เดิม 500 แต่จบเร็วไป ~5 นาที ปรับเมื่อ 2026-10-28) (คนปกติเติมน้ำมันได้ +100฿ / ปิดร้านหนีผีได้โบนัส +50฿)
 - **พลังชีวิตทีม:** ใช้ **ธูป 3 ดอกที่ศาลพระภูมิข้างเพิง** แทนหลอดเลือด HP (ถ้าเผลอเติมน้ำมันให้ผี ธูปจะดับทีละ 1 ดอก พร้อมโดนหักเงิน -100฿ ถ้าดับครบ 3 ดอก = Game Over)
 - **โทนของเกม:** หลอนบรรยากาศชนบทไทยแท้ 70% + ตลก/มีมโบ๊ะบ๊ะเวลาเล่นกับเพื่อน 30%
 - **การรองรับภาษา:** รองรับ 2 ภาษา (**ไทย TH / อังกฤษ EN**) ทั้งป้ายในฉาก, คำพูดลูกค้า (`LanguageModule.luau`), และ `AutoLocalize`
 
 ## 2. โครงสร้างการรับมือ Anomaly 3 ระดับ (เพื่ออัปเดตระยะยาวบนแมพเดิม)
-- **Tier 1 (V1.0 - 22 แบบ):** ความผิดปกติที่คนขับ/คนซ้อน/ตัวรถ/วิทยุ/ดงกล้วย/ของในเพิง -> **วิธีแก้:** ห้ามเติมน้ำมัน ให้วิ่งไปดึงเชือกปิดแผงสังกะสีหน้าร้าน (`ShutterDoor`)
+- **Tier 1 (V1.0 - 22 แบบ):** ความผิดปกติที่คนขับ/คนซ้อน/ตัวรถ/วิทยุ/ดงกล้วย/ของในเพิง (ตรวจสอบด้วยการพนมมือสวดมนต์เปิดตาทิพย์) -> **วิธีแก้:** ห้ามเติมน้ำมัน ให้วิ่งไปดึงเชือกปิดแผงสังกะสีหน้าร้าน (`ShutterDoor`)
 - **Tier 2 (Update 1.1 - 4 แบบ):** ผีป่วนอุปกรณ์ (เครื่องปั่นไฟดับ, ถังลมคลั่ง, ห้องน้ำสังกะสีเปิดเอง, วิทยุกรีดร้อง) -> **วิธีแก้:** แบ่งเพื่อนเดินถือไฟฉายไปกดซ่อมที่จุดเกิดเหตุ
 - **Tier 3 (Update 1.2 - 4 แบบ):** บอสอาถรรพ์บุกประชิด (ผีกระสือลอยมาจากนา, เปรตเดินผ่านถนน, ขบวนแห่ศพ) -> **วิธีแก้:** สับคัตเอาต์ดับไฟในเพิง (`CutoutSwitch`) + ก้มหมอบห้ามขยับ 5 วินาที
 - **5+1 จุดวางของเผื่ออัปเดตในแมพ (Prop Hooks ที่วางไว้ตั้งแต่วันแรก):** 🪞 กระจกเงาบานเก่า (`OldMirror`), 🖼️ รูปขาวดำตาเจ้าของอู่ & ปฏิทิน (`OwnerPhoto`), ⚡ สวิตช์คัตเอาต์ไฟ (`CutoutSwitch`), 🧊 ถังแช่น้ำแข็ง (`IceBox`), 🚪 ห้องน้ำสังกะสีท้ายดงกล้วย (`TinOuthouse`), และ 🌳 ต้นไทรใหญ่พันผ้าสามสี (`SacredBanyanTree` / `SacredThaiRibbons` / `BanyanShadowAnomaly`)
+- **คลังข้อมูลอ้างอิงผีไทย 92 ตัว:** ดูรายละเอียด Rig, Status และ Animation สำหรับปั้นผีเพิ่มได้ใน `art_refs/ghosts/GHOSTS.md`
 
-## 3. ลำดับเฟสการพัฒนา (เริ่มจากปั้น Map ก่อน -> ค่อยใส่โค้ด)
-ดูรายละเอียดทั้งหมดได้ในไฟล์ `GDD.md`, `index.html`, และ `phases.html` ในโฟลเดอร์นี้:
-1. **Phase 1 (เสร็จสมบูรณ์ ✅):** ปั้น Map โคกดินกลางทุ่งนาล้อม 4 ด้าน, ถนนดินดำระบายสีลงบน `Terrain`, ดงกล้วยตานี, ศาลพระภูมิ, โซนต้นไทรใหญ่พันผ้าสามสี, แนวต้นไม้ชายทุ่ง 2 ชั้น + กำแพงล่องหน และระบบสลับแสง `DayDevLighting` (ตอนจัดฉาก) / `NightLighting` (ตอนกด Play)
-2. **Phase 2 (กำลังจะเริ่มถัดไป ⏳):** เตรียมโมเดลรถแม่แบบ (`CustomerBike`) และซ่อนชิ้นส่วนผี (`Transparency = 1`) ไว้ใน `ServerStorage.VehicleTemplates`
-3. **Phase 3:** เขียนโค้ด Core Loop (`GameManager.server.luau` & `LanguageModule.luau`) สั่งรถวิ่งมาจอด เติมน้ำมัน ดึงแผงปิดร้าน นับเงิน 500฿ และธูป 3 ดอก
-4. **Phase 4:** เขียนโค้ดสุ่มผี (`AnomalyManager.luau`), ไฟฉายกบ (`FrogFlashlight`), และระบบ Jumpscare
-5. **Phase 5:** ทำหน้าจอ HUD, สมุดสะสมผีไทย 30 แบบ (`Collection Book`), เปิด `AutoLocalize` และทดสอบ Co-op 1–4 คน
+## 3. สถานะเฟสการพัฒนาปัจจุบัน (อัปเดตล่าสุด 2026-10-29)
+ดูรายละเอียดทั้งหมดได้ในไฟล์ `GDD.md`, `README.md`, และ `art_refs/ghosts/GHOSTS.md`:
+1. **Phase 1 (เสร็จสมบูรณ์ ✅):** ปั้น Map โคกดินกลางทุ่งนาล้อม 4 ด้าน, ถนนดินดำระบายสีลงบน `Terrain`, ดงกล้วยตานี, ศาลพระภูมิ, โซนต้นไทรใหญ่พันผ้าสามสี, แนวต้นไม้ชายทุ่ง 2 ชั้น + กำแพงล่องหน, ระบบลม (`GrassWind`), บรรยากาศกลางคืน (`AmbienceController`), และ **ฉากวัดไทยชนบทสำหรับ Lobby (`TempleLobby` แยก Place)**
+2. **Phase 2 (เสร็จสมบูรณ์ ✅):** โมเดลรถแม่แบบ (`CustomerBike`, `Saleng`) + รถไทย 8 คัน (`ThaiVehicleRigs.luau`) และลูกค้าเดินเท้า (`Pedestrian.luau`) ใน `ServerStorage.VehicleTemplates`
+3. **Phase 3 (เสร็จสมบูรณ์ ✅):** โค้ด Core Loop (`CoreLoop.luau` & `LanguageModule.luau`) คิวรถเป็นระลอก, ระบบทักทาย/ถามราคา, เติมน้ำมัน 2 ตู้ (เบนซิน/ดีเซล) + เติมลมจักรยาน, ดึงแผงปิดร้าน, เป้าหมายเงิน `1,500฿`, ธูป 3 ดอก, ระบบฝนตก (`Weather.luau`), และเหตุการณ์ขาจร (แว้น/รถซิ่ง/รถแห่งานบวช)
+4. **Phase 4 (เสร็จสมบูรณ์ ✅):** โค้ดสุ่มผี 10 ตัวแรก (`AnomalyManager.luau`), **ระบบพนมมือสวดมนต์เปิดตาทิพย์ (`Prayer.luau` + `PrayerController.client.luau` แทนการส่องไฟฉายดูผี)**, ไฟฉายกบส่องทาง (`FrogFlashlight`), และระบบ Jumpscare (`JumpscareController.client.luau`) + จอตาย (`DeathScreen.client.luau`)
+5. **Phase 5 (เสร็จสมบูรณ์ ✅ / กำลังขัดเกลาและขยายผีเพิ่ม ⏳):** หน้าจอ HUD (`HUDController.client.luau`), สมุดสะสมผีไทย (`AnomalyBook.luau` + `BookController.client.luau`), หน้าตั้งค่า (`PlayerSettings` + `SettingsController`), ระบบสร้างห้องในวัด Lobby ส่ง `TeleportData` ข้าม Place, และคลังข้อมูลผีไทย 92 ตัว (`art_refs/ghosts/GHOSTS.md`)
 
 ---
 
@@ -43,11 +45,42 @@ trigger: always_on
   - โค้ด Lobby อยู่ `src/lobby/server` → `ServerScriptService.Server`, `src/lobby/client` → `StarterPlayerScripts.Client`, และดึง `src/shared/LanguageModule.luau` + `src/shared/MapBuilder.luau` (ไว้รัน `BuildTempleLobby()` จัดฉากวัด) ไป `ReplicatedStorage.Shared` (ตั้งชื่อโฟลเดอร์ตรงกับของเกม เพื่อให้ Rojo ลบสคริปต์เกมรุ่นเก่าที่ค้างใน Lobby ออกเองตอน Connect)
 - `src/shared/MapBuilder.luau`: โมดูลสร้างและตกแต่งฉากทั้งหมด พร้อมระบบแยกส่วน (Modular Non-Destructive Functions)
 - `src/shared/LanguageModule.luau`: ตารางข้อความ 2 ภาษา (`TH` / `EN`) สำหรับป้าย, บทพูดลูกค้า, และ UI
-- `src/server/GameManager.server.luau`: สคริปต์หลักฝั่ง Server (ตั้งค่าแสงกลางคืนตอนกด Play, ระบบไฟนีออนเสาไม้กะพริบ, ระบบดึงเชือก `RejectRope` ปิดแผงสังกะสี `ShutterDoor`)
-- `src/client/HUDController.client.luau`: สคริปต์ฝั่ง Client แสดง HUD ยอดเงิน `฿0 / ฿1500` และสถานะธูป 3 ดอก `🕯️🕯️🕯️`
+- `src/server/GameManager.server.luau`: สคริปต์หลักฝั่ง Server (ตั้งค่าแสงกลางคืนตอนกด Play, ล็อกมุมมอง First-Person + ปิดการกระโดด + `WalkSpeed = 10`, ระบบไฟนีออนเสาไม้กะพริบ, ระบบดึงเชือก `RejectRope` ปิดแผงสังกะสี `ShutterDoor`, กระจายดงกล้วย `SpreadBananaGrove()`)
+- `src/client/HUDController.client.luau`: สคริปต์ฝั่ง Client แสดง HUD ยอดเงิน `฿0 / ฿1500` (ซ่อนสถานะธูปเพื่อให้เดินไปดูที่ศาลพระภูมิเอง), แถบซับไตเติลคำพูดลูกค้าด้านล่างจอ, มินิเกมเติมน้ำมัน/เติมลม (`FuelView` / `AirView`), ช่องถือไฟฉาย `[1] ไฟฉาย`, โมเดลไฟฉาย 3D ล็อกตามมุมกล้อง (`CameraFlashlightViewmodel` + `CameraBeamLight`), และปุ่มสลับเมาส์ `V` / `LeftAlt`
 - `src/server/Prayer.luau` + `src/client/PrayerController.client.luau`: ระบบพนมมือ (ดูหัวข้อ 🙏 ด้านล่าง)
 - `src/client/GrassWind.client.luau`: ระบบลมฝั่ง Client (หญ้า, ตะไคร้, ต้นข้าว, ต้นกล้วย และต้นไม้เอนตามลม และใบต้นไทร/ต้นมะม่วงไหว) — รายละเอียดดูหัวข้อ 🌬️ ด้านล่าง
-- `src/client/AmbienceController.client.luau`: บรรยากาศกลางคืนฝั่ง Client (เสียงจิ้งหรีดเหงาๆ + หมอกหนาวน่ากลัว) — รายละเอียดดูหัวข้อ 🌙 ด้านล่าง
+- `src/client/AmbienceController.client.luau`: บรรยากาศกลางคืนฝั่ง Client (สูตรแสงและหมอก Atmosphere Blueprint + เสียงจิ้งหรีดเหงาๆ + เสียงฝีเท้าหลอนแยกตามพื้นผิวไม้/ดินโคลน/หญ้า) — รายละเอียดดูหัวข้อ 🌙 ด้านล่าง
+- `src/client/WeatherController.client.luau`: ระบบฝนตกฝั่ง Client แบ่งโซนปล่อยเม็ดฝน 4 ด้านรอบนอกเพิง (`RainZone_Front/Left/Right/Back`) คำนวณขอบเขต World-Space ของ `ShackStructure` เพื่อกันฝนตกทะลุหลังคาเพิงสังกะสี
+
+### 🛠️ สรุปการปรับปรุงระบบเกมเพลย์ UI เสียง และบรรยากาศ (อัปเดตล่าสุด 2026-10-29)
+1. **มุมมองและการเคลื่อนไหวผู้เล่น (`default.project.json`, `GameManager.server.luau`, `HUDController.client.luau`):**
+   - บังคับมุมมองบุคคลที่ 1 (`CameraMode = Enum.CameraMode.LockFirstPerson`) และซ่อนเมาส์ตรงกลางจอเป็นค่าเริ่มต้น กด **`V`** หรือ **`LeftAlt`** เพื่อปลดล็อก/ล็อกเมาส์ชั่วคราว
+   - ปิดระบบกระโดด (`HumanoidStateType.Jumping = false`, `JumpPower = 0`, `JumpHeight = 0`) และปรับความเร็วเดินให้ช้าลง (`WalkSpeed = 10`) เพื่อคุมจังหวะเกมสยองขวัญ
+2. **ไฟฉายกบ 3D ล็อกตามกล้อง (`HUDController.client.luau`, `Flashlight.server.luau`):**
+   - เมื่อถือ `FrogFlashlight` ไฟจะเปิดอัตโนมัติ ซ่อนโมเดลในมือขวาของตัวละคร แล้วสร้าง `CameraFlashlightViewmodel` ล็อกตามมุมกล้องขวา-ล่าง พร้อมไฟส่องทาง `CameraBeamLight` (`Brightness = 2.4, Range = 46, Angle = 60, Shadows = false`) และไฟส่องพื้นใกล้ตัว `CameraCloseLight`
+   - ปิดแถบ Backpack มาตรฐานของ Roblox แล้วใช้ช่องสลับไอเทม `[1] ไฟฉาย` ของเกมแทน
+3. **มินิเกมเติมน้ำมันและเติมลมยาง (`CoreLoop.luau`, `HUDController.client.luau`, `LanguageModule.luau`):**
+   - เปลี่ยนจากการกดค้างที่ตู้ มาเป็นมินิเกมผ่าน `Remotes.ServiceMinigame`:
+     - **เติมน้ำมัน (`FuelView`):** กดค้าง `Space` หรือคลิกเมาส์ซ้ายค้างเพื่อปั๊มน้ำมันให้หยุดในแถบเป้าหมายสีทอง แล้วปล่อยเพื่อส่งมอบ
+     - **เติมลมยาง (`AirView`):** กด `Space` หรือคลิกเมาส์ซ้ายให้ตรงจังหวะที่เข็มวัดแรงดันวิ่งเข้าโซนสีทองครบ 3 ครั้ง
+4. **ระบบคิวลูกค้าและบทสนทนาอัตโนมัติ (`CoreLoop.luau`, `HUDController.client.luau`):**
+   - ตัดกล่องตัวเลือกตอบคำถามของผู้เล่น (`DialogueReply`) ออก ให้บทสนทนาไหลต่อเนื่องอัตโนมัติ
+   - จำกัดคิวรถลูกค้า `MaxQueue = 1` และปิดการปล่อยรถมาพร้อมกัน 2 คัน เพื่อไม่ให้รถซ้อนหรือผู้เล่นสับสน
+   - ปรับแถบคำพูดลูกค้าด้านล่างให้กะทัดรัด (`400 x 58`) และซ่อนข้อความ `"ร้านยังปิดอยู่..."` อัตโนมัติหลัง 5 วินาที
+5. **ปรับปรุง HUD, ป้ายชื่อวัตถุ และศาลพระภูมิ (`HUDController.client.luau`, `PrayerController.client.luau`, `ObjectLabels.client.luau`, `BookController.client.luau`, `SettingsController.client.luau`):**
+   - เอาแถบแสดงจำนวนธูป `🕯️🕯️🕯️` ออกจาก HUD มุมขวาล่าง เพื่อให้ผู้เล่นต้องเดินไปเช็กธูปที่ `Workspace.SpiritHouse` ด้วยตัวเอง
+   - ซ่อนป้ายชื่อวัตถุลอย (`ZoneLabel`) ตอนเริ่มเล่นเป็นค่าเริ่มต้น, เอาปุ่มสมุดผีมุมขวาบนออก, และปรับแต่งปุ่มตั้งค่าใหม่
+6. **วิทยุทรานซิสเตอร์ (`AnomalyManager.luau`):**
+   - เริ่มเกมมาวิทยุจะปิดอยู่ กดปุ่ม **`R`** เมื่อยืนใกล้โต๊ะเพื่อเปิด/ปิดวิทยุ
+   - เพิ่ม `EqualizerSoundEffect` (`LowGain = -20, MidGain = 8, HighGain = -10`) และ `DistortionSoundEffect` (`Level = 0.25`) ให้เสียงเพลงลูกทุ่ง (`RadioMusic`) และเสียงพระสวด (`MonkChant`) แหบพร่าเหมือนลำโพงวิทยุถ่านเก่าๆ พร้อมตั้งระยะได้ยิน 3D (`RollOffMinDistance = 5, RollOffMaxDistance = 35`)
+7. **ป้องกันฝนตกทะลุหลังคาเพิง (`WeatherController.client.luau`):**
+   - แยกแผ่นปล่อยเม็ดฝนเป็น 4 โซนรอบนอกเพิง (`RainZone_Front`, `RainZone_Left`, `RainZone_Right`, `RainZone_Back`) โดยคำนวณขอบเขต World-Space จริง (`PointToWorldSpace`) ของทุกชิ้นส่วนใน `ShackStructure` บวกระยะชายคา `3.5` studs และตั้งเม็ดฝนให้ตกดิ่งลงตรงๆ (`SpreadAngle = 0`, `Acceleration = 0`)
+8. **จัดระเบียบดงกล้วยและเสาไฟหน้าร้าน (`MapBuilder.luau`, `GameManager.server.luau`):**
+   - เพิ่ม `MapBuilder.SpreadBananaGrove()` กระจายต้นกล้วย 26 ต้นใน `BananaGrove` ให้เต็มพื้นที่ว่างด้านหลังและด้านข้างเพิง ไม่ให้กระจุกตัวแน่นเกินไป
+   - คืนค่าแสงไฟเสาไม้หน้าร้าน (`DirtRoad.NeonLightPart.FlickerLight`, `Brightness = 2.2, Range = 52`) และปิด `CastShadow` ของตัวเสาและหลอดไฟไม่ให้บังแสงตัวเอง
+9. **สูตรแสง หมอก และเสียงฝีเท้าหลอนชนบทไทย (`MapBuilder.luau`, `AmbienceController.client.luau`):**
+   - ปรับค่า `Lighting` และ `Atmosphere` ให้ตรงกันทั้ง Edit mode และ Play mode ตามสูตร Atmosphere Blueprint (`Ambient = 12,16,22`, `OutdoorAmbient = 18,24,30`, `EnvironmentDiffuseScale = 0.2`, `EnvironmentSpecularScale = 0.25`, `Atmosphere.Color = 18,22,28`, `Decay = 10,12,15`, `Density = 0.42`, `Offset = 0.15`, `Glare = 0.1`, `Haze = 1.5`, และ `ColdNightGrade`: `Saturation = -0.25`, `Contrast = 0.20`, `TintColor = 235,245,235`)
+   - เปลี่ยนเสียงเดินพลาสติกเดิมของ Roblox (`Running`) เป็นระบบเสียงฝีเท้าหลอนแยกตามพื้นผิว (`HorrorFootsteps` + `WoodFloorCreak`): เดินในเพิงเป็นเสียงย่ำพื้นไม้กระดานเก่าพร้อมสุ่มเสียงไม้ลั่น *"เอี๊ยดด.."*, เดินลุยโคลน/แอ่งน้ำ/ตอนฝนตกเป็นเสียงย่ำดินชื้นแฉะ, และเดินบนดิน/หญ้าเป็นเสียงย่ำดินลูกรังแห้งทุ้มต่ำ
 
 ### 🙏 ระบบพนมมือ (เพิ่มเมื่อ 2026-10-28) — ผีเห็นได้เฉพาะตอนพนมมือ
 - **ปุ่ม:** กดค้าง **G** (คีย์บอร์ด) / **Y** (จอย) / ปุ่ม **🙏** บนจอมือถือ (`ContextActionService` ใน `src/client/PrayerController.client.luau`) ปล่อย = เลิก · แถบปุ่มคีย์ขวาล่างมี "G กดค้าง พนมมือ (เห็นผี)" (`HUDController`)
@@ -64,21 +97,22 @@ trigger: always_on
 - **จบเกมแล้วกลับ Lobby (2026-10-28):** แพ้ = ปุ่ม "🏯 กลับ Lobby" ในจอตาย (`DeathScreen`), ชนะ = ปุ่มเดียวกันใต้แถบประกาศ (`HUDController`, ขึ้นจนคืนใหม่เริ่ม — `CONFIG.RestartDelay` เพิ่มเป็น 20 วิ) → `DeathChoice:FireServer("quit")` → `CoreLoop.backToLobby()` เรียก `TeleportService:TeleportAsync(CONFIG.LobbyPlaceId = 70980777393906, { player })` ทีละคน · ใน Studio Teleport ไม่ได้ จึง Kick พร้อมข้อความลาแทน (ทดสอบ Teleport จริงต้อง Publish แล้วเล่นในเกมจริง) · Teleport พลาด (`TeleportInitFailed`) ก็ Kick แทน
 - 💡 ต่อยอด: Lobby จะส่ง `difficulty` / `maxPlayers` มาใน TeleportData — ปรับ `TargetMoney` และเงินรางวัลตามความยากได้ที่ `CoreLoop.CONFIG`
 
-### 🌙 ระบบบรรยากาศกลางคืน (`AmbienceController.client.luau`, เพิ่มเมื่อ 2026-10-22)
-ทำฝั่ง Client ทั้งหมด (เสียง/หมอกเป็นของเฉพาะผู้เล่นแต่ละคน) สคริปต์จะรอจน Server สั่ง `SetNightLighting()` ให้ `Lighting.ClockTime` เป็นตอนกลางคืนก่อน แล้วค่อยปรับค่าทับ
-- **หมอกหนาว:**
-  - ปรับ `Lighting.RuralAtmosphere` ให้เป็นสีเทาอมฟ้าซีด (`Color 100,114,128`, `Decay 40,52,66`, `Density ~0.52`, `Haze 2.6`, `Glare 0`) และให้ `Density` ค่อยๆ หนาขึ้น/บางลงระหว่าง 0.44–0.58 ทุก 10–18 วินาที เหมือนมีหมอกลอยผ่าน
-  - `Lighting.ColdNightGrade` (`ColorCorrectionEffect`) ทำให้ภาพโทนเย็นและสีซีด (`TintColor 205,220,240`, `Saturation -0.35`)
-  - หมอกเรี่ยพื้น: Part ล่องหน `GroundMistEmitter` (กว้าง 120×120, อยู่ที่ระดับ `Y = 2.5`) อยู่ใต้ `Workspace.CurrentCamera` และย้ายตามกล้องทุกเฟรม มี `ParticleEmitter` ใช้ texture `smoke_main.dds`
-  - ⚠️ คืนนี้มืดมาก ถ้าให้แสงในฉากคุมหมอกทั้งหมด (`LightInfluence = 1`) จะมองไม่เห็นหมอกเลย จึงตั้ง `LightInfluence = 0.25` + `Brightness = 0.6`
+### 🌙 ระบบบรรยากาศกลางคืนและเสียงฝีเท้า (`AmbienceController.client.luau`, อัปเดตเมื่อ 2026-10-29)
+ทำฝั่ง Client ทั้งหมด (เสียง/หมอกเป็นของเฉพาะผู้เล่นแต่ละคน) สคริปต์จะรอจน Server สั่ง `SetNightLighting()` ให้ `Lighting.ClockTime` เป็นตอนกลางคืนก่อน แล้วตั้งค่าให้ตรงกับ Edit mode ตามสูตร Atmosphere Blueprint:
+- **แสงและหมอกยามวิกาล (Atmosphere Blueprint):**
+  - `Lighting`: `Ambient = Color3.fromRGB(12, 16, 22)`, `OutdoorAmbient = Color3.fromRGB(18, 24, 30)`, `EnvironmentDiffuseScale = 0.2`, `EnvironmentSpecularScale = 0.25`
+  - `Lighting.RuralAtmosphere`: `Color = Color3.fromRGB(18, 22, 28)`, `Decay = Color3.fromRGB(10, 12, 15)`, `Density = 0.42`, `Offset = 0.15`, `Glare = 0.1`, `Haze = 1.5` และให้ `Density` ค่อยๆ หายใจระหว่าง `0.38–0.46` ทุก 10–18 วินาที
+  - `Lighting.ColdNightGrade` (`ColorCorrectionEffect`): โทนสีหนังผีไทยยุค 90s (`Saturation = -0.25`, `Contrast = 0.20`, `TintColor = Color3.fromRGB(235, 245, 235)`)
+  - หมอกเรี่ยพื้น: Part ล่องหน `GroundMistEmitter` (กว้าง 120×120, อยู่ที่ระดับ `Y = 2.5`) อยู่ใต้ `Workspace.CurrentCamera` และย้ายตามกล้องทุกเฟรม มี `ParticleEmitter` ใช้ texture `smoke_main.dds` (`LightInfluence = 0.25` + `Brightness = 0.6`)
+- **เสียงฝีเท้าหลอนแยกตามพื้นผิว (`setupHorrorFootsteps`):**
+  - ปิดเสียงเดินพลาสติกมาตรฐานของ Roblox (`Running.Volume = 0`) แล้วสร้าง `HorrorFootsteps` (`EqualizerSoundEffect` + `ReverbSoundEffect`) และ `WoodFloorCreak` บน `HumanoidRootPart`
+  - ปรับโทนเสียงและการสะท้อนอัตโนมัติตามพื้นผิวที่เหยียบ: พื้นไม้กระดานในเพิง (พร้อมสุ่มเสียงไม้ลั่น *"เอี๊ยดด.."* ทุก 4–8 ก้าว), ดินโคลน/แอ่งน้ำ/ขณะฝนตก, และดินลูกรัง/หญ้าแห้ง
 - **เสียงจิ้งหรีดเหงาๆ** (ทุกเสียงอยู่ใน `SoundService.Ambience` (`SoundGroup`) ที่ตัดเสียงทุ้มออก `LowGain -30` เพื่อลบเสียงรถไกลๆ ในไฟล์ต้นฉบับ + reverb กว้างๆ):
   - `CricketBed` (2D, `rbxassetid://9112764023`) จิ้งหรีดรอบตัวผู้เล่น เปิดเบาๆ
   - `EerieAir` (2D, `rbxassetid://9114244841`) เสียงลมหวิวเบามาก (volume 0.07) อยู่ใต้เสียงจิ้งหรีด
   - `GroveCrickets` (3D ที่ดงกล้วย `30,3,30`, `rbxassetid://9112764040`) และ `FieldCrickets` (3D ที่ทุ่งนาฝั่งตรงข้ามถนน `-20,3,-55`) ยิ่งเดินเข้าใกล้ยิ่งดัง
   - กลไกความเหงา: ทุก 45–110 วินาที จิ้งหรีดทุกตัวจะเงียบลงภายใน 2.5 วินาที (เหมือนมีอะไรเดินผ่าน) เงียบอยู่ 5–10 วินาที แล้วค่อยๆ ร้องกลับมาภายใน 8 วินาที
   - เสียงทั้งหมดเป็นของฟรีจาก Creator Store (ProSoundEffects)
-- ทดสอบแล้วด้วยการรันโค้ดในโหมด Play ฝั่ง Client: เสียงโหลดและเล่นครบทั้ง 3 ไฟล์ และมองเห็นหมอกฟ้าคลุมแนวต้นไม้ไกลๆ
-- 💡 ต่อยอด Phase 4: Anomaly ที่อยากให้จิ้งหรีดเงียบก่อนผีโผล่ ให้เรียก Tween เปลี่ยน `Volume` ของ Sound ใน `SoundService.Ambience` (ตอนนี้ยังไม่มี RemoteEvent สั่งจาก Server)
 
 ### 🌬️ ระบบลม (`src/client/GrassWind.client.luau` + `MapBuilder.TagWindPlants()`, ขยายเมื่อ 2026-10-23)
 ทุกอย่างเอนไปทิศลมเดียวกัน (`WIND_DIR`) และมีคลื่นลมวิ่งผ่านทุ่ง ขยับเฉพาะฝั่ง Client ส่วนใน Edit mode ทุกอย่างนิ่ง

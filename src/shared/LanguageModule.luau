@@ -265,8 +265,11 @@ LanguageModule.UI = {
 	KeyClick = { th = "คลิก", en = "Click" },
 	HintFlashlight = { th = "เปิด/ปิดไฟฉาย", en = "Flashlight" },
 	HintHold = { th = "กดค้าง เติมน้ำมัน / เติมลม / ปิดร้าน", en = "Hold: Fuel / Air / Close Shop" },
-	-- พนมมือ (PrayerController)
+	-- พนมมือ (PrayerController) + ปลดล็อกเมาส์ + ไฟฉาย
 	HintPray = { th = "กดค้าง พนมมือ (เห็นผี)", en = "Hold: Pray (see ghosts)" },
+	HintUnlockMouse = { th = "ปลดล็อกเมาส์", en = "Unlock Mouse" },
+	HintLockMouse = { th = "ล็อกเมาส์", en = "Lock Mouse" },
+	FlashlightSlot = { th = "ไฟฉาย", en = "Flashlight" },
 	PrayChanting = { th = "กำลังสวด", en = "Chanting" },
 	WhisperSpeaker = { th = "เสียงกระซิบ... (ไม่ใช่ลูกค้า)", en = "A whisper... (not a customer)" },
 	PraySightOpen = { th = "กำลังสวด", en = "Chanting" },
@@ -304,6 +307,19 @@ LanguageModule.UI = {
 	GoingToLobby = { th = "กำลังกลับวัด...", en = "Heading back to the temple..." },
 	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
 	WaitOpen = { th = "ร้านยังปิดอยู่... ไปดึงเชือกเปิดแผงสังกะสีเพื่อเริ่มคืนนี้", en = "The shop is closed... pull the shutter rope to begin the night." },
+	-- มินิเกมเติมน้ำมัน / เติมลม
+	MG_FuelTitle = { th = "⛽ สูบน้ำมันหลอด", en = "⛽ Hand-Crank Petrol" },
+	MG_DieselTitle = { th = "🛢️ สูบน้ำมันดีเซล", en = "🛢️ Hand-Crank Diesel" },
+	MG_FuelHint = { th = "กด [Space] หรือ [คลิกซ้าย] ค้างเพื่อสูบ\nปล่อยให้ระดับน้ำมันตรงขีดสีทอง", en = "Hold [Space] or [Click] to pump\nRelease inside the gold zone" },
+	MG_FuelBtn = { th = "กดค้างเพื่อสูบ [Space]", en = "Hold to Pump [Space]" },
+	MG_FuelOverflow = { th = "ล้นโหล! สูบใหม่อีกครั้ง", en = "Overflow! Try again" },
+	MG_FuelShort = { th = "ยังไม่ถึงขีด! กดค้างต่อ", en = "Not at the mark yet!" },
+	MG_AirTitle = { th = "🛞 อัดลมยาง", en = "🛞 Inflate Tire" },
+	MG_AirHint = { th = "กด [Space] หรือ [คลิกซ้าย] ตอนเข็มตรงขีดสีทอง", en = "Press [Space] or [Click] on the gold zone" },
+	MG_AirBtn = { th = "อัดลม! [Space]", en = "Pump Air! [Space]" },
+	MG_AirMiss = { th = "ผิดจังหวะ! รอเข็มวิ่งกลับ", en = "Missed! Wait for needle" },
+	MG_Success = { th = "สำเร็จ!", en = "Complete!" },
+	MG_CancelHint = { th = "[X] ปิด", en = "[X] Close" },
 }
 
 -- ป้ายชื่อที่ลอยตามวัตถุในฉาก (ObjectLabels.client) ชื่อสั้น สุภาพ ไม่อธิบาย

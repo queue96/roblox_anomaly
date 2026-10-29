@@ -1331,9 +1331,11 @@ end
 -- ฟังก์ชันปรับแสงมืดหลอนตอนเที่ยงคืน (ทำงานอัตโนมัติเฉพาะตอนกด Play เข้าเกม)
 function MapBuilder.SetNightLighting()
 	Lighting.ClockTime = 0
-	Lighting.Brightness = 0.3
-	Lighting.Ambient = Color3.fromRGB(15, 22, 20)
-	Lighting.OutdoorAmbient = Color3.fromRGB(15, 22, 20)
+	Lighting.Brightness = 0.5
+	Lighting.Ambient = Color3.fromRGB(12, 16, 22)
+	Lighting.OutdoorAmbient = Color3.fromRGB(18, 24, 30)
+	Lighting.EnvironmentDiffuseScale = 0.2
+	Lighting.EnvironmentSpecularScale = 0.25
 	Lighting.GlobalShadows = true
 	local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
 	if not atmo then
@@ -1343,9 +1345,10 @@ function MapBuilder.SetNightLighting()
 	end
 	atmo.Density = 0.42
 	atmo.Offset = 0.15
-	atmo.Color = Color3.fromRGB(20, 28, 25)
-	atmo.Decay = Color3.fromRGB(12, 18, 15)
-	atmo.Haze = 2.2
+	atmo.Color = Color3.fromRGB(18, 22, 28)
+	atmo.Decay = Color3.fromRGB(10, 12, 15)
+	atmo.Glare = 0.1
+	atmo.Haze = 1.5
 end
 
 -- ฟังก์ชันดึงต้นกล้วยจาก Toolbox (ทั้งต้นใหญ่และต้นเล็กที่โหลดเพิ่ม) ไปปลูกแบบผสมไล่ระดับ "กอกล้วยธรรมชาติ" รอบร้าน!
@@ -1368,41 +1371,41 @@ function MapBuilder.PlantBananaTrees()
 
 	local templates = harvestToolboxBananaTrees()
 
-	-- พิกัดปลูกดงกล้วยตานีแบบผสม 26 ต้น (จัดเป็นกอกล้วย: มีต้นแม่สูงใหญ่ด้านหลัง/กลางกอ + ต้นกลาง + ต้นเล็ก/หน่อกล้วยแซมข้างโคนต้นใหญ่)
+	-- พิกัดปลูกดงกล้วยตานีแบบกระจายธรรมชาติ 26 ต้น (เว้นระยะห่างแต่ละกอให้โปร่ง กระจายครอบคลุมลานดินว่างด้านหลังเพิงและหลังห้องน้ำ)
 	local bananaCoords = {
-		-- กอที่ 1: ข้างขวาเพิงใกล้ถนน (ต้นกลาง + ต้นเล็กแซมด้านหน้า ไม่บังสายตาเกินไป)
-		{ pos = Vector3.new(20, 0, 9), tier = "medium", height = 9.5, scale = 1.0 },
-		{ pos = Vector3.new(18.2, 0, 7.8), tier = "small", height = 6.2, scale = 0.7 },
-		{ pos = Vector3.new(25, 0, 12), tier = "large", height = 12.2, scale = 1.15 },
-		{ pos = Vector3.new(23.3, 0, 13.2), tier = "small", height = 6.8, scale = 0.75 },
+		-- กอที่ 1: ข้างขวาเพิงใกล้ถนนและจุดผีตานี (5 กอ เว้นระยะไม่ให้เบียดกัน)
+		{ pos = Vector3.new(19.5, 0, 9.0), tier = "small", height = 6.5, scale = 0.72 },
+		{ pos = Vector3.new(24.0, 0, 12.5), tier = "large", height = 12.2, scale = 1.15 },
+		{ pos = Vector3.new(19.0, 0, 16.8), tier = "medium", height = 9.2, scale = 0.95 },
+		{ pos = Vector3.new(28.0, 0, 16.5), tier = "large", height = 12.8, scale = 1.18 },
+		{ pos = Vector3.new(23.5, 0, 22.0), tier = "medium", height = 9.8, scale = 1.0 },
 
-		-- กอที่ 2: ข้างเครื่องปั่นไฟ (ต้นแม่ใบแผ่สวย + ต้นกลาง + หน่อกล้วยเล็ก)
-		{ pos = Vector3.new(19, 0, 17), tier = "medium", height = 9.2, scale = 0.95 },
-		{ pos = Vector3.new(26, 0, 19), tier = "large", height = 13.0, scale = 1.2 },
-		{ pos = Vector3.new(24.4, 0, 17.8), tier = "small", height = 6.5, scale = 0.7 },
-		{ pos = Vector3.new(22, 0, 25), tier = "medium", height = 10.0, scale = 1.05 },
-		{ pos = Vector3.new(20.5, 0, 23.8), tier = "small", height = 6.0, scale = 0.68 },
-		{ pos = Vector3.new(30, 0, 26), tier = "large", height = 12.5, scale = 1.15 },
+		-- กอที่ 2: โซนขวา-หลังเพิง (4 กอ กระจายห่างกัน 7-9 studs)
+		{ pos = Vector3.new(31.5, 0, 24.5), tier = "large", height = 12.4, scale = 1.15 },
+		{ pos = Vector3.new(19.0, 0, 29.5), tier = "medium", height = 9.4, scale = 0.98 },
+		{ pos = Vector3.new(27.5, 0, 31.8), tier = "small", height = 6.8, scale = 0.75 },
+		{ pos = Vector3.new(33.5, 0, 34.5), tier = "large", height = 12.0, scale = 1.1 },
 
-		-- กอที่ 3: แนวหลังเพิงสังกะสี (ไล่ระดับสูง-กลาง-เล็ก)
-		{ pos = Vector3.new(16, 0, 31), tier = "medium", height = 9.5, scale = 1.0 },
-		{ pos = Vector3.new(14.5, 0, 29.8), tier = "small", height = 6.4, scale = 0.72 },
-		{ pos = Vector3.new(10, 0, 33), tier = "large", height = 12.4, scale = 1.15 },
-		{ pos = Vector3.new(3, 0, 34), tier = "medium", height = 8.8, scale = 0.9 },
-		{ pos = Vector3.new(-5, 0, 34), tier = "large", height = 11.8, scale = 1.1 },
-		{ pos = Vector3.new(-6.6, 0, 32.5), tier = "small", height = 6.3, scale = 0.7 },
-		{ pos = Vector3.new(-13, 0, 33), tier = "medium", height = 9.4, scale = 1.0 },
+		-- กอที่ 3: แนวหลังเพิงสังกะสีและกลางลานด้านหลัง (9 กอ กระจายเต็มพื้นที่ว่างกลางลาน)
+		{ pos = Vector3.new(10.5, 0, 32.8), tier = "large", height = 12.0, scale = 1.12 },
+		{ pos = Vector3.new(1.5, 0, 33.8), tier = "medium", height = 9.0, scale = 0.92 },
+		{ pos = Vector3.new(-8.0, 0, 33.2), tier = "large", height = 11.6, scale = 1.08 },
+		{ pos = Vector3.new(20.0, 0, 38.5), tier = "medium", height = 9.6, scale = 1.0 },
+		{ pos = Vector3.new(9.5, 0, 40.0), tier = "small", height = 6.8, scale = 0.74 },
+		{ pos = Vector3.new(-1.0, 0, 40.5), tier = "large", height = 12.4, scale = 1.15 },
+		{ pos = Vector3.new(-11.5, 0, 39.5), tier = "medium", height = 9.4, scale = 0.98 },
+		{ pos = Vector3.new(28.0, 0, 42.5), tier = "large", height = 12.6, scale = 1.15 },
+		{ pos = Vector3.new(15.5, 0, 46.5), tier = "medium", height = 9.8, scale = 1.02 },
 
-		-- กอที่ 4: ดงกล้วยทึบด้านหลังและรอบห้องน้ำสังกะสี (ต้นแม่สูงใหญ่เป็นฉากหลัง + ต้นเล็กแซมริมทางเดิน)
-		{ pos = Vector3.new(33, 0, 15), tier = "large", height = 13.5, scale = 1.25 },
-		{ pos = Vector3.new(35, 0, 23), tier = "medium", height = 10.2, scale = 1.05 },
-		{ pos = Vector3.new(24, 0, 35), tier = "large", height = 12.6, scale = 1.15 },
-		{ pos = Vector3.new(22.3, 0, 33.8), tier = "small", height = 7.0, scale = 0.75 },
-		{ pos = Vector3.new(33, 0, 33), tier = "large", height = 12.0, scale = 1.1 },
-		{ pos = Vector3.new(19, 0, 39), tier = "medium", height = 9.6, scale = 1.0 },
-		{ pos = Vector3.new(17.5, 0, 37.6), tier = "small", height = 6.0, scale = 0.68 },
-		{ pos = Vector3.new(34, 0, 41), tier = "large", height = 13.2, scale = 1.2 },
-		{ pos = Vector3.new(25, 0, 44), tier = "medium", height = 10.0, scale = 1.05 },
+		-- กอที่ 4: ลานดินว่างฝั่งซ้าย-หลังเพิงและหลังห้องน้ำสังกะสี (8 กอ เติมพื้นที่ว่างริมคันนาด้านหลัง)
+		{ pos = Vector3.new(4.5, 0, 47.0), tier = "large", height = 12.2, scale = 1.12 },
+		{ pos = Vector3.new(-6.0, 0, 47.5), tier = "small", height = 6.6, scale = 0.72 },
+		{ pos = Vector3.new(-16.0, 0, 46.2), tier = "large", height = 12.5, scale = 1.15 },
+		{ pos = Vector3.new(-25.5, 0, 45.0), tier = "medium", height = 9.6, scale = 1.0 },
+		{ pos = Vector3.new(-20.5, 0, 39.5), tier = "small", height = 6.8, scale = 0.75 },
+		{ pos = Vector3.new(-28.0, 0, 38.5), tier = "large", height = 11.8, scale = 1.1 },
+		{ pos = Vector3.new(23.5, 0, 48.0), tier = "small", height = 6.5, scale = 0.7 },
+		{ pos = Vector3.new(-13.0, 0, 49.0), tier = "medium", height = 9.5, scale = 0.98 },
 	}
 
 	if #templates > 0 then
@@ -6195,6 +6198,95 @@ function MapBuilder.ParkThaiVehicles(origin: Vector3?, spacing: number?): Folder
 		x += spacing or math.max(ext.X + 3, 9)
 	end
 	return f
+end
+
+-- จัดกระจายกอกล้วยใน Workspace.MapEnvironment.BananaGrove ที่มีอยู่แล้วให้โปร่งและกระจายเต็มลานดินว่างด้านหลังร้าน
+function MapBuilder.SpreadBananaGrove()
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local grove = env and env:FindFirstChild("BananaGrove")
+	if not grove then
+		return
+	end
+
+	local spots = {
+		-- ข้างขวาเพิงใกล้จุดผีตานี (5 กอ เว้นระยะโปร่ง)
+		Vector3.new(19.5, 0, 9.0),
+		Vector3.new(24.0, 0, 12.5),
+		Vector3.new(19.0, 0, 16.8),
+		Vector3.new(28.0, 0, 16.5),
+		Vector3.new(23.5, 0, 22.0),
+		-- โซนขวา-หลังเพิง (4 กอ)
+		Vector3.new(31.5, 0, 24.5),
+		Vector3.new(19.0, 0, 29.5),
+		Vector3.new(27.5, 0, 31.8),
+		Vector3.new(33.5, 0, 34.5),
+		-- แนวหลังเพิงและกลางลานด้านหลัง (9 กอ)
+		Vector3.new(10.5, 0, 32.8),
+		Vector3.new(1.5, 0, 33.8),
+		Vector3.new(-8.0, 0, 33.2),
+		Vector3.new(20.0, 0, 38.5),
+		Vector3.new(9.5, 0, 40.0),
+		Vector3.new(-1.0, 0, 40.5),
+		Vector3.new(-11.5, 0, 39.5),
+		Vector3.new(28.0, 0, 42.5),
+		Vector3.new(15.5, 0, 46.5),
+		-- ลานดินว่างด้านหลังและฝั่งซ้ายหลังห้องน้ำสังกะสี (8 กอ)
+		Vector3.new(4.5, 0, 47.0),
+		Vector3.new(-6.0, 0, 47.5),
+		Vector3.new(-16.0, 0, 46.2),
+		Vector3.new(-25.5, 0, 45.0),
+		Vector3.new(-20.5, 0, 39.5),
+		Vector3.new(-28.0, 0, 38.5),
+		Vector3.new(23.5, 0, 48.0),
+		Vector3.new(-13.0, 0, 49.0),
+	}
+
+	local anomaly = Workspace:FindFirstChild("AnomalyProps")
+	local outhouse = anomaly and anomaly:FindFirstChild("TinOuthouse")
+	local outhousePos: Vector3? = nil
+	if outhouse and outhouse:IsA("Model") then
+		local cf, _ = outhouse:GetBoundingBox()
+		outhousePos = cf.Position
+	end
+
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Include
+	rayParams.FilterDescendantsInstances = { Workspace.Terrain }
+	local function terrainY(x: number, z: number, fallbackY: number): number
+		local hit = Workspace:Raycast(Vector3.new(x, 60, z), Vector3.new(0, -120, 0), rayParams)
+		return if hit then hit.Position.Y else fallbackY
+	end
+
+	local trees = {}
+	for _, c in ipairs(grove:GetChildren()) do
+		if c:IsA("Model") or c:IsA("BasePart") then
+			table.insert(trees, c)
+		end
+	end
+	table.sort(trees, function(a, b)
+		return a.Name < b.Name
+	end)
+
+	for i, tree in ipairs(trees) do
+		local target = spots[((i - 1) % #spots) + 1]
+		local tx, tz = target.X, target.Z
+		-- เว้นระยะห่างจากห้องน้ำสังกะสีไม่ให้ต้นกล้วยทับตัวห้องน้ำ
+		if outhousePos then
+			local dx = tx - outhousePos.X
+			local dz = tz - outhousePos.Z
+			local dist = math.sqrt(dx * dx + dz * dz)
+			if dist < 6.5 then
+				local push = if dist > 0.01 then Vector2.new(dx / dist, dz / dist) else Vector2.new(0, 1)
+				tx = outhousePos.X + push.X * 6.8
+				tz = math.max(tz, outhousePos.Z + 5.5)
+			end
+		end
+		local curPivot = tree:GetPivot()
+		local oldY = terrainY(curPivot.Position.X, curPivot.Position.Z, curPivot.Position.Y)
+		local newY = terrainY(tx, tz, oldY)
+		local delta = Vector3.new(tx - curPivot.Position.X, newY - oldY, tz - curPivot.Position.Z)
+		tree:PivotTo(curPivot + delta)
+	end
 end
 
 return MapBuilder

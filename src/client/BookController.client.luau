@@ -67,7 +67,7 @@ local gui = new("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, localPlayer:WaitForChild("PlayerGui"))
 
--- ปุ่มสมุด (หน้าตาเหมือนปุ่มตั้งค่า วางซ้ายของปุ่มตั้งค่า)
+-- ปุ่มสมุด (ซ่อนออกจากมุมขวาบนตามคำขอ)
 local bookBtn = new("TextButton", {
 	Name = "BookButton",
 	AnchorPoint = Vector2.new(1, 0),
@@ -81,6 +81,7 @@ local bookBtn = new("TextButton", {
 	TextSize = 17,
 	TextColor3 = C.Cream,
 	AutoButtonColor = false,
+	Visible = false,
 }, gui)
 new("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, bookBtn)
 new("UIStroke", { Color = C.Line, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bookBtn)

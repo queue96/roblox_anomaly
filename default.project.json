@@ -53,9 +53,22 @@
         "$path": "src/server"
       }
     },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "DevCommand": {
+        "$path": "src/lobby/dev/DevCommand.luau"
+      }
+    },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$ignoreUnknownInstances": true,
+      "$properties": {
+        "CameraMode": "LockFirstPerson",
+        "CharacterWalkSpeed": 10.0,
+        "CharacterJumpPower": 0.0,
+        "CharacterJumpHeight": 0.0
+      },
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "$ignoreUnknownInstances": true,

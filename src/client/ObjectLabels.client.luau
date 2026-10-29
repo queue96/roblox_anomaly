@@ -56,15 +56,8 @@ local function lookup(gui: BillboardGui): string | boolean | nil
 end
 
 local function render(gui: BillboardGui)
-	local info = labels[gui]
-	if not info then
-		return
-	end
-	local show = info.key ~= nil and localPlayer:GetAttribute("ShowLabels") ~= false
-	gui.Enabled = show
-	if info.text and info.key then
-		info.text.Text = LanguageModule.GetLabel(info.key, LanguageModule.Normalize(localPlayer:GetAttribute("Lang") :: string?))
-	end
+	-- ซ่อนป้ายข้อความลอยเหนือวัตถุทั้งหมดเวลาเล่นจริง
+	gui.Enabled = false
 end
 
 local function restyle(d: Instance)

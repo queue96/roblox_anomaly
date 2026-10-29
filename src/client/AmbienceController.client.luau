@@ -30,33 +30,36 @@ local ASSETS = {
 }
 
 ---------------------------------------------------------------------
--- 1. หมอกหนาว: Atmosphere สีเทาฟ้าซีด + โทนภาพเย็นๆ หม่นๆ
+-- 1. หมอกหนาว: Atmosphere มืดขรึมยามวิกาล + โทนสีหนังผีไทยยุค 90s
 ---------------------------------------------------------------------
+Lighting.EnvironmentDiffuseScale = 0.2
+Lighting.EnvironmentSpecularScale = 0.25
+
 local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
 if not atmo then
 	atmo = Instance.new("Atmosphere")
 	atmo.Name = "RuralAtmosphere"
 	atmo.Parent = Lighting
 end
-atmo.Density = 0.52
-atmo.Offset = 0.3
-atmo.Color = Color3.fromRGB(100, 114, 128)
-atmo.Decay = Color3.fromRGB(40, 52, 66)
-atmo.Glare = 0
-atmo.Haze = 2.6
+atmo.Density = 0.42
+atmo.Offset = 0.15
+atmo.Color = Color3.fromRGB(18, 22, 28)
+atmo.Decay = Color3.fromRGB(10, 12, 15)
+atmo.Glare = 0.1
+atmo.Haze = 1.5
 
 local grade = Lighting:FindFirstChild("ColdNightGrade") or Instance.new("ColorCorrectionEffect")
 grade.Name = "ColdNightGrade"
-grade.TintColor = Color3.fromRGB(205, 220, 240)
-grade.Saturation = -0.35
-grade.Contrast = 0.08
-grade.Brightness = -0.02
+grade.TintColor = Color3.fromRGB(235, 245, 235)
+grade.Saturation = -0.25
+grade.Contrast = 0.20
+grade.Brightness = 0
 grade.Parent = Lighting
 
 -- หมอกค่อยๆ หนาขึ้นบางลงเหมือนมีหมอกก้อนลอยผ่าน
 task.spawn(function()
 	while true do
-		local target = 0.44 + math.random() * 0.14
+		local target = 0.38 + math.random() * 0.08
 		local tween = TweenService:Create(atmo, TweenInfo.new(math.random(10, 18), Enum.EasingStyle.Sine), {
 			Density = target,
 		})
@@ -92,9 +95,9 @@ mist.SpreadAngle = Vector2.new(180, 5)
 mist.Acceleration = Vector3.new(0.4, 0, 0.15) -- ลมพัดเอื่อยๆ
 mist.Rotation = NumberRange.new(0, 360)
 mist.RotSpeed = NumberRange.new(-4, 4)
-mist.Color = ColorSequence.new(Color3.fromRGB(120, 135, 150))
-mist.Brightness = 0.6 -- คืนนี้มืดมาก ถ้าให้แสงฉากคุมทั้งหมดหมอกจะมองไม่เห็น
-mist.LightInfluence = 0.25
+mist.Color = ColorSequence.new(Color3.fromRGB(70, 82, 92))
+mist.Brightness = 0.35 -- คืนนี้มืดมาก ลดความสว่างหมอกเรี่ยพื้นไม่ให้ขาวฟุ้งแสบตา
+mist.LightInfluence = 0.45
 mist.Size = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 14),
 	NumberSequenceKeypoint.new(1, 26),
@@ -472,4 +475,182 @@ task.spawn(function()
 	end
 end)
 
-print("🦗 [Client] Ambience: จิ้งหรีดเหงาๆ + หมอกหนาว + เสียงหลอก 3D + เสียงหนาวสั่น/ผวา (ชาย-หญิง) พร้อมแล้ว")
+---------------------------------------------------------------------
+-- 5. เสียงฝีเท้าตัวละครผู้เล่นตามพื้นผิวจริง (Rural Horror Footsteps)
+--    แทนที่เสียงเดินพลาสติกเดิมของ Roblox ด้วยเสียงย่ำพื้นไม้เก่าลั่นเอี๊ยดในเพิง / เสียงย่ำดินลูกรัง / เสียงย่ำโคลนชื้นตอนฝนตก
+---------------------------------------------------------------------
+local sfxGroup = SoundService:FindFirstChild("SFX") :: SoundGroup?
+local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+
+local function setupCharacterFootsteps(char: Model)
+	local root = char:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	local hum = char:WaitForChild("Humanoid", 10) :: Humanoid?
+	if not (root and hum) then
+		return
+	end
+
+	-- ปิดเสียงฝีเท้าพลาสติกเดิมของ Roblox (Running)
+	local function muteDefaultRunning(child: Instance)
+		if child:IsA("Sound") and child.Name == "Running" then
+			child.Volume = 0
+			child:GetPropertyChangedSignal("Volume"):Connect(function()
+				if child.Volume > 0 then
+					child.Volume = 0
+				end
+			end)
+		end
+	end
+	for _, c in ipairs(root:GetChildren()) do
+		muteDefaultRunning(c)
+	end
+	root.ChildAdded:Connect(muteDefaultRunning)
+
+	local oldStep = root:FindFirstChild("HorrorFootsteps")
+	if oldStep then
+		oldStep:Destroy()
+	end
+
+	local stepSound = Instance.new("Sound")
+	stepSound.Name = "HorrorFootsteps"
+	stepSound.SoundId = "rbxassetid://135952279207329"
+	stepSound.Looped = true
+	stepSound.Volume = 0
+	stepSound.PlaybackSpeed = 0.90
+	stepSound.RollOffMode = Enum.RollOffMode.InverseTapered
+	stepSound.RollOffMinDistance = 4
+	stepSound.RollOffMaxDistance = 38
+	if sfxGroup then
+		stepSound.SoundGroup = sfxGroup
+	end
+
+	local stepEQ = Instance.new("EqualizerSoundEffect")
+	stepEQ.LowGain = 5
+	stepEQ.MidGain = 1
+	stepEQ.HighGain = -18
+	stepEQ.Parent = stepSound
+
+	local stepPitch = Instance.new("PitchShiftSoundEffect")
+	stepPitch.Octave = 0.90
+	stepPitch.Parent = stepSound
+
+	local stepReverb = Instance.new("ReverbSoundEffect")
+	stepReverb.DecayTime = 1.5
+	stepReverb.Density = 0.7
+	stepReverb.Diffusion = 0.8
+	stepReverb.DryLevel = 0
+	stepReverb.WetLevel = -12
+	stepReverb.Parent = stepSound
+
+	stepSound.Parent = root
+	stepSound:Play()
+
+	-- เสียงไม้กระดานลั่นเอี๊ยดเบาๆ เวลาเดินในเพิงร้าน
+	local creakSound = Instance.new("Sound")
+	creakSound.Name = "WoodFloorCreak"
+	creakSound.SoundId = "rbxassetid://9113542694"
+	creakSound.Volume = 0.22
+	creakSound.PlaybackSpeed = 0.82
+	if sfxGroup then
+		creakSound.SoundGroup = sfxGroup
+	end
+	local creakEQ = Instance.new("EqualizerSoundEffect")
+	creakEQ.LowGain = 6
+	creakEQ.MidGain = -1
+	creakEQ.HighGain = -24
+	creakEQ.Parent = creakSound
+	local creakReverb = Instance.new("ReverbSoundEffect")
+	creakReverb.DecayTime = 1.4
+	creakReverb.WetLevel = -10
+	creakReverb.Parent = creakSound
+	creakSound.Parent = root
+
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { char }
+
+	local nextCreakAt = os.clock() + 2.5
+	local currentSurface = ""
+
+	local conn: RBXScriptConnection
+	conn = RunService.Heartbeat:Connect(function(dt)
+		if not char.Parent or not root.Parent or hum.Health <= 0 then
+			conn:Disconnect()
+			return
+		end
+
+		local horizVel = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude
+		local isMovingOnGround = horizVel > 1.2 and hum.FloorMaterial ~= Enum.Material.Air and not root.Anchored
+
+		if not isMovingOnGround then
+			stepSound.Volume = math.max(0, stepSound.Volume - dt * 4.5)
+			return
+		end
+
+		-- ตรวจจับพื้นผิวใต้เท้า
+		local hit = Workspace:Raycast(root.Position, Vector3.new(0, -5.5, 0), rayParams)
+		local mat = if hit then hit.Material else hum.FloorMaterial
+		local hitInst = hit and hit.Instance
+		local hitName = if hitInst then hitInst.Name else ""
+
+		local isWood = mat == Enum.Material.WoodPlanks
+			or mat == Enum.Material.Wood
+			or hitName == "PorchDeck"
+			or hitName == "ShackFloor"
+			or (hitInst and hitInst:FindFirstAncestor("ShackStructure") ~= nil)
+
+		local isRaining = (remotesFolder and remotesFolder:GetAttribute("Weather") == "Rain")
+		local isMudOrWater = mat == Enum.Material.Mud
+			or hitName:find("Puddle") ~= nil
+			or hitName:find("PaddyWater") ~= nil
+			or (isRaining and not isWood)
+
+		local surfaceKind = if isWood then "wood" elseif isMudOrWater then "mud" else "dirt"
+		if surfaceKind ~= currentSurface then
+			currentSurface = surfaceKind
+			if surfaceKind == "wood" then
+				-- พื้นไม้กระดานเก่าในเพิง: ทุ้มลึก หนักแน่น
+				stepPitch.Octave = 0.76
+				stepEQ.LowGain = 7
+				stepEQ.MidGain = -2
+				stepEQ.HighGain = -22
+				stepReverb.WetLevel = -10
+			elseif surfaceKind == "mud" then
+				-- พื้นดินโคลนชื้น/หลังฝนตก: หนืดและทุ้มต่ำ
+				stepPitch.Octave = 0.84
+				stepEQ.LowGain = 6
+				stepEQ.MidGain = 0
+				stepEQ.HighGain = -20
+				stepReverb.WetLevel = -11
+			else
+				-- พื้นดินลูกรังและหญ้ากลางทุ่ง: กรอบนุ่มกังวานในความมืด
+				stepPitch.Octave = 0.92
+				stepEQ.LowGain = 5
+				stepEQ.MidGain = 1
+				stepEQ.HighGain = -18
+				stepReverb.WetLevel = -12
+			end
+		end
+
+		local speedRatio = math.clamp(horizVel / 10, 0.65, 1.25)
+		local basePlayback = if surfaceKind == "wood" then 0.86 elseif surfaceKind == "mud" then 0.88 else 0.92
+		stepSound.PlaybackSpeed = basePlayback * speedRatio
+
+		local targetVol = if surfaceKind == "wood" then 0.46 elseif surfaceKind == "mud" then 0.54 else 0.50
+		stepSound.Volume = math.min(targetVol, stepSound.Volume + dt * 3.8)
+
+		-- ถ้าเดินบนพื้นไม้กระดานในเพิง สุ่มเล่นเสียงไม้ลั่นเอี๊ยดเบาๆ เป็นระยะ
+		if surfaceKind == "wood" and os.clock() >= nextCreakAt then
+			nextCreakAt = os.clock() + 2.8 + math.random() * 2.2
+			creakSound.PlaybackSpeed = 0.74 + math.random() * 0.18
+			creakSound.Volume = 0.18 + math.random() * 0.08
+			creakSound:Play()
+		end
+	end)
+end
+
+if localPlayer.Character then
+	task.spawn(setupCharacterFootsteps, localPlayer.Character)
+end
+localPlayer.CharacterAdded:Connect(setupCharacterFootsteps)
+
+print("🦗 [Client] Ambience: จิ้งหรีดเหงาๆ + หมอกหนาว + เสียงหลอก 3D + เสียงฝีเท้าสยองขวัญตามพื้นผิว พร้อมแล้ว")

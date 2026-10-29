@@ -1,41 +1,39 @@
 # ⛽ ปั๊มหลอด & เพิงปะยางท้ายทุ่ง (The Rural Tire & Gas Shack)
-**Roblox Co-op Horror Anomaly Game (1–4 Players)**
+**Roblox Co-op Horror Anomaly Game (1–6 Players)**
 
 ![Map Overview Concept](assets/map_overview.jpg)
 
-## 📌 ภาพรวมโปรเจกต์ (Project Summary)
-- **แนวเกม:** Co-op Anomaly Observation / Job Simulator Horror (1–4 คน)
+## 📌 ภาพรวมโปรเจกต์ (Project Summary — อัปเดต 2026-10-29)
+- **แนวเกม:** Co-op Anomaly Observation / Job Simulator Horror (1–6 คน, แยก 2 Place: **Lobby วัดไทยชนบท** `70980777393906` & **Pump Lot แมพปั๊มหลอด** `114125276809667`)
 - **บรรยากาศ:** เพิงสังกะสีปั๊มน้ำมันหลอดแก้วและร้านปะยางริมถนนดินลูกรัง กลางทุ่งนาและดงกล้วยตานี
-- **เป้าหมายการชนะ (Win Quota):** ให้บริการรถชาวบ้านจนเก็บเงินในกระป๋องครบ **500 บาท** (คันละ +100฿ / ปิดร้านหนีผีได้โบนัส +50฿)
-- **พลังชีวิตทีม:** ธูปที่ศาลพระภูมิ **3 ดอก** (เผลอเติมน้ำมันให้ผี ธูปดับทีละ 1 ดอก ครบ 3 ดอก = Game Over)
+- **กลไกหลัก (พนมมือสวดมนต์เปิดตาทิพย์):** แทนที่จะส่องไฟฉายดูผี ผู้เล่นต้องกดค้าง **G** (PC) / **Y** (จอย) / ปุ่ม **🙏** (มือถือ) ยืนพนมมือสวดมนต์ 1.5 วินาทีเพื่อเปิด **"ตาทิพย์" (`PrayerSight`)** มองเห็นสิ่งผิดปกติ (`GhostOnly`) และซ่อนภาพลวงตา (`NormalOnly`) เฉพาะบนจอของคนที่กำลังสวดมนต์เท่านั้น! (ส่วนไฟฉายกบ `FrogFlashlight` ใช้ส่องสว่างในความมืดตามปกติ โดยเปิดไฟอัตโนมัติและล็อกโมเดลไฟฉาย 3D ตามมุมกล้อง First-Person)
+- **มุมมองและการควบคุม:** บังคับมุมมองบุคคลที่ 1 (`LockFirstPerson`), ปิดการกระโดด (`WalkSpeed = 10`), กด `V` / `LeftAlt` เพื่อสลับล็อกเมาส์, กด `R` เปิด/ปิดวิทยุทรานซิสเตอร์บนโต๊ะ, และใช้มินิเกมกดจังหวะ (`Space` / คลิกซ้าย) สำหรับปั๊มน้ำมันหลอดแก้วและเติมลมยาง
+- **เป้าหมายการชนะ (Win Quota):** ให้บริการรถและชาวบ้านจนเก็บเงินในกระป๋องครบ **1,500 บาท** (คนปกติ +100฿ / ปิดร้านหนีผีได้โบนัส +50฿ / คูณรางวัลตามความยาก Easy ×1, Normal ×1.5, Hard ×2, Nightmare ×3)
+- **พลังชีวิตทีม:** ธูปที่ศาลพระภูมิ **3 ดอก** (ไม่มีแสดงบน HUD ผู้เล่นต้องเดินไปเช็กธูปที่ศาลพระภูมิเอง — เผลอเติมน้ำมันให้ผี ธูปดับทีละ 1 ดอก พร้อมหัก -100฿ ครบ 3 ดอก = Game Over)
 - **การรองรับภาษา:** 2 ภาษา ไทย / อังกฤษ (`TH` / `EN` Localization)
 
 ---
 
 ## 📂 ไฟล์สำคัญในโปรเจกต์นี้
-1. **[GEMINI.md](GEMINI.md)** — คู่มือส่งมอบงานสำหรับ AI (AI Context & Handoff Guide) อธิบายโครงสร้างโค้ด โฟลเดอร์ใน `Workspace`/`ServerStorage` และกฎการแก้ไขฉากแบบไม่ทำลายตำแหน่งที่จัดวางไว้
-2. **[GDD.md](GDD.md)** — เอกสาร Game Design Document ฉบับเต็ม (กติกาการเล่น, แผนผังแมพโคกดินกลางทุ่งนา 4 ด้าน, จุดวางของเผื่ออัปเดต 6 จุด, และคลังไอเดียผี 30 รูปแบบ แบ่งเป็น 3 Tiers)
-3. **[src/shared/MapBuilder.luau](src/shared/MapBuilder.luau)** — โมดูลสร้างฉาก ระบบจัดการโมเดลจาก Toolbox และฟังก์ชันอัปเดตเฉพาะจุด (`PaintTerrainRoad`, `AddSacredBanyanZone`, `AddSideRiceFields`, `SplitSideRiceFields`, `BuildCompactPerimeter`)
-4. **[src/server/GameManager.server.luau](src/server/GameManager.server.luau)** — สคริปต์ควบคุมเกมฝั่ง Server (ระบบสลับแสงกลางคืนอัตโนมัติเมื่อกด Play, ไฟนีออนกะพริบ, เชือกดึงแผงสังกะสี `ShutterDoor`)
-5. **[src/shared/LanguageModule.luau](src/shared/LanguageModule.luau)** & **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** — ระบบ 2 ภาษา (`TH`/`EN`) และหน้าจอ HUD แสดงเงิน `500฿` + ธูป 3 ดอก
-6. **[src/client/AmbienceController.client.luau](src/client/AmbienceController.client.luau)** — บรรยากาศกลางคืนฝั่ง Client: เสียงจิ้งหรีดเหงาๆ ที่บางช่วงเงียบลงเอง + หมอกหนาวสีฟ้าซีดและหมอกเรี่ยพื้น
-8. **[src/server/CoreLoop.luau](src/server/CoreLoop.luau)** — Phase 3 ลูปหลัก: รถลูกค้าขี่มาจอด, ล็อกปุ่ม 3 วิ, เติมน้ำมัน (กดค้าง 3 วิ) / ดึงแผงปิดร้าน (0.5 วิ), เงิน 500฿, ธูป 3 ดอก, ชนะ/แพ้ ค่าปรับเกมอยู่ใน `CONFIG` · ทดสอบได้ด้วย `ServerStorage.DevDecision:Fire("fuel" | "reject")`
-9. **[src/server/AnomalyManager.luau](src/server/AnomalyManager.luau)** — Phase 4 ผี 10 ตัว (Headless, Cemetery 4444, WheelHair, NeckTwist, CreepySmile, Krasue, MonkRadio, Tani, Scarecrow, BloodFuel) แต่ละตัวมี apply/reset, `ResetAnomalies()` ตอนรถขี่ออก, หมาหอนในทุ่ง · บังคับผีตัวถัดไปด้วย `ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue")` (หรือ `"Normal"`)
-10. **[src/server/Flashlight.server.luau](src/server/Flashlight.server.luau)** — ไฟฉายกบ (StarterPack.FrogFlashlight) คลิกเปิด/ปิด SpotLight ฝั่ง Server
-11. **[src/server/PlayerSettings.server.luau](src/server/PlayerSettings.server.luau)** — การตั้งค่าผู้เล่น (ภาษา ไทย/อังกฤษ, เสียงเพลง, เสียงเอฟเฟกต์, ซ่อน HUD, ซ่อนป้ายชื่อวัตถุ) เป็น Attribute บน Player จำไว้ใน DataStore · เข้าครั้งแรกจากประเทศไทย = ไทย นอกนั้น = อังกฤษ
-12. **[src/client/SettingsController.client.luau](src/client/SettingsController.client.luau)** — ปุ่ม "ตั้งค่า" มุมขวาบน + หน้าต่างตั้งค่า (ปิดด้วย X) · แบ่งเสียงเป็น SoundGroup Music / SFX
-13. **[src/client/ObjectLabels.client.luau](src/client/ObjectLabels.client.luau)** — ป้ายลอยตามวัตถุ (ZoneLabel) ฝั่ง Client: ชื่อสั้นตามภาษา ไม่มีพื้นหลัง เห็นเมื่อเข้าใกล้ ป้ายผีซ่อนตลอด
-14. **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** — HUD สไตล์ชนบทหลอน: เงิน/ธูปขวาล่าง, ปุ่มคีย์แนวตั้ง, กล่องคำพูดลูกค้าแสดงชื่อ, แถบตอบราคา (ทุกคนเห็นเหมือนกัน ใครตอบก่อนได้ก่อน), แถบประกาศ · บทสนทนา (ทัก -> ถามราคา -> จ่ายเงิน/โวยวาย) และการเปิดร้านก่อนเริ่มคืนอยู่ใน CoreLoop · ทดสอบด้วย `DevDecision:Fire("open")` / `Fire("reply:100")`
-15. **[src/server/Weather.luau](src/server/Weather.luau)** + **[src/client/WeatherController.client.luau](src/client/WeatherController.client.luau)** — ฝนตกเป็นช่วงๆ (เม็ดฝน เสียงฝน พื้นเปียก แอ่งน้ำ ฟ้าแลบ) ลูกค้ามาน้อยลง มีคนแวะหลบฝนชวนคุย · `DevDecision:Fire("rain" | "clear")`
-16. **[src/server/Pedestrian.luau](src/server/Pedestrian.luau)** — ลูกค้าเดินเท้า (แกลลอน / เข็นจักรยาน / หลบฝน / ขบวนแห่) ท่าเดิน ท่าเต้น ร่มจาก `ServerStorage.ImportedProps.Umbrella` (Blender: tools/blender/umbrella.py)
-17. **[src/client/JumpscareController.client.luau](src/client/JumpscareController.client.luau)** — ผีโผล่เต็มจอตอนเติมให้ผี เสียง/สีจอ/เอฟเฟกต์ตามชนิดผี · **[src/client/DeathScreen.client.luau](src/client/DeathScreen.client.luau)** — ธูปดับหมด ล้มนอนตาย จอแดง ถามเริ่มใหม่ (ใครกดก่อนได้ก่อน)
-18. **CoreLoop (ลูกค้า + ขาจร)** — คิวลูกค้าเป็นระลอกแล้วพัก, เติมช้าลูกค้าไม่พอใจ, ทักทายตอบ, รถไทย (กระบะ/เก๋ง = ดีเซลตู้ 2, ตุ๊กตุ๊ก, จักรยานเติมลม) เติมผิดตู้ลูกค้าท้วง, ขาจรช่วงพัก (เด็กแว้น / รถซิ่งเปิดเพลง + สาวโคโยตี้ + วัยรุ่น / รถแห่งานบวช), ไล่ผีแล้ววิ่งตามโดนล้มตึง · `DevDecision:Fire("car" | "tuktuk" | "bicycle" | "walker" | "shelter" | "racer" | "party" | "parade" | "spawn" | "lose" | "restart")`
-19. **รถไทย 8 คัน** — [src/shared/ThaiVehicleRigs.luau](src/shared/ThaiVehicleRigs.luau) + `MapBuilder.BuildThaiVehicleTemplates()` (CoreLoop สร้างให้เองตอนเริ่มถ้ายังไม่มี) · ขับเองได้ด้วย [src/server/ThaiVehicleDrive.server.luau](src/server/ThaiVehicleDrive.server.luau) · Blender: tools/blender/thai_vehicles.py
-20. **[src/server/AnomalyBook.luau](src/server/AnomalyBook.luau)** + **[src/client/BookController.client.luau](src/client/BookController.client.luau)** — สมุดบันทึกผีไทย: ไล่ผีถูกตัว = ปลดล็อกให้ทุกคนในร้าน (ชื่อ + คำใบ้ + จำนวนครั้งที่รอด) จำใน DataStore `AnomalyBook_v1` · `DevDecision:Fire("book:Anomaly_Krasue")` / `Fire("bookreset")`
-7. **[index.html](index.html)** & **[phases.html](phases.html)** — แดชบอร์ดจำลองการเล่นและเช็กลิสต์ติดตามความคืบหน้าทั้ง 5 เฟส
+1. **[GEMINI.md](GEMINI.md)** — คู่มือส่งมอบงานสำหรับ AI (AI Context & Handoff Guide) อธิบายโครงสร้างโค้ด โฟลเดอร์ใน `Workspace`/`ServerStorage` ระบบ Rojo 2 Place และกฎการแก้ไขฉากแบบไม่ทำลายตำแหน่งที่จัดวางไว้
+2. **[GDD.md](GDD.md)** & **[art_refs/ghosts/GHOSTS.md](art_refs/ghosts/GHOSTS.md)** — เอกสาร Game Design Document ฉบับเต็ม และคลังข้อมูลอ้างอิงผีไทย 92 ตัว (Rig, Status, Animation)
+3. **[src/shared/MapBuilder.luau](src/shared/MapBuilder.luau)** — โมดูลสร้างฉากปั๊มหลอดและวัด Lobby (`BuildTempleLobby`) พร้อมฟังก์ชันอัปเดตเฉพาะจุด (`PaintTerrainRoad`, `AddSacredBanyanZone`, `AddSideRiceFields`, `SplitSideRiceFields`, `BuildCompactPerimeter`, `SpreadBananaGrove`, `TagWindPlants`, `BuildThaiVehicleTemplates`)
+4. **[src/server/GameManager.server.luau](src/server/GameManager.server.luau)** — สคริปต์ควบคุมเกมฝั่ง Server (สลับแสงกลางคืนเมื่อกด Play, ล็อก First-Person + ปิดกระโดด, ไฟนีออนเสาไม้กะพริบ, เชือกดึงแผงสังกะสี `ShutterDoor`, กระจายดงกล้วย)
+5. **[src/server/Prayer.luau](src/server/Prayer.luau)** & **[src/client/PrayerController.client.luau](src/client/PrayerController.client.luau)** — ระบบพนมมือสวดมนต์ (กด G ค้าง ยืนนิ่งพนมมือ R15 + เสียงสวดตัวเองที่เปลี่ยนเป็นสวดรัวเร็วเมื่อเจอผี + เปิดม่านตาทิพย์เห็น `GhostOnly` / ซ่อน `NormalOnly`)
+6. **[src/server/CoreLoop.luau](src/server/CoreLoop.luau)** — ลูปหลัก: คิวรถทีละคัน (`MaxQueue = 1`), บทสนทนาไหลอัตโนมัติ, มินิเกมเติมน้ำมัน 2 ตู้ (เบนซิน/ดีเซล) + เติมลมจักรยาน (`ServiceMinigame`), ดึงแผงปิดร้าน, เป้าหมายเงิน `1,500฿`, ธูป 3 ดอก, ลูกค้าทักคนพนมมือ (`watchPrayers`), สวดตอนร้านว่างสุ่มเรียกผี (`prayerSummonLoop`), จบเกมกลับ Lobby (`TeleportAsync`) · ทดสอบด้วย `ServerStorage.DevDecision:Fire("fuel" | "reject")`
+7. **[src/server/AnomalyManager.luau](src/server/AnomalyManager.luau)** — ผีชุดแรก 10 ตัว (Headless, Cemetery 4444, WheelHair, NeckTwist, CreepySmile, Krasue, MonkRadio, Tani, Scarecrow, BloodFuel) ใช้ระบบม่านตาทิพย์ `ghostOnly()` / `normalOnly()` / `unveil()` / `apparition()` + วิทยุทรานซิสเตอร์ (`R` เปิด/ปิด พร้อมเอฟเฟกต์ลำโพงแตก `EqualizerSoundEffect` + `DistortionSoundEffect`) · บังคับผีตัวถัดไปด้วย `ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue")`
+8. **[src/server/Flashlight.server.luau](src/server/Flashlight.server.luau)** — ไฟฉายกบ (`StarterPack.FrogFlashlight`) เปิดไฟอัตโนมัติเมื่อถือ ทำงานคู่กับโมเดลไฟฉาย 3D ล็อกตามกล้องฝั่ง Client
+9. **[src/shared/LanguageModule.luau](src/shared/LanguageModule.luau)** & **[src/shared/SoundBank.luau](src/shared/SoundBank.luau)** — ระบบข้อความ 2 ภาษา (`TH`/`EN`) และคลังเสียงพูดลูกค้า/เสียงสวดมนต์อีสาน-ไทย/เสียงเหตุการณ์ริมถนน
+10. **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** & **[src/client/ObjectLabels.client.luau](src/client/ObjectLabels.client.luau)** — HUD ยอดเงิน `฿0 / ฿1500`, ซับไตเติลคำพูดลูกค้าด้านล่าง, มินิเกมเติมน้ำมัน/เติมลม (`FuelView` / `AirView`), ช่องถือไฟฉาย `[1] ไฟฉาย`, โมเดลไฟฉาย 3D ล็อกตามกล้อง (`CameraFlashlightViewmodel`), และระบบสลับเมาส์ `V` / `LeftAlt`
+11. **[src/client/AmbienceController.client.luau](src/client/AmbienceController.client.luau)** & **[src/client/GrassWind.client.luau](src/client/GrassWind.client.luau)** — บรรยากาศกลางคืนตามสูตร Atmosphere Blueprint (หมอกยามวิกาล + โทนสีหนังผีไทยยุค 90s + เสียงจิ้งหรีดเหงาๆ + เสียงฝีเท้าหลอนแยกตามพื้นผิวไม้/ดินโคลน/หญ้า) และระบบลมพัดหญ้า/ต้นข้าว/ใบไม้ไหว
+12. **[src/server/Weather.luau](src/server/Weather.luau)** + **[src/client/WeatherController.client.luau](src/client/WeatherController.client.luau)** — ระบบฝนตกเป็นช่วงๆ แบ่งโซนปล่อยเม็ดฝน 4 ด้านรอบนอกเพิงกันฝนทะลุหลังคา พื้นเปียก ฟ้าแลบ คนแวะหลบฝน
+13. **[src/server/Pedestrian.luau](src/server/Pedestrian.luau)** & **[src/shared/ThaiVehicleRigs.luau](src/shared/ThaiVehicleRigs.luau)** + **[src/server/ThaiVehicleDrive.server.luau](src/server/ThaiVehicleDrive.server.luau)** — ลูกค้าเดินเท้าถือแกลลอน/ร่ม, รถไทย 8 คัน (กระบะเก่า, เก๋ง, จักรยาน 2 แบบ, ตุ๊กตุ๊ก, เวฟซิ่ง, รถแห่กระบะ, รถแห่ 6 ล้อ) และขาจรช่วงพัก
+14. **[src/client/JumpscareController.client.luau](src/client/JumpscareController.client.luau)** & **[src/client/DeathScreen.client.luau](src/client/DeathScreen.client.luau)** — ผีโผล่เต็มจอตอนเผลอเติมให้ผี และหน้าจอตาย/กลับ Lobby
+15. **[src/server/AnomalyBook.luau](src/server/AnomalyBook.luau)** + **[src/client/BookController.client.luau](src/client/BookController.client.luau)** & **[src/server/PlayerSettings.server.luau](src/server/PlayerSettings.server.luau)** + **[src/client/SettingsController.client.luau](src/client/SettingsController.client.luau)** — สมุดสะสมผีไทยและหน้าตั้งค่าผู้เล่น (บันทึกใน DataStore ร่วมกันทั้ง Lobby และเกม)
+16. **[src/lobby/](src/lobby/)** (`LobbyServer.server.luau`, `TempleMerit.server.luau`, `LobbyClient.client.luau`) — ระบบวัด Lobby สร้างห้อง 1–6 คน เลือกความยาก ทำบุญ/บริจาค และวาร์ปเข้าแมพปั๊มหลอด
 
 ---
 
-## 💻 วิธีสลับทำงานหรือให้ AI ตัวอื่นทำต่อ
-เมื่อต้องการคุยงานต่อกับ AI ตัวใหม่ ให้พิมพ์คำสั่งนี้ในแชท:
-> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[src/shared/MapBuilder.luau]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง ตอนนี้ Phase 1 (ปั้นฉาก), Phase 2 (รถแม่แบบใน ServerStorage.VehicleTemplates) Phase 3 (Core Loop ใน src/server/CoreLoop.luau) Phase 4 (ผี 10 ตัวใน src/server/AnomalyManager.luau + ไฟฉาย) เสร็จแล้ว และ Phase 5 ทำ HUD + สมุดสะสมผี + ระบบภาษาแล้ว (เหลือ Publish/Co-op) พร้อมระบบเพิ่มเติม: ฝนตก, ลูกค้าเดิน/รถไทย, ขาจร, ผีหลอกเต็มจอ, จอตาย, ตั้งค่า กำลังจะทำต่อในส่วน..."**
+## 💻 วิธีสลับทำงานหรือให้ AI ตัวอื่นทำต่อ (Prompt สำหรับเริ่ม Session ใหม่)
+เมื่อเปิดแชท Session ใหม่ ให้ก๊อปปี้ข้อความด้านล่างนี้ส่งให้ AI ได้เลย:
+> **"ช่วยอ่านไฟล์ `@[GEMINI.md]`, `@[GDD.md]` และ `@[README.md]` ในโฟลเดอร์นี้ เรากำลังพัฒนาเกม Roblox ปั๊มหลอดท้ายทุ่ง (แยก 2 Place: วัด Lobby พอร์ต 34873 และแมพปั๊มหลอด พอร์ต 34872) ตอนนี้ระบบหลักทั้ง 5 เฟส (ฉากปั๊ม+วัด, รถไทย 8 คัน+คนเดินเท้า, Core Loop เป้า 1500฿, ระบบพนมมือสวดมนต์เปิดตาทิพย์ดูผี 10 ตัวแรกแทนการส่องไฟฉาย, ฝนตก/ขาจร, สมุดสะสมผี, ตั้งค่า) เสร็จแล้ว กำลังจะทำต่อในส่วน..."**

@@ -1,11 +1,10 @@
 -- Flashlight.server.luau
--- Phase 4: ไฟฉายกบ (StarterPack.FrogFlashlight) คลิกเพื่อเปิด/ปิด SpotLight
--- Tool.Activated ยิงมาถึง Server เองอยู่แล้ว ไม่ต้องใช้ RemoteEvent; เปิด/ปิดฝั่ง Server ทุกคนจึงเห็นแสงตรงกัน
+-- Phase 4: ไฟฉายกบ (StarterPack.FrogFlashlight) หยิบขึ้นมาถือแล้วสว่างทันที (ไม่ต้องคลิกเปิด/ปิด)
 
 local Players = game:GetService("Players")
+local StarterPack = game:GetService("StarterPack")
 
 local TOOL_NAME = "FrogFlashlight"
-local CLICK_SOUND = "rbxassetid://9117159106" -- เสียงคลิกสวิตช์ (ตัดช่วงต้นของเสียงวิทยุคลิก)
 
 local hooked: { [Tool]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -38,29 +37,25 @@ local function hook(tool: Instance)
 		return
 	end
 	hooked[tool] = true
-	local handle = tool:FindFirstChild("Handle")
-	local click: Sound? = nil
-	if handle then
-		click = Instance.new("Sound")
-		click.Name = "Click"
-		click.SoundId = CLICK_SOUND
-		click.Volume = 0.4
-		click.RollOffMaxDistance = 30
-		click.Parent = handle
-	end
-	-- เริ่มแบบเปิดไฟ (ตามค่าเดิมของ SpotLight)
-	local first = lightsOf(tool)[1]
-	setOn(tool, if first then first.Enabled else true)
-	tool.Activated:Connect(function()
-		setOn(tool, not tool:GetAttribute("On"))
-		if click then
-			click.TimePosition = 0
-			click:Play()
-			task.delay(0.15, function()
-				click:Stop()
-			end)
+	for _, d in ipairs(tool:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.CastShadow = false
 		end
+	end
+	-- หยิบขึ้นมาถือ (อยู่ใน Character) = สว่างทันที, เก็บเข้ากระเป๋า = ปิดไฟ
+	local isEquipped = tool.Parent ~= nil and tool.Parent:IsA("Model")
+	setOn(tool, isEquipped)
+	tool.Equipped:Connect(function()
+		setOn(tool, true)
 	end)
+	tool.Unequipped:Connect(function()
+		setOn(tool, false)
+	end)
+end
+
+local starterTool = StarterPack:FindFirstChild(TOOL_NAME)
+if starterTool and starterTool:IsA("Tool") then
+	setOn(starterTool, true)
 end
 
 local function watch(container: Instance)

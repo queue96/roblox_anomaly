@@ -188,20 +188,33 @@ local function radioSound(name: string, id: string, volume: number, looped: bool
 	snd.Volume = volume
 	snd.Looped = looped
 	snd.RollOffMode = Enum.RollOffMode.InverseTapered
-	snd.RollOffMinDistance = 8
-	snd.RollOffMaxDistance = 60
+	snd.RollOffMinDistance = 5
+	snd.RollOffMaxDistance = 35
 	return snd
 end
 local RADIO_VOLUME = { music = 0.35, chant = 0.52, static = 0.38 }
 local radioMusic = radioSound("RadioMusic", SOUNDS.RadioMusic, RADIO_VOLUME.music, true)
 local radioChant = radioSound("MonkChant", SOUNDS.MonkChant, RADIO_VOLUME.chant, true)
 local radioStatic = radioSound("RadioStatic", SOUNDS.RadioStatic, RADIO_VOLUME.static, false)
+if radioMusic then
+	local eq = Instance.new("EqualizerSoundEffect") -- ตัดเสียงเบสออกให้เหมือนลำโพงวิทยุสังกะสีแตกๆ
+	eq.LowGain = -20
+	eq.MidGain = 8
+	eq.HighGain = -10
+	eq.Parent = radioMusic
+	local dist = Instance.new("DistortionSoundEffect") -- เพิ่มความซ่าเหมือนคลื่นแทรกต่างจังหวัด
+	dist.Level = 0.25
+	dist.Parent = radioMusic
+end
 if radioChant then
 	local eq = Instance.new("EqualizerSoundEffect") -- เสียงแตกๆ เหมือนคลื่นวิทยุเพี้ยน แต่ไม่แสบหู
-	eq.LowGain = -12
-	eq.MidGain = 3
-	eq.HighGain = -18
+	eq.LowGain = -20
+	eq.MidGain = 8
+	eq.HighGain = -10
 	eq.Parent = radioChant
+	local dist = Instance.new("DistortionSoundEffect")
+	dist.Level = 0.25
+	dist.Parent = radioChant
 end
 if radioStatic then
 	local eq = Instance.new("EqualizerSoundEffect")
@@ -211,13 +224,39 @@ if radioStatic then
 	eq.Parent = radioStatic
 end
 
--- ระบบสลับสถานีวิทยุลูกทุ่งเหงาๆ หลอนๆ 5 คลื่น (สำหรับวิทยุในร้านเท่านั้น)
+-- ระบบเปิด/ปิดและสลับสถานีวิทยุลูกทุ่ง 5 คลื่น (เริ่มเกมมาปิดวิทยุให้เงียบ ถ้าผู้เล่นอยากฟังค่อยเดินไปกดเปิดเอง)
 local currentStationIdx = 0
+local radioUserOn = false
+local tunePrompt: ProximityPrompt? = nil
+
+local function updateRadioPromptText()
+	if tunePrompt then
+		tunePrompt.ActionText = if radioUserOn then "ปิดวิทยุ / Turn Off Radio" else "เปิดวิทยุลูกทุ่ง / Turn On Radio"
+	end
+end
+
+local function turnOffRadio()
+	radioUserOn = false
+	if radioStatic then
+		radioStatic.TimePosition = 0
+		radioStatic:Play()
+		task.delay(0.2, function()
+			if radioStatic then
+				radioStatic:Stop()
+			end
+		end)
+	end
+	if radioMusic and radioMusic.IsPlaying then
+		radioMusic:Stop()
+	end
+	updateRadioPromptText()
+end
 
 local function tuneLukThungStation(idx: number?)
 	if not radioMusic then
 		return
 	end
+	radioUserOn = true
 	if radioChant and radioChant.IsPlaying then
 		radioChant:Stop()
 	end
@@ -244,19 +283,19 @@ local function tuneLukThungStation(idx: number?)
 	if not radioMusic.IsPlaying then
 		radioMusic:Play()
 	end
+	updateRadioPromptText()
 end
 
 function AnomalyManager.SetGhostPresent(_isGhost: boolean)
 	-- (สถานะผีส่งผ่าน Remotes:SetAttribute("IsAnomaly") ให้ฝั่ง Client ใช้ปรับเสียงสวดมนต์ของตัวผู้เล่นเอง)
 end
 
--- ให้ผู้เล่นเดินไปกดเปลี่ยนคลื่นเพลงลูกทุ่งที่ตัววิทยุในเพิงได้
+-- ให้ผู้เล่นเดินไปกดเปิด/ปิดวิทยุในเพิงเองได้ (เริ่มเกมมาปิดเงียบไว้ก่อน)
 if radioPart then
-	local tunePrompt = radioPart:FindFirstChild("TuneRadioPrompt") :: ProximityPrompt?
+	tunePrompt = radioPart:FindFirstChild("TuneRadioPrompt") :: ProximityPrompt?
 	if not tunePrompt then
 		tunePrompt = Instance.new("ProximityPrompt")
 		tunePrompt.Name = "TuneRadioPrompt"
-		tunePrompt.ActionText = "หมุนคลื่นวิทยุลูกทุ่ง / Tune Radio"
 		tunePrompt.ObjectText = "วิทยุทรานซิสเตอร์"
 		tunePrompt.KeyboardKeyCode = Enum.KeyCode.R
 		tunePrompt.HoldDuration = 0.2
@@ -264,8 +303,13 @@ if radioPart then
 		tunePrompt.RequiresLineOfSight = false
 		tunePrompt.Parent = radioPart
 	end
+	updateRadioPromptText()
 	tunePrompt.Triggered:Connect(function()
-		tuneLukThungStation()
+		if radioUserOn then
+			turnOffRadio()
+		else
+			tuneLukThungStation()
+		end
 	end)
 end
 
@@ -279,12 +323,14 @@ local function radioNormal()
 	end
 	if radioMusic then
 		unveil(radioMusic)
-	end
-	if radioMusic then
-		if currentStationIdx == 0 then
-			tuneLukThungStation(1)
-		elseif not radioMusic.IsPlaying then
-			radioMusic:Play()
+		if radioUserOn then
+			if currentStationIdx == 0 then
+				tuneLukThungStation(1)
+			elseif not radioMusic.IsPlaying then
+				radioMusic:Play()
+			end
+		else
+			radioMusic:Stop()
 		end
 	end
 end
@@ -414,7 +460,7 @@ AnomalyManager.Anomalies = {
 				veil(radioStatic, GHOST_TAG, "Volume", RADIO_VOLUME.static, 0)
 				radioStatic:Play()
 			end
-			if radioMusic then
+			if radioMusic and radioUserOn then
 				veil(radioMusic, NORMAL_TAG, "Volume", RADIO_VOLUME.music, 0)
 			end
 			task.delay(0.8, function()
@@ -732,11 +778,11 @@ function AnomalyManager.StartAmbience()
 			end
 		end
 	end)
-	-- สุ่มหมุนเปลี่ยนคลื่นวิทยุลูกทุ่งเหงาๆ อัตโนมัติทุกๆ 70 - 130 วินาที (เฉพาะตอนที่ไม่ได้เป็นเสียงสวดศพ)
+	-- สุ่มหมุนเปลี่ยนคลื่นวิทยุลูกทุ่งเหงาๆ อัตโนมัติทุกๆ 70 - 130 วินาที (เฉพาะตอนที่ผู้เล่นเปิดวิทยุไว้ และไม่ได้เป็นเสียงสวดศพ)
 	task.spawn(function()
 		while true do
 			task.wait(math.random(70, 130))
-			if radioChant and not radioChant.IsPlaying then
+			if radioUserOn and radioChant and not radioChant.IsPlaying then
 				tuneLukThungStation()
 			end
 		end

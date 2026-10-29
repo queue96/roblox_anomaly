@@ -50,38 +50,34 @@ local CONFIG = {
 	DecisionTime = 35, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผี)
 	DriveSpeed = 24, -- studs / วินาที
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
-	-- จังหวะลูกค้าเป็น "ระลอก": มา 1-3 คัน -> พอร้านว่าง (ไม่มีรถเหลือ) พักตาม rest วินาที ให้ผู้เล่นเดินเล่น/สำรวจ
-	-- แล้วค่อยสุ่มระลอกถัดไป (น้ำหนัก = โอกาส)
+	-- จังหวะลูกค้า: มาทีละ 1 คัน/คนเท่านั้น (ห้ามมาพร้อมกัน 2 กลุ่ม) -> พอออกไปพ้นแมพแล้ว พักตาม rest วินาที
 	Pacing = {
-		{ kind = "single", weight = 4, count = 1, rest = { 20, 35 } }, -- มาคันเดียว พักสั้นๆ
-		{ kind = "quiet", weight = 2, count = 1, rest = { 45, 70 } }, -- มาคันเดียว แล้วเงียบไปนาน
-		{ kind = "pair", weight = 2, count = 2, spacing = { 1.5, 3 }, rest = { 30, 45 } }, -- มาพร้อมกัน 2 คัน
-		{ kind = "rush", weight = 1, count = 3, spacing = { 3, 6 }, rest = { 40, 60 } }, -- มาต่อๆ กัน 3 คัน
+		{ kind = "single", weight = 3, count = 1, rest = { 35, 55 } }, -- มาคันเดียว พักให้บรรยากาศเงียบเหงา
+		{ kind = "quiet", weight = 2, count = 1, rest = { 60, 90 } }, -- มาคันเดียว แล้วเงียบไปนาน
 	},
-	FirstWaveDelay = { 10, 16 }, -- หลังเปิดร้าน
-	-- ฝนตก: ลูกค้ามาน้อยลง บางคนแค่แวะหลบฝน (ไม่ซื้อ) แล้วชวนคุย
+	FirstWaveDelay = { 18, 28 }, -- หลังเปิดร้าน รอให้เงียบสักพักก่อนคันแรกจะมา
+	-- ฝนตก: ลูกค้ามาน้อยลงและทิ้งช่วงห่างขึ้น (มาทีละ 1 ราย ไม่ซ้อนกัน)
 	RainPacing = {
-		{ kind = "shelter", weight = 3, count = 1, rest = { 25, 40 } },
-		{ kind = "single", weight = 3, count = 1, rest = { 35, 50 } },
-		{ kind = "quiet", weight = 2, count = 1, rest = { 50, 75 } },
+		{ kind = "single", weight = 3, count = 1, rest = { 45, 70 } },
+		{ kind = "quiet", weight = 2, count = 1, rest = { 70, 100 } },
 	},
 	WalkerChance = 0.25, -- ลูกค้าเดินมาถือแกลลอน (ปกติ)
 	WalkerChanceRain = 0.5, -- (ฝนตก) เดินกางร่มมา
 	WalkSpeed = 7,
 	WalkerStartDistance = 55, -- คนเดินโผล่มาห่างตู้ปั๊มเท่านี้ (ตามถนน)
 	RiderUmbrellaChance = 0.8, -- ฝนตก คนขับรถกางร่ม
-	MaxShelter = 2, -- คนหลบฝนพร้อมกันได้สูงสุด
+	MaxShelter = 1, -- คนหลบฝนพร้อมกันได้สูงสุด
 	ShelterGhostChance = 0.3, -- คนหลบฝนเป็นผี (ฝนหยุดแล้วจางหายไป)
 	ShelterTalkEvery = { 16, 26 }, -- คนหลบฝนชวนคุยทุกๆ (เฉพาะตอนไม่มีลูกค้า)
 	ShelterSpots = { Vector3.new(9, 0, 10.5), Vector3.new(12.5, 0, 10.8) }, -- ใต้ชายคาหน้าร้าน (y หาเอง)
 	-- ขาจร (ไม่ได้มาใช้บริการ) โผล่ช่วงร้านว่างระหว่างระลอก: เด็กแว้น / รถซิ่งเปิดเพลง / รถแห่งานบวช
-	RoadEventChance = 0.45, -- โอกาสต่อช่วงพัก
+	RoadEventChance = 0.25, -- โอกาสต่อช่วงพัก (ลดลงไม่ให้ถนนดูคึกคักเกินไป)
 	RoadEvents = {
 		{ kind = "racer", weight = 3, rain = true },
 		{ kind = "party", weight = 2, rain = false },
 		{ kind = "parade", weight = 1, rain = false },
 	},
-	MaxQueue = 3, -- ที่ตู้ปั๊ม 1 + รอคิว 2
+	MaxQueue = 1, -- ห้ามมีคิวต่อแถว มาได้ทีละ 1 รายเท่านั้น
 	QueueSpacing = 9, -- ระยะห่างคันที่รอคิว (studs)
 	-- รอนานแล้วไม่พอใจ
 	ImpatientAfter = { 22, 32 }, -- วินาทีหลังเปิดปุ่ม (รวมช่วงถามราคา): บ่นครั้งที่ 1, 2
@@ -137,6 +133,7 @@ local CustomerSpeech = remote("CustomerSpeech") -- (dialogueKey, headPart) / (ni
 local GameState = remote("GameState") -- ("Waiting" | "Playing" | "Win" | "Lose")
 local DialogueReply = remote("DialogueReply") -- S->C ("open", options, seconds) / ("close", byName, amount)  C->S (amount)
 local DeathChoice = remote("DeathChoice") -- C->S ("restart" | "quit")  S->C ("restart", byName) = มีคนกดเริ่มใหม่แล้ว
+local ServiceMinigame = remote("ServiceMinigame") -- S->C ("open", choice) / ("close")  C->S ("complete", choice)
 
 -- แพ้ (ธูปดับหมด): ผู้เล่นทุกคนล้มนอนตาย จอแดง รอให้มีคนกด "เริ่มใหม่" (ใครกดก่อนนับทั้งร้าน)
 -- ล้มหงายลงพื้น (ทำฝั่ง Server ทุกคนเห็นเหมือนกัน) ยึดตัวไว้ เดินไม่ได้ จนกว่าจะเกิดใหม่
@@ -299,9 +296,9 @@ airHiss.Volume = 0.8
 airHiss.RollOffMaxDistance = 60
 airHiss.Parent = airBody or pumpBody
 
-local pumpPrompt = setupPrompt("PumpFuelPrompt", pumpBody, 3, "Fill Up", "Gas Pump")
-local dieselPrompt = setupPrompt("DieselFuelPrompt", dieselBody, 3, "Fill Diesel", "Diesel Pump")
-local airPrompt = setupPrompt("AirPumpPrompt", airBody or pumpBody, 2, "Pump Air", "Air Compressor") -- ข้อความจริงตามภาษาผู้เล่นตั้งฝั่ง Client (HUDController)
+local pumpPrompt = setupPrompt("PumpFuelPrompt", pumpBody, 0, "Fill Up", "Gas Pump")
+local dieselPrompt = setupPrompt("DieselFuelPrompt", dieselBody, 0, "Fill Diesel", "Diesel Pump")
+local airPrompt = setupPrompt("AirPumpPrompt", airBody or pumpBody, 0, "Pump Air", "Air Compressor") -- ข้อความจริงตามภาษาผู้เล่นตั้งฝั่ง Client (HUDController)
 local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, 0.5, "Close Shop!", "Shutter Rope")
 local openPrompt = setupPrompt("OpenShopPrompt", rejectRope, 1, "Open Shop", "Shutter Rope") -- ก่อนเริ่มคืน
 
@@ -544,6 +541,9 @@ local function setServicePrompts(on: boolean)
 	dieselPrompt.Enabled = on
 	airPrompt.Enabled = on
 	rejectPrompt.Enabled = on
+	if not on then
+		ServiceMinigame:FireAllClients("close")
+	end
 end
 
 local DECIDE_TEXT = { fuel = "⛽ เติมน้ำมันหลอด", diesel = "🛢️ เติมดีเซล", air = "🛞 เติมลม", reject = "🚧 ดึงแผงปิดร้าน!" }
@@ -558,14 +558,27 @@ function CoreLoop.Decide(choice: string, who: string?): boolean
 	return true
 end
 
+local function startMinigameForPlayer(player: Player, stationChoice: string)
+	if decision or not currentVehicle or gameOver or not servicePromptsOpen then
+		return
+	end
+	ServiceMinigame:FireClient(player, "open", stationChoice)
+end
+
 pumpPrompt.Triggered:Connect(function(player)
-	CoreLoop.Decide("fuel", player.Name)
+	startMinigameForPlayer(player, "fuel")
 end)
 dieselPrompt.Triggered:Connect(function(player)
-	CoreLoop.Decide("diesel", player.Name)
+	startMinigameForPlayer(player, "diesel")
 end)
 airPrompt.Triggered:Connect(function(player)
-	CoreLoop.Decide("air", player.Name)
+	startMinigameForPlayer(player, "air")
+end)
+
+ServiceMinigame.OnServerEvent:Connect(function(player, action: any, stationChoice: any)
+	if action == "complete" and (stationChoice == "fuel" or stationChoice == "diesel" or stationChoice == "air") then
+		CoreLoop.Decide(stationChoice, player.Name)
+	end
 end)
 
 rejectPrompt.Triggered:Connect(function(player)
@@ -1379,7 +1392,7 @@ local function eventParade()
 end
 
 local function runRoadEvent(kind: string?)
-	if roadEventRunning then
+	if roadEventRunning or #queue > 0 or #shelters > 0 then
 		return
 	end
 	local raining = Weather.IsRaining()
@@ -1475,39 +1488,28 @@ local function spawnerLoop()
 		return true
 	end, rand(CONFIG.FirstWaveDelay))
 	while not gameOver do
+		-- รอจนไม่มีลูกค้าหรือคนหลบฝนค้างอยู่ในฉาก และไม่มีขาจรบนถนน
+		waitWhile(function()
+			return #queue > 0 or #shelters > 0 or roadEventRunning
+		end)
+		if gameOver then
+			return
+		end
 		local pace = pickPacing()
-		if pace.kind == "shelter" then
-			if #shelters < CONFIG.MaxShelter and Weather.IsRaining() then
-				spawnShelter()
-			else
-				spawnCustomer()
-			end
-		end
-		for i = 1, (if pace.kind == "shelter" then 0 else pace.count) do
-			while #queue >= CONFIG.MaxQueue and not gameOver do
-				task.wait(0.5)
-			end
-			if gameOver then
-				return
-			end
-			spawnCustomer()
-			if i < pace.count then
-				task.wait(rand(pace.spacing))
-			end
-		end
-		-- รอจนร้านว่างจริงๆ (คันสุดท้ายของระลอกออกไปแล้ว) แล้วค่อยนับเวลาพัก
+		spawnCustomer()
+		-- รอจนร้านว่างจริงๆ (ลูกค้าคนนี้ออกไปพ้นแมพแล้ว) แล้วค่อยนับเวลาพัก
 		waitWhile(function()
 			return #queue > 0
 		end)
 		local rest = rand(pace.rest)
-		print(string.format("☕ ร้านว่าง พัก %.0f วิ (ระลอกถัดไป)", rest))
+		print(string.format("☕ ร้านว่าง พัก %.0f วิ (ลูกค้าคนถัดไป)", rest))
 		if math.random() < CONFIG.RoadEventChance then
-			task.delay(math.min(4, rest * 0.3), runRoadEvent)
+			task.delay(math.min(6, rest * 0.3), runRoadEvent)
 		end
 		waitWhile(function()
 			return true
 		end, rest)
-		-- ขาจรยังอยู่บนถนน รอให้ผ่านไปก่อนค่อยปล่อยลูกค้าระลอกใหม่
+		-- ขาจรยังอยู่บนถนน รอให้ผ่านไปก่อนค่อยปล่อยลูกค้าคนใหม่
 		waitWhile(function()
 			return roadEventRunning
 		end, 60)
@@ -1605,25 +1607,7 @@ local function serveCustomer(c: Customer)
 		annoyed = 1
 		say("Greet_Waited", speaker, nil, 2.6)
 	else
-		say(who.greet, speaker)
-	end
-	-- ผู้เล่นทักตอบ (ทักคนเดียว / ทักทั้งสองคน)
-	local greet = askReply(GREET_OPTIONS, CONFIG.GreetReplyTime)
-	if greet then
-		say(if greet == "both" then "PlayerGreetBoth" else "PlayerHello", { player = replyBy :: string, gender = replyGender }, nil, 1.6)
-		if greet == "both" then
-			local passenger = v:FindFirstChild("GhostPassenger")
-			local hasPassenger = c.anomaly == "Anomaly_Headless" and passenger ~= nil
-			if hasPassenger then
-				-- คนขับไม่รู้ตัวว่ามีอะไรซ้อนท้าย
-				say("Alone_Ghost", speaker, nil, 2.6)
-				say("Passenger_Whisper", { ghost = "???" }, nil, 2.4)
-			elseif ghost then
-				say("Alone_Creepy", speaker, nil, 2.6)
-			else
-				say("Alone_Normal", speaker, nil, 2.6)
-			end
-		end
+		say(who.greet, speaker, nil, 2.6)
 	end
 
 	-- ฝนตก: บ่นเรื่องฝนนิดหน่อย (ผีไม่รู้สึกถึงฝน)
@@ -1661,36 +1645,10 @@ local function serveCustomer(c: Customer)
 	end
 	local promptsAt = os.clock()
 
-	-- ถามราคา (ตามบริการ: น้ำมันหลอด / ดีเซล / เติมลม)
+	-- ราคาตามบริการ (น้ำมันหลอด / ดีเซล / เติมลม) ไม่มีตัวเลือกถามราคา
 	local svc = CONFIG.Services[c.service] or CONFIG.Services.petrol
 	local price = svc.normal
 	local leaveEarly = false
-	if not decision and not gameOver then
-		say(svc.ask, speaker)
-		local options = {}
-		for _, amount in ipairs(svc.prices) do
-			table.insert(options, { id = tostring(amount), key = "Reply_" .. amount })
-		end
-		local answered = askReply(options, CONFIG.ReplyTime)
-		if answered then
-			price = tonumber(answered) :: number
-			say("PlayerQuote", { player = replyBy :: string, gender = replyGender }, { amount = price }, 1.6)
-			if ghost then
-				say("Ghost_Price", speaker, nil, 2.4)
-			elseif price < svc.normal then
-				say("Price_Cheap", speaker, { amount = price }, 2.4)
-			elseif price == svc.normal then
-				say("Price_Normal", speaker, { amount = price }, 2.4)
-			elseif math.random() < CONFIG.ExpensiveRefuseChance and not decision then
-				say("Price_ExpensiveNo", speaker, { amount = price }, 2.6)
-				leaveEarly = true
-			else
-				say("Price_ExpensiveOk", speaker, { amount = price }, 2.4)
-			end
-		elseif not decision then
-			say(if ghost then "Ghost_Price" else "Price_Silent", speaker, { amount = price }, 2.4)
-		end
-	end
 
 	local choice: string? = nil
 	if leaveEarly then
@@ -1810,11 +1768,6 @@ local function serveCustomer(c: Customer)
 	currentHead = nil
 	customerTalking = false
 
-	-- ออกจากคิว คันหลังเลื่อนขึ้นมาได้เลย แล้วขี่ออก
-	local idx = table.find(queue, c)
-	if idx then
-		table.remove(queue, idx)
-	end
 	currentVehicle = nil
 	currentVehicleIsAnomaly = false
 	currentAnomaly = nil
@@ -1862,7 +1815,11 @@ local function serveCustomer(c: Customer)
 	else
 		v:Destroy()
 	end
-	-- รถไปแล้ว: คืนวิทยุ หุ่นไล่กา ผีตานีหลังกอกล้วย น้ำมัน ให้ปกติ
+	-- รถไปแล้วพ้นแมพ: เอาออกจากคิวและคืนวิทยุ หุ่นไล่กา ผีตานีหลังกอกล้วย น้ำมัน ให้ปกติ
+	local idx = table.find(queue, c)
+	if idx then
+		table.remove(queue, idx)
+	end
 	AnomalyManager.ResetAnomalies()
 end
 

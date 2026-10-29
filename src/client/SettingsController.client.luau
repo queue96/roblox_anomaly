@@ -97,29 +97,32 @@ local gui = new("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, localPlayer:WaitForChild("PlayerGui"))
 
--- ปุ่มตั้งค่า (แถบดำขอบบาง ตัวหนังสือครีม เหมือน UI อื่นๆ ชี้แล้วเป็นสีเลือด)
+-- ปุ่มตั้งค่า (ขนาดกะทัดรัด โทนดาร์กหม่นคุมธีมเดียวกับ HUD มุมขวาล่าง)
 local gear = new("TextButton", {
 	Name = "SettingsButton",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -18, 0, 16),
-	Size = UDim2.new(0, 0, 0, 30),
+	Position = UDim2.new(1, -16, 0, 14),
+	Size = UDim2.new(0, 0, 0, 24),
 	AutomaticSize = Enum.AutomaticSize.X,
-	BackgroundColor3 = C.Ink,
-	BackgroundTransparency = 0.35,
+	BackgroundColor3 = Color3.fromRGB(16, 14, 12),
+	BackgroundTransparency = 0.25,
 	BorderSizePixel = 0,
 	FontFace = FONT_BODY,
-	TextSize = 17,
-	TextColor3 = C.Cream,
+	TextSize = 13,
+	TextColor3 = C.Dim,
 	AutoButtonColor = false,
 }, gui)
-new("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, gear)
-new("UIStroke", { Color = C.Line, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gear)
+new("UICorner", { CornerRadius = UDim.new(0, 2) }, gear)
+new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, gear)
+new("UIStroke", { Color = Color3.fromRGB(70, 64, 54), Thickness = 1, Transparency = 0.25, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gear)
 local gearOpen = false
 gear.MouseEnter:Connect(function()
-	gear.BackgroundColor3 = C.Blood
+	gear.BackgroundColor3 = Color3.fromRGB(48, 22, 20)
+	gear.TextColor3 = C.Cream
 end)
 gear.MouseLeave:Connect(function()
-	gear.BackgroundColor3 = if gearOpen then C.Blood else C.Ink
+	gear.BackgroundColor3 = if gearOpen then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
+	gear.TextColor3 = if gearOpen then C.Cream else C.Dim
 end)
 
 -- หน้าตั้งค่า
@@ -296,7 +299,6 @@ local function toggle(order: number, name: string, labelKey: string)
 	end)
 end
 toggle(4, "ShowHUD", "ShowHUD")
-toggle(5, "ShowLabels", "ShowLabels")
 
 -- ปุ่มปิด ✕ มุมขวาบนของหัวหน้าต่าง (Modal = ปลดล็อกเมาส์ตอนเปิดหน้าตั้งค่า)
 local closeBtn = new("TextButton", {
@@ -350,7 +352,8 @@ end
 local function setOpen(open: boolean)
 	panel.Visible = open
 	gearOpen = open
-	gear.BackgroundColor3 = if open then C.Blood else C.Ink
+	gear.BackgroundColor3 = if open then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
+	gear.TextColor3 = if open then C.Cream else C.Dim
 	if open then
 		refresh()
 	end
