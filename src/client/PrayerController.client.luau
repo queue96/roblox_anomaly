@@ -1,7 +1,7 @@
 -- PrayerController.client.luau
--- ระบบพนมมือฝั่ง Client (เพิ่มเมื่อ 2026-10-28)
---   กดค้าง G (คีย์บอร์ด) / ปุ่ม Y (จอย) / ปุ่ม 🙏 บนจอมือถือ -> Remotes.Pray:FireServer(true/false)
---   Server ตั้ง localPlayer:GetAttribute("Praying") + ท่าพนมมือ (Prayer.luau)
+-- ระบบพนมมือฝั่ง Client (เพิ่มเมื่อ 2026-10-28, ปรับปรุงโหมด Toggle เปิด/ปิด เมื่อ 2026-10-30)
+--   กด G (คีย์บอร์ด) / ปุ่ม Y (จอย) / ปุ่ม 🙏 บนจอมือถือ เพื่อเปิด/ปิดพนมมือ (Toggle)
+--   Server ตั้ง localPlayer:GetAttribute("Praying") + ท่าพนมมือ (Prayer.luau) โดยผู้เล่นยังเดินสำรวจได้อิสระ
 --   พนมมือครบ SIGHT_DELAY วินาที = "ตาทิพย์เปิด": เห็นของที่ติด tag GhostOnly / ของที่ติด NormalOnly หายไป
 --     (เฉพาะเครื่องตัวเอง เพื่อนที่ไม่ได้พนมมือยังเห็นเป็นปกติ) ค่าที่ใช้อยู่ใน attribute VeilProp / VeilShow / VeilHide / VeilFade
 --   HUD: แถบสวดกลางล่างจอ (นะโม ตัสสะ... + หลอดนับเวลา) และจอโทนเย็นซีดตอนตาทิพย์เปิด
@@ -297,17 +297,17 @@ end)
 onPrayingChanged()
 applyAll(true)
 
--- ---------------------------------------------------------------- ปุ่มกด (กดค้าง = พนมมือ ปล่อย = เลิก)
-local holding = false
+-- ---------------------------------------------------------------- ปุ่มกด (กดเพื่อเปิด/ปิดพนมมือ Toggle)
+local lastToggle = 0
 local function onPray(_name: string, state: Enum.UserInputState, _input: InputObject)
 	if state == Enum.UserInputState.Begin then
-		holding = true
-		PrayRemote:FireServer(true)
-	elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
-		if holding then
-			holding = false
-			PrayRemote:FireServer(false)
+		local now = os.clock()
+		if now - lastToggle < 0.25 then
+			return Enum.ContextActionResult.Sink
 		end
+		lastToggle = now
+		local isPraying = localPlayer:GetAttribute("Praying") == true
+		PrayRemote:FireServer(not isPraying)
 	end
 	return Enum.ContextActionResult.Sink
 end
@@ -315,7 +315,7 @@ ContextActionService:BindAction("Pray", onPray, true, Enum.KeyCode.G, Enum.KeyCo
 ContextActionService:SetTitle("Pray", "สวด")
 ContextActionService:SetPosition("Pray", UDim2.new(1, -170, 1, -150))
 
--- เกิดใหม่ระหว่างกดค้าง: Server ล้างสถานะแล้ว ฝั่งนี้ก็ล้างด้วย
+-- เกิดใหม่: รีเซ็ตค่าดีเลย์ปุ่ม
 localPlayer.CharacterAdded:Connect(function()
-	holding = false
+	lastToggle = 0
 end)

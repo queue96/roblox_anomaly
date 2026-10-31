@@ -59,8 +59,8 @@ end
 
 local TIPS = {
 	{
-		th = "💡 คำแนะนำ: กดค้าง G เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
-		en = "💡 Tip: Hold G to put your hands together in prayer and reveal hidden anomalies.",
+		th = "💡 คำแนะนำ: กด G เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
+		en = "💡 Tip: Press G to put your hands together in prayer and reveal hidden anomalies.",
 	},
 	{
 		th = "💡 คำแนะนำ: หากพบความผิดปกติ ห้ามเติมน้ำมันเด็ดขาด ให้รีบวิ่งไปดึงเชือกปิดแผงสังกะสีหน้าร้าน",

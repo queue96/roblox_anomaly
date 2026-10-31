@@ -520,7 +520,7 @@ camLightPart.CastShadow = false
 local camSpotLight = Instance.new("SpotLight")
 camSpotLight.Name = "CameraBeamLight"
 camSpotLight.Face = Enum.NormalId.Front
-camSpotLight.Brightness = 2.4
+camSpotLight.Brightness = 1.4
 camSpotLight.Range = 46
 camSpotLight.Angle = 60
 camSpotLight.Color = Color3.fromRGB(255, 244, 195)
@@ -541,13 +541,55 @@ camClosePart.CanTouch = false
 camClosePart.CastShadow = false
 local camCloseLight = Instance.new("PointLight")
 camCloseLight.Name = "CameraCloseLight"
-camCloseLight.Brightness = 0.65
+camCloseLight.Brightness = 0.45
 camCloseLight.Range = 8
 camCloseLight.Color = Color3.fromRGB(255, 244, 195)
 camCloseLight.Shadows = false
 camCloseLight.Enabled = false
 camCloseLight.Parent = camClosePart
+camCloseLight.Parent = camClosePart
 camClosePart.Parent = workspace
+
+-- ละอองน้ำค้าง/ฝุ่นลอยในลำแสงไฟฉาย (FlashlightDust) เมื่อถือไฟฉายกบส่องความมืด
+local camDustPart = Instance.new("Part")
+camDustPart.Name = "CameraFlashlightDustOrigin"
+camDustPart.Size = Vector3.new(3.2, 2.4, 7.5)
+camDustPart.Transparency = 1
+camDustPart.Anchored = true
+camDustPart.CanCollide = false
+camDustPart.CanQuery = false
+camDustPart.CanTouch = false
+camDustPart.CastShadow = false
+local camDustEmitter = Instance.new("ParticleEmitter")
+camDustEmitter.Name = "FlashlightDust"
+camDustEmitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+camDustEmitter.Shape = Enum.ParticleEmitterShape.Box
+camDustEmitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+camDustEmitter.Rate = 14
+camDustEmitter.Lifetime = NumberRange.new(1.6, 2.8)
+camDustEmitter.Speed = NumberRange.new(0.15, 0.45)
+camDustEmitter.SpreadAngle = Vector2.new(180, 180)
+camDustEmitter.Acceleration = Vector3.new(0.18, -0.06, 0.08)
+camDustEmitter.Drag = 1.2
+camDustEmitter.Rotation = NumberRange.new(0, 360)
+camDustEmitter.RotSpeed = NumberRange.new(-35, 35)
+camDustEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 242, 200))
+camDustEmitter.LightEmission = 0.45
+camDustEmitter.LightInfluence = 0.55
+camDustEmitter.Size = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.02),
+	NumberSequenceKeypoint.new(0.5, 0.055),
+	NumberSequenceKeypoint.new(1, 0.02),
+})
+camDustEmitter.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 1),
+	NumberSequenceKeypoint.new(0.25, 0.45),
+	NumberSequenceKeypoint.new(0.75, 0.45),
+	NumberSequenceKeypoint.new(1, 1),
+})
+camDustEmitter.Enabled = false
+camDustEmitter.Parent = camDustPart
+camDustPart.Parent = workspace
 
 local camViewFolder = Instance.new("Model")
 camViewFolder.Name = "CameraFlashlightViewmodel"
@@ -628,7 +670,11 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 			end
 		end
 		local aimPoint = cam.CFrame.Position + cam.CFrame.LookVector * 45
-		local handPos = (cam.CFrame * CFrame.new(0.58, -0.46, -1.05)).Position
+		-- ให้มือที่ถือไฟฉายกบขยับตามจังหวะก้าวเดิน/หายใจเบาๆ คู่กับ CameraOffset
+		local char = localPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local camOff = if hum then hum.CameraOffset else Vector3.zero
+		local handPos = (cam.CFrame * CFrame.new(0.58 - camOff.X * 0.35, -0.46 + camOff.Y * 0.45, -1.05)).Position
 		local handleCF = CFrame.lookAt(handPos, aimPoint)
 		for _, item in ipairs(camViewParts) do
 			item.part.CFrame = handleCF * item.relCF
@@ -638,6 +684,10 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		-- ถอยจุดกำเนิด SpotLight ไปด้านหลังกล้อง 1.5 studs ตามแนวสายตา เพื่อให้ตอนก้มมองพื้นใต้เท้าระยะห่างพอให้ Voxel สว่าง
 		camLightPart.CFrame = cam.CFrame * CFrame.new(0, 0, 1.5)
 		camClosePart.CFrame = cam.CFrame * CFrame.new(0, 0, -2.2)
+		camDustPart.CFrame = cam.CFrame * CFrame.new(0, -0.1, -5.2)
+		if not camDustEmitter.Enabled then
+			camDustEmitter.Enabled = true
+		end
 		if not camSpotLight.Enabled then
 			camSpotLight.Enabled = true
 			camCloseLight.Enabled = true
@@ -647,6 +697,8 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		if camSpotLight.Enabled then
 			camSpotLight.Enabled = false
 			camCloseLight.Enabled = false
+			camDustEmitter.Enabled = false
+			camDustEmitter:Clear()
 		end
 	end
 end
@@ -947,6 +999,8 @@ local function randomizeAirTarget()
 end
 
 local function closeMinigame()
+	local wasActive = activeMGType
+	local wasDone = mgDone
 	activeMGType = nil
 	mgDone = false
 	mgHolding = false
@@ -954,6 +1008,9 @@ local function closeMinigame()
 	mgFrame.Visible = false
 	mgFuelView.Visible = false
 	mgAirView.Visible = false
+	if wasActive and not wasDone then
+		ServiceMinigame:FireServer("cancel")
+	end
 end
 
 local function finishMinigameSuccess(stationType: string)

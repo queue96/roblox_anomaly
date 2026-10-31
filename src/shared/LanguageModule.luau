@@ -266,7 +266,7 @@ LanguageModule.UI = {
 	HintFlashlight = { th = "เปิด/ปิดไฟฉาย", en = "Flashlight" },
 	HintHold = { th = "กดค้าง เติมน้ำมัน / เติมลม / ปิดร้าน", en = "Hold: Fuel / Air / Close Shop" },
 	-- พนมมือ (PrayerController) + ปลดล็อกเมาส์ + ไฟฉาย
-	HintPray = { th = "กดค้าง พนมมือ (เห็นผี)", en = "Hold: Pray (see ghosts)" },
+	HintPray = { th = "พนมมือ (เห็นผี)", en = "Pray (see ghosts)" },
 	HintUnlockMouse = { th = "ปลดล็อกเมาส์", en = "Unlock Mouse" },
 	HintLockMouse = { th = "ล็อกเมาส์", en = "Lock Mouse" },
 	FlashlightSlot = { th = "ไฟฉาย", en = "Flashlight" },

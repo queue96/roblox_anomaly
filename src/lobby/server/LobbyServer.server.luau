@@ -58,9 +58,23 @@ local MAX_ZOOM = 22
 StarterPlayer.CameraMaxZoomDistance = MAX_ZOOM
 for _, p in ipairs(Players:GetPlayers()) do
 	p.CameraMaxZoomDistance = MAX_ZOOM
+	p.CharacterAdded:Connect(function(char)
+		local ff = char:FindFirstChildOfClass("ForceField")
+		if ff then ff:Destroy() end
+		char.ChildAdded:Connect(function(c)
+			if c:IsA("ForceField") then c:Destroy() end
+		end)
+	end)
 end
 Players.PlayerAdded:Connect(function(p)
 	p.CameraMaxZoomDistance = MAX_ZOOM
+	p.CharacterAdded:Connect(function(char)
+		local ff = char:FindFirstChildOfClass("ForceField")
+		if ff then ff:Destroy() end
+		char.ChildAdded:Connect(function(c)
+			if c:IsA("ForceField") then c:Destroy() end
+		end)
+	end)
 end)
 
 local grade = Lighting:FindFirstChild("LobbyGrade") or Instance.new("ColorCorrectionEffect")
@@ -70,12 +84,38 @@ grade.Contrast = 0.16
 grade.Brightness = -0.03
 grade.TintColor = Color3.fromRGB(194, 211, 232)
 grade.Parent = Lighting
+local oldNightBloom = Lighting:FindFirstChild("NightBloom")
+if oldNightBloom then
+	oldNightBloom:Destroy()
+end
 local bloom = Lighting:FindFirstChild("LobbyBloom") or Instance.new("BloomEffect")
 bloom.Name = "LobbyBloom"
 bloom.Intensity = 0.35
 bloom.Size = 28
 bloom.Threshold = 1.1
+bloom.Threshold = 0.92
+bloom.Intensity = 0.45
+bloom.Size = 32
 bloom.Parent = Lighting
+
+local dof = (Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?)
+	or (Lighting:FindFirstChild("LobbyDepthOfField") :: DepthOfFieldEffect?)
+	or Instance.new("DepthOfFieldEffect")
+dof.Name = "LobbyDepthOfField"
+dof.Enabled = true
+dof.FocusDistance = 24
+dof.InFocusRadius = 32
+dof.NearIntensity = 0.08
+dof.FarIntensity = 0.32
+dof.Parent = Lighting
+
+local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?)
+	or (Lighting:FindFirstChild("LobbySoftBlur") :: BlurEffect?)
+	or Instance.new("BlurEffect")
+softBlur.Name = "LobbySoftBlur"
+softBlur.Enabled = true
+softBlur.Size = 1.3
+softBlur.Parent = Lighting
 
 -- ---------------------------------------------------------------- 2) โซนสร้างห้อง
 local SETUP_COUNTDOWN = 30 -- เวลาตั้งค่าห้องในหน้าต่างเลือก

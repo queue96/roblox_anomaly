@@ -1,8 +1,4 @@
 -- ClaudeDevBridge.lua — local Studio plugin (copy to %LOCALAPPDATA%\Roblox\Plugins\)
--- รันคำสั่งจาก ServerStorage.DevCommand (ModuleScript ที่ Rojo sync มาจาก src/lobby/dev/DevCommand.luau)
--- ใน Edit mode ครั้งเดียวต่อ id ใหม่ แล้ว print ผลขึ้น Output (ขึ้นต้น DEVCMD|) ให้ AI อ่านจาก log ของ Studio ได้
--- DevCommand ต้อง return { id = "ไม่ซ้ำ", placeId = <PlaceId ที่จะรัน>, run = function() ... end }
-
 local ServerStorage = game:GetService("ServerStorage")
 local RunService = game:GetService("RunService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")

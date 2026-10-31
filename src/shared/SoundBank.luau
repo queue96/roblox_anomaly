@@ -137,24 +137,18 @@ SoundBank.Presets = {
 		high = -16,
 	},
 	ShutterCloseSlam = {
-		id = "rbxassetid://9113542694", -- เสียงกระแทกแผ่นสังกะสี/ไม้ทุ้มๆ
-		customKey = "ShutterCloseSlam",
-		volume = 0.55,
+		id = "rbxassetid://8109376048", -- เสียงปิดกระแทกแผงสังกะสี/ประตูเหล็กหน้าร้าน (Metal Door Close)
+		forcePreset = true,
+		volume = 0.70,
 		speed = 1.0,
-		low = 6,
-		mid = -3,
-		high = -22, -- ทุ้มหนักแน่น ไม่แหลมบาดหู
-		reverbWet = -8,
-		reverbDecay = 1.8,
+		noEffects = true,
 	},
 	ShutterOpenPull = {
-		id = "rbxassetid://9117159106",
-		customKey = "ShutterOpenPull",
-		volume = 0.38,
+		id = "rbxassetid://7274930890", -- เสียงดึงเปิดแผงสังกะสี (Metal Door Open)
+		forcePreset = true,
+		volume = 0.65,
 		speed = 1.0,
-		low = 4,
-		mid = -2,
-		high = -20,
+		noEffects = true,
 	},
 	CoinTinDrop1 = {
 		id = "rbxassetid://119445319966378", -- โลหะกระทบกระป๋องแบบนุ่ม
@@ -790,6 +784,9 @@ local function findInUploadedFolder(nameOrKey: string?): string?
 end
 
 function SoundBank.ResolveId(preset: any): (string, boolean)
+	if preset.forcePreset then
+		return preset.id, false
+	end
 	if preset.customKey then
 		local cid = SoundBank.CustomUploadedIds[preset.customKey]
 		if type(cid) == "string" and cid ~= "" then
@@ -819,6 +816,9 @@ function SoundBank.ApplyWarmEffects(snd: Sound, preset: any)
 		if ch:IsA("SoundEffect") then
 			ch:Destroy()
 		end
+	end
+	if preset.noEffects then
+		return
 	end
 	-- Equalizer ตัดเฉพาะปลายแหลมจัดเบาๆ ให้เสียงคมชัดเป็นธรรมชาติ ไม่ยืด ไม่บี้ และไม่แสบหู
 	local eq = Instance.new("EqualizerSoundEffect")

@@ -21,6 +21,16 @@ local function applyCharacterMovement(char: Model)
 		hum.JumpPower = 0
 		hum.JumpHeight = 0
 		hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+		-- ปิดวงแสงบาเรีย (ForceField) รอบตัวตอนเกิดทันที
+		local ff = char:FindFirstChildOfClass("ForceField")
+		if ff then
+			ff:Destroy()
+		end
+		char.ChildAdded:Connect(function(c)
+			if c:IsA("ForceField") then
+				c:Destroy()
+			end
+		end)
 	end
 end
 
@@ -36,6 +46,18 @@ for _, p in ipairs(Players:GetPlayers()) do
 	setupPlayer(p)
 end
 Players.PlayerAdded:Connect(setupPlayer)
+
+-- ปิด ForceField ประจำจุดเกิดทุกจุดในแมพ
+for _, d in ipairs(Workspace:GetDescendants()) do
+	if d:IsA("SpawnLocation") then
+		d.Duration = 0
+	end
+end
+Workspace.DescendantAdded:Connect(function(d)
+	if d:IsA("SpawnLocation") then
+		d.Duration = 0
+	end
+end)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local LanguageModule = require(Shared:WaitForChild("LanguageModule"))

@@ -45,8 +45,8 @@ atmo.Density = 0.42
 atmo.Offset = 0.15
 atmo.Color = Color3.fromRGB(18, 22, 28)
 atmo.Decay = Color3.fromRGB(10, 12, 15)
-atmo.Glare = 0.1
-atmo.Haze = 1.5
+atmo.Glare = 0.25
+atmo.Haze = 1.65
 
 local sky = Lighting:FindFirstChildOfClass("Sky")
 if not sky then
@@ -64,6 +64,298 @@ grade.Saturation = -0.25
 grade.Contrast = 0.20
 grade.Brightness = 0
 grade.Parent = Lighting
+
+-- Post-Processing ให้ภาพฟุ้งนุ่มและมีมิติระยะชัดลึก (เหมือนแมพ Horror ดังๆ)
+local bloom = (Lighting:FindFirstChild("NightBloom") :: BloomEffect?) or Instance.new("BloomEffect")
+bloom.Name = "NightBloom"
+bloom.Enabled = true
+bloom.Intensity = 0.45
+bloom.Size = 32
+bloom.Threshold = 0.92
+bloom.Parent = Lighting
+
+local dof = (Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?) or Instance.new("DepthOfFieldEffect")
+dof.Name = "NightDepthOfField"
+dof.Enabled = true
+dof.FocusDistance = 20
+dof.InFocusRadius = 26
+dof.NearIntensity = 0.1
+dof.FarIntensity = 0.35
+dof.Parent = Lighting
+
+local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?) or Instance.new("BlurEffect")
+softBlur.Name = "SoftFilmBlur"
+softBlur.Enabled = true
+softBlur.Size = 1.4
+softBlur.Parent = Lighting
+
+-- Dynamic Focus + เอฟเฟกต์ฟุ้งพิเศษตอนพนมมือเปิดตาทิพย์ (PrayerSight)
+local focusParams = RaycastParams.new()
+focusParams.FilterType = Enum.RaycastFilterType.Exclude
+focusParams.IgnoreWater = true
+
+local currentFocus = 20
+-- 1.2 ขอบจอมืดสลัว (Screen Vignette) + บีบขอบจอเข้มขึ้นตอนเปิดตาทิพย์
+local vignetteGui = Instance.new("ScreenGui")
+vignetteGui.Name = "AmbienceVignette"
+vignetteGui.IgnoreGuiInset = true
+vignetteGui.ResetOnSpawn = false
+vignetteGui.DisplayOrder = 0
+vignetteGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local function createVignetteEdge(name: string, pos: UDim2, anchor: Vector2, size: UDim2, rotation: number): Frame
+	local f = Instance.new("Frame")
+	f.Name = name
+	f.AnchorPoint = anchor
+	f.Position = pos
+	f.Size = size
+	f.BackgroundColor3 = Color3.fromRGB(3, 5, 8)
+	f.BackgroundTransparency = 0.36
+	f.BorderSizePixel = 0
+	f.Active = false
+	f.Interactable = false
+	f.Parent = vignetteGui
+
+	local grad = Instance.new("UIGradient")
+	grad.Rotation = rotation
+	grad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.45, 0.45),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	grad.Parent = f
+	return f
+end
+
+local vigTop = createVignetteEdge("TopEdge", UDim2.fromScale(0, 0), Vector2.new(0, 0), UDim2.fromScale(1, 0.24), 90)
+local vigBottom = createVignetteEdge("BottomEdge", UDim2.fromScale(0, 1), Vector2.new(0, 1), UDim2.fromScale(1, 0.24), 270)
+local vigLeft = createVignetteEdge("LeftEdge", UDim2.fromScale(0, 0), Vector2.new(0, 0), UDim2.fromScale(0.20, 1), 0)
+local vigRight = createVignetteEdge("RightEdge", UDim2.fromScale(1, 0), Vector2.new(1, 0), UDim2.fromScale(0.20, 1), 180)
+
+-- 1.3 แมลงเม่าบินตอมหลอดไฟนีออนเสาไม้ & ไฟในเพิงสังกะสี (NightMoths)
+local function attachNightMoths(bulbPart: BasePart, rate: number)
+	if bulbPart:FindFirstChild("NightMoths") then
+		return
+	end
+	local moths = Instance.new("ParticleEmitter")
+	moths.Name = "NightMoths"
+	moths.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	moths.Shape = Enum.ParticleEmitterShape.Sphere
+	moths.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	moths.Rate = rate
+	moths.Lifetime = NumberRange.new(2.2, 3.8)
+	moths.Speed = NumberRange.new(0.9, 1.9)
+	moths.SpreadAngle = Vector2.new(180, 180)
+	moths.Acceleration = Vector3.new(0, 0.55, 0) -- บินร่อนเข้าหาไอร้อนของหลอดไฟด้านบน
+	moths.Drag = 1.6 -- เกาะกลุ่มบินวนรอบๆ หลอดไฟ ไม่พุ่งหนีไปไกล
+	moths.Rotation = NumberRange.new(0, 360)
+	moths.RotSpeed = NumberRange.new(-180, 180)
+	moths.Color = ColorSequence.new(Color3.fromRGB(245, 225, 175))
+	moths.LightEmission = 0.55
+	moths.LightInfluence = 0.45
+	moths.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.05),
+		NumberSequenceKeypoint.new(0.5, 0.13),
+		NumberSequenceKeypoint.new(1, 0.04),
+	})
+	moths.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.2, 0.22),
+		NumberSequenceKeypoint.new(0.8, 0.22),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	moths.Parent = bulbPart
+
+	-- ปิดแมลงเม่าอัตโนมัติถ้าหลอดไฟดับ (เช่น สับคัตเอาต์ หรือไฟดับ)
+	local light = bulbPart:FindFirstChildOfClass("PointLight") or bulbPart:FindFirstChildOfClass("SpotLight")
+	if light then
+		moths.Enabled = light.Enabled
+		light:GetPropertyChangedSignal("Enabled"):Connect(function()
+			moths.Enabled = light.Enabled
+		end)
+	end
+end
+
+task.spawn(function()
+	local mapEnv = Workspace:WaitForChild("MapEnvironment", 15)
+	if not mapEnv then
+		return
+	end
+	local dirtRoad = mapEnv:WaitForChild("DirtRoad", 10)
+	local neonPoleBulb = dirtRoad and dirtRoad:WaitForChild("NeonLightPart", 10)
+	if neonPoleBulb and neonPoleBulb:IsA("BasePart") then
+		attachNightMoths(neonPoleBulb, 6)
+	end
+	local shack = mapEnv:WaitForChild("ShackStructure", 10)
+	local shackBulb = shack and shack:WaitForChild("ShackLightBulb", 10)
+	if shackBulb and shackBulb:IsA("BasePart") then
+		attachNightMoths(shackBulb, 4)
+	end
+end)
+
+-- 1.4 เส้นควันธูปลอยจากศาลพระภูมิ + ควันพุ่งตอนธูปดับ (IncenseSmoke & ExtinguishPuff)
+local function setupIncenseStickFX(tip: BasePart)
+	-- ลบ ParticleEmitter รุ่นเก่าที่ไม่ได้ตั้ง Texture ควัน
+	for _, c in ipairs(tip:GetChildren()) do
+		if c:IsA("ParticleEmitter") then
+			c:Destroy()
+		end
+	end
+
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Name = "IncenseSmoke"
+	smoke.Texture = ASSETS.MistTexture
+	smoke.Rate = 9
+	smoke.Lifetime = NumberRange.new(2.2, 3.4)
+	smoke.Speed = NumberRange.new(0.22, 0.42)
+	smoke.SpreadAngle = Vector2.new(10, 10)
+	smoke.Acceleration = Vector3.new(0.28, 1.35, 0.12) -- ลอยขึ้นฟ้าพร้อมเอียงตามลมทุ่งเบาๆ
+	smoke.Drag = 0.65
+	smoke.Rotation = NumberRange.new(0, 360)
+	smoke.RotSpeed = NumberRange.new(-25, 25)
+	smoke.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(225, 212, 195)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(145, 152, 165)),
+	})
+	smoke.Brightness = 0.75
+	smoke.LightInfluence = 0.35
+	smoke.LightEmission = 0.08
+	smoke.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.06),
+		NumberSequenceKeypoint.new(0.4, 0.22),
+		NumberSequenceKeypoint.new(1, 0.56),
+	})
+	smoke.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.65),
+		NumberSequenceKeypoint.new(0.22, 0.42),
+		NumberSequenceKeypoint.new(0.75, 0.72),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	smoke.Enabled = (tip.Material == Enum.Material.Neon)
+	smoke.Parent = tip
+
+	-- ควันดำพุ่งวูบตอนธูปดับ (เมื่อเผลอเติมน้ำมันให้ผี)
+	local puff = Instance.new("ParticleEmitter")
+	puff.Name = "ExtinguishPuff"
+	puff.Texture = ASSETS.MistTexture
+	puff.Enabled = false
+	puff.Lifetime = NumberRange.new(1.0, 1.8)
+	puff.Speed = NumberRange.new(0.8, 1.8)
+	puff.SpreadAngle = Vector2.new(35, 35)
+	puff.Acceleration = Vector3.new(0.35, 1.8, 0.15)
+	puff.Drag = 1.2
+	puff.Rotation = NumberRange.new(0, 360)
+	puff.RotSpeed = NumberRange.new(-45, 45)
+	puff.Color = ColorSequence.new(Color3.fromRGB(85, 80, 78))
+	puff.Brightness = 0.5
+	puff.LightInfluence = 0.4
+	puff.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.12),
+		NumberSequenceKeypoint.new(0.5, 0.45),
+		NumberSequenceKeypoint.new(1, 0.85),
+	})
+	puff.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.25),
+		NumberSequenceKeypoint.new(0.5, 0.55),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	puff.Parent = tip
+
+	-- แสงไฟแดงเรื่อๆ ที่ปลายธูปแต่ละดอก (พอดับทีละดอก ศาลจะมืดลงทีละขั้น)
+	local emberLight = tip:FindFirstChild("IncenseEmberLight") :: PointLight?
+	if not emberLight then
+		emberLight = Instance.new("PointLight")
+		emberLight.Name = "IncenseEmberLight"
+		emberLight.Color = Color3.fromRGB(255, 85, 35)
+		emberLight.Brightness = 0.45
+		emberLight.Range = 4.5
+		emberLight.Shadows = false
+		emberLight.Parent = tip
+	end
+	emberLight.Enabled = (tip.Material == Enum.Material.Neon)
+
+	local wasLit = (tip.Material == Enum.Material.Neon)
+	tip:GetPropertyChangedSignal("Material"):Connect(function()
+		local isLit = (tip.Material == Enum.Material.Neon)
+		smoke.Enabled = isLit
+		emberLight.Enabled = isLit
+		if wasLit and not isLit then
+			puff:Emit(16)
+		end
+		wasLit = isLit
+	end)
+end
+
+task.spawn(function()
+	local spiritHouse = Workspace:WaitForChild("SpiritHouse", 15)
+	if not spiritHouse then
+		return
+	end
+	for i = 1, 3 do
+		local tip = (spiritHouse:WaitForChild("Incense" .. i .. "_Neon", 8) or spiritHouse:FindFirstChild("Incense" .. i)) :: BasePart?
+		if tip and tip:IsA("BasePart") then
+			setupIncenseStickFX(tip)
+		end
+	end
+end)
+
+local praySightfxActive = false
+local prayerSightEffect = Lighting:WaitForChild("PrayerSight", 10) :: ColorCorrectionEffect?
+
+local function updatePrayerOptics(active: boolean)
+	if praySightfxActive == active then
+		return
+	end
+	praySightfxActive = active
+	TweenService:Create(bloom, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
+		Intensity = if active then 0.65 else 0.45,
+		Size = if active then 38 else 32,
+	}):Play()
+	TweenService:Create(softBlur, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
+		Size = if active then 2.1 else 1.4,
+	}):Play()
+	TweenService:Create(dof, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
+		FarIntensity = if active then 0.48 else 0.35,
+	}):Play()
+	-- บีบขอบจอมืด (Vignette) เข้ามาเบาๆ ตอนเปิดตาทิพย์เพ่งจิตดูผี
+	local edgeTrans = if active then 0.16 else 0.36
+	local vSize = if active then UDim2.fromScale(1, 0.33) else UDim2.fromScale(1, 0.24)
+	local hSize = if active then UDim2.fromScale(0.27, 1) else UDim2.fromScale(0.20, 1)
+	local info = TweenInfo.new(0.6, Enum.EasingStyle.Sine)
+	TweenService:Create(vigTop, info, { BackgroundTransparency = edgeTrans, Size = vSize }):Play()
+	TweenService:Create(vigBottom, info, { BackgroundTransparency = edgeTrans, Size = vSize }):Play()
+	TweenService:Create(vigLeft, info, { BackgroundTransparency = edgeTrans, Size = hSize }):Play()
+	TweenService:Create(vigRight, info, { BackgroundTransparency = edgeTrans, Size = hSize }):Play()
+end
+
+if prayerSightEffect then
+	prayerSightEffect:GetPropertyChangedSignal("Enabled"):Connect(function()
+		updatePrayerOptics(prayerSightEffect.Enabled)
+	end)
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		local cam = Workspace.CurrentCamera
+		if cam then
+			local filter = {}
+			if localPlayer.Character then
+				table.insert(filter, localPlayer.Character)
+			end
+			local mistPart = cam:FindFirstChild("GroundMistEmitter")
+			if mistPart then
+				table.insert(filter, mistPart)
+			end
+			focusParams.FilterDescendantsInstances = filter
+
+			local hit = Workspace:Raycast(cam.CFrame.Position, cam.CFrame.LookVector * 60, focusParams)
+			local targetDist = if hit then math.clamp(hit.Distance, 8, 38) else 22
+			currentFocus = currentFocus + (targetDist - currentFocus) * 0.25
+			dof.FocusDistance = currentFocus
+		end
+	end
+end)
 
 -- หมอกค่อยๆ หนาขึ้นบางลงเหมือนมีหมอกก้อนลอยผ่าน
 task.spawn(function()
@@ -533,6 +825,41 @@ local function setupCharacterFootsteps(char: Model)
 	rayParams.FilterDescendantsInstances = { char }
 
 	local currentSurface = ""
+	local walkBobTime = 0
+	local breathTime = 0
+
+	local bobConn: RBXScriptConnection
+	bobConn = RunService.RenderStepped:Connect(function(dt)
+		if not char.Parent or not root.Parent or hum.Health <= 0 then
+			bobConn:Disconnect()
+			return
+		end
+		local horizVel = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude
+		local isMoving = horizVel > 1.2 and hum.FloorMaterial ~= Enum.Material.Air and not root.Anchored
+		local isPraying = (localPlayer:GetAttribute("Praying") == true)
+
+		local targetOffset: Vector3
+		if isPraying then
+			-- ตอนยืนพนมมือสวดมนต์: นิ่งสงบ มีแค่จังหวะหายใจลึกๆ เบาๆ
+			breathTime += dt * 2.1
+			targetOffset = Vector3.new(0, math.sin(breathTime) * 0.032, 0)
+		elseif isMoving then
+			-- ตอนก้าวเดิน: โคลงซ้าย-ขวาและยวบขึ้น-ลงนุ่มๆ ตามจังหวะก้าวเท้า (WalkSpeed = 10)
+			local speedFactor = math.clamp(horizVel / 10, 0.35, 1.2)
+			walkBobTime += dt * (6.2 * speedFactor)
+			local bobX = math.cos(walkBobTime) * 0.055 * speedFactor
+			local bobY = math.abs(math.sin(walkBobTime)) * -0.075 * speedFactor
+			targetOffset = Vector3.new(bobX, bobY, 0)
+		else
+			-- ตอนยืนนิ่งปกติ: จังหวะหายใจขึ้น-ลงช้าๆ
+			breathTime += dt * 1.6
+			local swayX = math.sin(breathTime * 0.5) * 0.012
+			local swayY = math.sin(breathTime) * 0.024
+			targetOffset = Vector3.new(swayX, swayY, 0)
+		end
+
+		hum.CameraOffset = hum.CameraOffset:Lerp(targetOffset, math.clamp(dt * 10, 0, 1))
+	end)
 
 	local conn: RBXScriptConnection
 	conn = RunService.Heartbeat:Connect(function(dt)

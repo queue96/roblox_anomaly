@@ -104,9 +104,9 @@ function Prayer.Start(player: Player): boolean
 	local s: Session = { started = os.clock(), origC0 = {} }
 	sessions[player] = s
 	hum:UnequipTools() -- เก็บไฟฉายก่อน (มือต้องว่าง)
-	hum.WalkSpeed = 0
-	hum.JumpPower = 0
-	hum.JumpHeight = 0
+	-- ปลดล็อกการเดิน: ไม่ปรับ WalkSpeed = 0 ให้เดินได้อิสระขณะพนมมือ
+
+
 	applyPose(char, s)
 	player:SetAttribute("Praying", true)
 	print("🙏 [" .. player.Name .. "] พนมมือ")
@@ -167,7 +167,7 @@ end
 
 PrayRemote.OnServerEvent:Connect(function(player, on: any)
 	local now = os.clock()
-	if lastToggle[player] and now - lastToggle[player] < TOGGLE_COOLDOWN and on == true then
+	if lastToggle[player] and now - lastToggle[player] < TOGGLE_COOLDOWN then
 		return
 	end
 	lastToggle[player] = now
@@ -182,6 +182,11 @@ local function hookCharacter(player: Player, char: Model)
 	-- เกิดใหม่ = ไม่ได้พนมมือแล้ว
 	sessions[player] = nil
 	player:SetAttribute("Praying", false)
+	char.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") and sessions[player] then
+			Prayer.Stop(player)
+		end
+	end)
 	local hum = char:WaitForChild("Humanoid", 10) :: Humanoid?
 	if hum then
 		hum.Died:Connect(function()

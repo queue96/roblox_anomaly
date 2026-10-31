@@ -47,7 +47,7 @@ local CONFIG = {
 	StartIncense = 3,
 	AnomalyChance = 0.4,
 	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
-	DecisionTime = 35, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผี)
+	DecisionTime = 75, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผีและเดินไปตู้)
 	DriveSpeed = 24, -- studs / วินาที
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
 	-- จังหวะลูกค้า: มาทีละ 1 คัน/คนเท่านั้น (ห้ามมาพร้อมกัน 2 กลุ่ม) -> พอออกไปพ้นแมพแล้ว พักตาม rest วินาที
@@ -80,7 +80,7 @@ local CONFIG = {
 	MaxQueue = 1, -- ห้ามมีคิวต่อแถว มาได้ทีละ 1 รายเท่านั้น
 	QueueSpacing = 9, -- ระยะห่างคันที่รอคิว (studs)
 	-- รอนานแล้วไม่พอใจ
-	ImpatientAfter = { 22, 32 }, -- วินาทีหลังเปิดปุ่ม (รวมช่วงถามราคา): บ่นครั้งที่ 1, 2
+	ImpatientAfter = { 40, 60 }, -- วินาทีหลังเปิดปุ่ม (รวมช่วงถามราคา): บ่นครั้งที่ 1, 2
 	QueueAnnoyedAfter = 14, -- รอคิวนานเกินนี้ มาถึงก็บ่นเลย
 	SlowPenaltyRatio = 0.2, -- เติมช้า (บ่นไปแล้ว) ลูกค้าจ่ายน้อยลง 20% (น้ำมันหลอด 100 -> 80, ดีเซล 300 -> 240, ลม 20 -> 16)
 	-- ไล่ผีไปแล้วยังวิ่งตามไป: ผีหันมาหลอก ล้มตึงลงพื้น
@@ -106,7 +106,7 @@ local CONFIG = {
 -- ---------------------------------------------------------------- ฉากและของในฉาก
 local interactive = Workspace:WaitForChild("InteractiveProps")
 local gasPump = interactive:WaitForChild("GasPump") :: Model
-local pumpBody = gasPump:WaitForChild("GasPump") :: BasePart
+local pumpBody = gasPump.PrimaryPart or (gasPump:FindFirstChild("GasPump") :: BasePart?) or (gasPump:FindFirstChild("PumpBase") :: BasePart?) or (gasPump:FindFirstChildWhichIsA("BasePart") :: BasePart)
 local fuelLiquid = gasPump:FindFirstChild("FuelLiquid") :: BasePart?
 local shutterDoor = interactive:WaitForChild("ShutterDoor") :: BasePart
 local rejectRope = interactive:WaitForChild("RejectRope") :: BasePart
@@ -233,18 +233,23 @@ DeathChoice.OnServerEvent:Connect(function(player, choice: any)
 end)
 
 -- ---------------------------------------------------------------- ปุ่มกด (ProximityPrompt)
-local function setupPrompt(name: string, parent: Instance, hold: number, action: string, object: string): ProximityPrompt
-	local p = parent:FindFirstChild(name, true) :: ProximityPrompt?
-	if not (p and p:IsA("ProximityPrompt")) then
-		p = Instance.new("ProximityPrompt")
-		p.Name = name
-		p.Parent = parent
+local function setupPrompt(name: string, rootInstance: Instance, targetPart: BasePart, hold: number, action: string, object: string): ProximityPrompt
+	local existing: { ProximityPrompt } = {}
+	for _, d in ipairs(rootInstance:GetDescendants()) do
+		if d:IsA("ProximityPrompt") and d.Name == name then
+			table.insert(existing, d)
+		end
 	end
-	local prompt = p :: ProximityPrompt
+	for i = 2, #existing do
+		existing[i]:Destroy()
+	end
+	local prompt = existing[1] or Instance.new("ProximityPrompt")
+	prompt.Name = name
+	prompt.Parent = targetPart
 	prompt.HoldDuration = hold
 	prompt.ActionText = action
 	prompt.ObjectText = object
-	prompt.MaxActivationDistance = 10
+	prompt.MaxActivationDistance = 14
 	prompt.RequiresLineOfSight = false
 	prompt.AutoLocalize = false
 	prompt.Enabled = false
@@ -268,7 +273,7 @@ if not dieselPump then
 	c.Parent = interactive
 	dieselPump = c
 end
-local dieselBody = (dieselPump :: Model):FindFirstChild("GasPump") :: BasePart
+local dieselBody = (dieselPump :: Model).PrimaryPart or ((dieselPump :: Model):FindFirstChild("GasPump") :: BasePart?) or ((dieselPump :: Model):FindFirstChild("PumpBase") :: BasePart?) or ((dieselPump :: Model):FindFirstChildWhichIsA("BasePart") :: BasePart)
 local dieselLiquid = (dieselPump :: Model):FindFirstChild("FuelLiquid") :: BasePart?
 if dieselLiquid then
 	dieselLiquid.Color = Color3.fromRGB(70, 150, 60)
@@ -296,11 +301,11 @@ airHiss.Volume = 0.8
 airHiss.RollOffMaxDistance = 60
 airHiss.Parent = airBody or pumpBody
 
-local pumpPrompt = setupPrompt("PumpFuelPrompt", pumpBody, 0, "Fill Up", "Gas Pump")
-local dieselPrompt = setupPrompt("DieselFuelPrompt", dieselBody, 0, "Fill Diesel", "Diesel Pump")
-local airPrompt = setupPrompt("AirPumpPrompt", airBody or pumpBody, 0, "Pump Air", "Air Compressor") -- ข้อความจริงตามภาษาผู้เล่นตั้งฝั่ง Client (HUDController)
-local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, 0.5, "Close Shop!", "Shutter Rope")
-local openPrompt = setupPrompt("OpenShopPrompt", rejectRope, 1, "Open Shop", "Shutter Rope") -- ก่อนเริ่มคืน
+local pumpPrompt = setupPrompt("PumpFuelPrompt", gasPump, pumpBody, 0, "Fill Up", "Gas Pump")
+local dieselPrompt = setupPrompt("DieselFuelPrompt", dieselPump :: Model, dieselBody, 0, "Fill Diesel", "Diesel Pump")
+local airPrompt = setupPrompt("AirPumpPrompt", airCompressor or gasPump, airBody or pumpBody, 0, "Pump Air", "Air Compressor")
+local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, rejectRope, 0.4, "Close Shop!", "Shutter Rope")
+local openPrompt = setupPrompt("OpenShopPrompt", rejectRope, rejectRope, 0.4, "Open Shop", "Shutter Rope") -- ก่อนเริ่มคืน
 
 -- ---------------------------------------------------------------- สถานะเกม
 local money = 0
@@ -311,6 +316,11 @@ local currentVehicleIsAnomaly = false
 local currentAnomaly: string? = nil
 local decision: string? = nil -- "fuel" | "reject" | nil
 local decisionMade = Instance.new("BindableEvent")
+local shopOpened = false
+local isShutterOpen = false -- เริ่มต้นคืนปิดอยู่
+local shutterTweening = false
+local shutterRejectThread: thread? = nil
+local currentSpeaker: any = nil
 
 local function publishState()
 	remotes:SetAttribute("Money", money)
@@ -469,27 +479,103 @@ local function driveTo(v: Model, target: Vector3, brake: boolean, speedOverride:
 end
 
 -- ---------------------------------------------------------------- ฉากประกอบ (แผงสังกะสี, น้ำมันในหลอดแก้ว)
-local shutterOpenY = shutterDoor.Position.Y
-local shutterDrop = (shutterDoor:GetAttribute("OpenY") or 15.5) - (shutterDoor:GetAttribute("ClosedY") or 6)
+local openY = (shutterDoor:GetAttribute("OpenY") or 15.5)
+local closedY = (shutterDoor:GetAttribute("ClosedY") or 6.0)
+
+local function updateShutterPrompts()
+	if not shopOpened then
+		openPrompt.Enabled = true
+		rejectPrompt.Enabled = false
+		return
+	end
+	openPrompt.Enabled = not isShutterOpen and not shutterTweening
+	rejectPrompt.Enabled = isShutterOpen and not shutterTweening
+
+	-- ปั๊มน้ำมัน/ดีเซล/ลม จะกดได้เฉพาะตอนเปิดรับบริการ (ถ้าปิดแผงไล่ลูกค้าอยู่ จะกดไม่ได้)
+	local canService = servicePromptsOpen and not shutterRejectThread
+	pumpPrompt.Enabled = canService
+	dieselPrompt.Enabled = canService
+	airPrompt.Enabled = canService
+end
 
 local function closeShutter()
+	if shutterTweening then return end
+	shutterTweening = true
+	updateShutterPrompts()
 	SoundBank.PlayOneShot("ShutterCloseSlam", shutterDoor, 75, 2.0)
 	local p = shutterDoor.Position
 	local t = TweenService:Create(shutterDoor, TweenInfo.new(0.45, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-		Position = Vector3.new(p.X, shutterOpenY - shutterDrop, p.Z),
+		Position = Vector3.new(p.X, closedY, p.Z),
 	})
 	t:Play()
 	t.Completed:Wait()
+	isShutterOpen = false
+	shutterTweening = false
+	updateShutterPrompts()
 end
 
 local function openShutter()
-	SoundBank.PlayOneShot("ShutterOpenPull", shutterDoor, 65, 1.5)
+	if shutterTweening then return end
+	shutterTweening = true
+	updateShutterPrompts()
+	SoundBank.PlayOneShot("ShutterOpenPull", shutterDoor, 65, 2.2)
 	local p = shutterDoor.Position
 	local t = TweenService:Create(shutterDoor, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-		Position = Vector3.new(p.X, shutterOpenY, p.Z),
+		Position = Vector3.new(p.X, openY, p.Z),
 	})
 	t:Play()
 	t.Completed:Wait()
+	isShutterOpen = true
+	shutterTweening = false
+	updateShutterPrompts()
+end
+
+local function toggleShutter(wantOpen: boolean, who: string?)
+	if shutterTweening or not shopOpened or wantOpen == isShutterOpen then
+		return
+	end
+
+	if wantOpen then
+		-- ดึงแผงเปิดขึ้น
+		if shutterRejectThread then
+			task.cancel(shutterRejectThread)
+			shutterRejectThread = nil
+			print("↩️ เปิดแผงทันเวลา! ยกเลิกการนับถอยหลังปฏิเสธ")
+			if currentVehicle and not decision and not currentVehicleIsAnomaly and currentSpeaker then
+				say(pick({ "นึกว่าจะไม่ขายซะแล้ว", "ตกใจหมด นึกว่าแผงหล่นใส่", "ฮ่าๆ แผงมันฝืดเหรอช่าง?" }), currentSpeaker, nil, 2.2)
+			end
+		end
+		openShutter()
+	else
+		-- ดึงแผงปิดลง
+		closeShutter()
+		ServiceMinigame:FireAllClients("close")
+
+		-- Taco Anomaly Mechanic: ปิดแผงต่อหน้าลูกค้าที่กำลังรอรับบริการ
+		if currentVehicle and not decision then
+			print("🚧 แผงปิดต่อหน้าลูกค้า! เริ่มนับถอยหลัง 3.5 วินาที ถ้าไม่เปิดจะถือว่าปฏิเสธ...")
+			task.delay(0.6, function()
+				if not isShutterOpen and currentVehicle and not decision and currentSpeaker then
+					if currentVehicleIsAnomaly then
+						say("...", currentSpeaker, nil, 2.0)
+					else
+						say(pick({ "เอ้า ปิดทำไม?", "ฮัลโหล มีใครอยู่ไหม?", "เฮ้ย ปิดแผงทำไมเนี่ย?" }), currentSpeaker, nil, 2.2)
+					end
+				end
+			end)
+
+			if shutterRejectThread then
+				task.cancel(shutterRejectThread)
+			end
+			shutterRejectThread = task.delay(3.5, function()
+				shutterRejectThread = nil
+				if not isShutterOpen and currentVehicle and not decision then
+					print("⏱️ ปิดแผงใส่นานเกิน 3.5 วิ -> ถือว่าปฏิเสธลูกค้า/ไล่ผีสำเร็จ!")
+					CoreLoop.Decide("reject", who or "Shutter")
+				end
+			end)
+		end
+	end
 end
 
 local fuelFull = fuelLiquid and fuelLiquid.Size
@@ -535,13 +621,14 @@ end
 -- ใช้ได้ทั้งจาก ProximityPrompt และจากการทดสอบ (require(ServerScriptService.Server.CoreLoop).Decide("fuel"))
 -- ปุ่มบริการทั้งหมดเปิด/ปิดพร้อมกัน (เลือกผิดตู้ได้ ลูกค้าจะท้วง)
 local servicePromptsOpen = false
+local activeMinigamePlayer: Player? = nil
 local function setServicePrompts(on: boolean)
 	servicePromptsOpen = on
-	pumpPrompt.Enabled = on
-	dieselPrompt.Enabled = on
-	airPrompt.Enabled = on
-	rejectPrompt.Enabled = on
 	if not on then
+		activeMinigamePlayer = nil
+	end
+	updateShutterPrompts()
+	if not on or not isShutterOpen then
 		ServiceMinigame:FireAllClients("close")
 	end
 end
@@ -562,6 +649,8 @@ local function startMinigameForPlayer(player: Player, stationChoice: string)
 	if decision or not currentVehicle or gameOver or not servicePromptsOpen then
 		return
 	end
+	Prayer.Stop(player)
+	activeMinigamePlayer = player
 	ServiceMinigame:FireClient(player, "open", stationChoice)
 end
 
@@ -577,12 +666,28 @@ end)
 
 ServiceMinigame.OnServerEvent:Connect(function(player, action: any, stationChoice: any)
 	if action == "complete" and (stationChoice == "fuel" or stationChoice == "diesel" or stationChoice == "air") then
+		activeMinigamePlayer = nil
 		CoreLoop.Decide(stationChoice, player.Name)
+	elseif action == "cancel" or action == "close" then
+		if activeMinigamePlayer == player then
+			activeMinigamePlayer = nil
+		end
 	end
 end)
 
 rejectPrompt.Triggered:Connect(function(player)
-	CoreLoop.Decide("reject", player.Name)
+	if shopOpened then
+		toggleShutter(false, player.Name)
+	end
+end)
+
+openPrompt.Triggered:Connect(function(player)
+	if not shopOpened then
+		print("🔓 [" .. player.Name .. "] เปิดร้าน")
+		shopOpened = true
+	else
+		toggleShutter(true, player.Name)
+	end
 end)
 
 -- ทดสอบจาก Command Bar / เครื่องมือ: ServerStorage.DevDecision:Fire("fuel" | "reject")
@@ -593,7 +698,7 @@ devDecision.Parent = ServerStorage
 local chooseReply: (string, string, string?) -> boolean
 local devSpawn: (string) -> ()
 local devRoadEvent: (string) -> ()
-local shopOpened = false
+-- shopOpened is declared in state section
 devDecision.Event:Connect(function(choice: string)
 	-- "fuel" | "reject" | "reply:100" | "open"
 	local amount = string.match(choice, "^reply:(%w+)$") -- reply:100 / reply:hello / reply:both
@@ -1524,11 +1629,22 @@ local function waitDecisionImpatient(c: Customer, speaker, annoyed: number, prom
 	end
 	local t0 = os.clock()
 	while not decision and not gameOver and os.clock() - t0 < CONFIG.DecisionTime do
+		-- ถ้ามีคนกำลังเล่นมินิเกมเติมน้ำมัน/เติมลมอยู่ ให้ยืดเวลาออกไป (ไม่ตัดบทลูกค้าหนีไประหว่างเติม)
+		if activeMinigamePlayer and activeMinigamePlayer.Parent then
+			t0 = math.max(t0, os.clock() - (CONFIG.DecisionTime - 20))
+		end
+
+		-- ถ้ามีผู้เล่นกำลังพนมมือคุย/ตรวจผีอยู่ใกล้ๆ รถ ให้ชะลอเวลาหงุดหงิด
+		local prayingNear = #Prayer.PrayingNear(c.v:GetPivot().Position, CONFIG.PrayReactRadius) > 0
+		if prayingNear then
+			t0 = math.max(t0, os.clock() - (CONFIG.DecisionTime - 30))
+		end
+
 		local waited = os.clock() - promptsAt -- นับจากตอนปุ่มเปิด (รวมช่วงถามราคา)
-		if annoyed < 1 and waited > CONFIG.ImpatientAfter[1] then
+		if annoyed < 1 and waited > CONFIG.ImpatientAfter[1] and not prayingNear then
 			annoyed = 1
 			say(if c.ghost then "Ghost_Wait" else pick({ "Impatient_1", "Impatient_2" }), speaker)
-		elseif annoyed < 2 and waited > CONFIG.ImpatientAfter[2] then
+		elseif annoyed < 2 and waited > CONFIG.ImpatientAfter[2] and not prayingNear then
 			annoyed = 2
 			say(if c.ghost then "Ghost_Wait2" else "Impatient_3", speaker)
 		end
@@ -1593,6 +1709,7 @@ local function serveCustomer(c: Customer)
 	local ghost = c.ghost
 	local who = c.who
 	local speaker = { name = who.name, voice = who.voice, ghost = ghost }
+	currentSpeaker = speaker
 	local arrivedAt = os.clock()
 	customerTalking = true
 	currentHead = getHead(v)
@@ -1602,48 +1719,61 @@ local function serveCustomer(c: Customer)
 		return present and v.Parent ~= nil
 	end)
 
-	-- ทัก (ถ้ารอคิวนานจะบ่นก่อน)
-	if c.queuedSince and os.clock() - c.queuedSince > CONFIG.QueueAnnoyedAfter and not ghost then
-		annoyed = 1
-		say("Greet_Waited", speaker, nil, 2.6)
-	else
-		say(who.greet, speaker, nil, 2.6)
+	-- เมื่อลูกค้ารายใหม่มาถึง ถ้าแผงสังกะสีหน้าร้านปิดอยู่ (เช่น ปิดไล่ผีตัวก่อนหน้า) ให้ดึงเปิดต้อนรับลูกค้ารายใหม่ทันที
+	if not isShutterOpen then
+		openShutter()
 	end
 
-	-- ฝนตก: บ่นเรื่องฝนนิดหน่อย (ผีไม่รู้สึกถึงฝน)
-	local raining = Weather.IsRaining()
-	if raining and math.random() < 0.5 then
-		say(if ghost then "Ghost_RainTalk" else pick({ "RainTalk_1", "RainTalk_2", "RainTalk_3" }), speaker, nil, 2.6)
-	end
-	-- คนหลบฝนใต้ชายคาทักลูกค้า (เป็นเบาะแสได้: ผีไม่เปียกฝน / ลูกค้ามองไม่เห็นคนหลบฝนที่เป็นผี)
-	local sh = anyShelter()
-	if sh and math.random() < 0.7 then
-		local shSpeaker = { name = sh.who.name, voice = sh.who.voice, ghost = sh.ghost }
-		if sh.ghost and not ghost then
-			say("ShelterGhost_ToCustomer", shSpeaker, nil, 2.8, getHead(sh.v))
-			say("Chat_WhoTalking", speaker, nil, 2.8)
-		elseif ghost and raining then
-			say("Shelter_NoticeDry", shSpeaker, nil, 3, getHead(sh.v))
-			say("Ghost_DryReply", speaker, nil, 2.6)
-		else
-			say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6, getHead(sh.v))
-			say(if ghost then "Ghost_ShortReply" else pick({ "Chat_Reply_1", "Chat_Reply_2" }), speaker, nil, 2.4)
-		end
-	end
-
-	local order = if c.useAnomalyLine then c.anomaly :: string else c.order
-	say(order, speaker, nil, 3.2)
-	-- คิวคันหลังแซวให้รีบ
-	local nextInLine = queue[2]
-	if nextInLine and nextInLine.queuedSince and os.clock() - nextInLine.queuedSince > 6 and math.random() < 0.4 then
-		say(if nextInLine.ghost then "Queue_ChimeGhost" else "Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
-	end
-	-- ล็อกปุ่มอย่างน้อย InspectLock วิหลังรถจอด (ให้ส่องไฟฉายดู)
-	task.wait(math.max(0, CONFIG.InspectLock - (os.clock() - arrivedAt)))
+	-- เปิดปุ่มบริการทันทีที่ลูกค้ามาถึงตู้ปั๊ม! ผู้เล่นกดเติมได้เลย ไม่ต้องรอฟังบทสนทนายาว 6-10 วินาที
 	if not gameOver then
 		setServicePrompts(true)
 	end
 	local promptsAt = os.clock()
+
+	-- บทสนทนาทักทายและสั่งบริการ (ทำงานคู่ขนาน ไม่บล็อกปุ่มเติมน้ำมัน)
+	task.spawn(function()
+		if c.queuedSince and os.clock() - c.queuedSince > CONFIG.QueueAnnoyedAfter and not ghost then
+			annoyed = 1
+			say("Greet_Waited", speaker, nil, 2.6)
+		else
+			say(who.greet, speaker, nil, 2.6)
+		end
+
+		if not present or gameOver or decision then return end
+
+		local raining = Weather.IsRaining()
+		if raining and math.random() < 0.5 then
+			say(if ghost then "Ghost_RainTalk" else pick({ "RainTalk_1", "RainTalk_2", "RainTalk_3" }), speaker, nil, 2.6)
+		end
+
+		if not present or gameOver or decision then return end
+
+		local sh = anyShelter()
+		if sh and math.random() < 0.7 then
+			local shSpeaker = { name = sh.who.name, voice = sh.who.voice, ghost = sh.ghost }
+			if sh.ghost and not ghost then
+				say("ShelterGhost_ToCustomer", shSpeaker, nil, 2.8, getHead(sh.v))
+				say("Chat_WhoTalking", speaker, nil, 2.8)
+			elseif ghost and raining then
+				say("Shelter_NoticeDry", shSpeaker, nil, 3, getHead(sh.v))
+				say("Ghost_DryReply", speaker, nil, 2.6)
+			else
+				say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6, getHead(sh.v))
+				say(if ghost then "Ghost_ShortReply" else pick({ "Chat_Reply_1", "Chat_Reply_2" }), speaker, nil, 2.4)
+			end
+		end
+
+		if not present or gameOver or decision then return end
+
+		local order = if c.useAnomalyLine then c.anomaly :: string else c.order
+		say(order, speaker, nil, 3.2)
+
+		-- คิวคันหลังแซวให้รีบ
+		local nextInLine = queue[2]
+		if nextInLine and nextInLine.queuedSince and os.clock() - nextInLine.queuedSince > 6 and math.random() < 0.4 then
+			say(if nextInLine.ghost then "Queue_ChimeGhost" else "Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
+		end
+	end)
 
 	-- ราคาตามบริการ (น้ำมันหลอด / ดีเซล / เติมลม) ไม่มีตัวเลือกถามราคา
 	local svc = CONFIG.Services[c.service] or CONFIG.Services.petrol
@@ -1673,6 +1803,7 @@ local function serveCustomer(c: Customer)
 			end
 			decision = nil
 			setServicePrompts(true)
+			promptsAt = os.clock()
 			choice, annoyed = waitDecisionImpatient(c, speaker, annoyed, promptsAt)
 			setServicePrompts(false)
 		end
@@ -1742,7 +1873,9 @@ local function serveCustomer(c: Customer)
 		setFuelLevel(1, 3)
 		setDieselLevel(1, 3)
 	elseif choice == "reject" then
-		closeShutter()
+		if isShutterOpen then
+			closeShutter()
+		end
 		if ghost then
 			money += CONFIG.RejectGhostReward
 			local tin = interactive:FindFirstChild("MoneyTin")
@@ -1757,7 +1890,6 @@ local function serveCustomer(c: Customer)
 			print("😤 ปิดร้านใส่ลูกค้าปกติ อดได้เงิน")
 		end
 		broadcastHUD()
-		task.delay(3, openShutter)
 	elseif not leaveEarly then
 		say(if ghost then "Ghost_NoOne" else pick({ "NoOne_1", "NoOne_2" }), speaker)
 		print("⌛ ไม่มีใครตัดสินใจ ลูกค้าขับออกไปเอง")
@@ -1767,6 +1899,11 @@ local function serveCustomer(c: Customer)
 	CustomerSpeech:FireAllClients(nil)
 	currentHead = nil
 	customerTalking = false
+	currentSpeaker = nil
+	if shutterRejectThread then
+		task.cancel(shutterRejectThread)
+		shutterRejectThread = nil
+	end
 
 	currentVehicle = nil
 	currentVehicleIsAnomaly = false
@@ -1927,20 +2064,15 @@ end
 -- เริ่มคืน: แผงสังกะสีปิดไว้ ยังไม่มีลูกค้า จนกว่าจะมีคนดึงเชือกเปิดร้าน
 local function waitForShopOpen()
 	local p = shutterDoor.Position
-	shutterDoor.Position = Vector3.new(p.X, shutterOpenY - shutterDrop, p.Z)
+	shutterDoor.Position = Vector3.new(p.X, closedY, p.Z)
+	isShutterOpen = false
 	shopOpened = false
-	openPrompt.Enabled = true
+	updateShutterPrompts()
 	GameState:FireAllClients("Waiting")
 	remotes:SetAttribute("ShopOpen", false)
-	local conn = openPrompt.Triggered:Connect(function(player)
-		print("🔓 [" .. player.Name .. "] เปิดร้าน")
-		shopOpened = true
-	end)
 	while not shopOpened do
 		task.wait(0.2)
 	end
-	conn:Disconnect()
-	openPrompt.Enabled = false
 	remotes:SetAttribute("ShopOpen", true)
 	openShutter()
 	GameState:FireAllClients("Playing")

@@ -750,9 +750,21 @@ function AnomalyManager.StartAmbience()
 	end
 
 	task.spawn(function()
-		-- สุ่มเสียงธรรมชาติทุกๆ 1 นาที (60 วินาที)
+		-- ตอนเริ่มเกม: หน่วง 25 วินาทีแล้วเปิดด้วยเสียงหมาหอนแว่วจากทุ่งนาทันที
+		task.delay(25, function()
+			local dog = sounds["DogHowl"]
+			if dog then
+				emitter.Position = FAR_SPOTS[math.random(#FAR_SPOTS)]
+				dog.PlaybackSpeed = 0.98
+				dog.TimePosition = 0
+				dog.Volume = 0.85 * AMBIENT_SCALE
+				dog:Play()
+			end
+		end)
+
+		-- สุ่มเสียงธรรมชาติรอบทุ่งทุกๆ 45 วินาที
 		while true do
-			task.wait(60)
+			task.wait(45)
 			local a = pickAmbient()
 			local snd = sounds[a.name]
 			local list = if a.near then NEAR_SPOTS else FAR_SPOTS

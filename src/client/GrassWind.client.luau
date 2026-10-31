@@ -14,18 +14,18 @@ local Workspace = game:GetService("Workspace")
 local TAG = "WindSway"
 local LEAF_TAG = "LeafFlutter"
 local WIND_DIR = Vector3.new(1, 0, 0.35).Unit -- ทิศลม (ทุกกอเอนไปทางนี้)
-local WIND_SPEED = 1.6 -- ความเร็วการแกว่ง
+local WIND_SPEED = 2.1 -- ความเร็วการแกว่ง (เพิ่มขึ้นเพื่อให้ระลอกลมเคลื่อนไหวมีชีวิตชีวา)
 local GUST_WAVE = 0.08 -- ความถี่คลื่นลมที่วิ่งผ่านทุ่ง (ต่อ stud)
-local BASE_LEAN = math.rad(4) -- มุมเอนตามลมพื้นฐาน
-local SWAY = math.rad(5) -- มุมแกว่งเพิ่มตามจังหวะลม
-local PUSH_RADIUS = 3.5 -- ระยะที่ตัวละครเดินชนแล้วกอเอนหลบ
-local PUSH_ANGLE = math.rad(32)
-local ACTIVE_RANGE = 85 -- อัปเดตเฉพาะกอที่อยู่ในระยะสายตากลางคืน (หมอกบังเกิน ~65 studs)
+local BASE_LEAN = math.rad(6.5) -- มุมเอนตามลมพื้นฐาน (เดิม 4 องศา)
+local SWAY = math.rad(11.5) -- มุมแกว่งเพิ่มตามจังหวะลม (เดิม 5 องศา ปรับเพิ่มให้เห็นใบหญ้าพริ้วไหวชัดเจนขึ้น)
+local PUSH_RADIUS = 3.8 -- ระยะที่ตัวละครเดินชนแล้วกอเอนหลบ
+local PUSH_ANGLE = math.rad(38)
+local ACTIVE_RANGE = 95 -- อัปเดตเฉพาะกอที่อยู่ในระยะสายตากลางคืน (หมอกบังเกิน ~65 studs)
 local UPDATE_HZ = 30
 local LEAF_RANGE = 60 -- พุ่มใบไม้ใหญ่มีใบหลายพันแผ่น ขยับเฉพาะพุ่มใกล้กล้อง
 local LEAF_HZ = 12 -- ใบไม้อัปเดตถี่น้อยกว่าหญ้า (ทดสอบแล้ว: ขยับใบทั้งแมพ ~6000 แผ่นที่ 30Hz ทำ FPS ตก 37 -> 28)
-local LEAF_FLUTTER = math.rad(5) -- มุมไหวของใบแต่ละใบ
-local LEAF_DRIFT = 0.35 -- ระยะ (studs) ที่ยอดพุ่มโยกไปตามลม
+local LEAF_FLUTTER = math.rad(10) -- มุมไหวของใบแต่ละใบ (เดิม 5 องศา)
+local LEAF_DRIFT = 0.65 -- ระยะ (studs) ที่ยอดพุ่มโยกไปตามลม (เดิม 0.35 studs)
 
 type Entry = {
 	inst: PVInstance,

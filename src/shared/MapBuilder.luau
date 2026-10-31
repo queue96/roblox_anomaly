@@ -464,7 +464,7 @@ local function placeToolboxTreeAt(template: Instance, parent: Instance, groundPo
 	clone.Name = prefix .. index
 	clone.Parent = parent
 
-	local isGrass = (prefix == "RiceGrass_" or prefix == "RoadsideGrass_")
+	local isGrass = (prefix == "RiceGrass_" or prefix == "RoadsideGrass_" or prefix == "FrontBankGrass_")
 	local randomYaw = math.rad((index * 83) % 360)
 
 	if clone:IsA("Model") then
@@ -473,7 +473,7 @@ local function placeToolboxTreeAt(template: Instance, parent: Instance, groundPo
 			local ratioY = targetHeight / origSize.Y
 			local ratio = ratioY
 			if isGrass then
-				local maxAllowedWidth = (prefix == "RoadsideGrass_") and 3.4 or 5.2
+				local maxAllowedWidth = (prefix == "RoadsideGrass_" or prefix == "FrontBankGrass_") and 3.4 or 5.2
 				local maxHoriz = math.max(origSize.X, origSize.Z, 0.1)
 				local ratioXZ = maxAllowedWidth / maxHoriz
 				ratio = math.min(ratioY, ratioXZ)
@@ -493,7 +493,7 @@ local function placeToolboxTreeAt(template: Instance, parent: Instance, groundPo
 			local ratioY = targetHeight / clone.Size.Y
 			local ratio = ratioY
 			if isGrass then
-				local maxAllowedWidth = (prefix == "RoadsideGrass_") and 3.4 or 5.2
+				local maxAllowedWidth = (prefix == "RoadsideGrass_" or prefix == "FrontBankGrass_") and 3.4 or 5.2
 				local maxHoriz = math.max(clone.Size.X, clone.Size.Z, 0.1)
 				local ratioXZ = maxAllowedWidth / maxHoriz
 				ratio = math.min(ratioY, ratioXZ)
@@ -546,7 +546,7 @@ function MapBuilder.CreateFlashlightTool()
 	local spotLight = Instance.new("SpotLight")
 	spotLight.Name = "BeamLight"
 	spotLight.Face = Enum.NormalId.Front
-	spotLight.Brightness = 4.0
+	spotLight.Brightness = 2.2
 	spotLight.Range = 58
 	spotLight.Angle = 54
 	spotLight.Color = Color3.fromRGB(255, 244, 195)
@@ -845,6 +845,7 @@ function MapBuilder.Build()
 	-- จุดเกิดผู้เล่น 1-4 คนในเพิง
 	local spawnLoc = Instance.new("SpawnLocation")
 	spawnLoc.Name = "ShackSpawn"
+	spawnLoc.Duration = 0 -- ปิดบาเรีย/วงแสงรอบตัวตอนเกิด
 	spawnLoc.Size = Vector3.new(6, 0.6, 6)
 	spawnLoc.Position = Vector3.new(0, 0.85, 21)
 	spawnLoc.Anchored = true
@@ -1326,6 +1327,14 @@ function MapBuilder.SetDayDevLighting()
 	if atmo then
 		atmo.Density = 0.1
 	end
+	local dof = Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?
+	if dof then
+		dof.Enabled = false
+	end
+	local blur = Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?
+	if blur then
+		blur.Enabled = false
+	end
 end
 
 -- ฟังก์ชันปรับแสงมืดหลอนตอนเที่ยงคืน (ทำงานอัตโนมัติเฉพาะตอนกด Play เข้าเกม)
@@ -1347,8 +1356,8 @@ function MapBuilder.SetNightLighting()
 	atmo.Offset = 0.15
 	atmo.Color = Color3.fromRGB(18, 22, 28)
 	atmo.Decay = Color3.fromRGB(10, 12, 15)
-	atmo.Glare = 0.1
-	atmo.Haze = 1.5
+	atmo.Glare = 0.25
+	atmo.Haze = 1.65
 
 	local sky = Lighting:FindFirstChildOfClass("Sky")
 	if not sky then
@@ -1358,6 +1367,41 @@ function MapBuilder.SetNightLighting()
 	end
 	sky.StarCount = 0
 	sky.CelestialBodiesShown = true
+
+	-- แสงฟุ้งนุ่มในอากาศชื้นยามวิกาล (หลอดนีออนเสาไม้ / ธูป / ไฟหน้ารถ / ไฟฉาย)
+	local bloom = Lighting:FindFirstChild("NightBloom") :: BloomEffect?
+	if not bloom then
+		bloom = Instance.new("BloomEffect")
+		bloom.Name = "NightBloom"
+		bloom.Parent = Lighting
+	end
+	bloom.Enabled = true
+	bloom.Intensity = 0.45
+	bloom.Size = 32
+	bloom.Threshold = 0.92
+
+	-- ระยะชัดลึก (Depth of Field): ชัดในเพิงและจุดรถจอด แต่เบลอทุ่งนาและขอบป่าไกลๆ นุ่มๆ
+	local dof = Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?
+	if not dof then
+		dof = Instance.new("DepthOfFieldEffect")
+		dof.Name = "NightDepthOfField"
+		dof.Parent = Lighting
+	end
+	dof.Enabled = true
+	dof.FocusDistance = 20
+	dof.InFocusRadius = 26
+	dof.NearIntensity = 0.1
+	dof.FarIntensity = 0.35
+
+	-- Soft Film Blur บางๆ ลบความคมแข็งของพิกเซลให้เหมือนกล้องฟิล์มยุค 90s
+	local blur = Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?
+	if not blur then
+		blur = Instance.new("BlurEffect")
+		blur.Name = "SoftFilmBlur"
+		blur.Parent = Lighting
+	end
+	blur.Enabled = true
+	blur.Size = 1.4
 end
 
 -- ฟังก์ชันดึงต้นกล้วยจาก Toolbox (ทั้งต้นใหญ่และต้นเล็กที่โหลดเพิ่ม) ไปปลูกแบบผสมไล่ระดับ "กอกล้วยธรรมชาติ" รอบร้าน!
@@ -6384,6 +6428,17 @@ function MapBuilder.OptimizeShadowsAndCleanup(): (number, number)
 		end
 	end
 
+	-- ปรับความสว่างไฟฉายกบใน StarterPack ให้ลดลงนุ่มนวลตา
+	local starterTool = StarterPack:FindFirstChild("FrogFlashlight")
+	if starterTool then
+		for _, l in ipairs(starterTool:GetDescendants()) do
+			if l:IsA("SpotLight") then
+				l.Brightness = 2.2
+				l.Range = 48
+			end
+		end
+	end
+
 	return shadowOffCount, removedArchivedCount
 end
 
@@ -6397,6 +6452,48 @@ function MapBuilder.RemoveZoneLabels(): number
 		end
 	end
 	return removed
+end
+
+-- คืนค่าสีธรรมชาติให้ต้นกล้วย (ใบเขียวสดใส, โคนต้น/กาบแห้ง, หวีกล้วยสีเหลือง, หัวปลีสีม่วงแดง)
+function MapBuilder.RestoreBananaColors(): number
+	local COLOR_LEAF_A = Color3.fromRGB(112, 178, 62)    -- ใบกล้วยหลัก เขียวสดใส
+	local COLOR_LEAF_B = Color3.fromRGB(118, 186, 68)    -- ยอดใบกล้วย เขียวตองสด
+	local COLOR_TRUNK  = Color3.fromRGB(138, 120, 86)    -- กาบลำต้น/โคนต้น สีน้ำตาลอมเขียวเปลือกไม้แห้ง
+	local COLOR_BUNCH  = Color3.fromRGB(218, 192, 68)    -- หวีกล้วย สีเหลืองนวล
+	local COLOR_FLOWER = Color3.fromRGB(138, 48, 68)     -- หัวปลี สีม่วงอมแดงเปลือกมังคุด
+
+	local updated = 0
+	local function applyColors(root: Instance?)
+		if not root then return end
+		for _, d in ipairs(root:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local sa = d:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					sa.AlphaMode = Enum.AlphaMode.Overlay
+					if d.Name == "BananaClump" then
+						sa.Color = COLOR_LEAF_A
+						updated += 1
+					elseif d.Name == "BananaClump_B" then
+						sa.Color = COLOR_LEAF_B
+						updated += 1
+					elseif d.Name == "BananaClump_Base" then
+						sa.Color = COLOR_TRUNK
+						updated += 1
+					elseif d.Name == "BananaBunch" then
+						sa.Color = COLOR_BUNCH
+						updated += 1
+					elseif d.Name == "BananaBlossom" then
+						sa.Color = COLOR_FLOWER
+						updated += 1
+					end
+				end
+			end
+		end
+	end
+
+	applyColors(Workspace)
+	applyColors(game:GetService("ServerStorage"):FindFirstChild("ImportedProps"))
+	return updated
 end
 
 -- ปรับสีต้นข้าว (RiceTile) และกอหญ้าคันนาให้เข้มขึ้นและตัดแสงสะท้อนโลหะ (MetalnessMap) เวลาโดนไฟฉายส่องตอนกลางคืน
@@ -6441,6 +6538,60 @@ function MapBuilder.DarkenRiceAndFoliage(): number
 	tuneContainer(Workspace)
 	tuneContainer(game:GetService("ServerStorage"):FindFirstChild("ImportedProps"))
 	return updated
+end
+
+-- ปลูกหญ้า Terrain หน้าร้านทั้ง 2 ฝั่ง (Roblox Smooth Terrain Grass พร้อมระบบหญ้า 3D ธรรมชาติอัตโนมัติ)
+-- พร้อมลบโมเดลกอหญ้า 3D เก่าที่เคยวางไว้ออก
+function MapBuilder.PaintFrontBanksGrassTerrain()
+	local terrain = Workspace.Terrain
+	if not terrain then
+		return
+	end
+
+	pcall(function()
+		terrain.Decoration = true
+		terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(52, 66, 40))
+	end)
+
+	-- ลบโมเดลกอหญ้า 3D เก่า (ถ้ามี)
+	local mapEnv = Workspace:FindFirstChild("MapEnvironment")
+	if mapEnv then
+		local dirtRoad = mapEnv:FindFirstChild("DirtRoad")
+		if dirtRoad and dirtRoad:FindFirstChild("FrontBankGrasses") then
+			dirtRoad.FrontBankGrasses:Destroy()
+		end
+		local fb = mapEnv:FindFirstChild("FrontBankGrasses")
+		if fb then
+			fb:Destroy()
+		end
+	end
+	if Workspace:FindFirstChild("FrontBankGrasses") then
+		Workspace.FrontBankGrasses:Destroy()
+	end
+
+	-- ฟังก์ชันระบายสีพื้น Terrain จากวัสดุเดิม (LeafyGrass / Ground) ให้กลายเป็น Grass
+	local function paintGrassRegion(center: Vector3, size: Vector3)
+		local half = size * 0.5
+		local region = Region3.new(center - half, center + half):ExpandToGrid(4)
+		for _, srcMat in ipairs({ Enum.Material.LeafyGrass, Enum.Material.Ground }) do
+			pcall(function()
+				terrain:ReplaceMaterial(region, 4, srcMat, Enum.Material.Grass)
+			end)
+		end
+	end
+
+	-- ระบายสี Grass คันดินหน้าร้านฝั่งซ้าย (+X: แนวสวนกล้วยและขอบคันนา X = 18 ถึง 68, Z = 0 ถึง 6)
+	paintGrassRegion(Vector3.new(43, 0, 3.5), Vector3.new(52, 10, 7))
+
+	-- ระบายสี Grass คันดินหน้าร้านฝั่งขวา (-X: แนวศาลพระภูมิและขอบคันนา X = -68 ถึง -18, Z = 0 ถึง 6)
+	paintGrassRegion(Vector3.new(-43, 0, 3.5), Vector3.new(52, 10, 7))
+
+	print("🌾 [MapBuilder] ระบายสีพื้น Terrain เป็น Grass หน้าร้านทั้ง 2 ฝั่งสำเร็จ (หญ้า 3D สมจริงตามระบบ Roblox)")
+end
+
+-- รักษาความเข้ากันได้ย้อนหลัง
+function MapBuilder.PopulateFrontBanksGrass()
+	MapBuilder.PaintFrontBanksGrassTerrain()
 end
 
 return MapBuilder

@@ -11,6 +11,44 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
+-- ขอบจอมืดสลัว (Screen Vignette) ให้ฉากวัดกลางคืนดูมีมิติและลุ่มลึก
+do
+	local vignetteGui = Instance.new("ScreenGui")
+	vignetteGui.Name = "LobbyVignette"
+	vignetteGui.IgnoreGuiInset = true
+	vignetteGui.ResetOnSpawn = false
+	vignetteGui.DisplayOrder = 0
+	vignetteGui.Parent = player:WaitForChild("PlayerGui")
+
+	local function edge(name: string, pos: UDim2, anchor: Vector2, size: UDim2, rot: number)
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.AnchorPoint = anchor
+		f.Position = pos
+		f.Size = size
+		f.BackgroundColor3 = Color3.fromRGB(3, 5, 8)
+		f.BackgroundTransparency = 0.40
+		f.BorderSizePixel = 0
+		f.Active = false
+		f.Interactable = false
+		f.Parent = vignetteGui
+
+		local g = Instance.new("UIGradient")
+		g.Rotation = rot
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.45, 0.45),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		g.Parent = f
+	end
+
+	edge("TopEdge", UDim2.fromScale(0, 0), Vector2.new(0, 0), UDim2.fromScale(1, 0.22), 90)
+	edge("BottomEdge", UDim2.fromScale(0, 1), Vector2.new(0, 1), UDim2.fromScale(1, 0.22), 270)
+	edge("LeftEdge", UDim2.fromScale(0, 0), Vector2.new(0, 0), UDim2.fromScale(0.18, 1), 0)
+	edge("RightEdge", UDim2.fromScale(1, 0), Vector2.new(1, 0), UDim2.fromScale(0.18, 1), 180)
+end
+
 -- เสียงชุดเดียวกับ AmbienceController ของแมพเกม
 local function loop(name: string, id: string, volume: number)
 	local s = Instance.new("Sound")
@@ -32,6 +70,37 @@ local function flicker(part: Instance)
 		return
 	end
 	local base = light.Brightness
+	-- เพิ่มแมลงเม่าบินตอมไฟเสาไม้ในวัด (เฉพาะโคมไฟเสาสูง ไม่ติดที่เทียนดวงเล็ก)
+	if light.Range >= 20 and not part:FindFirstChild("NightMoths") then
+		local moths = Instance.new("ParticleEmitter")
+		moths.Name = "NightMoths"
+		moths.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		moths.Shape = Enum.ParticleEmitterShape.Sphere
+		moths.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		moths.Rate = 5
+		moths.Lifetime = NumberRange.new(2.2, 3.8)
+		moths.Speed = NumberRange.new(0.9, 1.8)
+		moths.SpreadAngle = Vector2.new(180, 180)
+		moths.Acceleration = Vector3.new(0, 0.55, 0)
+		moths.Drag = 1.6
+		moths.Rotation = NumberRange.new(0, 360)
+		moths.RotSpeed = NumberRange.new(-180, 180)
+		moths.Color = ColorSequence.new(Color3.fromRGB(245, 225, 175))
+		moths.LightEmission = 0.55
+		moths.LightInfluence = 0.45
+		moths.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.05),
+			NumberSequenceKeypoint.new(0.5, 0.13),
+			NumberSequenceKeypoint.new(1, 0.04),
+		})
+		moths.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.2, 0.22),
+			NumberSequenceKeypoint.new(0.8, 0.22),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		moths.Parent = part
+	end
 	task.spawn(function()
 		local rng = Random.new()
 		while part.Parent do
@@ -51,6 +120,50 @@ for _, p in ipairs(CollectionService:GetTagged("FlickerLamp")) do
 	flicker(p)
 end
 CollectionService:GetInstanceAddedSignal("FlickerLamp"):Connect(flicker)
+
+-- ควันธูปลอยจากศาลพระภูมิใต้ต้นไทรในวัด Lobby
+task.spawn(function()
+	local lobby = workspace:WaitForChild("TempleLobby", 15)
+	local spooky = lobby and lobby:WaitForChild("SpookyDecor", 10)
+	if not spooky then
+		return
+	end
+	for i = 1, 3 do
+		local tip = spooky:FindFirstChild("Incense" .. i .. "_Neon", true)
+		if tip and tip:IsA("BasePart") and not tip:FindFirstChild("IncenseSmoke") then
+			local smoke = Instance.new("ParticleEmitter")
+			smoke.Name = "IncenseSmoke"
+			smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+			smoke.Rate = 8
+			smoke.Lifetime = NumberRange.new(2.2, 3.4)
+			smoke.Speed = NumberRange.new(0.22, 0.42)
+			smoke.SpreadAngle = Vector2.new(10, 10)
+			smoke.Acceleration = Vector3.new(0.28, 1.35, 0.12)
+			smoke.Drag = 0.65
+			smoke.Rotation = NumberRange.new(0, 360)
+			smoke.RotSpeed = NumberRange.new(-25, 25)
+			smoke.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(225, 212, 195)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(145, 152, 165)),
+			})
+			smoke.Brightness = 0.75
+			smoke.LightInfluence = 0.35
+			smoke.LightEmission = 0.08
+			smoke.Size = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.06),
+				NumberSequenceKeypoint.new(0.4, 0.22),
+				NumberSequenceKeypoint.new(1, 0.56),
+			})
+			smoke.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.65),
+				NumberSequenceKeypoint.new(0.22, 0.42),
+				NumberSequenceKeypoint.new(0.75, 0.72),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			smoke.Parent = tip
+		end
+	end
+end)
 
 -- เงาคนใต้ต้นไทร: เห็นได้จากไกลๆ พอเดินเข้าใกล้ 45 studs จะจางหายไป ถอยออกเกิน 70 studs ค่อยกลับมายืนที่เดิม
 local NEAR, FAR = 45, 70
