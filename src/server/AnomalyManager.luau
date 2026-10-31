@@ -20,7 +20,7 @@ local AnomalyManager = {}
 -- ---------------------------------------------------------------- เสียง (Creator Store ฟรี)
 local SOUNDS = {
 	RadioMusic = "rbxassetid://108772936146894", -- The Old Radio (เพลงวิทยุเก่าๆ)
-	MonkChant = "rbxassetid://1845929179", -- Chanting Monk A (สวดศพ)
+	MonkChant = "rbxassetid://118042869785522", -- เสียงสวดมนต์นะโม ตัสสะ ที่นำเข้าใหม่
 	RadioStatic = "rbxassetid://9117159106", -- Old Radio Click/Tuning/Buzz
 	DogHowl = "rbxassetid://748228812", -- Dog Howling
 }

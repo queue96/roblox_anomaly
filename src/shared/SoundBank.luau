@@ -44,21 +44,20 @@ SoundBank.CustomUploadedIds = {
 	LukThung5 = "",             -- assets/sounds/radio_lukthung_5_am_detuned_ghost.wav
 
 	-- 4) เสียงพระ/ไทบ้านอีสานสวดมนต์ไทย 4 บท (โทนเสียงเดียวกัน แยกโหมดสวดปกติ & โหมดสวดรัวเร็วตอนเจอผี!)
-	Chant1_Kusala_Normal = "",      -- assets/sounds/chant_thai_1_kusala_normal.wav (กุสลา ธัมมา - สวดปกติ)
-	Chant2_Anicca_Normal = "",      -- assets/sounds/chant_thai_2_anicca_normal.wav (อนิจจา วะตะ สังขารา - สวดปกติ)
-	Chant3_PhraMalai_Normal = "",   -- assets/sounds/chant_thai_3_phra_malai_normal.wav (สัพเพ สัตตา แผ่เมตตา - สวดปกติ)
-	Chant4_NamoTassa_Normal = "",   -- assets/sounds/chant_thai_4_namo_tassa_normal.wav (นะโม ตัสสะ 3 จบ - สวดปกติ)
+	Chant1_Kusala_Normal = "rbxassetid://118042869785522",
+	Chant2_Anicca_Normal = "rbxassetid://118042869785522",
+	Chant3_PhraMalai_Normal = "rbxassetid://118042869785522",
+	Chant4_NamoTassa_Normal = "rbxassetid://118042869785522",
 
-	Chant1_Kusala_Scared = "",      -- assets/sounds/chant_thai_1_kusala_scared.wav (กุสลา ธัมมา - สวดเร็วกลัวผี!)
-	Chant2_Anicca_Scared = "",      -- assets/sounds/chant_thai_2_anicca_scared.wav (อนิจจา วะตะ สังขารา - สวดเร็วกลัวผี!)
-	Chant3_PhraMalai_Scared = "",   -- assets/sounds/chant_thai_3_phra_malai_scared.wav (สัพเพ สัตตา - สวดเร็วกลัวผี!)
-	Chant4_NamoTassa_Scared = "",   -- assets/sounds/chant_thai_4_namo_tassa_scared.wav (นะโม ตัสสะ 3 จบ - สวดเร็วกลัวผี!)
+	Chant1_Kusala_Scared = "rbxassetid://118042869785522",
+	Chant2_Anicca_Scared = "rbxassetid://118042869785522",
+	Chant3_PhraMalai_Scared = "rbxassetid://118042869785522",
+	Chant4_NamoTassa_Scared = "rbxassetid://118042869785522",
 
-	-- ชื่อเดิม (Alias ชี้ไปที่ชุดสวดเร็วกลัวผี)
-	Chant1_Kusala = "",
-	Chant2_Anicca = "",
-	Chant3_PhraMalai = "",
-	Chant4_NamoTassa = "",
+	Chant1_Kusala = "rbxassetid://118042869785522",
+	Chant2_Anicca = "rbxassetid://118042869785522",
+	Chant3_PhraMalai = "rbxassetid://118042869785522",
+	Chant4_NamoTassa = "rbxassetid://118042869785522",
 
 	-- 5) เสียงขาจรบนถนน: เด็กแว้น + เพลงแดนซ์รถเครื่องเสียง + เพลงรถแห่งานบวช
 	RacerMotoRevCut = "",       -- assets/sounds/sfx_racer_moto_rev_cut.wav
@@ -579,131 +578,46 @@ SoundBank.RadioStations = {
 	},
 }
 
--- ---------------------------------------------------------------- 3.5 บทสวดมนต์สำเนียงไทยบ้านอีสาน 4 บท (โทนเสียงเดียวกัน แยก 2 โหมด: ปกติ vs เจอผีสวดเร็ว!)
--- 1) โหมดสวดปกติ (NormalChants): สวดเนิบๆ สำรวม สบายใจ ตอนยังไม่มีผี
+-- ---------------------------------------------------------------- 3.5 บทสวดมนต์: นะโม ตัสสะ 3 จบ (แยก 2 โหมด: ปกติ vs เจอผีสวดเร็ว!)
+-- 1) โหมดสวดปกติ (NormalChants): สวดเนิบๆ สำรวม ตอนเปิดตาทิพย์ทั่วไป
 SoundBank.MonkChantsNormal = {
 	{
-		name = "Chant1_Kusala_Normal",
-		titleTH = "บทที่ 1 (สวดปกติ): กุสลา ธัมมา",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant1_Kusala_Normal",
-		volume = 0.42,
-		speed = 1.14, -- ชดเชยสปีดให้ไฟล์ที่อัปโหลดไปแล้วพูดกระชับเป็นธรรมชาติ ไม่ยืด โดยไม่ต้องอัปโหลดใหม่
-		pitchOctave = 0.96,
-		low = 0,
-		mid = 3,
-		high = -8,
-	},
-	{
-		name = "Chant2_Anicca_Normal",
-		titleTH = "บทที่ 2 (สวดปกติ): อนิจจา วะตะ สังขารา",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant2_Anicca_Normal",
-		volume = 0.42,
-		speed = 1.14,
-		pitchOctave = 0.94,
-		low = 1,
-		mid = 3,
-		high = -8,
-	},
-	{
-		name = "Chant3_PhraMalai_Normal",
-		titleTH = "บทที่ 3 (สวดปกติ): สัพเพ สัตตา แผ่เมตตา",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant3_PhraMalai_Normal",
-		volume = 0.40,
-		speed = 1.14,
-		pitchOctave = 0.95,
-		low = -2,
-		mid = 3,
-		high = -8,
-	},
-	{
 		name = "Chant4_NamoTassa_Normal",
-		titleTH = "บทที่ 4 (สวดปกติ): นะโม ตัสสะ 3 จบ",
+		titleTH = "บทสวดนะโม ตัสสะ 3 จบ (สวดปกติ)",
 		id = "rbxassetid://1845929179",
 		customKey = "Chant4_NamoTassa_Normal",
-		volume = 0.44,
-		speed = 1.14,
-		pitchOctave = 0.96,
-		low = 0,
-		mid = 3,
-		high = -8,
+		fallbackCustomKey = "Chant4_NamoTassa",
+		volume = 0.50,
+		speed = 1.0,
+		low = 1,
+		mid = 2,
+		high = -6,
 	},
 }
 
--- 2) โหมดสวดรัวเร็วตอนเจอผี! (MonkChantsScared / MonkChants): โทนเสียงคนเดิมแต่สวดรัวเร็ว ลนลาน กลัวผี!
+-- 2) โหมดสวดรัวเร็วตอนเจอผี! (MonkChantsScared): เสียงเดิมแต่สวดรัวเร็วขึ้น 25% ลนลาน กลัวผี!
 SoundBank.MonkChantsScared = {
 	{
-		name = "Chant1_Kusala_Scared",
-		titleTH = "บทที่ 1 (เจอผี-สวดเร็ว!): กุสลา ธัมมา",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant1_Kusala_Scared",
-		fallbackCustomKey = "Chant1_Kusala",
-		volume = 0.54,
-		speed = 1.0, -- เร่งสปีดรัวเร็วแบบคนกลัวผีลนลาน!
-		pitchOctave = 0.78, -- ชดเชยคีย์ให้ยังเป็นโทนเสียงคนเดิม ไม่แหลมเป็นเสียงการ์ตูน
-		low = 0,
-		mid = 4,
-		high = -18,
-		reverbWet = -5,
-		reverbDecay = 2.2,
-	},
-	{
-		name = "Chant2_Anicca_Scared",
-		titleTH = "บทที่ 2 (เจอผี-สวดเร็ว!): อนิจจา วะตะ สังขารา",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant2_Anicca_Scared",
-		fallbackCustomKey = "Chant2_Anicca",
-		volume = 0.55,
-		speed = 1.0,
-		pitchOctave = 0.79,
-		low = 1,
-		mid = 4,
-		high = -18,
-		reverbWet = -4,
-		reverbDecay = 2.4,
-	},
-	{
-		name = "Chant3_PhraMalai_Scared",
-		titleTH = "บทที่ 3 (เจอผี-สวดเร็ว!): สัพเพ สัตตา แผ่เมตตา",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant3_PhraMalai_Scared",
-		fallbackCustomKey = "Chant3_PhraMalai",
-		volume = 0.52,
-		speed = 1.0,
-		pitchOctave = 0.77,
-		low = -8,
-		mid = 5,
-		high = -20,
-		reverbWet = -5,
-		reverbDecay = 2.2,
-	},
-	{
 		name = "Chant4_NamoTassa_Scared",
-		titleTH = "บทที่ 4 (เจอผี-สวดเร็ว!): นะโม ตัสสะ 3 จบ",
+		titleTH = "บทสวดนะโม ตัสสะ 3 จบ (เจอผี - สวดเร็ว!)",
 		id = "rbxassetid://1845929179",
 		customKey = "Chant4_NamoTassa_Scared",
 		fallbackCustomKey = "Chant4_NamoTassa",
-		volume = 0.56,
-		speed = 1.0,
-		pitchOctave = 0.76,
-		low = 0,
-		mid = 4,
-		high = -18,
-		reverbWet = -4,
-		reverbDecay = 2.2,
+		volume = 0.58,
+		speed = 1.25, -- สปีดรัวเร็วขึ้น 25% เมื่อเปิดตาทิพย์แล้วเจอผี!
+		low = 2,
+		mid = 3,
+		high = -8,
 	},
 }
 SoundBank.MonkChants = SoundBank.MonkChantsScared
 
--- คืนค่า Preset บทสวดตามหมายเลขบท (1..4) และสถานะว่าเจอผีหรือไม่ (isGhostPresent)
+-- คืนค่า Preset บทสวดตามสถานะว่าเจอผีหรือไม่ (isGhostPresent)
 function SoundBank.GetChantPreset(index: number?, isGhostPresent: boolean?): any
 	local list = if isGhostPresent then SoundBank.MonkChantsScared else SoundBank.MonkChantsNormal
-	local idx = ((index or math.random(#list)) - 1) % #list + 1
+	local idx = ((index or 1) - 1) % #list + 1
 	return list[idx], idx
 end
-
 -- ---------------------------------------------------------------- 4. ฟังก์ชันสร้างและปรับแต่ง Sound (รองรับลากวางใน ReplicatedStorage.UploadedSounds อัตโนมัติ!)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -737,6 +651,7 @@ SoundBank.KeyToFileName = {
 	Chant2_Anicca_Normal = "chant_thai_2_anicca_normal",
 	Chant3_PhraMalai_Normal = "chant_thai_3_phra_malai_normal",
 	Chant4_NamoTassa_Normal = "chant_thai_4_namo_tassa_normal",
+	Chant4_NamoTassa = "chant_thai_4_namo_tassa",
 	Chant1_Kusala_Scared = "chant_thai_1_kusala_scared",
 	Chant2_Anicca_Scared = "chant_thai_2_anicca_scared",
 	Chant3_PhraMalai_Scared = "chant_thai_3_phra_malai_scared",
