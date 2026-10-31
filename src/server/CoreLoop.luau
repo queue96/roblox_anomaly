@@ -320,6 +320,9 @@ local shopOpened = false
 local isShutterOpen = false -- เริ่มต้นคืนปิดอยู่
 local shutterTweening = false
 local shutterRejectThread: thread? = nil
+-- ต้องประกาศก่อน updateShutterPrompts ไม่งั้นฟังก์ชันนั้นจะอ่านตัวแปร global (nil) แทน ปุ่มปั๊มเลยไม่เคยเปิด
+local servicePromptsOpen = false
+local activeMinigamePlayer: Player? = nil
 local currentSpeaker: any = nil
 
 local function publishState()
@@ -620,8 +623,6 @@ end
 -- ---------------------------------------------------------------- การตัดสินใจของผู้เล่น
 -- ใช้ได้ทั้งจาก ProximityPrompt และจากการทดสอบ (require(ServerScriptService.Server.CoreLoop).Decide("fuel"))
 -- ปุ่มบริการทั้งหมดเปิด/ปิดพร้อมกัน (เลือกผิดตู้ได้ ลูกค้าจะท้วง)
-local servicePromptsOpen = false
-local activeMinigamePlayer: Player? = nil
 local function setServicePrompts(on: boolean)
 	servicePromptsOpen = on
 	if not on then
