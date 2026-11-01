@@ -3,7 +3,7 @@
 #   build("male", "fat")    -> assets/models/human_base/human_base_fat.blend
 #   build_all()             -> all 15 files (5 characters x normal/thin/fat)
 # Pipeline: body -> rig -> armpit weights -> (child remap / elder posture) -> body type -> smooth joints
-#           -> joint limits -> self-intersection test -> hair -> skin -> save
+#           -> joint limits -> self-intersection test -> hair -> skin -> clothes -> save
 import bpy, os
 
 M = r"C:\Aunival\pump-lot-anomaly\assets\models"
@@ -99,6 +99,8 @@ def build(char, body_type="normal", save=True, test=True, clear=True):
     run(os.path.join(BASE, "build_hair.py"), hns); hns["add_hair"](char)
     sns = {"__name__": "__variant__"}                   # UVs + skin textures painted by build_skin.py (skin_all)
     run(os.path.join(BASE, "build_skin.py"), sns); sns["add_skin"](char)
+    cns = {"__name__": "__variant__"}                   # outfits from build_clothes.py (faces picked by clothes_all)
+    run(os.path.join(BASE, "build_clothes.py"), cns); cns["add_clothes"](char)
     if save:
         name = c["file"] + ("" if body_type == "normal" else "_" + body_type) + ".blend"
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(d, name))
