@@ -29,11 +29,11 @@ FINGERS = [f"{f}_0{i}" for f in ("index", "middle", "ring", "pinky") for i in (1
 
 # how each character moves: stride and arm swing (x adult man), cycle length (x), forward lean (deg), hip sway (x)
 STYLE = {
-    "male":         dict(stride=1.00, arm=1.00, slow=1.00, lean=0, sway=1.0, bounce=1.0),
-    "female":       dict(stride=0.90, arm=0.80, slow=0.95, lean=0, sway=1.8, bounce=0.9),
-    "child":        dict(stride=1.05, arm=1.20, slow=0.80, lean=0, sway=1.0, bounce=1.3),
-    "elder_male":   dict(stride=0.65, arm=0.50, slow=1.35, lean=6, sway=1.2, bounce=0.6),
-    "elder_female": dict(stride=0.60, arm=0.45, slow=1.40, lean=5, sway=1.5, bounce=0.5),
+    "male":         dict(energy=1.00, stride=1.00, arm=1.00, slow=1.00, lean=0, sway=1.0, bounce=1.0),
+    "female":       dict(energy=0.90, stride=0.90, arm=0.80, slow=0.95, lean=0, sway=1.8, bounce=0.9),
+    "child":        dict(energy=1.10, stride=1.05, arm=1.20, slow=0.80, lean=0, sway=1.0, bounce=1.3),
+    "elder_male":   dict(energy=0.55, stride=0.65, arm=0.50, slow=1.35, lean=6, sway=1.2, bounce=0.6),
+    "elder_female": dict(energy=0.50, raise_max=55, stride=0.60, arm=0.45, slow=1.40, lean=5, sway=1.5, bounce=0.5),
 }
 
 def blend_files(char=None):
@@ -122,18 +122,20 @@ def c_idle(P, t, st, s):
     P.both("shin", -3 - 1.5*(1 + math.sin(ph))/2, xr=-3 - 1.5*(1 - math.sin(ph))/2)
     P.both("foot", 1)
 
-def gait(P, t, st, s, run):
+def gait(P, t, st, s, run, short=1.0):
+    """walk / run cycle; short < 1 = small steps (a long tight skirt)"""
     ph = 2*math.pi*t
-    S = st["stride"]*(1.6 if run else 1.0); A = st["arm"]*(1.6 if run else 1.0)
+    S = st["stride"]*(1.45 if run else 1.0)*short; A = st["arm"]*(1.6 if run else 1.0)
     for side, off in (("L", 0.0), ("R", math.pi)):
         p = ph + off
         swing = math.cos(p) > 0                                    # thigh moving forward
         th = (24 if not run else 34)*S*math.sin(p) + (3 if not run else 10)
-        knee = -(6 + (48 if not run else 85)*S*max(0.0, math.cos(p))**1.5)
+        knee = -(6 + (48 if not run else 78)*S*max(0.0, math.cos(p))**1.5)*(1 if short == 1.0 else 0.8)
         if run: knee -= 20*max(0.0, -math.cos(p))                  # stance knee soaks the landing
         else:   knee -= 8*max(0.0, math.sin(p))*max(0.0, -math.cos(p))
         foot = 10*math.sin(p + 0.5) - (8 if run else 3)*max(0.0, -math.sin(p))
-        P.rot("thigh." + side, th, 0, 2); P.rot("shin." + side, knee); P.rot("foot." + side, foot)
+        P.rot("thigh." + side, th, 0, 5 if (run and short < 1.0) else 2)   # short running steps: legs a little apart so the thighs don't rub
+        P.rot("shin." + side, knee); P.rot("foot." + side, foot)
         P.rot("toe." + side, -10*max(0.0, -math.sin(p + 0.4)) + 12*max(0.0, -math.cos(p))*(math.sin(p) < 0))
     bob = (0.022 if not run else 0.035)*s*st["bounce"]
     P.lift("hips", -bob*(math.sin(ph)**2) + (0.0 if not run else -0.03*s))
@@ -147,6 +149,9 @@ def gait(P, t, st, s, run):
 
 def c_walk(P, t, st, s): gait(P, t, st, s, False)
 def c_run(P, t, st, s): gait(P, t, st, s, True)
+# long pha sin / sarong: small quick steps, the knees stay inside the cloth
+def c_walk_skirt(P, t, st, s): gait(P, t, st, s, False, short=0.38)
+def c_run_skirt(P, t, st, s): gait(P, t, st, s, True, short=0.30)
 
 def ghost_body(P, t, st, s, glide):
     """floating, hunched, head lolling to one side, arms hanging dead, toes pointing down"""
@@ -170,18 +175,178 @@ def ghost_body(P, t, st, s, glide):
 def c_ghost_idle(P, t, st, s): ghost_body(P, t, st, s, 0.0)
 def c_ghost_glide(P, t, st, s): ghost_body(P, t, st, s, 1.0)
 
+
+# ---------------------------------------------------------------- hands
+def hand(P, side, shape, k=1.0):
+    """finger poses (left-side convention): relax, fist, rock (index + pinky up), point, jeeb (Thai dance:
+    thumb and index tips together, the other fingers fanned and bent back), wong (flat, fingers bent back)"""
+    sd = "." + side
+    def fing(name, a, b_, c): P.rot(f"{name}_01{sd}", a*k); P.rot(f"{name}_02{sd}", b_*k); P.rot(f"{name}_03{sd}", c*k)
+    if shape == "fist":
+        for f in ("index", "middle", "ring", "pinky"): fing(f, -80, -95, -65)
+        P.rot("thumb_01" + sd, -30*k, 0, -20*k); P.rot("thumb_02" + sd, -50*k); P.rot("thumb_03" + sd, -40*k)
+    elif shape == "rock":
+        fing("index", 0, 0, 0); fing("pinky", 0, 0, 0)
+        fing("middle", -80, -95, -65); fing("ring", -80, -95, -65)
+        P.rot("thumb_01" + sd, -35*k, 0, -25*k); P.rot("thumb_02" + sd, -50*k); P.rot("thumb_03" + sd, -40*k)
+    elif shape == "point":
+        fing("index", 0, 0, 0)
+        for f in ("middle", "ring", "pinky"): fing(f, -80, -95, -65)
+        P.rot("thumb_01" + sd, -30*k, 0, -20*k); P.rot("thumb_02" + sd, -40*k)
+    elif shape == "jeeb":
+        fing("index", -45, -55, -35)
+        for f, sp in (("middle", -6), ("ring", 0), ("pinky", 6)):
+            P.rot(f"{f}_01{sd}", 8*k, 0, sp*k); P.rot(f"{f}_02{sd}", 0); P.rot(f"{f}_03{sd}", 0)
+        P.rot("thumb_01" + sd, -40*k, 10*k, -30*k); P.rot("thumb_02" + sd, -30*k); P.rot("thumb_03" + sd, -20*k)
+    elif shape == "wong":
+        for f in ("index", "middle", "ring", "pinky"): fing(f, 10, 0, 0)
+        P.rot("thumb_01" + sd, -15*k, 0, -10*k); P.rot("thumb_02" + sd, -10*k)
+    else:   # relax
+        for f in ("index", "middle", "ring", "pinky"): fing(f, -14, -18, -14)
+        P.rot("thumb_01" + sd, -8); P.rot("thumb_02" + sd, -10)
+
+# arms go no higher than this above the A-pose rest: past ~75 deg the side of the chest (skinned partly to the
+# arm) bulges out through shirts - linear skinning, the same in Roblox
+RAISE_MAX = 70
+
+def arm(P, side, raise_, fwd, bend, wrist=0.0, twist=0.0, dev=0.0):
+    """one arm, degrees: raise_ (+ up from the A-pose rest), fwd (+ forward), elbow bend (+ bent), wrist (+ bent back)"""
+    raise_ = min(raise_, P.raise_max)
+    P.rot("upper_arm." + side, raise_, twist, -fwd); P.rot("forearm." + side, 0, 0, -bend); P.rot("hand." + side, wrist, 0, dev)
+
+def legs_bounce(P, depth, side_shift=0.0, e=1.0):
+    """knees dip by `depth` deg, feet stay planted; side_shift (deg) moves the hips over one foot"""
+    P.both("thigh", depth*0.55, 0, 2, zr=2); P.both("shin", -depth); P.both("foot", depth*0.45)
+    P.rot("thigh.L", depth*0.55, 0, 2 + side_shift); P.rot("thigh.R", depth*0.55, 0, 2 - side_shift)
+
+def beat(t, n, sharp=2.0):
+    """0..1 pulse per beat (n beats per loop), 1 on the beat, falling off"""
+    ph = (t*n) % 1.0
+    return math.exp(-sharp*ph*4) if ph < 0.5 else math.exp(-sharp*(1 - ph)*4)*0.3
+
+# ---------------------------------------------------------------- dances (tempo fixed: they keep the music's beat)
+def c_ramwong(P, t, st, s):
+    """รำวง: small steps in place on the beat, one hand ตั้งวง high and one จีบ low, swapping every 4 beats"""
+    e = st["energy"]; ph = 2*math.pi*t
+    half = (t*2) % 1.0; sw = 1 if t < 0.5 else -1                 # which hand is high
+    mix_ = sm(0.0, 0.12, half)*(1 - sm(0.88, 1.0, half))            # swap the hands smoothly
+    step = math.sin(ph*4)                                           # 8 beats: a step per beat
+    dip = 6 + 6*abs(step)*e
+    P.lift("hips", -0.012*s*abs(step)*e)
+    for side, sgn in (("L", 1), ("R", -1)):
+        lift_ = max(0.0, step*sgn)
+        P.rot("thigh." + side, dip*0.5 + 14*lift_*e, 0, 3); P.rot("shin." + side, -dip - 22*lift_*e); P.rot("foot." + side, dip*0.4 + 6*lift_)
+    P.rot("hips", 0, 6*math.sin(ph*2), 2*step)
+    P.rot("spine", 3, -5*math.sin(ph*2), -3*step); P.rot("chest", 2, -4*math.sin(ph*2), -2*step)
+    P.rot("neck", 2, 0, 4*step); P.rot("head", 4, 8*math.sin(ph*2 + 0.5), 5*step)
+    for side, hi in (("L", sw > 0), ("R", sw < 0)):
+        h = mix_ if hi else 0.0                                      # 1 = high ตั้งวง, 0 = low จีบ
+        arm(P, side, raise_=-20 + 85*h, fwd=40 - 35*h, bend=80 + 15*h, wrist=35 + 15*h)
+        hand(P, side, "wong" if h > 0.5 else "jeeb")
+    P.both("shoulder", 3)
+
+def c_wan_rock(P, t, st, s):
+    """🤘 up on the right, head-banging on the beat, knees bouncing, left hand loose"""
+    e = st["energy"]; b = beat(t, 8)
+    legs_bounce(P, 8 + 10*b*e, 3*math.sin(2*math.pi*t*2))
+    P.lift("hips", -0.015*s*b*e)
+    P.rot("spine", -4 + 6*b*e, 6*math.sin(2*math.pi*t*2)); P.rot("chest", -3 + 5*b*e)
+    P.rot("neck", 4 + 14*b*e); P.rot("head", 6 + 16*b*e, 0, 4*math.sin(2*math.pi*t*2))
+    pump = math.sin(2*math.pi*t*8)
+    arm(P, "R", raise_=64 + 8*pump*e, fwd=20, bend=55 - 15*pump*e, wrist=10); hand(P, "R", "rock")
+    arm(P, "L", raise_=-25, fwd=10 + 6*b, bend=30 + 15*b, wrist=-10); hand(P, "L", "relax")
+    P.both("shoulder", 4*b*e)
+
+def c_wan_bounce(P, t, st, s):
+    """knee bounce with alternate shoulder shimmy, arms swinging loose across the body"""
+    e = st["energy"]; b = beat(t, 8, 1.5); alt = math.sin(2*math.pi*t*4)
+    legs_bounce(P, 10 + 12*b*e, 4*alt)
+    P.lift("hips", -0.02*s*b*e)
+    P.rot("hips", 0, 10*alt*e, 3*alt)
+    P.rot("spine", 4, -8*alt*e, -3*alt); P.rot("chest", 3, -6*alt*e)
+    P.rot("shoulder.L", 10*max(0.0, alt)*e); P.rot("shoulder.R", 10*max(0.0, -alt)*e)
+    P.rot("neck", 4*b); P.rot("head", 6*b, 10*alt, 0)
+    arm(P, "L", raise_=-15, fwd=25 + 25*alt*e, bend=50 + 20*b, wrist=-10); hand(P, "L", "fist", 0.6)
+    arm(P, "R", raise_=-15, fwd=25 - 25*alt*e, bend=50 + 20*b, wrist=-10); hand(P, "R", "fist", 0.6)
+
+def c_wan_point(P, t, st, s):
+    """step-touch side to side, pointing forward and up with the hand on the stepping side"""
+    e = st["energy"]; ph = 2*math.pi*t; side = math.sin(ph*2)       # 2 step-touches each way per loop
+    b = beat(t, 8)
+    legs_bounce(P, 8 + 8*b*e, 7*side*e)
+    P.rot("thigh.L", 6 + 6*max(0.0, -side)*e, 0, 2 + 7*side*e + 5*max(0.0, -side)*e)
+    P.rot("thigh.R", 6 + 6*max(0.0, side)*e, 0, 2 - 7*side*e + 5*max(0.0, side)*e)
+    P.rot("hips", 0, 0, 5*side*e); P.rot("spine", 2, 8*side*e, -4*side*e); P.rot("chest", 2, 6*side*e)
+    P.rot("head", 4 + 6*b, -10*side, 4*side)
+    for sd, sg in (("L", 1), ("R", -1)):
+        on = max(0.0, side*sg)
+        arm(P, sd, raise_=-20 + 78*on*e, fwd=30 + 40*on, bend=60 - 45*on, wrist=0); hand(P, sd, "point" if on > 0.3 else "fist", 0.8)
+
+def c_wan_cool(P, t, st, s):
+    """arms crossed, leaning back on one leg, nodding to the beat (the refs standing with crossed arms)"""
+    e = st["energy"]; b = beat(t, 8, 1.2); ph = 2*math.pi*t
+    P.rot("thigh.L", 4, 0, 6); P.rot("shin.L", -4); P.rot("thigh.R", 6 + 2*b, 0, 3); P.rot("shin.R", -9 - 3*b); P.both("foot", 4)
+    P.rot("hips", 0, 6, 4 + 1.5*math.sin(ph)); P.lift("hips", -0.005*s*b)
+    P.rot("spine", -5, -4, -3); P.rot("chest", -3, -3)
+    P.rot("neck", 3 + 6*b*e); P.rot("head", 4 + 8*b*e, 8*math.sin(ph), -4)
+    arm(P, "L", raise_=-16, fwd=55, bend=96, wrist=0); hand(P, "L", "relax")      # forearms across the chest, left one on top
+    arm(P, "R", raise_=-32, fwd=60, bend=84, wrist=0); hand(P, "R", "relax")
+    P.both("shoulder", 3)
+
+def c_wan_hands_up(P, t, st, s):
+    """both hands up waving side to side, bouncing"""
+    e = st["energy"]; ph = 2*math.pi*t; b = beat(t, 8); wave = math.sin(ph*2)
+    legs_bounce(P, 8 + 12*b*e, 4*wave)
+    P.lift("hips", -0.018*s*b*e)
+    P.rot("hips", 0, 0, 4*wave); P.rot("spine", -3, 0, -6*wave*e); P.rot("chest", -2, 0, -4*wave*e)
+    P.rot("head", -4 + 6*b, 0, 8*wave)
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=RAISE_MAX, fwd=10, bend=18 + 8*b, wrist=10, dev=0)
+        hand(P, sd, "wong")
+    up = min(RAISE_MAX*min(1.0, 0.7 + e*0.4), P.raise_max)
+    P.rot("upper_arm.L", up, 0, -24 - 12*wave*e); P.rot("upper_arm.R", up, 0, -24 + 12*wave*e)   # a bit forward: clear of the armpit fold
+
+def c_ghost_dance(P, t, st, s):
+    """ผีเต้น: floating, jerking from pose to pose on a broken rhythm, limbs out of step, head rolling"""
+    stops = [0.0, 0.07, 0.12, 0.25, 0.31, 0.44, 0.5, 0.58, 0.69, 0.75, 0.86, 0.93]
+    q = max(x for x in stops if x <= t); nxt = next((x for x in stops if x > q), 1.0)
+    u = sm(0.0, 0.35, (t - q)/(nxt - q))                           # snap fast to each pose, then hold
+    def pose(k):
+        r = [math.sin(k*12.9898 + i*78.233)*43758.5453 % 1.0 for i in range(10)]
+        return r
+    a, c = pose(stops.index(q)), pose((stops.index(q) + 1) % len(stops))
+    v = [a[i] + (c[i] - a[i])*u for i in range(10)]
+    P.lift("root", 0.07*s + 0.03*s*math.sin(2*math.pi*t))
+    P.rot("spine", 10 + 20*(v[0] - 0.5), 30*(v[1] - 0.5), 20*(v[2] - 0.5)); P.rot("chest", 8, 20*(v[1] - 0.5))
+    P.rot("neck", 12 + 20*(v[3] - 0.5), 30*(v[4] - 0.5), 25*(v[5] - 0.5)); P.rot("head", 15 + 25*(v[6] - 0.5), 40*(v[4] - 0.5), 30*(v[5] - 0.5))
+    arm(P, "L", raise_=-30 + (RAISE_MAX + 30)*v[7], fwd=60*v[8], bend=80*v[9], wrist=-40); hand(P, "L", "wong")
+    arm(P, "R", raise_=-30 + (RAISE_MAX + 30)*v[2], fwd=60*v[0], bend=80*v[3], wrist=-40); hand(P, "R", "wong")
+    for sd, k in (("L", v[6]), ("R", v[8])):
+        P.rot("thigh." + sd, 4 + 8*(k - 0.3), 0, 4); P.rot("shin." + sd, -8 - 14*k); P.rot("foot." + sd, -38); P.rot("toe." + sd, -20)
+
 CLIPS = {   # name: (fn, frames for the adult man)
     "idle": (c_idle, 96),
     "walk": (c_walk, 34),
     "run": (c_run, 20),
+    "walk_skirt": (c_walk_skirt, 28),
+    "run_skirt": (c_run_skirt, 18),
     "ghost_idle": (c_ghost_idle, 120),
     "ghost_glide": (c_ghost_glide, 72),
+    # dances: 120 bpm (a beat = 15 frames), the same tempo for everyone
+    "ramwong": (c_ramwong, 120),
+    "wan_rock": (c_wan_rock, 120),
+    "wan_bounce": (c_wan_bounce, 120),
+    "wan_point": (c_wan_point, 120),
+    "wan_cool": (c_wan_cool, 120),
+    "wan_hands_up": (c_wan_hands_up, 120),
+    "ghost_dance": (c_ghost_dance, 120),
 }
+FIXED_TEMPO = {"idle", "ramwong", "wan_rock", "wan_bounce", "wan_point", "wan_cool", "wan_hands_up", "ghost_dance"}
 
 def add_anims(char):
     rig = bpy.data.objects["HumanRig"]; st = STYLE[char]
     s = (rig.data.bones["head"].tail_local.z - rig.data.bones["hips"].head_local.z)/(1.818 - 0.880)
-    P = Poser(rig)
+    P = Poser(rig); P.raise_max = st.get("raise_max", RAISE_MAX)     # an old, bent back can't lift the arms as high
     if not rig.animation_data: rig.animation_data_create()
     made = {}
     for name, (fn, frames) in CLIPS.items():
@@ -189,7 +354,7 @@ def add_anims(char):
         if old: bpy.data.actions.remove(old)
         act = bpy.data.actions.new(name); act.use_fake_user = True
         rig.animation_data.action = act
-        n = max(8, round(frames*(st["slow"] if name != "idle" else 1.0)))
+        n = max(8, round(frames*(st["slow"] if name not in FIXED_TEMPO else 1.0)))
         for f in range(n + 1):
             fn(P, (f % n)/n, st, s); P.key(f + 1)
         act.frame_range = (1, n + 1)
@@ -212,6 +377,16 @@ def anims_all():
     return out
 
 # ---------------------------------------------------------------- Roblox export
+def fbx(path, **kw):
+    """export, retrying: Windows sometimes refuses to open a file that was just written (virus scanner, indexer)"""
+    import time
+    for attempt in range(6):
+        try:
+            return bpy.ops.export_scene.fbx(filepath=path, **kw)
+        except RuntimeError as e:
+            if "Errno 22" not in str(e) and "Errno 13" not in str(e) or attempt == 5: raise
+            time.sleep(1.5*(attempt + 1))
+
 def export_model(path):
     """Body + every hair style + every outfit + the rig, in studs; hidden pieces come along (switch them in Roblox)"""
     rig = bpy.data.objects["HumanRig"]
@@ -225,7 +400,7 @@ def export_model(path):
     act = rig.animation_data.action if rig.animation_data else None
     if rig.animation_data: rig.animation_data.action = None
     for p in rig.pose.bones: p.rotation_euler = (0, 0, 0); p.location = (0, 0, 0)
-    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'ARMATURE', 'MESH'}, global_scale=STUDS_PER_M,
+    fbx(path, use_selection=True, object_types={'ARMATURE', 'MESH'}, global_scale=STUDS_PER_M,
                              apply_scale_options='FBX_SCALE_NONE', axis_forward='-Z', axis_up='Y', bake_space_transform=False,
                              add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=True,
                              mesh_smooth_type='FACE', path_mode='STRIP', embed_textures=False, bake_anim=False, use_mesh_modifiers=False)
@@ -238,7 +413,7 @@ def export_clip(path, clip):
     act = bpy.data.actions[clip]; rig.animation_data.action = act
     f0, f1 = (int(x) for x in act.frame_range)
     sc = bpy.context.scene; sc.frame_start, sc.frame_end = f0, f1          # the exporter bakes the scene range
-    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'ARMATURE'}, global_scale=STUDS_PER_M,
+    fbx(path, use_selection=True, object_types={'ARMATURE'}, global_scale=STUDS_PER_M,
                              apply_scale_options='FBX_SCALE_NONE', axis_forward='-Z', axis_up='Y', bake_space_transform=False,
                              add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=True,
                              bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=False,

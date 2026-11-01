@@ -99,6 +99,11 @@ class Body:
         tb = bm.copy(); tb.faces.ensure_lookup_table()
         bmesh.ops.delete(tb, geom=[f for f in tb.faces if not all(v.index in trunk for v in f.verts)], context='FACES')
         self.trunk = BVHTree.FromBMesh(tb); tb.free(); bm.free()
+        self.nbr = [[] for _ in range(nv)]
+        for e in me.edges:
+            a_, c_ = e.vertices; self.nbr[a_].append(c_); self.nbr[c_].append(a_)
+        ua = [i for i, n in enumerate(self.names) if n.startswith("upper_arm")]
+        self.armw = self.w[:, ua].sum(1) if ua else np.zeros(nv)                # how much each vertex follows an upper arm
         self.kd = KDTree(nv)
         for i, p in enumerate(self.co): self.kd.insert(p, i)
         self.kd.balance()
@@ -157,6 +162,11 @@ def top(sleeve, hem=1.05, loose=0.006, hang=0.010):
         o = loose
         if torso(r): o += hang*(1 - sst(hem, hem + 0.45, tz))        # hangs out a little at the hem
         if arm(r): o += 0.006*sst(sleeve - 0.5, sleeve, ap)*(sleeve < 1.8)   # short sleeves open out
+        # roomier at the armpit and shoulder: with the arm raised, skin and cloth skinned to the same bones
+        # don't bend the same way, and a tight shirt lets the skin through there
+        if arm(r): o += 0.016*(1 - sst(0.0, 0.6, ap))
+        if arm(r) and sleeve > 1.1: o += 0.020*math.exp(-((ap - 1.0)/0.30)**2)   # elbow: the inside folds through when it bends
+        if torso(r): o += 0.012*sst(1.9, 2.4, tz)*(1 - sst(2.9, 3.1, tz))
         return o
     return test, off
 
@@ -169,14 +179,17 @@ def bottom(length, top_tz=1.05, loose=0.007, flare=0.0, puff=0.0, wide=0.0):
             o += flare*sst(length - 0.6, length, lp)
             o += puff*math.sin(math.pi*min(lp/length, 1.0))**0.8
             o += wide*sst(0.15, 1.3, lp)
+            o += 0.020*(1 - sst(0.0, 0.60, lp))          # hip crease and seat: room for the thigh lifting (running)
+            if length > 1.3: o += 0.020*math.exp(-((lp - 1.0)/0.25)**2)   # knee of long trousers
         elif torso(r):
+            o += 0.008*(1 - sst(0.3, 0.9, tz))
             o += puff*0.45*sst(top_tz, top_tz - 0.6, tz)
         return o
     return test, off
 
 def boots(top_lp=1.55):
     return (lambda r, tz, ap, lp: (leg(r) and lp >= top_lp) or foot(r),
-            lambda r, tz, ap, lp: 0.006 + 0.008*sst(top_lp + 0.25, top_lp, lp)*leg(r))
+            lambda r, tz, ap, lp: 0.006 + 0.008*sst(top_lp + 0.25, top_lp, lp)*leg(r) + 0.010*math.exp(-((lp - 2.0)/0.25)**2))   # roomy ankle
 
 # --- strip paths, in body landmarks (functions of Body -> list of world points)
 def _front(b, x, z, trunk=True): return b.surf((x, -2, z), (0, 1, 0), trunk)[0]
@@ -244,7 +257,7 @@ OUTFITS = {
                ("tube", "sash", 0.85, ("tz", 1.20), "plaid_pink", dict(clear=0.012, band=True)),
                ("strip", "sash_tails", path_sash_tails, 0.075, "plaid_pink", dict(clear=0.02)),
                ("hat", "ngob", "straw")],
-    "sarong": [("tube", "sarong", 0.70, ("lp", 2.0), "plaid_red", dict(clear=0.012, roll=True)),
+    "sarong": [("tube", "sarong", 0.70, ("lp", 2.0), "plaid_red", dict(clear=0.024, roll=True)),
                ("strip", "shoulder_cloth", path_shoulder_cloth, 0.12, "red_cloth", dict(clear=0.004, thick=0.004))],
     "red_shirt": [("shell", "shirt", *top(1.98, hem=0.40, loose=0.008, hang=0.012), "red_knit"),
                   ("shell", "trousers", *bottom(1.97, top_tz=0.40, loose=0.008, flare=0.006), "black_cotton")],
@@ -255,7 +268,7 @@ OUTFITS = {
                     ("shell", "pants", *bottom(2.0, top_tz=0.40, loose=0.010, wide=0.035, flare=0.015), "black_baggy"),
                     ("shoe", "shoes", "skate_black")],
     "wan_denim": [("shell", "jacket", *top(1.97, hem=0.55, loose=0.012, hang=0.012), "denim_jacket"),
-                  ("shell", "jeans", *bottom(1.98, top_tz=0.55, loose=0.006), "jeans_ripped"),
+                  ("shell", "jeans", *bottom(1.98, top_tz=0.55, loose=0.008), "jeans_ripped"),
                   ("helmet", "helmet", "helmet_white"), ("helmet", "visor", "visor_black")],
     "wan_camo": [("shell", "tee", *top(1.2, hem=0.40, loose=0.012, hang=0.018), "black_tee"),
                  ("shell", "pants", *bottom(1.98, top_tz=0.40, loose=0.012, wide=0.025), "camo"),
@@ -263,12 +276,12 @@ OUTFITS = {
                  ("helmet", "helmet", "helmet_white"), ("helmet", "visor", "visor_black")],
     # ---- women (refs: เสื้อแขนกระบอก + ผ้าซิ่น, เสื้อครามพาดผ้า, เสื้อขาว + สไบ + ซิ่นตีนจก, ผ้าแถบ + โจงกระเบน)
     "blouse_sin": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "pink_blouse"),
-                   ("tube", "sin", 1.30, ("lp", 1.62), "sin_purple", dict(clear=0.010))],
+                   ("tube", "sin", 1.30, ("lp", 1.62), "sin_purple", dict(clear=0.024))],
     "indigo_scarf": [("shell", "shirt", *top(1.97, hem=0.35, loose=0.005, hang=0.008), "indigo"),
-                     ("tube", "sin", 1.30, ("lp", 1.92), "sin_ikat", dict(clear=0.010)),
+                     ("tube", "sin", 1.30, ("lp", 1.92), "sin_ikat", dict(clear=0.024)),
                      ("strip", "scarf", path_scarf, 0.10, "scarf_stripe", dict(clear=0.012))],
     "sabai": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "white_blouse"),
-              ("tube", "sin", 1.30, ("lp", 1.92), "sin_tinjok", dict(clear=0.010)),
+              ("tube", "sin", 1.30, ("lp", 1.92), "sin_tinjok", dict(clear=0.024)),
               ("strip", "sabai", path_sabai, 0.12, "sabai_red", dict(clear=0.012))],
     "chest_wrap": [("shell", "wrap", lambda r, tz, ap, lp: torso(r) and 1.80 <= tz < 2.35, lambda r, tz, ap, lp: 0.004, "red_satin"),
                    ("shell", "chong", *bottom(1.30, top_tz=0.92, loose=0.008, puff=0.030), "maroon"),
@@ -725,6 +738,14 @@ def build_shell(b, spec, faces):
     def out_v(vi):
         if vi not in vmap:
             o = off(b.reg[vi], b.tz[vi], b.ap[vi], b.lp[vi])*s
+            if b.reg[vi] == "torso":
+                # skin on the side of the chest is partly skinned to the arm; when the arm goes up it bulges out
+                # past a shell at the usual distance, so the cloth stands off further where the arm pulls the skin
+                o += 0.06*s*min(1.0, b.armw[vi]*3.0)
+            elif b.reg[vi].startswith("arm") and (b.ring[vi] >= 0 or b.ap[vi] < 0.15):
+                o += 0.035*s                                    # the armpit itself (trunk-ring vertices held by the arm)
+            if b.reg[vi] == "torso" and b.tz[vi] < 0:
+                o += 0.012*s                                    # crotch: room for the thighs lifting
             vmap[vi] = msh.vert(Vector(b.co[vi]) + Vector(b.nrm[vi])*o, vweights(b, vi), vi)
         return vmap[vi]
     edges = {}
@@ -798,6 +819,10 @@ def build_tube(b, spec, under=None):
         rr = np.concatenate([r[-4:-1], r, r[1:4]])
         r = np.maximum(r, np.convolve(rr, np.ones(5)/5, 'same')[3:-3]); r[-1] = r[0]    # smoothing never cuts into the body
         R[i] = r; prev = r
+    if not band:   # a little extra room low at the back, where the back leg's calf and heel swing in a stride
+        dn_ = (z0 - zs)/max(z0 - z1, 1e-6)
+        R += 0.016*s*(dn_**2)[:, None]*np.maximum(0.0, -np.cos(th))[None, :]
+        R += 0.018*s*(dn_**4)[:, None]                          # and a slight flare at the hem all round
     msh = Mesh(); ids = np.zeros((rows, seg + 1), int); idi = np.zeros((rows, seg + 1), int)
     mode = PATTERNS[pat][1]
     arc = np.zeros((rows, seg + 1))
@@ -812,10 +837,14 @@ def build_tube(b, spec, under=None):
             _, vi, _ = b.kd.find(p); w = vweights(b, vi)
             if band: ww = w
             else:
-                # a skirt stays one tube: mostly the hips, plus a little of both thighs (more of the near one),
-                # never one thigh alone (that splits the skirt into trouser legs when walking)
-                k = 0.30*dn; wl = 0.5 + 0.5*max(-1.0, min(1.0, p.x/(0.08*s)))
-                skirt = {"hips": 1 - k, "thigh.L": k*wl, "thigh.R": k*(1 - wl)}
+                # a skirt follows the legs lower down: outside each leg it is that thigh (and shin near the hem),
+                # across the front and back it blends evenly from one leg to the other, so the cloth stretches
+                # between the legs as one smooth panel instead of the knees pushing through it
+                k = 0.90*sst(0.0, 0.35, dn) + 0.10*sst(0.6, 1.0, dn); lx = abs(float(b.J["thigh.L"][0][0]))
+                wl = 0.5 + 0.5*max(-1.0, min(1.0, p.x/lx))
+                ks = 0.85*sst(0.40, 1.0, dn)                        # share of that leg given to the shin
+                skirt = {"hips": 1 - k, "thigh.L": k*wl*(1 - ks), "thigh.R": k*(1 - wl)*(1 - ks),
+                         "shin.L": k*wl*ks, "shin.R": k*(1 - wl)*ks}
                 e = sst(0.0, 0.25, dn)                              # waist: like the skin under it
                 ww = {g: w.get(g, 0)*(1 - e) + skirt.get(g, 0)*e for g in set(w) | set(skirt)}
             ids[i, j] = msh.vert(p, ww)
@@ -1055,6 +1084,24 @@ def clear_clothes():
     for m in list(bpy.data.materials):
         if m.name.startswith("Cloth_") and m.users == 0: bpy.data.materials.remove(m)
 
+def fix_armpit_weights(body, b):
+    """trunk-ring vertices held 100% by an upper arm (the armpit apex on some bodies) get the average weights of
+    themselves and their neighbours: skinned to the arm alone they fold out of every shirt when the arm goes up"""
+    fixed = 0
+    for vi in range(len(b.co)):
+        if b.ring[vi] < 0 or not b.reg[vi].startswith("arm") or b.armw[vi] < 0.98: continue
+        acc = {}
+        for nb in [vi] + b.nbr[vi]:
+            for g, x in vweights(b, nb).items(): acc[g] = acc.get(g, 0) + x
+        top = sorted(acc.items(), key=lambda t: -t[1])[:4]; tot = sum(x for _, x in top)
+        for g in body.vertex_groups: g.remove([vi])
+        for g, x in top:
+            body.vertex_groups[g].add([vi], x/tot, 'REPLACE'); b.w[vi, b.names.index(g)] = x/tot
+        for gi in range(b.w.shape[1]):
+            if b.names[gi] not in dict(top): b.w[vi, gi] = 0.0
+        b.armw[vi] = sum(x/tot for g, x in top if g.startswith("upper_arm")); fixed += 1
+    return fixed
+
 def add_clothes(char, outfits=None):
     """build every outfit of `char` on the Body in the current scene; first outfit shown, the rest hidden"""
     clear_clothes()
@@ -1065,6 +1112,7 @@ def add_clothes(char, outfits=None):
     faces = json.load(open(os.path.join(char_dir(char), NAMES[char] + "_clothes.json")))
     if faces["polys"] != len(body.data.polygons): raise RuntimeError(f"{char}: clothes file is for {faces['polys']} faces")
     b = Body(body, rig); made = {}
+    fix_armpit_weights(body, b)
     for oi, name in enumerate(outfits or CHAR_OUTFITS[char]):
         objs = []
         shell = Mesh(); shell_specs = [sp for sp in OUTFITS[name] if sp[0] == "shell"]
