@@ -598,12 +598,23 @@ local camViewParts: { { part: BasePart, relCF: CFrame } } = {}
 local camViewSourceTool: Tool? = nil
 local camViewVisibleState: boolean? = nil
 
+local mutedHandLights: { [Light]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
 local function hideHandToolInstance(d: Instance)
 	if d:IsA("BasePart") then
 		d.LocalTransparencyModifier = 1
 		d.CastShadow = false
-	elseif d:IsA("SpotLight") or d:IsA("PointLight") or d:IsA("SurfaceLight") then
+	elseif d:IsA("Light") then
 		d.Enabled = false
+		-- Server เปิดไฟในมือใหม่ทุกครั้งที่ถือไฟฉาย (Flashlight.server) → ปิดทับฝั่งเรา ไม่งั้นจะมีไฟ 2 ดวงสลับกันติดๆ ดับๆ
+		if not mutedHandLights[d] then
+			mutedHandLights[d] = true
+			d:GetPropertyChangedSignal("Enabled"):Connect(function()
+				if d.Enabled then
+					d.Enabled = false
+				end
+			end)
+		end
 	end
 end
 

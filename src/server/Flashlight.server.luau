@@ -40,6 +40,9 @@ local function hook(tool: Instance)
 	for _, d in ipairs(tool:GetDescendants()) do
 		if d:IsA("BasePart") then
 			d.CastShadow = false
+		elseif d:IsA("Light") then
+			-- ไฟอยู่ระดับเอว ถ้าเปิดเงาจะทอดเงาตัวละคร/แขนตัวเองเป็นแผ่นดำทับลำแสง (LightingStyle Realistic เงาคมมาก)
+			d.Shadows = false
 		end
 	end
 	-- หยิบขึ้นมาถือ (อยู่ใน Character) = สว่างทันที, เก็บเข้ากระเป๋า = ปิดไฟ

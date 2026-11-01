@@ -1344,7 +1344,8 @@ function MapBuilder.SetNightLighting()
 	Lighting.Ambient = Color3.fromRGB(12, 16, 22)
 	Lighting.OutdoorAmbient = Color3.fromRGB(18, 24, 30)
 	Lighting.EnvironmentDiffuseScale = 0.2
-	Lighting.EnvironmentSpecularScale = 0.25
+	Lighting.EnvironmentSpecularScale = 0.5
+	Lighting.ShadowSoftness = 0.15
 	Lighting.GlobalShadows = true
 	local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
 	if not atmo then
@@ -1389,9 +1390,9 @@ function MapBuilder.SetNightLighting()
 	end
 	dof.Enabled = true
 	dof.FocusDistance = 20
-	dof.InFocusRadius = 26
+	dof.InFocusRadius = 40
 	dof.NearIntensity = 0.1
-	dof.FarIntensity = 0.35
+	dof.FarIntensity = 0.15
 
 	-- Soft Film Blur บางๆ ลบความคมแข็งของพิกเซลให้เหมือนกล้องฟิล์มยุค 90s
 	local blur = Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?
@@ -1401,7 +1402,7 @@ function MapBuilder.SetNightLighting()
 		blur.Parent = Lighting
 	end
 	blur.Enabled = true
-	blur.Size = 1.4
+	blur.Size = 0
 end
 
 -- ฟังก์ชันดึงต้นกล้วยจาก Toolbox (ทั้งต้นใหญ่และต้นเล็กที่โหลดเพิ่ม) ไปปลูกแบบผสมไล่ระดับ "กอกล้วยธรรมชาติ" รอบร้าน!
@@ -4323,6 +4324,33 @@ function MapBuilder.MuteBrightProps()
 			end
 		end
 	end
+end
+
+-- จุดตะเกียงพายุบนโต๊ะร้าน: โชว์เปลวไฟ + PointLight ส้มอุ่นทอดเงา (ตัวตะเกียงไม่บังแสงตัวเอง) · รันซ้ำได้
+function MapBuilder.LightStormLantern(): boolean
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local imported = shack and shack:FindFirstChild("ImportedShack")
+	local flame = imported and imported:FindFirstChild("StormLantern_Neon") :: BasePart?
+	if not flame then
+		return false
+	end
+	flame.Transparency = 0
+	flame.Color = Color3.fromRGB(255, 150, 60)
+	for _, n in ipairs({ "StormLantern", "StormLantern_Glass", "StormLantern_Neon" }) do
+		local p = imported:FindFirstChild(n) :: BasePart?
+		if p then
+			p.CastShadow = false
+		end
+	end
+	local light = flame:FindFirstChild("LanternLight") :: PointLight? or Instance.new("PointLight")
+	light.Name = "LanternLight"
+	light.Color = Color3.fromRGB(255, 160, 85)
+	light.Brightness = 1.4
+	light.Range = 16
+	light.Shadows = true
+	light.Parent = flame
+	return true
 end
 
 -- ย้อมสีกระท่อมให้หลอน: สังกะสี/ไม้ เทาอมเขียวหม่นแบบขึ้นตะไคร่ ป้ายร้านเข้มกว่าอีกระดับ (รวม ShutterDoor)

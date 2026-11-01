@@ -33,7 +33,8 @@ local ASSETS = {
 -- 1. หมอกหนาว: Atmosphere มืดขรึมยามวิกาล + โทนสีหนังผีไทยยุค 90s
 ---------------------------------------------------------------------
 Lighting.EnvironmentDiffuseScale = 0.2
-Lighting.EnvironmentSpecularScale = 0.25
+Lighting.EnvironmentSpecularScale = 0.5
+Lighting.ShadowSoftness = 0.15
 
 local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
 if not atmo then
@@ -78,15 +79,15 @@ local dof = (Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?
 dof.Name = "NightDepthOfField"
 dof.Enabled = true
 dof.FocusDistance = 20
-dof.InFocusRadius = 26
+dof.InFocusRadius = 40
 dof.NearIntensity = 0.1
-dof.FarIntensity = 0.35
+dof.FarIntensity = 0.15
 dof.Parent = Lighting
 
 local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?) or Instance.new("BlurEffect")
 softBlur.Name = "SoftFilmBlur"
 softBlur.Enabled = true
-softBlur.Size = 1.4
+softBlur.Size = 0 -- ภาพคมเป็นค่าเริ่มต้น เบลอเฉพาะตอนเปิดตาทิพย์
 softBlur.Parent = Lighting
 
 -- Dynamic Focus + เอฟเฟกต์ฟุ้งพิเศษตอนพนมมือเปิดตาทิพย์ (PrayerSight)
@@ -312,10 +313,10 @@ local function updatePrayerOptics(active: boolean)
 		Size = if active then 38 else 32,
 	}):Play()
 	TweenService:Create(softBlur, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
-		Size = if active then 2.1 else 1.4,
+		Size = if active then 2.1 else 0,
 	}):Play()
 	TweenService:Create(dof, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
-		FarIntensity = if active then 0.48 else 0.35,
+		FarIntensity = if active then 0.48 else 0.15,
 	}):Play()
 	-- บีบขอบจอมืด (Vignette) เข้ามาเบาๆ ตอนเปิดตาทิพย์เพ่งจิตดูผี
 	local edgeTrans = if active then 0.16 else 0.36
