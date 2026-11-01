@@ -338,10 +338,17 @@ def st_bald_grey(b):                                        # ชายชรา
     b.shell(arc(55, 305), False, sym([(55, R(10)), (90, R(30)), (180, R(36))]), HAIRLINE,
             lambda th, ph: 0.009*key(abs(math.degrees(math.atan2(math.sin(th), math.cos(th)))), [(55, 0.2), (75, 1.0)]))
 
-def st_ghost_long(b):                                       # ผีผมยาว: straight hair to the chest, hanging over the face
-    b.shell(AZ, True, POLE, sym([(0, R(44)), (35, R(36)), (70, R(10)), (180, R(-20))]),
-            fade(0.016, 0.012, R(0), R(60)), hem=sym([(0, -0.42), (40, -0.48), (90, -0.58), (180, -0.66)]),
-            flare=sym([(0, 0.035), (90, 0.03), (180, 0.02)]), tip=0.012, rows=8, drop_rows=18, clear=0.014, jitter=0.04)
+GHOST_GAP = (26, 16)                                        # parting in front of the left eye: centre, width (degrees)
+def st_ghost_long(b):                                       # ผีผมยาว: straight hair to the chest, over the face, one eye peeking through
+    az = [R(a) for a in sorted(set(range(0, 360, 15)) | {a % 360 for a in range(-54, 55, 6)})]   # denser over the face
+    base = sym([(0, -0.42), (40, -0.48), (90, -0.58), (180, -0.66)])
+    def gap(th):
+        d = math.degrees(math.atan2(math.sin(th), math.cos(th)))
+        return math.exp(-((d - GHOST_GAP[0])/GHOST_GAP[1])**2)
+    b.shell(az, True, POLE, sym([(0, R(44)), (35, R(36)), (70, R(10)), (180, R(-20))]),
+            fade(0.016, 0.012, R(0), R(60)), hem=lambda th: base(th) + (0.6 - base(th))*gap(th),
+            flare=lambda th: sym([(0, 0.022), (90, 0.03), (180, 0.02)])(th)*(1 - gap(th)),
+            tip=0.012, rows=8, drop_rows=18, clear=0.014, jitter=0.04)
 
 STYLES = {
     "student": (st_student, ["HairBlack"]), "rong_song_sung": (st_rong_song_sung, ["HairBlack"]),
