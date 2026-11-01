@@ -233,6 +233,26 @@ class Build:
         ob.modifiers.new("Armature", 'ARMATURE').object = rig
         return ob
 
+def bind_to_body(ob, rig):
+    """long hair: follow the head at the top, the torso lower down, so turning the head doesn't swing the whole curtain.
+    Weights by height between the rest positions of the bone joints:
+    head above the skull base, then neck -> chest -> spine -> hips (legs walk underneath, hair stays with the hips)."""
+    mw = rig.matrix_world; z = {b: (mw @ rig.data.bones[b].head_local).z for b in ("head", "neck", "chest", "spine", "hips")}
+    sm = lambda x, a, b: 0.0 if x <= a else 1.0 if x >= b else (lambda t: t*t*(3 - 2*t))((x - a)/(b - a))
+    # (bone, weight(z)) - each a bump between joints; they sum to 1 everywhere
+    def weights(v):
+        h = sm(v, z["neck"] + 0.03, z["head"] + 0.03)                 # whole head down to just below the skull base
+        n = (1 - h)*sm(v, z["chest"] + 0.10, z["neck"] + 0.03)       # shoulders -> neck
+        c = (1 - h - n)*sm(v, z["spine"] + 0.03, z["chest"] + 0.06)
+        sp = (1 - h - n - c)*sm(v, z["hips"] + 0.02, z["spine"] + 0.05)
+        return {"head": h, "neck": n, "chest": c, "spine": sp, "hips": 1 - h - n - c - sp}
+    groups = {b: ob.vertex_groups.get(b) or ob.vertex_groups.new(name=b) for b in ("head", "neck", "chest", "spine", "hips")}
+    for v in ob.data.vertices:
+        for b, w in weights((ob.matrix_world @ v.co).z).items():
+            if w > 1e-4: groups[b].add([v.index], w, 'REPLACE')
+            else: groups[b].remove([v.index])
+    ob.modifiers["Armature"].use_deform_preserve_volume = True
+
 AZ = [R(a) for a in range(0, 360, 15)]                       # closed loop around the head
 def arc(a0, a1, step=15):                                   # open band, degrees
     n = max(2, round(abs(a1 - a0)/step)); return [R(a0 + (a1 - a0)*k/n) for k in range(n + 1)]
@@ -431,6 +451,8 @@ STYLES = {
     "ghost_floor": (st_ghost_floor, ["HairBlack"]), "ghost_floor_white": (st_ghost_floor, ["HairWhite"]),
     "ghost_messy": (st_ghost_messy, ["HairBlack"]), "ghost_messy_white": (st_ghost_messy, ["HairWhite"]),
 }
+# hair long enough to reach the shoulders/body is weighted onto the torso too (bind_to_body)
+BODY_BOUND = {"ghost_long", "ghost_long_white", "ghost_knee", "ghost_knee_white", "ghost_floor", "ghost_floor_white"}
 # first style = the one left visible
 CHAR_STYLES = {
     "male": ["student", "rong_song_sung", "side_part"],
@@ -457,6 +479,7 @@ def add_hair(char, styles=None):
     for i, name in enumerate(styles or CHAR_STYLES[char]):
         fn, mats = STYLES[name]; b = Build(h, mats); fn(b)
         ob = b.finish("Hair_" + name, rig); made[name] = ob
+        if name in BODY_BOUND: bind_to_body(ob, rig)
         ob.hide_render = i > 0; ob.hide_set(i > 0)
     for pb, r in zip(rig.pose.bones, poses): pb.rotation_euler = r
     print(char, {k: len(o.data.polygons) for k, o in made.items()})
