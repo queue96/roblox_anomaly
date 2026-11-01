@@ -14,7 +14,7 @@
 #   ball(...)   squashed sphere (bun, bow lobe, braid bead)
 # Angles: th = azimuth around the head (0 = face, +90 = character's left, 180 = back of head),
 #         ph = elevation from the head centre (+90 = crown). Lengths are x head size (s = 1 for the adult man).
-import bpy, bmesh, math, os, glob
+import bpy, bmesh, math, os, glob, random
 from mathutils import Vector, Matrix, noise
 from mathutils.bvhtree import BVHTree
 
@@ -81,11 +81,13 @@ class Head:
         F = Vector((0, -1, 0)); self.F = (F - self.U*F.dot(self.U)).normalized()
         self.L = self.U.cross(self.F).normalized()          # +X, the character's left
         self.s = (hi.z - lo.z)/0.235
+        self.foot = min(v.co.z for v in bm.verts)                # ground under the feet
         sk.free(); bm.free()
         # outward normals? (scripts recalc them, but don't trust it)
         loc, nrm, _, _ = self.all.find_nearest(self.C + self.U)
         self.flip = -1.0 if (self.C + self.U - loc).dot(nrm) < 0 else 1.0
         self.top = self.scalp(self.U)
+        self.hip_z = self.foot + 0.55*(self.C.z + self.top - self.foot)   # below this, hair hangs past the legs
 
     def dir(self, th, ph):
         hz = self.F*math.cos(th) + self.L*math.sin(th)
@@ -102,10 +104,15 @@ class Head:
     def on(self, th, ph, off=0.0):
         d = self.dir(th, ph); return self.C + d*(self.scalp(d) + off*self.s)
 
-    def push(self, p, clear=0.003):
+    def push(self, p, clear=0.003, out=None):
+        """keep p `clear` outside the body; with `out`, a point inside is carried out along that direction
+        (below the hips the nearest surface can be the wrong one, e.g. between the thighs)"""
         loc, nrm, _, _ = self.all.find_nearest(p)
         if loc is None: return p
         nrm = nrm*self.flip; side = (p - loc).dot(nrm)
+        if side < 0 and out is not None and p.z < self.hip_z:
+            hit = self.all.ray_cast(p + out*1.5, -out, 1.5)[0]
+            if hit: return hit + out*clear
         return p + nrm*(clear - side) if side < clear else p
 
 # ---------- primitives (all write into one bmesh, faces tagged with material slot) ----------
@@ -117,7 +124,7 @@ class Build:
         for f in self.bm.faces:
             if f not in before: f.material_index = m
 
-    def shell(self, thetas, closed, ph_top, ph_bot, thick, hem=None, flare=0.0, tip=None, rows=7, drop_rows=4, m=0, tuck=0.006, clear=0.004, jitter=0.0):
+    def shell(self, thetas, closed, ph_top, ph_bot, thick, hem=None, flare=0.0, tip=None, rows=7, drop_rows=4, m=0, tuck=0.006, clear=0.004, jitter=0.0, jitter_f=3.0, flare_curve=None, xrelax=0):
         """cap over the scalp; hem(th) = height (x s, relative to head centre) the hair hangs down to, None = no drop"""
         h, s = self.h, self.h.s; before = set(self.bm.faces); cols = []
         for th in thetas:
@@ -127,7 +134,7 @@ class Build:
                 ph = pt + (pb - pt)*i/rows
                 d = h.dir(th, ph); out.append(h.push(h.C + d*(h.scalp(d) + thick(th, ph)*s), 0.002))
             P0 = out[-1]; t0 = max(thick(th, pb), 0.004)*s; hz = h.horiz(th)
-            z_hem = h.C.z + (hem(th) + jitter*noise.noise(Vector((math.cos(th), math.sin(th), 0))*3.0))*s if hem else P0.z
+            z_hem = h.C.z + (hem(th) + jitter*noise.noise(Vector((math.cos(th), math.sin(th), 0))*jitter_f))*s if hem else P0.z
             L = max(P0.z - z_hem, 0.004*s)
             fl = flare(th) if callable(flare) else flare
             tt = (tip(th) if callable(tip) else tip) if tip is not None else thick(th, pb)
@@ -135,19 +142,34 @@ class Build:
             drop = []
             for k in range(1, drop_rows + 1):
                 f = k/drop_rows
-                drop.append(P0 + Vector((0, 0, -L*f)) + hz*fl*s*math.sin(f*math.pi/2))
-            drop = [h.push(p, clear*s) for p in drop]
-            for _ in range(3):                              # relax + re-push: no zigzag where it rests on the body
+                drop.append(P0 + Vector((0, 0, -L*f)) + hz*fl*s*(flare_curve(f) if flare_curve else math.sin(f*math.pi/2)))
+            drop = [h.push(p, clear*s, hz) for p in drop]
+            for _ in range(5):                              # relax + re-push: no zigzag where it rests on the body
                 drop = [drop[k] if k in (0, drop_rows - 1) else (drop[k - 1] + drop[k]*2 + drop[k + 1])/4 for k in range(drop_rows)]
-                drop = [h.push(p, clear*s) for p in drop]
+                drop = [h.push(p, clear*s, hz) for p in drop]
+            cols.append((out, drop, P0, t0, tt, hz, th, pb, L))
+        # side-to-side relax between neighbouring columns of similar length (long hair over hips / a hunched back)
+        n = len(cols)
+        for _ in range(xrelax):
+            new = []
+            for j, (out, drop, *rest) in enumerate(cols):
+                nb = [cols[(j + o) % n] for o in (-1, 1) if closed or 0 <= j + o < n]
+                nb = [c for c in nb if abs(c[8] - rest[-1]) < 0.08*s]
+                if nb:
+                    drop = [drop[k] if k == drop_rows - 1 else
+                            h.push((drop[k]*2 + sum((c[1][k] for c in nb), Vector()))/(2 + len(nb)), clear*s, rest[3]) for k in range(drop_rows)]
+                new.append((out, drop, *rest))
+            cols = new
+        built = []
+        for out, drop, P0, t0, tt, hz, th, pb, L in cols:
             inner = []
             for k in range(drop_rows, -1, -1):
                 p = drop[k - 1] if k else P0
                 w = t0 + (tt - t0)*(k/drop_rows)
-                inner.append(h.push(p - hz*w, clear*s*0.7))
+                inner.append(h.push(p - hz*w, clear*s*0.7, hz))
             d = h.dir(th, pb); inner.append(h.C + d*(h.scalp(d) - tuck))
-            cols.append([self.bm.verts.new(p) for p in out + drop + inner])
-        n = len(cols)
+            built.append([self.bm.verts.new(p) for p in out + drop + inner])
+        cols = built
         for j in range(n if closed else n - 1):
             a, b = cols[j], cols[(j + 1) % n]
             for i in range(len(a) - 1):
@@ -339,16 +361,61 @@ def st_bald_grey(b):                                        # ชายชรา
             lambda th, ph: 0.009*key(abs(math.degrees(math.atan2(math.sin(th), math.cos(th)))), [(55, 0.2), (75, 1.0)]))
 
 GHOST_GAP = (26, 16)                                        # parting in front of the left eye: centre, width (degrees)
-def st_ghost_long(b):                                       # ผีผมยาว: straight hair to the chest, over the face, one eye peeking through
-    az = [R(a) for a in sorted(set(range(0, 360, 15)) | {a % 360 for a in range(-54, 55, 6)})]   # denser over the face
-    base = sym([(0, -0.42), (40, -0.48), (90, -0.58), (180, -0.66)])
-    def gap(th):
-        d = math.degrees(math.atan2(math.sin(th), math.cos(th)))
-        return math.exp(-((d - GHOST_GAP[0])/GHOST_GAP[1])**2)
-    b.shell(az, True, POLE, sym([(0, R(44)), (35, R(36)), (70, R(10)), (180, R(-20))]),
-            fade(0.016, 0.012, R(0), R(60)), hem=lambda th: base(th) + (0.6 - base(th))*gap(th),
-            flare=lambda th: sym([(0, 0.022), (90, 0.03), (180, 0.02)])(th)*(1 - gap(th)),
-            tip=0.012, rows=8, drop_rows=18, clear=0.014, jitter=0.04)
+GHOST_AZ = [R(a) for a in sorted(set(range(0, 360, 15)) | {a % 360 for a in range(-54, 55, 6)})]   # denser over the face
+GHOST_LINE = sym([(0, R(44)), (35, R(36)), (70, R(10)), (180, R(-20))])
+
+def ghost_gap(th):
+    d = math.degrees(math.atan2(math.sin(th), math.cos(th)))
+    return math.exp(-((d - GHOST_GAP[0])/GHOST_GAP[1])**2)
+
+GHOST_AZ_LONG = [R(a) for a in sorted(set(range(0, 360, 10)) | {a % 360 for a in range(-54, 55, 6)})]
+def _ghost(b, base, drop_rows, flare=None, flare_curve=None, jitter=0.04, clear=0.014, long=False):
+    """straight ghost hair hanging to `base(th)` (x s from the head centre), parted over the left eye"""
+    flare = flare or sym([(0, 0.022), (90, 0.03), (180, 0.02)])
+    b.shell(GHOST_AZ_LONG if long else GHOST_AZ, True, POLE, GHOST_LINE, fade(0.016, 0.012, R(0), R(60)),
+            hem=lambda th: base(th) + (0.6 - base(th))*ghost_gap(th), flare=lambda th: flare(th)*(1 - ghost_gap(th)),
+            tip=0.012, rows=8, drop_rows=drop_rows, clear=clear, jitter=jitter, flare_curve=flare_curve, xrelax=4 if long else 0)
+
+def _height(h, frac):                                       # hem for a height above the floor (fraction of standing height)
+    top = h.C.z + h.top
+    return lambda th: (h.foot + frac*(top - h.foot) - h.C.z)/h.s
+
+def st_ghost_long(b):                                       # ผีผมยาว: to the chest
+    _ghost(b, sym([(0, -0.42), (40, -0.48), (90, -0.58), (180, -0.66)]), 18, clear=0.02)
+
+def st_ghost_knee(b):                                       # ผีผมยาวถึงเข่า
+    knee = _height(b.h, 0.29)
+    _ghost(b, lambda th: knee(th) + sym([(0, 0.04), (180, 0.0)])(th), 28, jitter=0.06, clear=0.03, long=True)
+
+def st_ghost_floor(b):                                      # ผีผมยาวลากดิน: reaches the floor and pools out behind
+    h = b.h; floor = (h.foot + 0.004 - h.C.z)/h.s
+    _ghost(b, lambda th: floor, 34, long=True, flare=sym([(0, 0.03), (60, 0.06), (120, 0.16), (180, 0.30)]),
+           flare_curve=lambda f: 0.25*math.sin(f*math.pi/2) + 0.75*f**8, jitter=0.0, clear=0.03)
+
+def st_ghost_messy(b):                                      # ผีผมยุ่ง: shoulder length, wild and tangled, strands over the face
+    h, s = b.h, b.h.s; rnd = random.Random(13)
+    wild = lambda th, ph: max(0.010, 0.026 + 0.020*noise.noise(h.dir(th, ph)*6.0))
+    base = sym([(0, -0.10), (40, -0.16), (90, -0.28), (180, -0.34)])
+    b.shell(GHOST_AZ, True, POLE, GHOST_LINE, wild, hem=lambda th: base(th) + (0.6 - base(th))*ghost_gap(th),
+            flare=lambda th: sym([(0, 0.03), (90, 0.07), (180, 0.06)])(th)*(1 - ghost_gap(th)),
+            tip=0.016, rows=8, drop_rows=6, clear=0.010, jitter=0.07, jitter_f=11.0)
+    n = 0
+    while n < 28:                                           # tangled clumps: out a little, then drooping
+        th = rnd.uniform(-math.pi, math.pi); ph = rnd.uniform(R(-30), R(70))
+        if abs(th) < R(60) and ph < R(40): continue          # not on the face
+        d = h.dir(th, ph); root = h.on(th, ph, 0.010)
+        w = (d + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(-0.9, 0.1))))
+        w.z -= 0.3; w.normalize()
+        L = rnd.uniform(0.04, 0.09)*s; droop = Vector((0, 0, -rnd.uniform(0.4, 1.0)))
+        mid = root + w*L*0.55; end = mid + (w + droop).normalized()*L*0.6
+        b.tube([root, mid, end], [0.016*s, 0.011*s, 0.0], sides=5)
+        n += 1
+    for dth in (-34, -20, -8, 42, 52):                      # strands hanging over the face (left eye stays clear)
+        th = R(dth); start = h.on(th, R(40), 0.010); pts = [start]
+        for k in range(1, 6):
+            p = h.on(th + R(rnd.uniform(-6, 6)), R(40 - k*16), 0.016)
+            pts.append(Vector((p.x, p.y, p.z)) + h.horiz(th)*0.004*s)
+        b.tube(pts, [0.008*s, 0.007*s, 0.007*s, 0.006*s, 0.004*s, 0.0], sides=5)
 
 STYLES = {
     "student": (st_student, ["HairBlack"]), "rong_song_sung": (st_rong_song_sung, ["HairBlack"]),
@@ -360,14 +427,17 @@ STYLES = {
     "curly_grey": (st_curly_grey, ["HairGrey"]), "bun_grey": (st_bun_grey, ["HairGrey"]),
     "long_white_beard": (st_long_white_beard, ["HairWhite"]), "bald_grey": (st_bald_grey, ["HairGrey"]),
     "ghost_long": (st_ghost_long, ["HairBlack"]), "ghost_long_white": (st_ghost_long, ["HairWhite"]),
+    "ghost_knee": (st_ghost_knee, ["HairBlack"]), "ghost_knee_white": (st_ghost_knee, ["HairWhite"]),
+    "ghost_floor": (st_ghost_floor, ["HairBlack"]), "ghost_floor_white": (st_ghost_floor, ["HairWhite"]),
+    "ghost_messy": (st_ghost_messy, ["HairBlack"]), "ghost_messy_white": (st_ghost_messy, ["HairWhite"]),
 }
 # first style = the one left visible
 CHAR_STYLES = {
     "male": ["student", "rong_song_sung", "side_part"],
-    "female": ["bob", "ponytail_bow", "ghost_long"],
+    "female": ["bob", "ponytail_bow", "ghost_long", "ghost_knee", "ghost_floor", "ghost_messy"],
     "child": ["juk", "klae", "pia", "ko", "child_short"],
     "elder_male": ["long_white_beard", "bald_grey"],
-    "elder_female": ["curly_grey", "bun_grey", "ghost_long_white"],
+    "elder_female": ["curly_grey", "bun_grey", "ghost_long_white", "ghost_knee_white", "ghost_floor_white", "ghost_messy_white"],
 }
 
 def clear_hair():
@@ -412,15 +482,20 @@ def preview(char, out):
     hair = sorted((o for o in bpy.data.objects if o.name.startswith("Hair_")), key=lambda o: CHAR_STYLES[char].index(o.name[5:]))
     skin = bpy.data.materials.new("_skin"); skin.diffuse_color = (0.78, 0.60, 0.48, 1)
     for o in sc.objects: o.hide_render = True
-    views, W, H, PX = [0, -40, -90, 180], 0.55*s, 0.62*s, 230
+    views, PX = [0, -40, -90, 180], 230
     cam = bpy.data.objects.new("_cam", bpy.data.cameras.new("_cam")); sc.collection.objects.link(cam)
-    cam.data.type = 'ORTHO'; cam.data.ortho_scale = len(views)*W
-    cam.location = ((len(views) - 1)*W/2 + h.C.x, h.C.y - 3, h.C.z - 0.11*s); cam.rotation_euler = (R(90), 0, 0); sc.camera = cam
+    cam.data.type = 'ORTHO'; cam.rotation_euler = (R(90), 0, 0); sc.camera = cam
     sc.render.engine = 'BLENDER_WORKBENCH'; sh = sc.display.shading
     sh.light = 'STUDIO'; sh.color_type = 'MATERIAL'; sh.show_cavity = True; sh.show_object_outline = True
-    sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = PX*len(views), int(PX*H/W), 100
+    sc.render.resolution_percentage = 100
     rows = []
     for ho in hair:
+        full = any(k in ho.name for k in ("knee", "floor"))  # long hair: whole body, wider cells
+        top = h.C.z + 0.20*s
+        W, H, zc = (1.25*s, top - h.foot + 0.05, (top + h.foot - 0.05)/2) if full else (0.55*s, 0.62*s, h.C.z - 0.11*s)
+        cam.data.ortho_scale = max(len(views)*W, H)
+        cam.location = ((len(views) - 1)*W/2 + h.C.x, h.C.y - 3, zc)
+        sc.render.resolution_x = PX*len(views); sc.render.resolution_y = int(PX*len(views)*H/(len(views)*W))
         temps = []
         for c_, ang in enumerate(views):
             mx = Matrix.Translation((c_*W + h.C.x, h.C.y, 0)) @ Matrix.Rotation(R(ang), 4, 'Z') @ Matrix.Translation((-h.C.x, -h.C.y, 0))
