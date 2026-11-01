@@ -160,14 +160,15 @@ def top(sleeve, hem=1.05, loose=0.006, hang=0.010):
         return o
     return test, off
 
-def bottom(length, top_tz=1.05, loose=0.007, flare=0.0, puff=0.0):
-    """trousers: trunk below `top_tz` and legs to leg parameter `length` (1 = knee, 2 = ankle)"""
+def bottom(length, top_tz=1.05, loose=0.007, flare=0.0, puff=0.0, wide=0.0):
+    """trousers: trunk below `top_tz` and legs to leg parameter `length` (1 = knee, 2 = ankle); `wide` = baggy legs"""
     test = lambda r, tz, ap, lp: (torso(r) and tz < top_tz) or (leg(r) and lp < length)
     def off(r, tz, ap, lp):
         o = loose
         if leg(r):
             o += flare*sst(length - 0.6, length, lp)
             o += puff*math.sin(math.pi*min(lp/length, 1.0))**0.8
+            o += wide*sst(0.15, 1.3, lp)
         elif torso(r):
             o += puff*0.45*sst(top_tz, top_tz - 0.6, tz)
         return o
@@ -247,6 +248,19 @@ OUTFITS = {
                ("strip", "shoulder_cloth", path_shoulder_cloth, 0.12, "red_cloth", dict(clear=0.004, thick=0.004))],
     "red_shirt": [("shell", "shirt", *top(1.98, hem=0.40, loose=0.008, hang=0.012), "red_knit"),
                   ("shell", "trousers", *bottom(1.97, top_tz=0.40, loose=0.008, flare=0.006), "black_cotton")],
+    "wan_baggy": [("shell", "shirt", *top(1.15, hem=0.40, loose=0.012, hang=0.016), "grey_shirt"),
+                  ("shell", "pants", *bottom(2.0, top_tz=0.40, loose=0.010, wide=0.035, flare=0.015), "black_baggy"),
+                  ("shoe", "shoes", "vans_checker")],
+    "wan_flannel": [("shell", "shirt", *top(1.97, hem=0.40, loose=0.012, hang=0.016), "flannel_tee"),
+                    ("shell", "pants", *bottom(2.0, top_tz=0.40, loose=0.010, wide=0.035, flare=0.015), "black_baggy"),
+                    ("shoe", "shoes", "skate_black")],
+    "wan_denim": [("shell", "jacket", *top(1.97, hem=0.55, loose=0.012, hang=0.012), "denim_jacket"),
+                  ("shell", "jeans", *bottom(1.98, top_tz=0.55, loose=0.006), "jeans_ripped"),
+                  ("helmet", "helmet", "helmet_white"), ("helmet", "visor", "visor_black")],
+    "wan_camo": [("shell", "tee", *top(1.2, hem=0.40, loose=0.012, hang=0.018), "black_tee"),
+                 ("shell", "pants", *bottom(1.98, top_tz=0.40, loose=0.012, wide=0.025), "camo"),
+                 ("shoe", "shoes", "skate_black"),
+                 ("helmet", "helmet", "helmet_white"), ("helmet", "visor", "visor_black")],
     # ---- women (refs: เสื้อแขนกระบอก + ผ้าซิ่น, เสื้อครามพาดผ้า, เสื้อขาว + สไบ + ซิ่นตีนจก, ผ้าแถบ + โจงกระเบน)
     "blouse_sin": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "pink_blouse"),
                    ("tube", "sin", 1.30, ("lp", 1.62), "sin_purple", dict(clear=0.010))],
@@ -260,6 +274,9 @@ OUTFITS = {
                    ("shell", "chong", *bottom(1.30, top_tz=0.92, loose=0.008, puff=0.030), "maroon"),
                    ("tube", "belt", 0.88, ("tz", 1.12), "gold", dict(clear=0.010, band=True))],
     # ---- child (refs: โจงกระเบนแดง + สังวาล + กำไล, ม่อฮ่อมเด็ก)
+    "wan_girl": [("shell", "shirt", *top(1.97, hem=1.06, loose=0.010, hang=0.012), "lightblue_open"),
+                 ("shell", "jeans", *bottom(2.0, top_tz=1.06, loose=0.010, wide=0.030, flare=0.012), "jeans_belt"),
+                 ("shoe", "shoes", "skate_black")],
     "chong_gold": [("shell", "chong", *bottom(1.25, top_tz=0.92, loose=0.008, puff=0.026), "red_chong"),
                    ("tube", "belt", 0.86, ("tz", 1.10), "gold", dict(clear=0.010, band=True)),
                    ("strip", "chains", path_chains, 0.012, "gold", dict(clear=0.006, thick=0.006)),
@@ -267,8 +284,8 @@ OUTFITS = {
     "mohom_child": [("shell", "shirt", *top(1.2, hem=0.95), "indigo"), ("shell", "shorts", *bottom(0.85, top_tz=0.95, flare=0.014), "indigo_dark")],
 }
 CHAR_OUTFITS = {
-    "male": ["mohom", "farmer", "sarong", "red_shirt"],
-    "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap"],
+    "male": ["mohom", "farmer", "sarong", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo"],
+    "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl"],
     "child": ["chong_gold", "mohom_child"],
     "elder_male": ["mohom", "sarong", "farmer"],
     "elder_female": ["blouse_sin", "sabai", "indigo_scarf"],
@@ -291,6 +308,16 @@ FABRIC = {
     "red_satin":     dict(c=(0.58, 0.06, 0.12), weave=0.3, rough=0.35),
     "maroon":        dict(c=(0.36, 0.10, 0.12), weave=0.5, folds=2.0, rough=0.45),
     "red_chong":     dict(c=(0.75, 0.06, 0.06), weave=0.5, folds=2.0, rough=0.45),
+    # street
+    "grey_shirt":    dict(c=(0.36, 0.38, 0.40), weave=0.8, buttons="mohom", pocket=True, collar=True, folds=0.6),
+    "flannel_tee":   dict(c=(0.10, 0.10, 0.11), weave=0.8, flannel=True, tee=((0.92, 0.92, 0.90), "red"), collar=True, folds=0.5),
+    "black_baggy":   dict(c=(0.05, 0.05, 0.06), weave=0.9, folds=2.2),
+    "denim_jacket":  dict(c=(0.14, 0.17, 0.27), weave=1.6, buttons="metal", jacket=True, collar=True, folds=0.6),
+    "jeans_ripped":  dict(c=(0.10, 0.12, 0.20), weave=1.6, folds=0.8, seams=True, fade=True, rips=True),
+    "black_tee":     dict(c=(0.06, 0.06, 0.07), weave=0.7, graphic="yellow", folds=0.6),
+    "camo":          dict(c=(0.33, 0.36, 0.22), weave=1.0, camo=True, folds=1.6, pockets=True),
+    "lightblue_open": dict(c=(0.62, 0.72, 0.88), weave=0.7, open=(0.05, 0.05, 0.06), collar=True, folds=0.5),
+    "jeans_belt":    dict(c=(0.09, 0.10, 0.16), weave=1.6, folds=1.8, seams=True, belt=True),
 }
 
 # ---------------------------------------------------------------- noise
@@ -422,6 +449,41 @@ def _straw(X, Y):           # งอบ: woven bamboo / palm
     h = np.where(over, a, b)*0.5 + 0.5
     c = np.ones(X.shape + (3,))*np.array((0.78, 0.64, 0.38))*(0.8 + 0.25*h)[..., None]
     return c, 0.8, 0.0005*h
+@pattern("vans_checker", "norm")
+def _vans_checker(X, Y):    # red / white checkerboard slip-on, white sole with a red line
+    chk = ((np.floor(X/(TILE/24)) + np.floor(Y*8)) % 2) > 0
+    c = np.where(chk[..., None], np.array((0.72, 0.08, 0.10)), np.array((0.93, 0.93, 0.91)))
+    c = mix(c, (0.94, 0.93, 0.90), Y < 0.22); c = mix(c, (0.72, 0.08, 0.10), np.abs(Y - 0.16) < 0.012)
+    return c, 0.6, 0.0004*(Y < 0.22)*(np.sin(X*900) > 0)
+@pattern("skate_black", "norm")
+def _skate_black(X, Y):     # black skate shoe, white wave stripe, white sole
+    c = np.ones(X.shape + (3,))*np.array((0.06, 0.06, 0.07))
+    c = mix(c, (0.92, 0.92, 0.90), np.abs(Y - 0.48 - 0.08*np.sin(X*2*math.pi/(TILE/4))) < 0.035)
+    c = mix(c, (0.93, 0.92, 0.89), Y < 0.22)
+    return c, 0.55, 0.0004*(Y < 0.22)*(np.sin(X*900) > 0)
+@pattern("helmet_white", "norm")
+def _helmet_white(X, Y):    # glossy white, twin black stripes over the crown, red side flash, black rubber trim, vents
+    A = X/TILE*360 - 180; E = H_EL[0] + Y*(H_EL[-1] - H_EL[0]); aa = np.abs(A)
+    c = np.ones(X.shape + (3,))*np.array((0.93, 0.93, 0.91))
+    back = 180 - aa
+    stripe = ((np.abs(aa - 7) < 3.5) | (np.abs(back - 7) < 3.5)) & (E > np.where(aa < 64, 19, -60))
+    c = mix(c, (0.05, 0.05, 0.06), stripe)
+    flash = (aa > 70) & (aa < 150) & (E > -40 + (aa - 70)*0.25) & (E < -18 + (aa - 70)*0.25)
+    c = mix(c, (0.75, 0.08, 0.10), flash)
+    c = mix(c, (0.25, 0.25, 0.27), np.hypot(aa - 68, E - 2) < 5.5)                       # visor pivot
+    c = mix(c, (0.10, 0.10, 0.11), np.hypot(aa - 68, E - 2) < 2.5)
+    vent = (aa < 14) & (E > -46) & (E < -36) & (np.sin(A*0.9) > 0.2)                      # chin vents
+    vent |= (aa < 10) & (E > 44) & (E < 56) & (np.abs(aa - 5) < 2.5)                       # crown vents
+    c = mix(c, (0.08, 0.08, 0.09), vent)
+    bot = -70 + 26*sstep(25, 80, aa) - 14*sstep(110, 170, aa)
+    c = mix(c, (0.04, 0.04, 0.05), E < bot + 5)                                            # rubber trim
+    rough = 0.22
+    return c, rough, -0.0004*vent
+@pattern("visor_black", "norm")
+def _visor_black(X, Y):     # smoked visor, a little lighter at the top edge
+    c = np.ones(X.shape + (3,))*np.array((0.03, 0.03, 0.04))
+    c = mix(c, (0.20, 0.22, 0.26), sstep(0.62, 0.70, Y)*0.6)
+    return c, 0.05, 0.0
 @pattern("gold", "metric", metal=True)
 def _gold(X, Y):            # gold belt / chains / bangles: hammered with a square motif
     P = TILE/16; u = (X % P)/P - 0.5; v = (Y % P)/P - 0.5
@@ -505,6 +567,8 @@ def paint_shell(b, ras, faces, char, outfit):
     pk = piece_of[F]
     front = Nn[..., 1] < -0.35
     zc = b.z(2.0); zn = b.J["neck"][0][2]
+    freg = np.array([b.face_attr(p_)[0] for p_ in b.ob.data.polygons] + ["-"])[F]     # body part under each texel
+    trunk = freg == "torso"
     for k, sp in enumerate(specs):
         fab = FABRIC[CHAR_FABRIC.get((char, sp[4]), sp[4])]; m = pk == k
         if not m.any(): continue
@@ -522,6 +586,63 @@ def paint_shell(b, ras, faces, char, outfit):
                 hx = b.J["thigh.L" if sd > 0 else "thigh.R"][0][0]
                 seam = (Nn[..., 0]*sd > 0.6) & (np.abs(Nn[..., 1]) < 0.035) & (x*sd > 0)
                 c = mix(c, (0.75, 0.55, 0.25), seam*0.6); h -= 0.0002*seam
+        if fab.get("flannel"):      # black / white / grey flannel check
+            B = [(0.42, (0.06, 0.06, 0.07)), (0.08, (0.85, 0.85, 0.83)), (0.20, (0.40, 0.40, 0.42)), (0.08, (0.85, 0.85, 0.83)), (0.22, (0.06, 0.06, 0.07))]
+            c = 0.5*(stripes(x + 0.6*y, 0.07, B) + stripes(z, 0.07, B))*(0.93 + 0.07*fbm(x*30, y*30, z*30, seed=k))[..., None]
+        if fab.get("camo"):
+            for cc, sd, th in (((0.38, 0.29, 0.18), 31, 0.52), ((0.15, 0.21, 0.12), 32, 0.55), ((0.62, 0.56, 0.40), 33, 0.60), ((0.07, 0.07, 0.06), 34, 0.62)):
+                c = mix(c, cc, sstep(th, th + 0.02, fbm(x*9, y*9, z*5, seed=sd)))
+        if fab.get("pockets"):      # cargo pockets on the outside of the thighs
+            for sd in ("L", "R"):
+                J, T = b.J["thigh." + sd]; zm = J[2] + (T[2] - J[2])*0.55; sx = 1 if sd == "L" else -1
+                pk_ = (Nn[..., 0]*sx > 0.6) & (np.abs(z - zm) < 0.06*s) & (np.abs(y) < 0.05*s) & (freg == "leg." + sd)
+                ed = pk_ & ((np.abs(z - zm) > 0.054*s) | (np.abs(y) > 0.045*s) | (np.abs(z - zm - 0.035*s) < 0.003*s))
+                c = mix(c, c*0.7, ed); h += 0.0006*pk_ - 0.0004*ed
+        if fab.get("rips"):         # torn knees: white threads over the skin
+            for sd in ("L", "R"):
+                J = b.J["shin." + sd][0]
+                knee = (Nn[..., 1] < -0.3) & (((x - J[0])/(0.045*s))**2 + ((z - J[2] - 0.01*s)/(0.035*s))**2 < 1) & np.isin(freg, ["leg." + sd])
+                hole = knee & (fbm(x*90, z*45, seed=40) > 0.48)
+                c = mix(c, (0.80, 0.62, 0.50), hole*0.85)
+                c = mix(c, (0.88, 0.88, 0.86), hole*(np.sin(z*2600) > 0.2)*0.9)
+                c = mix(c, (0.75, 0.78, 0.85), knee*~hole*0.5); h -= 0.0004*hole
+        tee = fab.get("tee"); opn = fab.get("open")
+        if tee or opn:              # open shirt: something else shows down the front
+            w_o = 0.055*s
+            inside = front & trunk & (np.abs(x) < w_o) & (z < zn - 0.01)
+            ic = np.array(tee[0]) if tee else np.array(opn)
+            c = mix(c, ic, inside)
+            edge = front & trunk & (np.abs(np.abs(x) - w_o) < 0.004*s) & (z < zn)
+            c = mix(c, np.array(fab["c"])*0.6 + 0.05, edge); h += 0.0005*edge
+            for i in range(6):
+                d = np.hypot(x - w_o - 0.008*s, z - (zn - 0.05*s - i*0.07*s))
+                c = mix(c, (0.85, 0.85, 0.85), front*sstep(0.005*s, 0.0035*s, d))
+            if tee and tee[1] == "red":       # print on the tee
+                g = np.hypot(x, z - zc - 0.01*s)
+                c = mix(c, (0.75, 0.10, 0.12), inside*sstep(0.032*s, 0.028*s, g))
+                c = mix(c, (0.08, 0.08, 0.08), inside*(np.abs(z - zc + 0.04*s) < 0.006*s))
+        if fab.get("graphic"):
+            g = front & trunk
+            ring_ = np.abs(np.hypot(x, z - zc - 0.02*s) - 0.045*s) < 0.006*s
+            c = mix(c, (0.85, 0.70, 0.10), g*ring_)
+            c = mix(c, (0.85, 0.70, 0.10), g*(np.abs(z - zc - 0.02*s) < 0.008*s)*(np.abs(x) < 0.03*s))
+            c = mix(c, (0.90, 0.90, 0.88), g*(np.abs(z - zc + 0.05*s) < 0.005*s)*(np.abs(x) < 0.06*s))
+        if fab.get("jacket"):       # chest pocket flaps, yoke seam in light thread
+            for sx in (1, -1):
+                fl = front & (np.abs(x - sx*0.07*s) < 0.032*s) & (np.abs(z - zc - 0.05*s) < 0.014*s)
+                c = mix(c, c*0.75, fl & (np.abs(z - zc - 0.05*s) > 0.010*s)); h += 0.0005*fl
+            yk = trunk & (np.abs(z - zc - 0.085*s) < 0.0025*s)
+            c = mix(c, (0.70, 0.55, 0.30), yk*0.8)
+        if fab.get("belt"):
+            zt = b.z(1.06)
+            bl = trunk & (z > zt - 0.038*s) & (z < zt - 0.006*s)
+            c = mix(c, (0.04, 0.03, 0.03), bl); h += 0.0006*bl
+            bk = bl & front & (np.abs(x) < 0.028*s)
+            c = mix(c, (0.75, 0.75, 0.72), bk)
+        if fab.get("collar"):
+            nj = b.J["neck"][0]
+            cl = (z > zn - 0.03*s) & (np.hypot(x - nj[0], y - nj[1]) < 0.085*s) & trunk
+            c = mix(c, np.array(fab["c"])*0.82, cl*0.6); h += 0.0004*cl
         btn = fab.get("buttons")
         if btn:
             yy = z
@@ -532,7 +653,7 @@ def paint_shell(b, ras, faces, char, outfit):
                 bz = zn - 0.035*s - i*step
                 if bz < b.z(1.05): break
                 d = np.hypot(x, yy - bz)
-                col_b = (0.85, 0.82, 0.75) if btn == "blouse" else (0.10, 0.10, 0.12)
+                col_b = (0.85, 0.82, 0.75) if btn == "blouse" else (0.72, 0.64, 0.42) if btn == "metal" else (0.10, 0.10, 0.12)
                 c = mix(c, col_b, front*sstep(0.0055*s, 0.004*s, d)); h += 0.00035*front*sstep(0.0055*s, 0.003*s, d)
             # round neck band
             nb = (np.abs(z - (zn - 0.004)) < 0.010*s)
@@ -820,6 +941,88 @@ def build_hat(b, spec):
         msh.face([rows_o[k][j], rows_i[k][j], rows_i[k][j + 1], rows_o[k][j + 1]], [uvp(k, j)]*2 + [uvp(k, j + 1)]*2)
     return msh
 
+def build_shoe(b, spec):
+    """sneakers: convex hull of each foot (+ ankle), pushed out a little, flat sole; UV round the foot x height"""
+    s = b.s; msh = Mesh()
+    for sd in "LR":
+        idx = np.where((b.reg == "foot." + sd) | ((b.reg == "leg." + sd) & (b.lp >= 1.88)))[0]
+        bm = bmesh.new()
+        for i in idx: bm.verts.new(Vector(b.co[i]))
+        res = bmesh.ops.convex_hull(bm, input=bm.verts)
+        bmesh.ops.delete(bm, geom=list({g for g in res["geom_interior"] + res["geom_unused"] if isinstance(g, bmesh.types.BMVert)}), context="VERTS")
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bm.normal_update()
+        z0 = min(v.co.z for v in bm.verts); z1 = max(v.co.z for v in bm.verts)
+        cen = sum((v.co for v in bm.verts), Vector())/len(bm.verts)
+        ids = {}
+        for v in bm.verts:
+            p_ = v.co + v.normal*0.008*s
+            if p_.z < z0 + 0.004: p_.z = z0 - 0.004*s                 # flat sole, a touch under the foot
+            _, vi, _ = b.kd.find(v.co); ids[v.index] = msh.vert(p_, vweights(b, vi))
+        rad = sum(((v.co - cen).xy.length for v in bm.verts), 0.0)/len(bm.verts)
+        for f in bm.faces:
+            ang = [math.atan2(v.co.y - cen.y, v.co.x - cen.x) for v in f.verts]
+            a0 = ang[0]; ang = [a0 + math.atan2(math.sin(a - a0), math.cos(a - a0)) for a in ang]
+            msh.face([ids[v.index] for v in f.verts], [(a*rad/TILE, (v.co.z - z0)/(z1 - z0)) for a, v in zip(ang, f.verts)])
+        bm.free()
+    return msh
+
+# full-face helmet layout (degrees): azimuth a (0 = face, +90 = left), elevation e round the head centre
+H_EL = [-72, -64, -56, -48, -40, -32, -24, -16, -8, 0, 8, 16, 24, 32, 42, 52, 62, 72, 81, 89]
+def h_bottom(a):     # lower edge: chin bar low in front, up under the jaw, down again over the nape
+    a = abs(a); return -70 + 26*sst(25, 80, a) - 14*sst(110, 170, a)
+def h_visor_top(a): return 18                                 # straight top edge (along a row of the grid)
+def h_visor(a, e): return abs(a) < 64 and -20 < e < h_visor_top(abs(a))
+
+def build_helmet(b, spec):
+    """full-face motorbike helmet over the head and hair: rounded shell, chin bar sticking out in front,
+    wide wrap-round visor (separate piece), lower edge rising under the jaw"""
+    part = spec[1]; s = b.s; msh = Mesh(); W = {"head": 1.0}
+    hb = b.rig.data.bones["head"]; rw = b.rig.matrix_world
+    U = (rw @ hb.tail_local - rw @ hb.head_local).normalized()
+    F = Vector((0, -1, 0)); F = (F - U*F.dot(U)).normalized(); L = U.cross(F)
+    hv = b.co[b.reg == "head"]; C = Vector((hv.min(0) + hv.max(0))/2) + U*0.010*s
+    d = hv - np.array(C)
+    rl = float(np.abs(d @ np.array(L)).max()) + 0.050*s
+    rf = float((d @ np.array(F)).max()) + 0.030*s; rb = float((-d @ np.array(F)).max()) + 0.050*s
+    ru = float((d @ np.array(U)).max()) + 0.045*s
+    def pt(a, e, off=0.0):
+        ar, er = math.radians(a), math.radians(e)
+        f, l, u = math.cos(ar)*math.cos(er), math.sin(ar)*math.cos(er), math.sin(er)
+        rF = rf if f > 0 else rb
+        p_ = Vector((f*(rF + off), l*(rl + off), u*(ru + off)))
+        # chin bar: the lower front pushes forward and squares off
+        chin = sst(-6, -34, e)*max(0.0, math.cos(ar))**1.5
+        p_.x += 0.030*s*chin; p_.z -= 0.010*s*chin
+        # cheeks fuller just behind the chin bar, crown a little flatter
+        p_.y *= 1 + 0.06*sst(-10, -45, e)*abs(math.sin(ar))
+        if e > 50: p_.z *= 0.97
+        return C + F*p_.x + L*p_.y + U*p_.z
+    n = 36; step = 360/n
+    az = lambda i: -180 + i*step
+    EL = H_EL
+    def want(a, e):
+        if e < h_bottom(a): return False
+        return (not h_visor(a, e)) if part == "helmet" else h_visor(a, e)
+    off = 0.0 if part == "helmet" else 0.006*s
+    cells = {(i, j) for i in range(n) for j in range(len(EL) - 1) if want(az(i + 0.5), (EL[j] + EL[j + 1])/2)}
+    ids = {}
+    def v(i, j, inner):
+        k = (i % n, j, inner)
+        if k not in ids:
+            bulge = 0.004*s if part == "visor" else 0.0
+            ids[k] = msh.vert(pt(az(i), EL[j], off + bulge - (0.007*s if inner else 0)), W)
+        return ids[k]
+    uv = lambda i, j: ((az(i) + 180)/360, (EL[j] - EL[0])/(EL[-1] - EL[0]))    # whole helmet on one texture
+    for i, j in cells:
+        q = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)]
+        msh.face([v(a_, c, False) for a_, c in q], [uv(a_, c) for a_, c in q])
+        msh.face([v(a_, c, True) for a_, c in q[::-1]], [uv(a_, c) for a_, c in q[::-1]])
+        for (a0, c0), (a1, c1), nb in (((i, j), (i + 1, j), (i, j - 1)), ((i + 1, j), (i + 1, j + 1), ((i + 1) % n, j)),
+                                       ((i + 1, j + 1), (i, j + 1), (i, j + 1)), ((i, j + 1), (i, j), ((i - 1) % n, j))):
+            if nb in cells: continue                      # open edge: close it with a rim (helmet edge / visor edge)
+            msh.face([v(a1, c1, False), v(a0, c0, False), v(a0, c0, True), v(a1, c1, True)], [uv(a1, c1), uv(a0, c0), uv(a0, c0), uv(a1, c1)])
+    return msh
+
 # ---------------------------------------------------------------- materials
 def tex_material(name, base, metal=False):
     m = bpy.data.materials.get(name)
@@ -872,12 +1075,12 @@ def add_clothes(char, outfits=None):
         for sp in OUTFITS[name]:
             kind = sp[0]
             if kind == "shell": continue
-            pat = sp[4] if kind in ("tube", "strip", "ring") else sp[2]
+            pat = sp[4] if kind in ("tube", "strip", "ring") else sp[2]          # hat / helmet / shoe: (kind, name, pattern)
             msh = build_tube(b, sp, under) if kind == "tube" else \
-                  {"strip": build_strip, "ring": build_ring, "hat": build_hat}[kind](b, sp)
+                  {"strip": build_strip, "ring": build_ring, "hat": build_hat, "helmet": build_helmet, "shoe": build_shoe}[kind](b, sp)
             mat = tex_material(f"Cloth_{pat}", os.path.join(TEX, pat), PATTERNS[pat][2])
             ob = msh.to_object(f"Cloth_{name}_{sp[1]}", rig, mat)
-            if kind == "hat":
+            if kind in ("hat", "helmet"):
                 for vg in list(ob.vertex_groups): ob.vertex_groups.remove(vg)
                 g = ob.vertex_groups.new(name="head"); g.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')
             objs.append(ob)
