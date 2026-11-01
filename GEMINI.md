@@ -188,3 +188,9 @@ trigger: always_on
 1. **ห้ามสั่ง `MapBuilder.Build()` ทับฉากโดยไม่จำเป็น:** ผู้พัฒนาได้ลากจัดวางตำแหน่งวัตถุใน Roblox Studio ด้วยมือไว้แล้ว ใน `GameManager.server.luau` จึงเช็ก `if not Workspace:FindFirstChild("MapEnvironment") then MapBuilder.Build() end` เสมอ หากต้องการแก้ไขหรือเพิ่มโซนในฉาก **ต้องเขียนเป็นฟังก์ชันย่อยแยกต่างหากใน `MapBuilder.luau`** (เช่น `PaintTerrainRoad()`, `AddSacredBanyanZone()`, `AddSideRiceFields()`, `SplitSideRiceFields()`, `BuildCompactPerimeter()`) ที่แก้ไขเฉพาะจุดโดยไม่แตะต้องของเดิม!
 2. **การใช้ Command Bar ใน Roblox Studio:** เวลาให้ผู้พัฒนารันคำสั่งในช่อง Command Bar ต้องเติม `:Clone()` เสมอ เช่น `require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).BuildCompactPerimeter()` เพื่อป้องกัน Roblox Studio แคช `ModuleScript` ตัวเก่าไว้ในหน่วยความจำ!
 3. **ค่าหมอก/สีของ Atmosphere ตอนเล่นถูก Client กำหนดอีกรอบ:** ถ้าจะแก้หมอกตอนเล่น ให้แก้ใน `AmbienceController.client.luau` ไม่ใช่แก้ใน `MapBuilder.SetNightLighting()` เพราะค่าใน `SetNightLighting()` จะถูก Client ปรับทับหลังจากนั้นประมาณ 1 วินาที
+
+## ตัวละครมนุษย์ (ตัว ผม ผิว ชุด ท่าทาง) — อ่านก่อนทำต่อ
+- คู่มือวิธีทำงาน (ขั้นตอน เครื่องมือ วิธีตรวจ ปัญหาที่เคยเจอ): `assets/models/HUMAN_PIPELINE_GUIDE.md`
+- รายละเอียดค่าตัวเลข ทรงผม ชุด และท่า: `assets/models/HUMAN_MODELS.md`
+- สคริปต์ทั้งหมดอยู่ใน `assets/models/human_base/` ใช้ Blender แบบ headless ผ่าน `tools/blender/run_headless.ps1`
+- ห้ามแก้ .blend ด้วยมือ แก้ที่สคริปต์แล้วรันใหม่ และต้องตรวจด้วยภาพและตัวตรวจอัตโนมัติก่อนบอกว่าเสร็จ
