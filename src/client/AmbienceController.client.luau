@@ -42,8 +42,10 @@ if not atmo then
 	atmo.Name = "RuralAtmosphere"
 	atmo.Parent = Lighting
 end
-atmo.Density = 0.42
-atmo.Offset = 0.15
+-- หมอกปกติหนาพอกลบภูเขา/ขอบแมพ (เดิม 0.42 / Offset 0.15 ยังเห็นภูเขาลางๆ) แต่ยังเห็นแนวไม้ขอบทุ่ง
+local FOG_DENSITY = { min = 0.54, max = 0.62 }
+atmo.Density = (FOG_DENSITY.min + FOG_DENSITY.max) / 2
+atmo.Offset = 0.08
 atmo.Color = Color3.fromRGB(18, 22, 28)
 atmo.Decay = Color3.fromRGB(10, 12, 15)
 atmo.Glare = 0.25
@@ -382,7 +384,7 @@ localPlayer:GetAttributeChangedSignal("Praying"):Connect(function()
 	end
 	local praying = isPraying()
 	TweenService:Create(atmo, TweenInfo.new(if praying then 1.2 else 2, Enum.EasingStyle.Sine), {
-		Density = if praying then PRAY_FOG.Density else 0.42,
+		Density = if praying then PRAY_FOG.Density else (FOG_DENSITY.min + FOG_DENSITY.max) / 2,
 		Haze = if praying then PRAY_FOG.Haze else NORMAL_HAZE,
 		Offset = if praying then PRAY_FOG.Offset else NORMAL_OFFSET,
 	}):Play()
@@ -393,7 +395,7 @@ task.spawn(function()
 			task.wait(1)
 			continue
 		end
-		local target = 0.38 + math.random() * 0.08
+		local target = FOG_DENSITY.min + math.random() * (FOG_DENSITY.max - FOG_DENSITY.min)
 		driftTween = TweenService:Create(atmo, TweenInfo.new(math.random(10, 18), Enum.EasingStyle.Sine), {
 			Density = target,
 		})
