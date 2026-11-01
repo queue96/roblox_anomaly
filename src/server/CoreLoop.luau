@@ -1453,14 +1453,15 @@ local function eventParty()
 	local music = eventSound(root :: Instance, partyTrack, 0.50, true, 170, true)
 	local people = {}
 	-- สาวโคโยตี้ ยืนข้างรถฝั่งร้าน (ยืนเฉยๆ ไม่เต้น)
-	local coyote = Pedestrian.Build({ shirt = Color3.fromRGB(220, 60, 140), pants = Color3.fromRGB(30, 30, 35) })
+	local coyote = Pedestrian.Build({ shirt = Color3.fromRGB(220, 60, 140), pants = Color3.fromRGB(30, 30, 35), teen = true })
 	coyote.Name = "Coyote"
 	coyote.Parent = Workspace
 	table.insert(people, { m = coyote, offset = CFrame.new(5.5, 0, -len * 0.15) * CFrame.Angles(0, math.rad(-90), 0), dance = false })
 	-- วัยรุ่น 4 คนเต้นอยู่ท้ายรถ
 	local teenColors = { Color3.fromRGB(40, 90, 160), Color3.fromRGB(200, 170, 40), Color3.fromRGB(30, 30, 30), Color3.fromRGB(160, 40, 40) }
 	for i = 1, 4 do
-		local tm = Pedestrian.Build({ shirt = teenColors[i] })
+		local teenDances = { "wan_bounce", "wan_rock", "wan_point", "wan_hands_up" }
+		local tm = Pedestrian.Build({ shirt = teenColors[i], teen = true, dance = teenDances[(i - 1) % #teenDances + 1] })
 		tm.Name = "Teen"
 		tm.Parent = Workspace
 		local col = if i % 2 == 0 then 2.2 else -2.2
@@ -1499,7 +1500,7 @@ local function eventParade()
 	table.insert(people, { m = naga, offset = CFrame.new(0, 0, len / 2 + 3), dance = false })
 	local colors = { Color3.fromRGB(230, 120, 40), Color3.fromRGB(60, 130, 200), Color3.fromRGB(200, 60, 90), Color3.fromRGB(240, 200, 60), Color3.fromRGB(120, 60, 160) }
 	for i = 1, 10 do
-		local m = Pedestrian.Build({ shirt = colors[(i - 1) % #colors + 1] })
+		local m = Pedestrian.Build({ shirt = colors[(i - 1) % #colors + 1], teen = false, noHelmet = true, dance = "ramwong" })
 		m.Name = "ParadeDancer"
 		m.Parent = Workspace
 		local col = if i % 2 == 0 then 2.4 else -2.4

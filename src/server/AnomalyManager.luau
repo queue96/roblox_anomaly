@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
+local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 
 local AnomalyManager = {}
 
@@ -156,6 +157,23 @@ end
 
 local function driverOf(v: Model): Model?
 	return v:FindFirstChild("DriverNPC") :: Model?
+end
+
+-- ชาวบ้านแบบใหม่ (HumanNPC, skinned mesh): ผีที่แก้หัว/หน้าใช้ร่างผีซ้อนแทนการแก้ชิ้นส่วน
+--   ร่างผีเห็นตอนพนมมือ ตัวจริงหายไป
+local function humanGhost(v: Model, kind: string): boolean
+	local d = driverOf(v)
+	if not (d and d:GetAttribute("Human")) then
+		return false
+	end
+	local double, real = HumanNPC.MakeDouble(v, kind)
+	if double then
+		ghostOnly(double)
+		for _, p in ipairs(real) do
+			normalOnly(p)
+		end
+	end
+	return true
 end
 
 -- วิทยุ: Sound อยู่ในชิ้นที่ใหญ่ที่สุดของโมเดลวิทยุ (เสียง 3D ได้ยินเฉพาะแถวร้าน)
@@ -371,6 +389,9 @@ AnomalyManager.Anomalies = {
 	-- 4. คนขับหันหัวกลับหลัง 180°
 	Anomaly_NeckTwist = {
 		apply = function(v)
+			if humanGhost(v, "twist") then
+				return
+			end
 			local d = driverOf(v)
 			local head = d and d:FindFirstChild("Head") :: BasePart?
 			if not head then
@@ -397,6 +418,9 @@ AnomalyManager.Anomalies = {
 	-- 5. คนขับยิ้มกว้างถึงหู ตาโปน
 	Anomaly_CreepySmile = {
 		apply = function(v)
+			if humanGhost(v, "pale") then
+				return
+			end
 			local d = driverOf(v)
 			local head = d and d:FindFirstChild("Head")
 			if not head then
@@ -579,6 +603,8 @@ AnomalyManager.Anomalies = {
 -- ผีที่ใช้ได้เฉพาะกับรถ (ต้องมีคนซ้อน / ป้ายทะเบียน / ล้อ) หรือเฉพาะคนเดินตอนฝนตก
 local VEHICLE_ONLY = { Anomaly_Headless = true, Anomaly_Cemetery = true, Anomaly_WheelHair = true }
 local WALKER_RAIN_ONLY = { Anomaly_NoUmbrella = true }
+-- ชาวบ้านแบบใหม่เป็นผิวชิ้นเดียว ซ่อนแค่ขาไม่ได้ -> กระสือเกิดกับคนขับรถเท่านั้น
+local NOT_HUMAN_WALKER = { Anomaly_Krasue = true }
 
 -- สุ่มผีที่เข้ากับลูกค้าแบบนี้ (kind = "vehicle" | "walker")
 function AnomalyManager.RandomFor(kind: string, raining: boolean): string
@@ -589,6 +615,9 @@ function AnomalyManager.RandomFor(kind: string, raining: boolean): string
 			ok = false
 		end
 		if WALKER_RAIN_ONLY[k] and not (kind == "walker" and raining) then
+			ok = false
+		end
+		if NOT_HUMAN_WALKER[k] and kind == "walker" and HumanNPC.Available() then
 			ok = false
 		end
 		if ok then

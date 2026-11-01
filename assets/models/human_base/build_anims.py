@@ -388,7 +388,9 @@ def fbx(path, **kw):
             time.sleep(1.5*(attempt + 1))
 
 def export_model(path):
-    """Body + every hair style + every outfit + the rig, in studs; hidden pieces come along (switch them in Roblox)"""
+    """Body + every hair style + every outfit + the rig, in studs; hidden pieces come along (switch them in Roblox).
+    path_mode COPY puts the textures next to the FBX, so Roblox's 3D Importer finds them and builds each
+    SurfaceAppearance itself (with STRIP it only knew the file names and could not read them)"""
     rig = bpy.data.objects["HumanRig"]
     objs = bound_meshes(rig)
     keep = {o: (o.hide_get(), o.hide_viewport) for o in objs}
@@ -403,7 +405,7 @@ def export_model(path):
     fbx(path, use_selection=True, object_types={'ARMATURE', 'MESH'}, global_scale=STUDS_PER_M,
                              apply_scale_options='FBX_SCALE_NONE', axis_forward='-Z', axis_up='Y', bake_space_transform=False,
                              add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=True,
-                             mesh_smooth_type='FACE', path_mode='STRIP', embed_textures=False, bake_anim=False, use_mesh_modifiers=False)
+                             mesh_smooth_type='FACE', path_mode='COPY', embed_textures=False, bake_anim=False, use_mesh_modifiers=False)
     if rig.animation_data: rig.animation_data.action = act
     for o, (h, hv) in keep.items(): o.hide_viewport = hv; o.hide_set(h)
 
@@ -419,6 +421,38 @@ def export_clip(path, clip):
                              bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=False,
                              bake_anim_use_all_actions=False, bake_anim_force_startend_keying=True, bake_anim_step=1.0,
                              bake_anim_simplify_factor=0.0)
+
+def export_clip_data(char, path, step=2):
+    """every clip of the open file as plain data for Roblox: per key time, each moving bone's local rotation
+    (quaternion x, y, z, w, Blender bone axes) and offset in studs, plus the rest pose to convert them with"""
+    import json
+    rig = bpy.data.objects["HumanRig"]; sc = bpy.context.scene; keep = rig.animation_data.action
+    out = {"fps": FPS, "studs_per_m": STUDS_PER_M, "parents": {b.name: (b.parent.name if b.parent else None) for b in rig.data.bones}, "clips": {}}
+    # rest pose in armature space: orientation (x, y, z, w) and head position in studs. Roblox may give a bone
+    # different local axes than Blender (it did for the arms), so the importer side re-expresses every rotation
+    # through armature space using these, instead of trusting bone-local axes to match.
+    out["rest"] = {}
+    for bn in rig.data.bones:
+        q = bn.matrix_local.to_quaternion(); h = bn.head_local*STUDS_PER_M
+        out["rest"][bn.name] = [round(q.x, 6), round(q.y, 6), round(q.z, 6), round(q.w, 6), round(h.x, 5), round(h.y, 5), round(h.z, 5)]
+    for clip in CLIPS:
+        act = bpy.data.actions[clip]; rig.animation_data.action = act
+        f0, f1 = (int(x) for x in act.frame_range)
+        frames = list(range(f0, f1 + 1, step))
+        if frames[-1] != f1: frames.append(f1)
+        tracks = {}
+        for f in frames:
+            sc.frame_set(f)
+            for pb in rig.pose.bones:
+                m = pb.matrix_basis; q = m.to_quaternion(); t = m.to_translation()*STUDS_PER_M
+                tracks.setdefault(pb.name, []).append([round(q.x, 4), round(q.y, 4), round(q.z, 4), round(q.w, 4),
+                                                       round(t.x, 4), round(t.y, 4), round(t.z, 4)])
+        moving = {n: k for n, k in tracks.items() if any(abs(a - b) > 1e-4 for r in k for a, b in zip(r, k[0])) or
+                  any(abs(v) > 1e-4 for v in k[0][:3] + k[0][4:])}
+        out["clips"][clip] = {"length": (f1 - f0)/FPS, "times": [round((f - f0)/FPS, 4) for f in frames], "tracks": moving}
+    rig.animation_data.action = keep
+    json.dump(out, open(path, "w"), separators=(",", ":"))
+    return os.path.getsize(path)
 
 def export_all(out_dir=os.path.join(M, "roblox")):
     done = []

@@ -130,6 +130,16 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 	local focusPart: BasePart? = nil
 	local function addClone(inst: Instance)
 		local c = inst:Clone()
+		-- ชาวบ้านแบบใหม่ (กระดูก): ท่าที่กำลังเล่นอยู่ไม่ติดมากับ Clone -> คัดลอก Transform ของกระดูกทีละท่อน
+		local srcList, dstList = inst:GetDescendants(), c:GetDescendants()
+		if #srcList == #dstList then
+			for i, sd in ipairs(srcList) do
+				local dd = dstList[i]
+				if sd:IsA("Bone") and dd:IsA("Bone") then
+					dd.Transform = sd.Transform
+				end
+			end
+		end
 		-- ผีหันหัวกลับ: ใช้หัวที่หมุนแล้ว (TwistedHead) แทนหัวจริง
 		local twisted = c:FindFirstChild("TwistedHead", true)
 		if twisted and twisted.Parent then

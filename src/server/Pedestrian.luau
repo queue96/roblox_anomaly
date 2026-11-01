@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Pedestrian = {}
+local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 
 local templates = ServerStorage:WaitForChild("VehicleTemplates")
 
@@ -128,8 +129,32 @@ end
 type Anim = { root: BasePart, swing: { { part: BasePart, rel: CFrame, hinge: CFrame, sign: number, amount: number } }, phase: number }
 local anims: { [Model]: Anim } = setmetatable({}, { __mode = "k" }) :: any
 
--- opts: umbrella (ร่ม), gallon (แกลลอนน้ำมันมือซ้าย), shirt/pants (สีเสื้อ/กางเกง), umbrellaColor
-function Pedestrian.Build(opts: { umbrella: boolean?, gallon: boolean?, shirt: Color3?, pants: Color3?, umbrellaColor: Color3? }): Model
+-- ชาวบ้านแบบใหม่ (HumanNPC: ตัวละครจาก Blender สุ่มชุด/ผม มีท่าเดิน/ยืน/เต้น) ถ้ามีแม่แบบใน ServerStorage.HumanTemplates
+--   ไม่มีแม่แบบ -> ใช้คนแบบกล่องเดิมด้านล่าง
+-- มือในท่ายืน (idle) เทียบ pivot ที่พื้นใต้เท้า (+X = ขวาของตัว, -Z = หน้า)
+local HUMAN_LEFT_HAND = Vector3.new(-1.15, 2.95, -0.1)
+local HUMAN_RIGHT_HAND = Vector3.new(1.15, 2.95, -0.1)
+local function buildHuman(opts: { [string]: any }): Model
+	local m = HumanNPC.Build(opts)
+	if opts.gallon then
+		local h = HUMAN_LEFT_HAND
+		part(m, "Gallon", Vector3.new(0.5, 1.15, 0.95), CFrame.new(h.X, h.Y - 0.8, h.Z + 0.1), Color3.fromRGB(222, 220, 205), Enum.Material.SmoothPlastic)
+		part(m, "GallonCap", Vector3.new(0.2, 0.28, 0.28), CFrame.new(h.X, h.Y - 0.13, h.Z - 0.15) * CFrame.Angles(0, 0, DEG(90)), Color3.fromRGB(170, 30, 25), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		part(m, "GallonHandle", Vector3.new(0.14, 0.14, 0.6), CFrame.new(h.X, h.Y - 0.15, h.Z + 0.25), Color3.fromRGB(222, 220, 205), Enum.Material.SmoothPlastic)
+	end
+	if opts.umbrella then
+		local h = HUMAN_RIGHT_HAND
+		Pedestrian.AddUmbrella(m, Vector3.new(0.3, 7.6, -0.4), h, opts.umbrellaColor)
+	end
+	return m
+end
+
+-- opts: umbrella (ร่ม), gallon (แกลลอนน้ำมันมือซ้าย), shirt/pants (สีเสื้อ/กางเกง คนแบบกล่อง), umbrellaColor,
+--       teen (ชาวบ้านแบบใหม่: ชุดสายแว้น), dance (ท่าเต้นตอนแกว่งตามขบวน เช่น "ramwong", "wan_bounce")
+function Pedestrian.Build(opts: { umbrella: boolean?, gallon: boolean?, shirt: Color3?, pants: Color3?, umbrellaColor: Color3?, teen: boolean?, dance: string?, noHelmet: boolean? }): Model
+	if HumanNPC.Available() then
+		return buildHuman(opts :: any)
+	end
 	local bike = templates:WaitForChild("CustomerBike") :: Model
 	local src = (bike:WaitForChild("DriverNPC") :: Model):Clone()
 	local m = Instance.new("Model")
@@ -301,8 +326,10 @@ function Pedestrian.WalkTo(m: Model, target: Vector3, speed: number?, floor: boo
 			done = true
 			conn:Disconnect()
 			pose(m, 0)
+			HumanNPC.SetMoving(m, false)
 			return
 		end
+		HumanNPC.SetMoving(m, true, spd)
 		local step = math.min(dist, spd * dt)
 		local dir = flat.Unit
 		local nxt = pos + dir * step
@@ -311,7 +338,7 @@ function Pedestrian.WalkTo(m: Model, target: Vector3, speed: number?, floor: boo
 			an.phase += step * 0.9
 		end
 		local phase = if an then an.phase else 0
-		local bob = math.abs(math.sin(phase)) * 0.12
+		local bob = if HumanNPC.Is(m) then 0 else math.abs(math.sin(phase)) * 0.12 -- ชาวบ้านแบบใหม่: ท่าเดินยวบเอง
 		m:PivotTo(CFrame.lookAt(Vector3.new(nxt.X, y + bob, nxt.Z), Vector3.new(nxt.X, y + bob, nxt.Z) + dir))
 		pose(m, math.sin(phase) * 0.5)
 	end)
@@ -323,6 +350,7 @@ end
 -- ท่าแกว่งขา/แขน (ใช้ตอนเต้น หรือเดินตามรถที่ขยับด้วย PivotTo เอง)
 function Pedestrian.Pose(m: Model, a: number)
 	pose(m, a)
+	HumanNPC.Pose(m, a)
 end
 
 -- หันหน้าไปทางจุดหนึ่ง (ยืนอยู่กับที่)
@@ -333,6 +361,7 @@ function Pedestrian.Face(m: Model, at: Vector3)
 		m:PivotTo(CFrame.lookAt(p, p + flat.Unit))
 	end
 	pose(m, 0)
+	HumanNPC.SetMoving(m, false)
 end
 
 -- ค่อยๆ จางหาย (ผี) แล้วลบทิ้ง
