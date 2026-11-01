@@ -188,9 +188,16 @@ task.spawn(function()
 		attachNightMoths(neonPoleBulb, 6)
 	end
 	local shack = mapEnv:WaitForChild("ShackStructure", 10)
-	local shackBulb = shack and shack:WaitForChild("ShackLightBulb", 10)
+	-- หลังสลับเป็นโมเดล Import หลอดในเพิงชื่อ ShackLight_Neon (เดิม ShackLightBulb)
+	local shackBulb = shack and (shack:FindFirstChild("ShackLight_Neon", true) or shack:FindFirstChild("ShackLightBulb"))
 	if shackBulb and shackBulb:IsA("BasePart") then
 		attachNightMoths(shackBulb, 4)
+	end
+	-- หลอดไส้ห้อยสายไฟ (MapBuilder.AddNightPracticalLights)
+	local hanging = shack and shack:FindFirstChild("HangingBulb")
+	local hangingBulb = hanging and hanging:FindFirstChild("Bulb")
+	if hangingBulb and hangingBulb:IsA("BasePart") then
+		attachNightMoths(hangingBulb, 5)
 	end
 end)
 
@@ -312,26 +319,27 @@ local function updatePrayerOptics(active: boolean)
 		Intensity = if active then 0.65 else 0.45,
 		Size = if active then 38 else 32,
 	}):Play()
+	-- ตาทิพย์ต้องเห็นชัดพอจับผิดผีได้: เบลอนิดเดียว ระยะไกลไม่เบลอเพิ่ม
 	TweenService:Create(softBlur, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
-		Size = if active then 2.1 else 0,
+		Size = if active then 1.4 else 0,
 	}):Play()
 	TweenService:Create(dof, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
-		FarIntensity = if active then 0.48 else 0.15,
+		FarIntensity = if active then 0.2 else 0.15,
 	}):Play()
-	-- บีบขอบจอมืด (Vignette) เข้ามาเบาๆ ตอนเปิดตาทิพย์เพ่งจิตดูผี
-	local edgeTrans = if active then 0.16 else 0.36
+	-- ขอบจอ (Vignette) บีบเข้ามาเบาๆ แต่จางกว่าปกติ ไม่ให้ภาพมืดลงตอนเพ่งดูผี
+	local edgeTrans = if active then 0.5 else 0.36
 	local vSize = if active then UDim2.fromScale(1, 0.33) else UDim2.fromScale(1, 0.24)
 	local hSize = if active then UDim2.fromScale(0.27, 1) else UDim2.fromScale(0.20, 1)
 	local info = TweenInfo.new(0.6, Enum.EasingStyle.Sine)
 	TweenService:Create(vigTop, info, { BackgroundTransparency = edgeTrans, Size = vSize }):Play()
 	TweenService:Create(vigBottom, info, { BackgroundTransparency = edgeTrans, Size = vSize }):Play()
 	TweenService:Create(vigLeft, info, { BackgroundTransparency = edgeTrans, Size = hSize }):Play()
-	TweenService:Create(vigRight, info, { BackgroundTransparency = edgeTrans, Size = hSize }):Play()
-end
+	TweenService:Create(vigRight, info, { BackgroundTransparency = edgeTrans, Size = hSize }):Play()end
 
+-- PrayerController เปิด Enabled ค้างไว้หลังสวดครั้งแรก จึงฟัง attribute "Open" แทน (เดิม blur / vignette ค้างหลังเลิกสวด)
 if prayerSightEffect then
-	prayerSightEffect:GetPropertyChangedSignal("Enabled"):Connect(function()
-		updatePrayerOptics(prayerSightEffect.Enabled)
+	prayerSightEffect:GetAttributeChangedSignal("Open"):Connect(function()
+		updatePrayerOptics(prayerSightEffect:GetAttribute("Open") == true)
 	end)
 end
 
@@ -359,12 +367,37 @@ task.spawn(function()
 end)
 
 -- หมอกค่อยๆ หนาขึ้นบางลงเหมือนมีหมอกก้อนลอยผ่าน
+-- ตอนสวด ภาพสว่างขึ้น (PrayerController ดัน ExposureCompensation) จนเห็นภูเขาขอบแมพ/นอกแมพ -> หมอกหนาขึ้นกลบระยะไกลไว้
+-- Offset 0 ดึงหมอกเข้ามาใกล้ (ราวแนวต้นกล้วยขอบแมพ) แทนที่จะเริ่มหนาไกลๆ
+local PRAY_FOG = { Density = 0.85, Haze = 2.6, Offset = 0 }
+local NORMAL_HAZE = atmo.Haze
+local NORMAL_OFFSET = atmo.Offset
+local driftTween: Tween? = nil
+local function isPraying(): boolean
+	return localPlayer:GetAttribute("Praying") == true
+end
+localPlayer:GetAttributeChangedSignal("Praying"):Connect(function()
+	if driftTween then
+		driftTween:Cancel()
+	end
+	local praying = isPraying()
+	TweenService:Create(atmo, TweenInfo.new(if praying then 1.2 else 2, Enum.EasingStyle.Sine), {
+		Density = if praying then PRAY_FOG.Density else 0.42,
+		Haze = if praying then PRAY_FOG.Haze else NORMAL_HAZE,
+		Offset = if praying then PRAY_FOG.Offset else NORMAL_OFFSET,
+	}):Play()
+end)
 task.spawn(function()
 	while true do
+		if isPraying() then
+			task.wait(1)
+			continue
+		end
 		local target = 0.38 + math.random() * 0.08
-		local tween = TweenService:Create(atmo, TweenInfo.new(math.random(10, 18), Enum.EasingStyle.Sine), {
+		driftTween = TweenService:Create(atmo, TweenInfo.new(math.random(10, 18), Enum.EasingStyle.Sine), {
 			Density = target,
 		})
+		local tween = driftTween :: Tween
 		tween:Play()
 		tween.Completed:Wait()
 	end

@@ -1341,8 +1341,8 @@ end
 function MapBuilder.SetNightLighting()
 	Lighting.ClockTime = 0
 	Lighting.Brightness = 0.5
-	Lighting.Ambient = Color3.fromRGB(12, 16, 22)
-	Lighting.OutdoorAmbient = Color3.fromRGB(18, 24, 30)
+	Lighting.Ambient = Color3.fromRGB(22, 26, 34)
+	Lighting.OutdoorAmbient = Color3.fromRGB(30, 36, 44)
 	Lighting.EnvironmentDiffuseScale = 0.2
 	Lighting.EnvironmentSpecularScale = 0.5
 	Lighting.ShadowSoftness = 0.15
@@ -2527,11 +2527,18 @@ local function archivePlaceholder(old: Instance)
 	old.Parent = archive
 end
 
+-- ตู้ปั๊มอยู่ใน InteractiveProps.FuelPumps (หลังรวมฐานด้วย GroupFuelPumps) หรือใน InteractiveProps ตรงๆ
+local function findPump(name: string): Model?
+	local interactive = Workspace:FindFirstChild("InteractiveProps")
+	local group = interactive and interactive:FindFirstChild("FuelPumps")
+	return ((group and group:FindFirstChild(name)) or (interactive and interactive:FindFirstChild(name))) :: Model?
+end
+
 -- สลับตู้ปั๊มหลอด placeholder (InteractiveProps.GasPump) เป็นโมเดล GasPump.fbx
 -- ตั้งฐานตู้ไว้ตรงฐานเดิม หันหน้าป้ายไปทาง StopPoint และย้าย PumpFuelPrompt / ZoneLabel ไปใส่ตู้ใหม่
 function MapBuilder.SwapGasPumpModel()
-	local interactive = Workspace:FindFirstChild("InteractiveProps")
-	local old = interactive and interactive:FindFirstChild("GasPump")
+	local old = findPump("GasPump")
+	local interactive = old and old.Parent
 	local new = findImportedModel("GasPump")
 	if not old or not new then
 		warn("[MapBuilder] SwapGasPumpModel: ไม่พบ InteractiveProps.GasPump หรือโมเดลที่นำเข้า (NewModels/ImportedProps.GasPump)")
@@ -2583,6 +2590,94 @@ function MapBuilder.SwapGasPumpModel()
 	new:SetAttribute("ImportedProp", true)
 	new.Parent = interactive
 	print("⛽ [MapBuilder] สลับตู้ปั๊มหลอดเป็นโมเดลใหม่แล้ว (ของเดิมเก็บไว้ที่ ServerStorage.ArchivedPlaceholders)")
+end
+
+-- วางตู้ 2 ดีเซล (InteractiveProps.DieselPump) ถาวรข้างตู้หลอด หน้าร้านที่ไฟส่องถึง (เดิม CoreLoop Clone ไปวางตอนเล่นห่าง 26 studs ในที่มืด)
+-- offset = ระยะจากตู้หลอด (studs, แกนโลก) · น้ำมันสีเขียวตั้งไว้ในไฟล์เลย · รันซ้ำได้ (ย้ายตู้เดิม)
+function MapBuilder.PlaceDieselPumpBesideGas(offset: Vector3): Vector3?
+	local gas = findPump("GasPump")
+	if not gas then
+		warn("[MapBuilder] PlaceDieselPumpBesideGas: ไม่พบ InteractiveProps.GasPump")
+		return nil
+	end
+	local interactive = gas.Parent
+	local diesel = findPump("DieselPump")
+	if not diesel then
+		local c = gas:Clone()
+		c.Name = "DieselPump"
+		for _, d in ipairs(c:GetDescendants()) do
+			if d:IsA("ProximityPrompt") or d.Name == "BloodFuel" or d.Name == "ZoneLabel" then
+				d:Destroy()
+			end
+		end
+		c.Parent = interactive
+		diesel = c
+	end
+	local m = diesel :: Model
+	m:PivotTo(gas:GetPivot() + offset)
+	local liquid = m:FindFirstChild("FuelLiquid") :: BasePart?
+	if liquid then
+		liquid.Color = Color3.fromRGB(70, 150, 60)
+		local sa = liquid:FindFirstChildOfClass("SurfaceAppearance")
+		if sa then
+			(sa :: any).Color = Color3.fromRGB(110, 210, 90)
+		end
+	end
+	return m:GetPivot().Position
+end
+
+-- รวมตู้หลอด + ตู้ดีเซลเป็นโมเดลเดียว InteractiveProps.FuelPumps ตั้งบนฐานปูนแผ่นเดียว (SharedBase)
+-- ตู้ดีเซลเรียงข้างตู้หลอดตามแกนขวาของตู้ (gap = ระยะกึ่งกลางตู้ถึงตู้) ให้ฐานแผ่นเดียวหันตามตู้พอดี · รันซ้ำได้
+function MapBuilder.GroupFuelPumps(gap: number?): CFrame?
+	local interactive = Workspace:FindFirstChild("InteractiveProps")
+	local gas = findPump("GasPump")
+	local diesel = findPump("DieselPump")
+	if not (interactive and gas and diesel) then
+		warn("[MapBuilder] GroupFuelPumps: ต้องมี GasPump และ DieselPump (รัน PlaceDieselPumpBesideGas ก่อน)")
+		return nil
+	end
+	local d = gap or 5
+	local group = interactive:FindFirstChild("FuelPumps") :: Model?
+	if not group then
+		local g = Instance.new("Model")
+		g.Name = "FuelPumps"
+		g.Parent = interactive
+		group = g
+	end
+	local grp = group :: Model
+	local old = grp:FindFirstChild("SharedBase")
+	if old then
+		old:Destroy()
+	end
+	gas.Parent = grp
+	diesel.Parent = grp
+
+	local gasPiv = gas:GetPivot()
+	diesel:PivotTo(gasPiv * CFrame.new(d, 0, 0))
+
+	-- ความสูงผิวบนแท่นปูนของตู้ (เป็นส่วนหนึ่งของ mesh) และพื้นดินใต้ตู้
+	local _, size = gas:GetBoundingBox()
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { gas }
+	local corner = (gasPiv * CFrame.new(size.X / 2 - 0.15, 0, size.Z / 2 - 0.15)).Position
+	local padHit = Workspace:Raycast(corner + Vector3.new(0, 10, 0), Vector3.new(0, -20, 0), params)
+	local padTop = if padHit then padHit.Position.Y else gasPiv.Position.Y + 0.4
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	local groundHit = Workspace:Raycast(gasPiv.Position + Vector3.new(0, 5, 0), Vector3.new(0, -20, 0), params)
+	local bottom = math.min(gasPiv.Position.Y, if groundHit then groundHit.Position.Y else gasPiv.Position.Y) - 0.4
+
+	-- ฐานแผ่นเดียวสูงกว่าแท่นเดิมนิดเดียว กลบแท่นของแต่ละตู้ให้กลายเป็นแผ่นเดียวกัน
+	local top = padTop + 0.03
+	local margin = 0.6
+	local baseSize = Vector3.new(d + size.X + margin * 2, top - bottom, size.Z + margin * 2)
+	local baseCf = gasPiv * CFrame.new(d / 2, 0, 0)
+	baseCf = CFrame.new(baseCf.Position.X, (top + bottom) / 2, baseCf.Position.Z) * baseCf.Rotation
+	local base = createPart("SharedBase", baseSize, baseCf, Color3.fromRGB(150, 148, 142), Enum.Material.Concrete, grp)
+	base.Anchored = true
+	base.CanCollide = true
+	grp.PrimaryPart = base
+	return baseCf
 end
 
 -- ===================================================================================
@@ -3284,6 +3379,75 @@ end
 function MapBuilder.RebuildRoadPowerPoles()
 	Workspace:SetAttribute("RoadPowerPolesAdded", nil)
 	MapBuilder.AddRoadPowerPoles()
+end
+
+-- ย้ายเสาหน้าร้านที่มีหลอด (DirtRoad.WoodenPole + NeonLightPart/FlickerLight) ไปตั้งที่ baseXZ (แกนเสา, ใช้แค่ X/Z)
+-- หมุนโคมหันเข้าหา StopPoint ให้หน้าลูกค้าที่จอดโดนไฟ แล้วลากสายไฟเส้นเดียวจากหัวเสาเพิงต้นที่ใกล้สุดใหม่ · รันซ้ำได้
+function MapBuilder.MoveLitPole(baseXZ: Vector3): Vector3?
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local road = env and env:FindFirstChild("DirtRoad")
+	local pole = road and road:FindFirstChild("WoodenPole") :: BasePart?
+	local bulb = road and road:FindFirstChild("NeonLightPart") :: BasePart?
+	local stop = Workspace:FindFirstChild("VehicleWaypoints") and Workspace.VehicleWaypoints:FindFirstChild("StopPoint") :: BasePart?
+	if not (pole and bulb and stop) then
+		warn("[MapBuilder] MoveLitPole: ไม่พบ DirtRoad.WoodenPole / NeonLightPart / StopPoint")
+		return nil
+	end
+	local p = pole :: BasePart
+	local oldBase = p.CFrame:PointToWorldSpace(poleAxisLocal(p))
+	local newBase = Vector3.new(baseXZ.X, groundY(baseXZ.X, baseXZ.Z) - 0.4, baseXZ.Z)
+	-- หมุนรอบแกนเสาจากทิศโคมเดิม -> ทิศไปหา StopPoint
+	local function yawOf(v: Vector3): number
+		return math.atan2(-v.X, -v.Z)
+	end
+	local fromDir = (bulb.Position - oldBase) * Vector3.new(1, 0, 1)
+	local toDir = (stop.Position - newBase) * Vector3.new(1, 0, 1)
+	local yaw = yawOf(toDir) - yawOf(fromDir)
+	local move = CFrame.new(newBase) * CFrame.Angles(0, yaw, 0) * CFrame.new(-oldBase)
+	p.CFrame = move * p.CFrame
+	bulb.CFrame = move * bulb.CFrame
+
+	-- สายไฟจากเพิงเข้าเสา: สายเดิมคือ Wire ใน RoadPowerPoles.Wires ฝั่งร้าน (แนวเสาฝั่งตรงข้ามอยู่หลังกลางถนน)
+	local poles = env:FindFirstChild("RoadPowerPoles")
+	local wires = poles and poles:FindFirstChild("Wires")
+	local wp = Workspace:FindFirstChild("VehicleWaypoints")
+	local spawnPt = wp and wp:FindFirstChild("SpawnPoint") :: BasePart?
+	local exitPt = wp and wp:FindFirstChild("ExitPoint") :: BasePart?
+	local roadZ = if spawnPt and exitPt then (spawnPt.Position.Z + exitPt.Position.Z) / 2 else -11.5
+	if wires then
+		for _, w in ipairs(wires:GetChildren()) do
+			if w:IsA("BasePart") and w.Position.Z > roadZ then
+				w:Destroy()
+			end
+		end
+	end
+	local feed = road:FindFirstChild("LitPoleWire")
+	if feed then
+		feed:Destroy()
+	end
+	local shack = env:FindFirstChild("ShackStructure")
+	local imported = shack and shack:FindFirstChild("ImportedShack")
+	local nearPillar, best = nil, math.huge
+	if imported then
+		for _, c in ipairs(imported:GetChildren()) do
+			if c.Name == "WoodenPillar" and c:IsA("BasePart") then
+				local d = (Vector3.new(c.Position.X, 0, c.Position.Z) - Vector3.new(newBase.X, 0, newBase.Z)).Magnitude
+				if d < best then
+					nearPillar, best = c, d
+				end
+			end
+		end
+	end
+	if nearPillar then
+		local m = Instance.new("Model")
+		m.Name = "LitPoleWire"
+		m.Parent = road
+		local from = nearPillar.Position + Vector3.new(0, nearPillar.Size.Y / 2 - 0.4, 0)
+		local axisLocal = poleAxisLocal(p)
+		local to = p.CFrame:PointToWorldSpace(Vector3.new(0, axisLocal.Y + 16.2, axisLocal.Z + 0.35))
+		sagWire(from, to, m)
+	end
+	return bulb.Position
 end
 
 -- ย้ายเงาคนแอบ (AnomalyProps.BanyanShadowAnomaly) ออกจากลำต้นไทรใหม่ ไปยืนหลบชิดลำต้นฝั่งที่มองไม่เห็นจากถนน/ร้าน
@@ -4300,7 +4464,7 @@ end
 -- หรี่ของที่สีสว่างเกินจนดูเหมือนมีแสง: น้ำมันในตู้ปั๊ม และหลักกิโล (ย้อมสี texture ให้หม่น)
 function MapBuilder.MuteBrightProps()
 	local targets = {
-		{ Workspace:FindFirstChild("InteractiveProps") and Workspace.InteractiveProps:FindFirstChild("GasPump"), "FuelLiquid", Color3.fromRGB(150, 118, 90) },
+		{ findPump("GasPump"), "FuelLiquid", Color3.fromRGB(150, 118, 90) },
 		{ Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("DirtRoad"), "KilometerMilestone", Color3.fromRGB(120, 116, 106) },
 	}
 	for _, t in ipairs(targets) do
@@ -4351,6 +4515,73 @@ function MapBuilder.LightStormLantern(): boolean
 	light.Shadows = true
 	light.Parent = flame
 	return true
+end
+
+-- เปิดไฟใช้งานจริงรอบร้านตอนกลางคืน (แมพมืดเกิน): หลอดนีออนในเพิง (InteriorLight เคยถูกปิดไว้ในไฟล์ place),
+-- แสงศาลพระภูมิ และหลอดไส้ห้อยสายไฟในเพิงฝั่งตู้ปั๊ม (HangingBulb, Client ใส่แมลงเม่าบินวนให้) · รันซ้ำได้
+function MapBuilder.AddNightPracticalLights(): { string }
+	local done = {}
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local imported = shack and shack:FindFirstChild("ImportedShack")
+
+	local tube = imported and imported:FindFirstChild("ShackLight_Neon") :: BasePart?
+	local interior = tube and tube:FindFirstChild("InteriorLight") :: PointLight?
+	if interior then
+		interior.Enabled = true
+		interior.Brightness = 1.3
+		interior.Range = 26
+		table.insert(done, "InteriorLight")
+	end
+
+	local spirit = Workspace:FindFirstChild("SpiritHouse")
+	local glow = spirit and spirit:FindFirstChild("ShrineEerieGlow", true) :: PointLight?
+	if glow then
+		glow.Enabled = true
+		glow.Brightness = 0.9
+		glow.Range = 12
+		table.insert(done, "ShrineEerieGlow")
+	end
+
+	if shack then
+		for _, n in ipairs({ "PumpBulb", "HangingBulb" }) do
+			local old = shack:FindFirstChild(n)
+			if old then
+				old:Destroy()
+			end
+		end
+		-- ในเพิงฝั่งตู้ปั๊ม หลังเชือกดึงแผง (RejectRope x -5.5, z 12.2) หาความสูงเพดานด้วย raycast
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { shack }
+		local x, z = -8, 15
+		local hit = Workspace:Raycast(Vector3.new(x, 4, z), Vector3.new(0, 30, 0), params)
+		local ceilingY = if hit then hit.Position.Y else 12
+		local bulbPos = Vector3.new(x, ceilingY - 1.6, z)
+
+		local m = Instance.new("Model")
+		m.Name = "HangingBulb"
+		m.Parent = shack
+		local cord = createPart("Cord", Vector3.new(ceilingY - bulbPos.Y, 0.06, 0.06),
+			CFrame.new(bulbPos + Vector3.new(0, (ceilingY - bulbPos.Y) / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			Color3.fromRGB(20, 18, 16), Enum.Material.SmoothPlastic, m, Enum.PartType.Cylinder)
+		local bulb = createPart("Bulb", Vector3.new(0.6, 0.6, 0.6), CFrame.new(bulbPos),
+			Color3.fromRGB(255, 205, 140), Enum.Material.Neon, m, Enum.PartType.Ball)
+		for _, p in ipairs({ cord, bulb }) do
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CastShadow = false
+		end
+		local light = Instance.new("PointLight")
+		light.Name = "HangingBulbLight"
+		light.Color = Color3.fromRGB(255, 196, 130)
+		light.Brightness = 1.2
+		light.Range = 20
+		light.Shadows = true
+		light.Parent = bulb
+		table.insert(done, ("HangingBulb@%.1f,%.1f,%.1f"):format(bulbPos.X, bulbPos.Y, bulbPos.Z))
+	end
+	return done
 end
 
 -- ย้อมสีกระท่อมให้หลอน: สังกะสี/ไม้ เทาอมเขียวหม่นแบบขึ้นตะไคร่ ป้ายร้านเข้มกว่าอีกระดับ (รวม ShutterDoor)
@@ -4661,6 +4892,89 @@ function MapBuilder.AddMangoLeaves(tree: Model, light: boolean?, far: boolean?)
 			card(CFrame.new(cc + Vector3.new(0, rr * 0.3, 0)) * CFrame.Angles(math.rad(rng:NextNumber(-10, 10)), math.rad(rng:NextNumber(0, 360)), 0), Vector3.new(2.3 * rr, 0.05, 2.3 * rr), true)
 		end
 	end
+end
+
+-- ต้นมะม่วงชายทุ่ง (OuterTreeLine) สร้างใบแบบเต็ม ~344 แผ่น/ต้น (26 ต้น = ~9,000 Part + ~18,000 Decal ≈ 80% ของแมพ)
+-- ทั้งที่อยู่หลังหมอก → สร้างใหม่แบบ far (1/3 ของจุดใบ, ใบใหญ่ 1.7 เท่า) เหมือนต้นบนภูเขา · รันซ้ำได้
+function MapBuilder.ThinBorderMangoLeaves(): (number, number)
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local otl = env and env:FindFirstChild("OuterTreeLine")
+	if not otl then
+		return 0, 0
+	end
+	local CollectionService = game:GetService("CollectionService")
+	local before, after = 0, 0
+	for _, m in ipairs(otl:GetChildren()) do
+		local old = m:IsA("Model") and m:FindFirstChild("MangoLeaves")
+		if old then
+			before += #old:GetChildren()
+			old:Destroy()
+			MapBuilder.AddMangoLeaves(m, true, true)
+			local leaves = m:FindFirstChild("MangoLeaves")
+			if leaves then
+				CollectionService:AddTag(leaves, "LeafFlutter")
+				after += #leaves:GetChildren()
+			end
+		end
+	end
+	return before, after
+end
+
+-- ลดแนวต้นไม้ขอบแมพหลังบีบพื้นที่เดิน (InvisibleWalls) ให้เหลือบางๆ: วงนอก (ห่างกำแพง ≥ 60 studs, อยู่หลังหมอก) ลบทิ้งหมด
+-- วงใน เก็บต้นไม้/พุ่มไม้ 1 ใน keepEvery และกอหญ้าครึ่งหนึ่ง เรียงตามมุมรอบแมพให้กระจายเท่าๆ กัน · ไม่แตะ RoadHorizonExt (บังจุดตกโลก)
+function MapBuilder.PruneBorderTreeLine(keepEvery: number?): (number, number)
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local otl = env and env:FindFirstChild("OuterTreeLine")
+	local walls = env and env:FindFirstChild("InvisibleWalls")
+	if not (otl and walls) then
+		return 0, 0
+	end
+	local every = keepEvery or 3
+	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+	for _, w in ipairs(walls:GetChildren()) do
+		if w:IsA("BasePart") then
+			minX, maxX = math.min(minX, w.Position.X), math.max(maxX, w.Position.X)
+			minZ, maxZ = math.min(minZ, w.Position.Z), math.max(maxZ, w.Position.Z)
+		end
+	end
+	local center = Vector3.new((minX + maxX) / 2, 0, (minZ + maxZ) / 2)
+
+	local removed, kept = 0, 0
+	local inner: { [string]: { { inst: Instance, angle: number } } } = {}
+	for _, c in ipairs(otl:GetChildren()) do
+		if c.Name:match("^RoadHorizonExt") then
+			continue
+		end
+		local p = if c:IsA("Model") then c:GetPivot().Position elseif c:IsA("BasePart") then c.Position else nil
+		if not p then
+			continue
+		end
+		local dx = math.max(0, minX - p.X, p.X - maxX)
+		local dz = math.max(0, minZ - p.Z, p.Z - maxZ)
+		if math.sqrt(dx * dx + dz * dz) >= 60 then
+			c:Destroy()
+			removed += 1
+		else
+			local kind = if c.Name:match("^BorderGrass") then "grass" elseif c.Name:match("^BorderBush") then "bush" else "tree"
+			inner[kind] = inner[kind] or {}
+			table.insert(inner[kind], { inst = c, angle = math.atan2(p.Z - center.Z, p.X - center.X) })
+		end
+	end
+	for kind, list in pairs(inner) do
+		table.sort(list, function(a, b)
+			return a.angle < b.angle
+		end)
+		local n = if kind == "grass" then 2 else every
+		for i, item in ipairs(list) do
+			if i % n == 0 then
+				kept += 1
+			else
+				item.inst:Destroy()
+				removed += 1
+			end
+		end
+	end
+	return removed, kept
 end
 
 -- ===================================================================================

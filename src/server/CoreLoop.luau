@@ -38,7 +38,7 @@ local CONFIG = {
 		{ kind = "tuktuk", weight = 1.5 }, -- ตุ๊กตุ๊ก (น้ำมันหลอด)
 		{ kind = "bicycle", weight = 1.5 }, -- จักรยานยางแบน เข็นมาเติมลม
 	},
-	DieselPumpOffset = 26, -- ตู้ดีเซลอยู่ห่างตู้ 1 ไปทางขาออกเท่านี้ (ถ้าไม่ได้วางเองใน InteractiveProps.DieselPump)
+	DieselPumpOffset = 7, -- (สำรอง) ถ้าไม่มี InteractiveProps.DieselPump ในฉาก Clone ตู้ 1 ไปวางข้างๆ ห่างเท่านี้ไปทางขาออก
 	AirStopOffset = 12, -- จุดจอดเติมลม (หน้าถังลม)
 	ExpensiveRefuseChance = 0.5, -- ตอบแพง (120) ลูกค้าปกติมีโอกาสไม่เอา
 	ReplyTime = 8, -- วินาทีที่เปิดให้ตอบราคา
@@ -105,7 +105,9 @@ local CONFIG = {
 
 -- ---------------------------------------------------------------- ฉากและของในฉาก
 local interactive = Workspace:WaitForChild("InteractiveProps")
-local gasPump = interactive:WaitForChild("GasPump") :: Model
+-- ตู้หลอด + ตู้ดีเซลรวมอยู่ใน InteractiveProps.FuelPumps (ฐานปูนเดียวกัน, MapBuilder.GroupFuelPumps) ถ้ายังไม่รวมอยู่ใน InteractiveProps ตรงๆ
+local pumpGroup = interactive:FindFirstChild("FuelPumps") or interactive
+local gasPump = pumpGroup:WaitForChild("GasPump") :: Model
 local pumpBody = gasPump.PrimaryPart or (gasPump:FindFirstChild("GasPump") :: BasePart?) or (gasPump:FindFirstChild("PumpBase") :: BasePart?) or (gasPump:FindFirstChildWhichIsA("BasePart") :: BasePart)
 local fuelLiquid = gasPump:FindFirstChild("FuelLiquid") :: BasePart?
 local shutterDoor = interactive:WaitForChild("ShutterDoor") :: BasePart
@@ -259,7 +261,7 @@ end
 local ROAD_DIR = Vector3.new(stopPoint.Position.X - spawnPoint.Position.X, 0, stopPoint.Position.Z - spawnPoint.Position.Z).Unit
 
 -- ตู้ 2: ดีเซล (น้ำมันสีเขียว) สำหรับรถยนต์ — ใช้ InteractiveProps.DieselPump ถ้าวางไว้เอง ไม่งั้น Clone ตู้ 1 ไปวางถัดไป
-local dieselPump = interactive:FindFirstChild("DieselPump") :: Model?
+local dieselPump = pumpGroup:FindFirstChild("DieselPump") :: Model?
 if not dieselPump then
 	local c = gasPump:Clone()
 	c.Name = "DieselPump"
@@ -270,7 +272,7 @@ if not dieselPump then
 	end
 	local piv = gasPump:GetPivot()
 	c:PivotTo(piv + ROAD_DIR * CONFIG.DieselPumpOffset)
-	c.Parent = interactive
+	c.Parent = pumpGroup
 	dieselPump = c
 end
 local dieselBody = (dieselPump :: Model).PrimaryPart or ((dieselPump :: Model):FindFirstChild("GasPump") :: BasePart?) or ((dieselPump :: Model):FindFirstChild("PumpBase") :: BasePart?) or ((dieselPump :: Model):FindFirstChildWhichIsA("BasePart") :: BasePart)
@@ -896,13 +898,11 @@ local function slotPos(i: number): Vector3
 	return Vector3.new(p.X, groundAt(p), p.Z)
 end
 
--- จุดที่คันหน้าสุดไปจอดรับบริการ: น้ำมันหลอด = StopPoint, ดีเซล = หน้าตู้ 2, เติมลม = หน้าถังลม
+-- จุดที่คันหน้าสุดไปจอดรับบริการ: น้ำมันหลอด / ดีเซล = StopPoint หน้าร้าน (ตู้ 2 อยู่ข้างตู้ 1 ที่ไฟส่องถึง), เติมลม = หน้าถังลม
 local function serviceTarget(service: string): Vector3
 	local stop = stopPoint.Position
 	local p = stop
-	if service == "diesel" then
-		p = stop + ROAD_DIR * CONFIG.DieselPumpOffset
-	elseif service == "air" then
+	if service == "air" then
 		p = stop + ROAD_DIR * CONFIG.AirStopOffset
 	end
 	return Vector3.new(p.X, groundAt(p), p.Z)
@@ -923,6 +923,26 @@ local BICYCLE_TEMPLATES = { "ThaiBicycleRed", "ThaiBicycleBlue" }
 local CAR_ORDERS = { "Car_Order_1", "Car_Order_2", "Car_Order_3" }
 local TUKTUK_ORDERS = { "TukTuk_Order_1", "TukTuk_Order_2" }
 local BICYCLE_ORDERS = { "Bicycle_Order_1", "Bicycle_Order_2" }
+
+-- ไฟหน้าส่องถนนให้เห็นแสงมาก่อนตัวรถ: ดันจุดกำเนิดแสงออกไปหน้าเลนส์ (เดิมอยู่กลางชิ้นไฟที่ฝังในตัวถัง
+-- SpotLight ที่เปิดเงาจึงโดนตัวถังบังจนแทบไม่มีแสงลงพื้น) แล้วส่องไกลขึ้น
+local HEADLIGHT_PUSH = 1.2
+local function brightenHeadlights(m: Model)
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("SpotLight") and d.Name == "HeadlightBeam" then
+			local att = d.Parent
+			if att and att:IsA("Attachment") and not att:GetAttribute("Pushed") then
+				att:SetAttribute("Pushed", true)
+				att.WorldCFrame = att.WorldCFrame * CFrame.new(0, 0, -HEADLIGHT_PUSH)
+			end
+			d.Enabled = true
+			if d.Range >= 40 then -- จักรยาน (ไฟดวงเล็ก ระยะ 26) คงเดิม
+				d.Range = 60
+				d.Brightness = math.max(d.Brightness, 4)
+			end
+		end
+	end
+end
 
 -- เตรียมรถไทยให้เป็นรถลูกค้า: ยึดทุกชิ้น (ขยับด้วย PivotTo เหมือนรถเดิม) ปิดเบาะไม่ให้ผู้เล่นนั่ง เปิดไฟหน้า
 local function prepThaiVehicle(m: Model)
@@ -948,6 +968,7 @@ local function prepThaiVehicle(m: Model)
 			end
 		end
 	end
+	brightenHeadlights(m)
 end
 
 -- คนขับนั่งเบาะคนขับ: ใช้คนขับจากมอไซค์แม่แบบ (ท่านั่ง) วางสะโพกลงบนเบาะ
@@ -1044,6 +1065,7 @@ local function spawnCustomer(kind: string?)
 		service = if k == "car" then "diesel" else "petrol"
 	else
 		v = pickTemplate():Clone()
+		brightenHeadlights(v :: Model)
 		if raining and math.random() < CONFIG.RiderUmbrellaChance then
 			Pedestrian.AddRiderUmbrella(v)
 		end

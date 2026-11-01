@@ -100,7 +100,41 @@ local grade = Instance.new("ColorCorrectionEffect")
 grade.Name = "PrayerSight"
 grade.Enabled = false
 grade.Parent = Lighting
-local SIGHT_GRADE = { Saturation = -0.55, Contrast = 0.12, TintColor = Color3.fromRGB(200, 215, 235), Brightness = 0.03 }
+-- ตาทิพย์เปิด: ยกเงามืดขึ้น (Contrast ติดลบ + Brightness) ให้มองเห็นรายละเอียดจับผิดผีได้ง่าย
+local SIGHT_GRADE = { Saturation = -0.55, Contrast = -0.1, TintColor = Color3.fromRGB(200, 215, 235), Brightness = 0.1 }
+-- สวดอยู่: ภาพค่อยๆ สว่างขึ้นจนตาทิพย์เปิด (Lighting.ExposureCompensation ฝั่ง Client)
+local PRAY_EXPOSURE = 1.2
+
+-- ---------------------------------------------------------------- เสียงรอบตัวทึบลงตอนสวด (เหมือนเข้าภวังค์) ให้เสียงสวดตัวเองเด่น
+-- ใส่ EQ ที่ SoundGroup SFX (SettingsController จัดเสียงฉากทุกตัวเข้ากลุ่มนี้) เสียงสวดตัวเองอยู่กลุ่ม Music จึงไม่โดน
+local function soundGroup(name: string): SoundGroup
+	local g = SoundService:FindFirstChild(name)
+	if not (g and g:IsA("SoundGroup")) then
+		g = Instance.new("SoundGroup")
+		g.Name = name
+		g.Parent = SoundService
+	end
+	return g :: SoundGroup
+end
+local muffle = Instance.new("EqualizerSoundEffect")
+muffle.Name = "PrayMuffle"
+muffle.LowGain = 0
+muffle.MidGain = 0
+muffle.HighGain = 0
+muffle.Priority = 10
+muffle.Parent = soundGroup("SFX")
+local MUFFLED = { LowGain = -4, MidGain = -12, HighGain = -28 }
+local CLEAR = { LowGain = 0, MidGain = 0, HighGain = 0 }
+local function setMuffle(on: boolean, seconds: number)
+	TweenService:Create(muffle, TweenInfo.new(seconds, Enum.EasingStyle.Sine), if on then MUFFLED else CLEAR):Play()
+end
+-- ผีหลอก: เสียงต้องดังชัดเต็มที่ทันที แม้กำลังสวดอยู่
+local jumpscareRemote = remotes:FindFirstChild("TriggerJumpscare")
+if jumpscareRemote and jumpscareRemote:IsA("RemoteEvent") then
+	jumpscareRemote.OnClientEvent:Connect(function()
+		setMuffle(false, 0)
+	end)
+end
 local NO_GRADE = { Saturation = 0, Contrast = 0, TintColor = Color3.new(1, 1, 1), Brightness = 0 }
 for k, v in pairs(NO_GRADE) do
 	(grade :: any)[k] = v
@@ -215,6 +249,7 @@ local function playOrUpdateMyChant(scaredMode: boolean, forceNewIndex: boolean?)
 	if not myChantSound or not myChantSound.Parent then
 		local s = Instance.new("Sound")
 		s.Name = "PlayerSelfChant"
+		s:SetAttribute("SoundCategory", "Music") -- อยู่กลุ่ม Music ไม่โดน PrayMuffle (ต้องตั้งก่อน Parent)
 		s.Looped = true
 		s.RollOffMode = Enum.RollOffMode.InverseTapered
 		s.RollOffMinDistance = 8
@@ -254,6 +289,7 @@ local function setSight(open: boolean)
 	sightOpen = open
 	applyAll(false)
 	grade.Enabled = true
+	grade:SetAttribute("Open", open) -- AmbienceController ฟังค่านี้เพื่อปรับ blur / vignette ตอนตาทิพย์เปิด
 	TweenService:Create(grade, TweenInfo.new(if open then 0.8 else 0.5), if open then SIGHT_GRADE else NO_GRADE):Play()
 	label.Text = ui(if open then "PraySightOpen" else "PrayChanting")
 	label.TextColor3 = Color3.fromRGB(236, 228, 208)
@@ -277,6 +313,8 @@ local function onPrayingChanged()
 		-- เริ่มสวดด้วยโหมดปกติที่ตัวผู้เล่นเอง (ถ้าตาทิพย์เปิดแล้วเจอผี จะสลับเป็นสวดเร็วอัตโนมัติ)
 		playOrUpdateMyChant(false, true)
 		TweenService:Create(fill, TweenInfo.new(SIGHT_DELAY, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1) }):Play()
+		TweenService:Create(Lighting, TweenInfo.new(SIGHT_DELAY, Enum.EasingStyle.Sine), { ExposureCompensation = PRAY_EXPOSURE }):Play()
+		setMuffle(true, SIGHT_DELAY)
 		task.delay(SIGHT_DELAY, function()
 			if prayToken == token then
 				setSight(true)
@@ -286,6 +324,8 @@ local function onPrayingChanged()
 		bar.Visible = false
 		stopMyChant()
 		setSight(false)
+		TweenService:Create(Lighting, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { ExposureCompensation = 0 }):Play()
+		setMuffle(false, 0.6)
 	end
 end
 localPlayer:GetAttributeChangedSignal("Praying"):Connect(onPrayingChanged)

@@ -14,7 +14,7 @@ local terrain = Workspace.Terrain
 
 local RAIN_TEXTURE = "rbxassetid://99672676947809" -- เส้นเม็ดฝนบางๆ สีขาว (ทำเอง 64x256)
 local RAIN_SOUND = "rbxassetid://13039198193" -- heavy rain loop
-local RAIN_RATE = 1300 -- ต่อตัวปล่อย (มี 2 ตัว)
+local RAIN_RATE = 500 -- ต่อตัวปล่อย (5 ตัวใน 4 โซน; เดิม 1300 = เม็ดฝนค้างบนจอ ~2,700 เม็ด หนักการ์ดจอ)
 
 -- ---------------------------------------------------------------- เม็ดฝน (แบ่งโซนปล่อยฝนรอบนอกกระท่อม ไม่ให้เม็ดฝนทะลุหลังคาลงมาในเพิงร้าน)
 local emitterFolder = Instance.new("Folder")
@@ -32,7 +32,7 @@ baseRain.Speed = NumberRange.new(85, 95)
 baseRain.EmissionDirection = Enum.NormalId.Bottom
 baseRain.SpreadAngle = Vector2.new(0, 0) -- ตกตรงลงพื้น 100% ไม่ปลิวเฉียงลอดชายคาเข้าเพิง
 baseRain.Acceleration = Vector3.zero
-baseRain.Size = NumberSequence.new(2.4)
+baseRain.Size = NumberSequence.new(2.0)
 baseRain.Orientation = Enum.ParticleOrientation.FacingCamera -- (VelocityParallel ทำให้เส้นนอนขวาง)
 baseRain.Transparency = NumberSequence.new(0.25)
 baseRain.Color = ColorSequence.new(Color3.fromRGB(200, 208, 220))
@@ -192,9 +192,17 @@ for _, m in ipairs(WET_MATERIALS) do
 	dryColors[m] = terrain:GetMaterialColor(m)
 end
 local wetness = 0 -- 0 แห้ง .. 1 เปียกสุด
+-- SetMaterialColor ทำให้ Terrain ทั้งแมพต้องวาดใหม่ → เปลี่ยนสีเป็นขั้น (20 ขั้น) แทนทุก 0.25 วิ (เดิม ~300 ครั้งต่อรอบฝน)
+local WET_STEPS = 20
+local appliedWetStep = -1
 local function applyWetness()
+	local step = math.floor(wetness * WET_STEPS + 0.5)
+	if step == appliedWetStep then
+		return
+	end
+	appliedWetStep = step
 	for m, c in pairs(dryColors) do
-		local f = 1 - 0.32 * wetness
+		local f = 1 - 0.32 * (step / WET_STEPS)
 		terrain:SetMaterialColor(m, Color3.new(c.R * f, c.G * f, c.B * f * 1.03))
 	end
 end
