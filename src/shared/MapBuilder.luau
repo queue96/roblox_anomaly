@@ -3450,6 +3450,615 @@ function MapBuilder.MoveLitPole(baseXZ: Vector3): Vector3?
 	return bulb.Position
 end
 
+-- ===================================================================================
+-- พื้นหน้าร้านสมจริง (ภาพจาก tools/blender/ground_materials.py อัปโหลดเป็นของ queue966)
+-- Terrain.Ground -> ดินลูกรัง, Terrain.Mud -> โคลนเปียก, Terrain.LeafyGrass -> ไหล่ทางหญ้าบนดินลูกรัง (MaterialVariant ทั้งแมพ)
+-- + คราบน้ำมันตรงจุดจอด/หน้าตู้ปั๊ม, รอยล้อ 2 เส้นตามถนนช่วงหน้าร้าน, แอ่งน้ำ (Workspace.Puddle ที่นำเข้าจาก Puddle.fbx)
+-- ===================================================================================
+local GROUND_TEX = {
+	LateriteDirt = { Color = 140018318442177, Normal = 111284507084657, Roughness = 71666012711737 },
+	WetMud = { Color = 74240235259990, Normal = 74945305108706, Roughness = 111941526850204 },
+	LateriteVerge = { Color = 109683481678681, Normal = 102292459591211, Roughness = 76276146672165 },
+	Puddle = { Color = 121877001426917, Normal = 113223003379609, Roughness = 110099884649585 },
+	PuddleMesh = 105349862859592,
+	OilStain_A = 133701611239115,
+	OilStain_B = 77632833566665,
+	TireTracks = 137794284780721,
+}
+
+local function rbx(id: number): string
+	return "rbxassetid://" .. tostring(id)
+end
+
+-- แผ่นใสบางๆ วางราบบนพื้นดิน มี Decal / Texture ที่ด้านบน
+local function groundSheet(name: string, x: number, z: number, sx: number, sz: number, yawDeg: number, parent: Instance): Part
+	local y = groundY(x, z) + 0.04
+	local p = createPart(name, Vector3.new(sx, 0.05, sz), CFrame.new(x, y, z) * CFrame.Angles(0, math.rad(yawDeg), 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, parent)
+	p.Transparency = 1
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	return p
+end
+
+function MapBuilder.ApplyShopGround(): { string }
+	local done = {}
+	local ms = game:GetService("MaterialService")
+	-- LeafyGrass = ไหล่ทาง: ดินลูกรังผืนเดียวกับถนน + หญ้าสั้นเป็นหย่อม รอยต่อกับถนนจึงไม่ตัดเป็นเส้น
+	for name, base in pairs({ LateriteDirt = Enum.Material.Ground, WetMud = Enum.Material.Mud, LateriteVerge = Enum.Material.LeafyGrass }) do
+		local t = GROUND_TEX[name]
+		local mv = ms:FindFirstChild(name) :: MaterialVariant?
+		if not mv then
+			mv = Instance.new("MaterialVariant")
+			mv.Name = name
+			mv.Parent = ms
+		end
+		local v = mv :: MaterialVariant
+		v.BaseMaterial = base
+		v.ColorMap = rbx(t.Color)
+		v.NormalMap = rbx(t.Normal)
+		v.RoughnessMap = rbx(t.Roughness)
+		v.StudsPerTile = 8
+		ms:SetBaseMaterialOverride(base, name)
+		table.insert(done, name)
+	end
+
+	local env = Workspace:FindFirstChild("MapEnvironment") or Workspace
+	local old = env:FindFirstChild("ShopGroundDetails")
+	-- รันซ้ำ: แผ่น Puddle mesh อยู่ในโฟลเดอร์เดิมแล้ว (Workspace.Puddle ถูกย้ายเข้ามาตอนรันครั้งแรก) เก็บไว้ก่อนลบ
+	local keptMesh = old and old:FindFirstChild("Puddle")
+	if keptMesh then
+		keptMesh.Parent = Workspace
+	end
+	if old then
+		old:Destroy()
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "ShopGroundDetails"
+	folder.Parent = env
+
+	-- คราบน้ำมัน: ตรงจุดจอด (รถหยดน้ำมันทุกคัน) + หน้าฐานตู้ปั๊ม (หกตอนเติม)
+	local wp = Workspace:FindFirstChild("VehicleWaypoints")
+	local stop = wp and wp:FindFirstChild("StopPoint") :: BasePart?
+	local sx, sz = if stop then stop.Position.X else -4.25, if stop then stop.Position.Z else -7.25
+	for _, o in ipairs({
+		{ "OilStain_A", sx, sz - 0.4, 6.5, 25 },
+		{ "OilStain_B", sx + 4.5, sz + 1.2, 3.5, 110 },
+		{ "OilStain_B", -3.4, -1.0, 4, 300 },
+	}) do
+		local sheet = groundSheet("OilStain", o[2], o[3], o[4], o[4], o[5], folder)
+		local d = Instance.new("Decal")
+		d.Face = Enum.NormalId.Top
+		d.Texture = rbx(GROUND_TEX[o[1]])
+		d.Parent = sheet
+	end
+
+	-- รอยล้อ 2 เส้นตามถนนช่วงหน้าร้าน (ภาพแนวตั้งต่อกันได้: กว้าง 1.6 ยาว 6.4 studs ต่อแผ่น)
+	local spawnPt = wp and wp:FindFirstChild("SpawnPoint") :: BasePart?
+	local exitPt = wp and wp:FindFirstChild("ExitPoint") :: BasePart?
+	local roadZ = if spawnPt and exitPt then (spawnPt.Position.Z + exitPt.Position.Z) / 2 else -11.5
+	local laneZ = (roadZ + sz) / 2 -- แนวที่รถวิ่งเข้าจอด (ระหว่างกลางถนนกับ StopPoint)
+	for i, dz in ipairs({ -2.3, 2.3 }) do
+		for seg = -3, 3 do
+			local x = sx + seg * 12
+			local sheet = groundSheet("TireTrack" .. i, x, laneZ + dz, 1.6, 12.2, 90, folder)
+			local tex = Instance.new("Texture")
+			tex.Face = Enum.NormalId.Top
+			tex.Texture = rbx(GROUND_TEX.TireTracks)
+			tex.StudsPerTileU = 1.6
+			tex.StudsPerTileV = 6.4
+			tex.Parent = sheet
+		end
+	end
+
+	-- แอ่งน้ำ: MeshPart แผ่นเรียบจาก Puddle.fbx ใส่ SurfaceAppearance ผิวมันสะท้อนไฟเสา
+	local imported = Workspace:FindFirstChild("Puddle")
+	local mesh = imported and (if imported:IsA("MeshPart") then imported else imported:FindFirstChildWhichIsA("MeshPart", true)) :: MeshPart?
+	if not mesh then
+		-- ไม่มีแผ่นที่นำเข้าไว้ในฉาก: สร้างใหม่จาก mesh ID ของ Puddle.fbx
+		local ok, created = pcall(function()
+			return game:GetService("AssetService"):CreateMeshPartAsync(rbx(GROUND_TEX.PuddleMesh))
+		end)
+		if ok and created then
+			mesh = created
+			imported = created
+		else
+			warn("[MapBuilder] ApplyShopGround: สร้าง Puddle mesh ไม่ได้", created)
+		end
+	end
+	if mesh then
+		for i, spot in ipairs({ { 11, -4.5, 8, 5.5, 20 }, { -13, -5.5, 5, 3.5, 70 } }) do
+			local m = if i == 1 then mesh else mesh:Clone()
+			m.Name = "Puddle"
+			m.Size = Vector3.new(spot[3], 0.05, spot[4])
+			m.CFrame = CFrame.new(spot[1], groundY(spot[1], spot[2]) + 0.06, spot[2]) * CFrame.Angles(0, math.rad(spot[5]), 0)
+			m.Anchored = true
+			m.CanCollide = false
+			m.CanQuery = false
+			m.CastShadow = false
+			local sa = m:FindFirstChildOfClass("SurfaceAppearance") or Instance.new("SurfaceAppearance")
+			sa.AlphaMode = Enum.AlphaMode.Transparency
+			sa.ColorMap = rbx(GROUND_TEX.Puddle.Color)
+			sa.NormalMap = rbx(GROUND_TEX.Puddle.Normal)
+			sa.RoughnessMap = rbx(GROUND_TEX.Puddle.Roughness)
+			sa.Parent = m
+			m.Parent = folder
+		end
+		if imported ~= mesh and imported.Parent then
+			imported:Destroy()
+		end
+		table.insert(done, "Puddle")
+	end
+	table.insert(done, "Decals=" .. #folder:GetChildren())
+	return done
+end
+
+-- ===================================================================================
+-- ตกแต่งเพิงร้าน (ภาพจาก tools/posters/make_posters.ps1 + tools/blender/shack_dressing.py, อัปโหลดเป็นของ queue966)
+-- ติดทับของเดิม ไม่แตะโครงสร้าง/ชิ้นที่สคริปต์ใช้ · ลบทั้งหมดได้ที่ MapEnvironment.ShackDressing (+ Decal ShackRust บนแผ่นสังกะสี)
+-- ===================================================================================
+local SHACK_TEX = {
+	Poster_Fertilizer = 101776834740545,
+	Poster_Energy = 116716502874361,
+	Poster_Oil = 130917584057118,
+	Calendar = 105220057584990,
+	Yantra = 137201616752424,
+	FuelSign = 89768111947338,
+	RustStreaks_A = 112686839465193,
+	RustStreaks_B = 126334956966662,
+}
+-- แผงน้ำมันขวด (FuelBottleRack.fbx) แยกชิ้นตามวัสดุ: mesh ID + จุดกึ่งกลางแต่ละชิ้นเทียบฐานแผง (studs, Blender x,z,-y)
+local RACK_MESH = { Rack = 115871933365177, Glass = 91432823773006, FuelRed = 120279660829613, FuelGreen = 72460357558889, Caps = 113578229600896 }
+local RACK_CENTER = {
+	Rack = Vector3.new(0, 1.7986, -0.0720),
+	Glass = Vector3.new(-0.0027, 2.1300, 0.1205),
+	FuelRed = Vector3.new(-0.0027, 1.8725, 0.1205),
+	FuelGreen = Vector3.new(-0.2326, 1.9110, 0.1019),
+	Caps = Vector3.new(-0.0122, 2.7270, 0.1181),
+}
+
+function MapBuilder.AddShackDressing(): { string }
+	local done = {}
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local imported = shack and shack:FindFirstChild("ImportedShack")
+	if not imported then
+		warn("[MapBuilder] AddShackDressing: ไม่พบ ShackStructure.ImportedShack")
+		return done
+	end
+	-- แผงน้ำมันขวดที่นำเข้าไว้: เก็บไว้ก่อนลบโฟลเดอร์เดิม (รันซ้ำได้)
+	local old = env:FindFirstChild("ShackDressing")
+	local rack = (old and old:FindFirstChild("FuelBottleRack")) or Workspace:FindFirstChild("FuelBottleRack")
+	if rack then
+		rack.Parent = Workspace
+	elseif RACK_MESH.Rack ~= 0 and RACK_MESH.Glass ~= 0 then
+		-- ไม่มีโมเดลในฉาก (อัปโหลด FBX ผ่าน Asset Manager ได้ mesh แยกชิ้น): ประกอบจาก mesh ID ตามตำแหน่งตอนปั้น
+		local m = Instance.new("Model")
+		m.Name = "FuelBottleRack"
+		for name, center in pairs(RACK_CENTER) do
+			local id = RACK_MESH[name]
+			if id and id ~= 0 then
+				local ok, mp = pcall(function()
+					return game:GetService("AssetService"):CreateMeshPartAsync(rbx(id))
+				end)
+				if ok and mp then
+					mp.Name = name
+					mp.CFrame = CFrame.new(center)
+					mp.Parent = m
+					if name == "Rack" then
+						m.PrimaryPart = mp
+					end
+				else
+					warn("[MapBuilder] AddShackDressing: สร้าง mesh " .. name .. " ไม่ได้", mp)
+				end
+			end
+		end
+		m.Parent = Workspace
+		rack = m
+	end
+	if old then
+		old:Destroy()
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "ShackDressing"
+	folder.Parent = env
+
+	-- 1) โปสเตอร์: ยิง ray หาผนังแล้วแปะแผ่นบางๆ ห่างผิว 0.04 หันออกหาคนดู (เอียงนิดๆ แบบตอกตะปูมือ)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { imported }
+	local posters = {
+		{ "Calendar", Vector3.new(-4.8, 8.4, 20), Vector3.zAxis, 2.0, 3.0, -2 },
+		{ "Yantra", Vector3.new(-4.8, 10.9, 20), Vector3.zAxis, 1.7, 1.7, 3 },
+		{ "Poster_Energy", Vector3.new(-1.6, 7.0, 20), Vector3.zAxis, 2.4, 3.6, 2.5 },
+		{ "Poster_Fertilizer", Vector3.new(6.2, 7.2, 20), Vector3.zAxis, 2.4, 3.6, -1.5 },
+		{ "Poster_Oil", Vector3.new(-25, 7.2, 11), Vector3.xAxis, 2.4, 3.6, 1.5 }, -- ผนังซ้ายด้านนอก (รถมาจากฝั่งนี้)
+	}
+	for _, p in ipairs(posters) do
+		local id = SHACK_TEX[p[1]]
+		local hit = Workspace:Raycast(p[2], p[3] * 15, params)
+		if id ~= 0 and hit then
+			local pos = hit.Position - p[3] * 0.04
+			local sheet = Instance.new("Part")
+			sheet.Name = p[1]
+			sheet.Size = Vector3.new(p[4], p[5], 0.02)
+			sheet.CFrame = CFrame.lookAt(pos, pos - p[3]) * CFrame.Angles(0, 0, math.rad(p[6]))
+			sheet.Anchored = true
+			sheet.CanCollide = false
+			sheet.CanQuery = false
+			sheet.CanTouch = false
+			sheet.CastShadow = false
+			sheet.Transparency = 1
+			local d = Instance.new("Decal")
+			d.Face = Enum.NormalId.Front
+			d.Texture = rbx(id)
+			d.Parent = sheet
+			sheet.Parent = folder
+			table.insert(done, p[1])
+		end
+	end
+
+	-- 2) คราบสนิมไหลบนแผ่นสังกะสีทุกแผ่นของเพิง (ทั้งด้านนอกและด้านใน) สลับลาย A/B
+	local n = 0
+	for _, part in ipairs(imported:GetChildren()) do
+		if part:IsA("BasePart") and (part.Name:match("^TinWallPanel") or part.Name == "TinRoofPanel") then
+			for _, old2 in ipairs(part:GetChildren()) do
+				if old2:IsA("Decal") and old2.Name == "ShackRust" then
+					old2:Destroy()
+				end
+			end
+			n += 1
+			local id = if n % 2 == 0 then SHACK_TEX.RustStreaks_A else SHACK_TEX.RustStreaks_B
+			if id ~= 0 then
+				for _, face in ipairs(if part.Name == "TinRoofPanel" then { Enum.NormalId.Bottom } else { Enum.NormalId.Front, Enum.NormalId.Back }) do
+					local d = Instance.new("Decal")
+					d.Name = "ShackRust"
+					d.Face = face
+					d.Texture = rbx(id)
+					d.Transparency = 0.15
+					d.Parent = part
+				end
+			end
+		end
+	end
+	table.insert(done, "Rust=" .. n)
+
+	-- 3) แผงน้ำมันขวด (FuelBottleRack.fbx ที่นำเข้าไว้) ข้างเกาะตู้ปั๊มฝั่งซ้าย หันหน้าออกถนน + ป้ายกระดาษลังพิงหัวแผง
+	if rack and rack:IsA("Model") then
+		local looks = {
+			Rack = { Enum.Material.WoodPlanks, Color3.fromRGB(96, 66, 42), 0 },
+			Glass = { Enum.Material.Glass, Color3.fromRGB(200, 214, 204), 0.55 },
+			-- น้ำมันต้องทึบ (Transparency 0): Roblox ไม่วาดของโปร่งใสที่อยู่หลังวัสดุ Glass -> ขวดจะดูว่างเปล่า
+			FuelRed = { Enum.Material.SmoothPlastic, Color3.fromRGB(150, 26, 14), 0 },
+			FuelGreen = { Enum.Material.SmoothPlastic, Color3.fromRGB(70, 120, 30), 0 },
+			Caps = { Enum.Material.Fabric, Color3.fromRGB(186, 172, 146), 0 },
+		}
+		local rackPart, glassPart
+		for _, mp in ipairs(rack:GetDescendants()) do
+			if mp:IsA("BasePart") then
+				local key = mp.Name:gsub("%.%d+$", "")
+				local lk = looks[key]
+				if lk then
+					mp.Material = lk[1]
+					mp.Color = lk[2]
+					mp.Transparency = lk[3]
+				end
+				mp.Anchored = true
+				mp.CanCollide = key == "Rack"
+				mp.CastShadow = key ~= "Glass"
+				if key == "Rack" then rackPart = mp end
+				if key == "Glass" then glassPart = mp end
+			end
+		end
+		-- ทิศหน้าแผง: ขวดถูกวางชิดด้านหน้าตอนปั้น -> หันด้านนั้นออกหาถนน (-Z)
+		local base = Vector3.new(-11.8, 0, 3.0)
+		base = Vector3.new(base.X, groundY(base.X, base.Z), base.Z)
+		local piv = rack:GetPivot()
+		local front = Vector3.new(0, 0, -1)
+		if rackPart and glassPart then
+			local off = (glassPart.Position - rackPart.Position) * Vector3.new(1, 0, 1)
+			if off.Magnitude > 0.01 then
+				front = off.Unit
+			end
+		end
+		local yawNow = math.atan2(-front.X, -front.Z)
+		local _, size = rack:GetBoundingBox()
+		local bottom = select(1, rack:GetBoundingBox()).Position.Y - size.Y / 2
+		local lift = piv.Position.Y - bottom
+		rack:PivotTo(CFrame.new(base + Vector3.new(0, lift, 0)) * CFrame.Angles(0, -yawNow, 0) * piv.Rotation)
+		rack.Parent = folder
+		table.insert(done, "Rack")
+		if SHACK_TEX.FuelSign ~= 0 then
+			local cf, sz = rack:GetBoundingBox()
+			local top = cf.Position + Vector3.new(0, sz.Y / 2 + 0.55, 0)
+			local sign = Instance.new("Part")
+			sign.Name = "FuelSign"
+			sign.Size = Vector3.new(2.6, 1.3, 0.06)
+			sign.CFrame = CFrame.lookAt(top, top + Vector3.new(0, 0, -1)) * CFrame.Angles(math.rad(-8), 0, math.rad(2))
+			sign.Anchored = true
+			sign.CanCollide = false
+			sign.Color = Color3.fromRGB(150, 118, 80)
+			sign.Material = Enum.Material.Cardboard
+			local d = Instance.new("Decal")
+			d.Face = Enum.NormalId.Front
+			d.Texture = rbx(SHACK_TEX.FuelSign)
+			d.Parent = sign
+			sign.Parent = folder
+		end
+	end
+	return done
+end
+
+-- ===================================================================================
+-- หุ่นไล่กาไทย (tools/blender/scarecrow.py) แทนหุ่น Toolbox เดิมที่ค้างอยู่ใน Workspace.scarecrow
+-- ต้องอยู่ที่ AnomalyProps.Scarecrow ไม่งั้น AnomalyManager หาไม่เจอและผี Anomaly_Scarecrow ไม่ทำงาน
+-- หน้าหุ่นตั้งให้อยู่ฝั่ง -LookVector ของ pivot ตามที่ AnomalyManager คาดไว้ · ของเดิมย้ายไป ArchivedPlaceholders
+-- ===================================================================================
+local SCARECROW_TEX = { Color = 99671709230263, Normal = 108707952184868, Roughness = 72952252656173, Metalness = 103530207639696 }
+-- อัปโหลด FBX ผ่าน Asset Manager ได้ mesh แยกชิ้น: ID + จุดกึ่งกลางแต่ละชิ้นจากไฟล์ Blender (เมตร, แกน x, z, -y) คูณสเกลตามขนาด mesh จริงตอนสร้าง
+local SCARECROW_MESH = {
+	ScarecrowThai = { id = 138469024592722, c = Vector3.new(0.0064, 1.0082, 0.0023) },
+	ScarecrowThai_EyeL_Neon = { id = 97438185639559, c = Vector3.new(-0.0513, 1.7338, 0.1483) },
+	ScarecrowThai_EyeR_Neon = { id = 90067699657732, c = Vector3.new(0.0432, 1.7452, 0.1507) },
+}
+local SCARECROW_BLENDER_HEIGHT = 2.0165
+
+local function buildScarecrowFromMeshes(): Model?
+	local m = Instance.new("Model")
+	m.Name = "ScarecrowThai"
+	local parts = {}
+	for name, info in pairs(SCARECROW_MESH) do
+		local ok, mp = pcall(function()
+			return game:GetService("AssetService"):CreateMeshPartAsync(rbx(info.id))
+		end)
+		if not (ok and mp) then
+			warn("[MapBuilder] SwapScarecrowThai: สร้าง mesh " .. name .. " ไม่ได้", mp)
+			m:Destroy()
+			return nil
+		end
+		mp.Name = name
+		mp.Parent = m
+		parts[name] = mp
+	end
+	-- mesh ที่อัปโหลดผ่าน Asset Manager อ่านหน่วยไฟล์เป็นเซนติเมตร (ใหญ่ ~200 studs) -> ย่อทุกชิ้นด้วยอัตราเดียวกัน
+	-- ให้ความสูงตรงกับตอนปั้น (1 stud = 0.28 m) แล้ววางตามจุดกึ่งกลางเดิม
+	local k = (SCARECROW_BLENDER_HEIGHT / 0.28) / parts.ScarecrowThai.MeshSize.Y
+	for name, info in pairs(SCARECROW_MESH) do
+		local mp = parts[name]
+		mp.Size = mp.MeshSize * k
+		mp.CFrame = CFrame.new(info.c / 0.28)
+	end
+	m.Parent = Workspace
+	return m
+end
+
+function MapBuilder.SwapScarecrowThai(spotOverride: Vector3?): { string }
+	local done = {}
+	local anomaly = Workspace:FindFirstChild("AnomalyProps")
+	local new = Workspace:FindFirstChild("ScarecrowThai") :: Model?
+	if not new and anomaly then
+		new = buildScarecrowFromMeshes()
+	end
+	if not (anomaly and new and new:IsA("Model")) then
+		warn("[MapBuilder] SwapScarecrowThai: ไม่พบ Workspace.ScarecrowThai (นำเข้า ScarecrowThai.fbx ด้วย Import 3D ก่อน)")
+		return done
+	end
+	-- จุดยืนเดิม: หุ่น Toolbox (Workspace.scarecrow) หรือหุ่นที่อยู่ใน AnomalyProps อยู่แล้ว
+	local oldModel = Workspace:FindFirstChild("scarecrow") or anomaly:FindFirstChild("Scarecrow")
+	local spot = Vector3.new(10.9, 0, -42.6)
+	if oldModel then
+		local cf = if oldModel:IsA("Model") then oldModel:GetBoundingBox() else (oldModel :: BasePart).CFrame
+		spot = Vector3.new(cf.Position.X, 0, cf.Position.Z)
+	end
+	if spotOverride then
+		spot = Vector3.new(spotOverride.X, 0, spotOverride.Z)
+	end
+
+	local body, eyes = nil, {}
+	for _, d in ipairs(new:GetDescendants()) do
+		if d:IsA("MeshPart") then
+			d.Anchored = true
+			if string.find(d.Name, "Eye") then
+				table.insert(eyes, d)
+			else
+				body = d
+				d.CanCollide = true
+				if SCARECROW_TEX.Color ~= 0 then
+					local sa = d:FindFirstChildOfClass("SurfaceAppearance") or Instance.new("SurfaceAppearance")
+					sa.ColorMap = rbx(SCARECROW_TEX.Color)
+					sa.NormalMap = rbx(SCARECROW_TEX.Normal)
+					sa.RoughnessMap = rbx(SCARECROW_TEX.Roughness)
+					sa.MetalnessMap = rbx(SCARECROW_TEX.Metalness)
+					sa.Parent = d
+				end
+			end
+		end
+	end
+	if not body then
+		warn("[MapBuilder] SwapScarecrowThai: ไม่พบชิ้นตัวหุ่น")
+		return done
+	end
+	-- ตากระดุมเป็น Neon สีดำคล้ำ (แทบไม่เรือง) ผีจะเปลี่ยนเป็นแดงแล้วเรืองเอง
+	for _, e in ipairs(eyes) do
+		makeNeon(e, Color3.fromRGB(26, 22, 20))
+		e.CanCollide = false
+	end
+
+	-- ทิศหน้า = จากกลางลำตัวไปหาตา (แนวราบ) แล้วหมุนให้หันหาตู้ปั๊ม
+	local eyeMid = Vector3.zero
+	for _, e in ipairs(eyes) do
+		eyeMid += e.Position / #eyes
+	end
+	local face = (eyeMid - body.Position) * Vector3.new(1, 0, 1)
+	face = if face.Magnitude > 0.01 then face.Unit else Vector3.new(0, 0, 1)
+	local target = Vector3.new(-6, 0, 2.5)
+	local gas = findPump("GasPump")
+	if gas then
+		target = gas:GetPivot().Position
+	end
+	local want = ((target - spot) * Vector3.new(1, 0, 1)).Unit
+	local yaw = math.atan2(-want.X, -want.Z) - math.atan2(-face.X, -face.Z)
+	local _, size = new:GetBoundingBox()
+	local bottom = new:GetBoundingBox().Position.Y - size.Y / 2
+	local base = Vector3.new(spot.X, groundY(spot.X, spot.Z) - 0.6, spot.Z) -- เสาปักลงดิน 0.6
+	local piv = new:GetPivot()
+	local rot = CFrame.Angles(0, yaw, 0) * piv.Rotation
+	new:PivotTo(CFrame.new(base + Vector3.new(0, piv.Position.Y - bottom, 0)) * rot)
+	-- pivot ใหม่ที่โคนเสา หันหลังให้ทิศหน้า (หน้าหุ่น = -LookVector)
+	-- (มี PrimaryPart แล้ว pivot ของ Model มาจาก PrimaryPart.PivotOffset ไม่ใช่ WorldPivot)
+	new.PrimaryPart = body
+	body.PivotOffset = body.CFrame:ToObjectSpace(CFrame.lookAt(base, base - want))
+
+	if oldModel then
+		archivePlaceholder(oldModel)
+	end
+	new.Name = "Scarecrow"
+	new:SetAttribute("ImportedProp", true)
+	new.Parent = anomaly
+	table.insert(done, ("Scarecrow@%.1f,%.1f facing %.2f,%.2f"):format(base.X, base.Z, want.X, want.Z))
+	return done
+end
+
+-- แสงไฟในร้านลอดร่องผนังสังกะสี/ไม้ออกมาเป็นลำบางๆ ตอนกลางคืน (Beam ฟุ้งในหมอก)
+-- ยิง raycast จากหลอดไฟทุกดวงในเพิงออกไปรอบทิศ ทางไหนไม่ชนอะไรแล้วทะลุแนวผนัง (ข้าง/หลัง ไม่นับหน้าร้านที่เปิดโล่ง)
+-- แปลว่าตรงนั้นมีร่อง -> วางลำแสงจากจุดทะลุผนังพุ่งออกไปตามทิศนั้น · รันซ้ำได้
+function MapBuilder.AddShackLightLeaks(maxBeams: number?): number
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	if not shack then
+		warn("[MapBuilder] AddShackLightLeaks: ไม่พบ ShackStructure")
+		return 0
+	end
+	local old = shack:FindFirstChild("LightLeaks")
+	if old then
+		old:Destroy()
+	end
+	local limit = maxBeams or 36
+
+	-- ขอบผนังจากแผ่นผนัง (TinWallPanel* / WoodPlankWallPanel*): ซ้าย/ขวา = แกน X, หลัง = แกน Z
+	local minX, maxX, backZ, frontZ = math.huge, -math.huge, -math.huge, math.huge
+	local wallTop, wallBottom = -math.huge, math.huge
+	local walls = {}
+	-- เฉพาะผนังของตัวเพิง (ImportedShack) ไม่รวมแผ่นชื่อเดียวกันของสิ่งปลูกสร้างอื่นด้านหลัง (ห้องน้ำสังกะสี ฯลฯ)
+	local imported = shack:FindFirstChild("ImportedShack") or shack
+	for _, d in ipairs(imported:GetChildren()) do
+		if d:IsA("BasePart") and (d.Name:match("^TinWallPanel") or d.Name:match("^WoodPlankWallPanel")) then
+			table.insert(walls, d)
+			minX = math.min(minX, d.Position.X)
+			maxX = math.max(maxX, d.Position.X)
+			backZ = math.max(backZ, d.Position.Z)
+			frontZ = math.min(frontZ, d.Position.Z)
+			wallTop = math.max(wallTop, d.Position.Y + d.Size.Y / 2)
+			wallBottom = math.min(wallBottom, d.Position.Y - d.Size.Y / 2)
+		end
+	end
+	if #walls == 0 then
+		return 0
+	end
+
+	local sources = {}
+	for _, l in ipairs(shack:GetDescendants()) do
+		if l:IsA("PointLight") and l.Enabled and l.Parent and l.Parent:IsA("BasePart") then
+			table.insert(sources, { pos = (l.Parent :: BasePart).Position, color = l.Color })
+		end
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { shack }
+	local leaks = {}
+	for _, s in ipairs(sources) do
+		for az = 0, 359, 2 do
+			for el = -30, 10, 4 do
+				local a, e = math.rad(az), math.rad(el)
+				local dir = Vector3.new(math.cos(a) * math.cos(e), math.sin(e), math.sin(a) * math.cos(e))
+				-- หาว่าทิศนี้ออกทางผนังด้านไหน (ข้ามด้านหน้าที่เปิดโล่ง)
+				local tBest, plane = math.huge, nil
+				if dir.X < -0.05 then
+					local t = (minX - s.pos.X) / dir.X
+					if t < tBest then tBest, plane = t, "L" end
+				end
+				if dir.X > 0.05 then
+					local t = (maxX - s.pos.X) / dir.X
+					if t < tBest then tBest, plane = t, "R" end
+				end
+				if dir.Z > 0.05 then
+					local t = (backZ - s.pos.Z) / dir.Z
+					if t < tBest then tBest, plane = t, "B" end
+				end
+				local cross = s.pos + dir * tBest
+				local inside = plane ~= nil and cross.Y > wallBottom + 0.5 and cross.Y < wallTop - 0.3
+					and cross.Z > frontZ - 3 and cross.Z < backZ + 0.5 and cross.X > minX - 0.5 and cross.X < maxX + 0.5
+				if inside then
+					local hit = Workspace:Raycast(s.pos, dir * (tBest + 3), params)
+					if not hit then
+						-- รวมจุดที่ใกล้กันเป็นลำเดียว
+						local merged = false
+						for _, lk in ipairs(leaks) do
+							if (lk.pos - cross).Magnitude < 1.2 then
+								lk.n += 1
+								merged = true
+								break
+							end
+						end
+						if not merged then
+							table.insert(leaks, { pos = cross, dir = dir, color = s.color, n = 1 })
+						end
+					end
+				end
+			end
+		end
+	end
+	table.sort(leaks, function(a, b)
+		return a.n > b.n
+	end)
+
+	local holder = Instance.new("Part")
+	holder.Name = "LightLeaks"
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.CastShadow = false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(0.2, 0.2, 0.2)
+	holder.CFrame = CFrame.new(shack:GetPivot().Position)
+	holder.Parent = shack
+	local made = 0
+	for _, lk in ipairs(leaks) do
+		if made >= limit then
+			break
+		end
+		made += 1
+		-- ต้องใส่ Parent ก่อนตั้ง WorldPosition ไม่งั้นตำแหน่งจะถูกเลื่อนตาม holder
+		local a0 = Instance.new("Attachment")
+		a0.Parent = holder
+		a0.WorldPosition = lk.pos
+		local a1 = Instance.new("Attachment")
+		a1.Parent = holder
+		a1.WorldPosition = lk.pos + lk.dir * 6
+		local beam = Instance.new("Beam")
+		beam.Attachment0 = a0
+		beam.Attachment1 = a1
+		beam.FaceCamera = true
+		beam.LightEmission = 1
+		beam.LightInfluence = 0
+		beam.Color = ColorSequence.new(lk.color:Lerp(Color3.fromRGB(255, 196, 130), 0.5))
+		local strength = math.clamp(0.9 - lk.n * 0.01, 0.8, 0.9) -- ร่องกว้าง (หลายลำรวมกัน) สว่างกว่านิด
+		beam.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, strength),
+			NumberSequenceKeypoint.new(0.35, strength + 0.04),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		beam.Width0 = 0.25
+		beam.Width1 = 1.4
+		beam.Segments = 1
+		beam.Parent = holder
+	end
+	return made
+end
+
 -- ย้ายเงาคนแอบ (AnomalyProps.BanyanShadowAnomaly) ออกจากลำต้นไทรใหม่ ไปยืนหลบชิดลำต้นฝั่งที่มองไม่เห็นจากถนน/ร้าน
 -- หาผิวลำต้นด้วย raycast จากด้านนอกเข้าหาแกนต้น แล้ววางเงาห่างผิว 0.6 stud หันหน้าเข้าหาลำต้น (ท่าแอบ)
 function MapBuilder.HideBanyanShadowBehindTree()
@@ -6682,6 +7291,134 @@ function MapBuilder.SpreadBananaGrove()
 		local delta = Vector3.new(tx - curPivot.Position.X, newY - oldY, tz - curPivot.Position.Z)
 		tree:PivotTo(curPivot + delta)
 	end
+end
+
+-- กระจายกอกล้วยในเขตเล่นไม่ให้พุ่มเบียดกัน + เว้นทางเดินข้างขวาเพิงไปเครื่องปั่นไฟ (Workspace.Generator)
+-- ดันกอออกจาก: ทางเดิน, วงรอบเครื่องปั่นไฟ, ตัวเพิง, ถนนหน้าร้าน แล้วผลักกอที่ใกล้กันให้ห่างตามขนาดพุ่ม
+-- กอที่อยู่นอกกำแพงล่องหน (หลังแมพ) ไม่ขยับ แต่ยังใช้กันระยะ · รันซ้ำได้ (ผลเหมือนเดิมถ้าเว้นระยะพอแล้ว)
+function MapBuilder.SpaceBananaGrove(): { string }
+	local done = {}
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local grove = env and env:FindFirstChild("BananaGrove")
+	if not grove then
+		return done
+	end
+	local gen = Workspace:FindFirstChild("Generator")
+	local genPos = if gen and gen:IsA("Model") then gen:GetBoundingBox().Position else Vector3.new(20.9, 0, 25.9)
+	-- ขอบเขตเล่น (InvisibleWalls)
+	local minX, maxX, minZ, maxZ = -44, 43, -36, 38
+	local walls = env:FindFirstChild("InvisibleWalls")
+	if walls then
+		local a, b, c, d = math.huge, -math.huge, math.huge, -math.huge
+		for _, w in ipairs(walls:GetChildren()) do
+			if w:IsA("BasePart") then
+				a, b = math.min(a, w.Position.X), math.max(b, w.Position.X)
+				c, d = math.min(c, w.Position.Z), math.max(d, w.Position.Z)
+			end
+		end
+		minX, maxX, minZ, maxZ = a + 2, b - 2, c + 2, d - 2
+	end
+	-- ทางเดินจากหน้าร้านเลียบผนังขวาเพิงถึงเครื่องปั่นไฟ (กว้างพอเดินสวนกัน) + ตัวเพิง + ถนนหน้าร้าน
+	local lane = { x0 = 16.3, x1 = 16.3 + 7.5, z0 = 0, z1 = genPos.Z + 3 }
+	local shack = { x0 = -17.5, x1 = 17.5, z0 = 4.5, z1 = 30 }
+	local roadEdgeZ = 3
+	local genClear = 6.5
+
+	local items = {}
+	for _, m in ipairs(grove:GetChildren()) do
+		if m:IsA("Model") then
+			local _, sz = m:GetBoundingBox()
+			local p = m:GetPivot().Position
+			local r = math.max(sz.X, sz.Z) / 2
+			table.insert(items, {
+				m = m,
+				x = p.X,
+				z = p.Z,
+				r = r,
+				fixed = p.Z > maxZ or p.Z < minZ or p.X < minX or p.X > maxX,
+				ox = p.X,
+				oz = p.Z,
+			})
+		end
+	end
+	local function pushOutRect(it, rc, margin)
+		local x0, x1, z0, z1 = rc.x0 - margin, rc.x1 + margin, rc.z0 - margin, rc.z1 + margin
+		if it.x > x0 and it.x < x1 and it.z > z0 and it.z < z1 then
+			-- ออกทางด้านที่ใกล้สุด
+			local dl, dr, db, df = it.x - x0, x1 - it.x, it.z - z0, z1 - it.z
+			local m = math.min(dl, dr, db, df)
+			if m == dr then
+				it.x = x1
+			elseif m == dl then
+				it.x = x0
+			elseif m == df then
+				it.z = z1
+			else
+				it.z = z0
+			end
+		end
+	end
+	for _ = 1, 300 do
+		for i, a in ipairs(items) do
+			if not a.fixed then
+				for j, b in ipairs(items) do
+					if i ~= j then
+						-- ระยะห่างโคนกอ: พุ่มซ้อนกันได้นิดหน่อย (0.75 ของรัศมีรวม) ไม่ให้เป็นกำแพงใบไม้ทึบ
+						local need = (a.r + b.r) * 0.75
+						local dx, dz = a.x - b.x, a.z - b.z
+						local d = math.sqrt(dx * dx + dz * dz)
+						if d < need then
+							if d < 0.01 then
+								dx, dz, d = 1, 0, 1
+							end
+							local push = (need - d) * (if b.fixed then 1 else 0.5)
+							a.x += dx / d * push
+							a.z += dz / d * push
+						end
+					end
+				end
+				-- โคนกอ (ไม่ใช่พุ่ม) ต้องพ้นเพิง/ทางเดิน/ลานหน้าร้าน ส่วนใบยื่นข้ามได้บ้าง
+				-- ดันออกจากเพิงก่อน แล้วถ้าตกอยู่ในทางเดินหรือลานหน้าร้าน (ฝั่งขวา) ให้ดันไปทางขวาเสมอ ไม่ย้อนกลับมาขวางหน้าร้าน
+				pushOutRect(a, shack, a.r * 0.3)
+				local lm = a.r * 0.45
+				local inLane = a.x > lane.x0 - lm and a.x < lane.x1 + lm and a.z > lane.z0 - lm and a.z < lane.z1 + lm
+				local inFront = a.x > -20 and a.x < lane.x1 + lm and a.z < shack.z0 + 1.5
+				if inLane or inFront then
+					a.x = lane.x1 + lm
+				end
+				local gx, gz = a.x - genPos.X, a.z - genPos.Z
+				local gd = math.sqrt(gx * gx + gz * gz)
+				local gneed = genClear + a.r * 0.45
+				if gd < gneed then
+					if gd < 0.01 then
+						gx, gz, gd = 1, 0, 1
+					end
+					a.x = genPos.X + gx / gd * gneed
+					a.z = genPos.Z + gz / gd * gneed
+				end
+				a.x = math.clamp(a.x, minX + a.r * 0.3, maxX - a.r * 0.3)
+				a.z = math.clamp(a.z, math.max(minZ, roadEdgeZ) + a.r * 0.3, maxZ - a.r * 0.3)
+			end
+		end
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	local moved = 0
+	for _, it in ipairs(items) do
+		local dist = math.sqrt((it.x - it.ox) ^ 2 + (it.z - it.oz) ^ 2)
+		if not it.fixed and dist > 0.2 then
+			local piv = it.m:GetPivot()
+			local oldG = Workspace:Raycast(Vector3.new(it.ox, 80, it.oz), Vector3.new(0, -160, 0), params)
+			local newG = Workspace:Raycast(Vector3.new(it.x, 80, it.z), Vector3.new(0, -160, 0), params)
+			local dy = if oldG and newG then newG.Position.Y - oldG.Position.Y else 0
+			it.m:PivotTo(piv + Vector3.new(it.x - it.ox, dy, it.z - it.oz))
+			moved += 1
+			table.insert(done, ("%s %.1f,%.1f->%.1f,%.1f"):format(it.m.Name, it.ox, it.oz, it.x, it.z))
+		end
+	end
+	table.insert(done, 1, "moved=" .. moved)
+	return done
 end
 
 -- ลด/ปิดเงา (CastShadow = false) บนใบไม้ ต้นข้าว กอหญ้า ต้นไม้ขอบแมพ และลบสำเนาเก่าใน ServerStorage

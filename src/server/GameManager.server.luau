@@ -69,8 +69,8 @@ if not Workspace:FindFirstChild("MapEnvironment") or not Workspace:FindFirstChil
 	MapBuilder.Build()
 end
 
--- กระจายกอกล้วยด้านหลังร้านไม่ให้กระจุกแออัดอยู่จุดเดียว
-MapBuilder.SpreadBananaGrove()
+-- (เดิมเรียก MapBuilder.SpreadBananaGrove() ตรงนี้ ซึ่งย้ายกอกล้วยกลับไปตำแหน่งตายตัวเดิมทุกครั้งที่กด Play
+--  ตอนนี้จัดตำแหน่งไว้ในไฟล์ place แล้วด้วย MapBuilder.SpaceBananaGrove() — เว้นทางเดินไปเครื่องปั่นไฟ — จึงไม่ย้ายตอนเล่นอีก)
 
 -- บังคับเปลี่ยนแสงเป็นตอนเที่ยงคืนมืดหลอนเฉพาะตอนกด Play เข้าเกม! (พอออกจากโหมด Play แมพจะกลับไปสว่างให้ Dev ง่ายๆ)
 MapBuilder.SetNightLighting()
