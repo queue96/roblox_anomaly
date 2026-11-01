@@ -126,7 +126,7 @@ build_all()             # สร้างทั้ง 16 ไฟล์
 - รูปตัวอย่างทุกทรง (หน้า, เฉียง, ข้าง, หลัง) อยู่ใน `hair_previews/`
 
 ```python
-exec(open(r"C:\Aunival\pump-lot-anomalyssets\models\human_baseuild_hair.py", encoding="utf-8").read())
+exec(open(r"C:\Aunival\pump-lot-anomaly\assets\models\human_base\build_hair.py", encoding="utf-8").read())
 add_hair("female")   # สร้างทรงผมของตัวละครในฉากปัจจุบันใหม่
 hair_all()           # เปิดทั้ง 16 ไฟล์ ใส่ผม แล้วเซฟ (ไม่แตะไฟล์ .blend1)
 preview_all()        # เรนเดอร์ hair_previews/*.png
