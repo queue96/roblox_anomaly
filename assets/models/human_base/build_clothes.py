@@ -810,8 +810,14 @@ def build_tube(b, spec, under=None):
         for j in range(seg + 1):
             p = Vector((math.sin(th[j])*R[i, j], cy - math.cos(th[j])*R[i, j], zz))
             _, vi, _ = b.kd.find(p); w = vweights(b, vi)
-            ease = 0.5*dn if not band else 0.0                      # lower down, follow the hips more than the legs
-            ww = {k: v*(1 - ease) for k, v in w.items()}; ww["hips"] = ww.get("hips", 0) + ease
+            if band: ww = w
+            else:
+                # a skirt stays one tube: mostly the hips, plus a little of both thighs (more of the near one),
+                # never one thigh alone (that splits the skirt into trouser legs when walking)
+                k = 0.30*dn; wl = 0.5 + 0.5*max(-1.0, min(1.0, p.x/(0.08*s)))
+                skirt = {"hips": 1 - k, "thigh.L": k*wl, "thigh.R": k*(1 - wl)}
+                e = sst(0.0, 0.25, dn)                              # waist: like the skin under it
+                ww = {g: w.get(g, 0)*(1 - e) + skirt.get(g, 0)*e for g in set(w) | set(skirt)}
             ids[i, j] = msh.vert(p, ww)
             pin = Vector((math.sin(th[j])*(R[i, j] - 0.004*s), cy - math.cos(th[j])*(R[i, j] - 0.004*s), zz))
             idi[i, j] = msh.vert(pin, ww)
