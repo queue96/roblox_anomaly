@@ -392,7 +392,8 @@ localPlayer:GetAttributeChangedSignal("Praying"):Connect(function()
 end)
 task.spawn(function()
 	while true do
-		if isPraying() then
+		-- คัทซีน (CutsceneController) ตั้งหมอกเย็น/เช้าเอง: ไม่ลอยทับ
+		if isPraying() or Lighting:GetAttribute("Cutscene") then
 			task.wait(1)
 			continue
 		end
@@ -530,6 +531,9 @@ end
 task.spawn(function()
 	while true do
 		task.wait(math.random(45, 110))
+		if ReplicatedStorage:GetAttribute("CutsceneRunning") then
+			continue -- คัทซีน: ไม่เล่นจังหวะจิ้งหรีดเงียบกริบ
+		end
 		fadeCrickets(0.05, 2.5) -- เงียบลงเร็วๆ เหมือนมีอะไรเดินผ่าน
 		task.wait(math.random(5, 10))
 		fadeCrickets(1, 8)

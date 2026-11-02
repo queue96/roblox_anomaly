@@ -22,6 +22,11 @@ local ALLOWED = {
 	racer = true, party = true, parade = true,
 	rain = true, clear = true, powercut = true,
 	lose = true, -- ทุกคนตาย (แพ้ทั้งร้าน: ธูปหมด)
+	-- 2026-11-03
+	fuelempty = true, fuelfull = true, -- น้ำมันในตู้หมด / เต็ม
+	hungry = true, offer = true, dessert = true, -- ศาลหมดเวลาคุ้มครอง / ถวายแล้ว / แจกขนม
+	["curse:drowsy"] = true, ["curse:shake"] = true, ["curse:slow"] = true, ["curse:stumble"] = true,
+	intro = true, win = true, -- คัทซีนเปิดคืน / ชนะทันที (คัทซีนเช้า + สรุปผล)
 }
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes") or Instance.new("Folder")

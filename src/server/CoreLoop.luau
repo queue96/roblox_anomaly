@@ -18,6 +18,7 @@ local Workspace = game:GetService("Workspace")
 
 local CoreLoop = {}
 local backToLobby: (Player) -> ()
+local Cutscene: any -- (require ทีหลัง หลังฟังก์ชันรถ/แผงร้านพร้อม)
 
 -- ---------------------------------------------------------------- ค่าปรับเกม
 local CONFIG = {
@@ -101,6 +102,30 @@ local CONFIG = {
 	PraySummonDuration = { 15, 22 }, -- ผีที่สวดเรียกมาอยู่นานเท่านี้
 	PraySummonGhostNext = 0.5, -- โอกาสที่ลูกค้าคนถัดไป "ตามมา" เป็นผีแน่นอน
 	PraySummonKeys = { "Anomaly_Tani", "Anomaly_Scarecrow", "Anomaly_MonkRadio" },
+
+	-- น้ำมันในตู้ (2026-11-03): เติม 1 ครั้งใช้เท่านี้ของหลอด หมดแล้วต้องเอาแกลลอนในร้านไปตักจากถังหลังร้านมาเท
+	FuelPerFill = 0.25, -- หลอดเต็ม = เติมได้ 4 ครั้ง
+	PourBelow = 0.24, -- ปุ่มเทน้ำมันใส่ตู้โผล่เมื่อตู้หมด (เหลือไม่พอเติม 1 ครั้ง = หลอดว่างเปล่า)
+	CanFillTime = 2.0, -- กดค้างตักน้ำมันจากถัง (วินาที)
+	CanPourTime = 2.5, -- กดค้างเทใส่ตู้
+
+	-- ขนมถวายศาลพระภูมิ (2026-11-03): ไม่ถวาย = ศาลไม่คุ้มครอง โดนหลอกไม่หยุด
+	OfferingGrace = 60, -- เปิดร้านแล้วมีเวลาเท่านี้ก่อนต้องถวายครั้งแรก
+	OfferingDuration = 150, -- ถวาย 1 ครั้งคุ้มครองนานเท่านี้
+	OfferingWarn = 25, -- เหลือเวลาคุ้มครองเท่านี้ เตือนทุกคน
+	CurseEvery = { 9, 16 }, -- ศาลไม่คุ้มครอง: อาการแปลกๆ ทุกๆ
+	CurseAnomalyChance = 0.75, -- ศาลไม่คุ้มครอง: ลูกค้าเป็นผีบ่อยขึ้น
+	CurseSlowSpeed = 5, -- เดินช้า (ปกติ 10)
+
+	-- ปิดร้านใส่ผี (2026-11-03): ใครยังอยู่นอกร้านโดนผีหลอกทันที แล้วผีหายวับไป (ไม่ขี่/เดินออกไปให้ไล่ตาม)
+	RejectScareDelay = 0.6,
+
+	-- จบคืนแบบชนะ: คัทซีน + หน้าสรุปผล แล้วรอให้ทุกคนกด "เฝ้าต่ออีกคืน" (หรือหมดเวลา) ค่อยเริ่มคืนใหม่
+	SummaryTimeout = 60,
+	WageBase = 200, -- ค่าเฝ้าร้านต่อคน (คูณตัวคูณความยากจาก Lobby)
+	WagePerFill = 15,
+	WagePerGhost = 40,
+	WagePerOffering = 25,
 }
 
 -- ---------------------------------------------------------------- ฉากและของในฉาก
@@ -136,6 +161,9 @@ local GameState = remote("GameState") -- ("Waiting" | "Playing" | "Win" | "Lose"
 local DialogueReply = remote("DialogueReply") -- S->C ("open", options, seconds) / ("close", byName, amount)  C->S (amount)
 local DeathChoice = remote("DeathChoice") -- C->S ("restart" | "quit")  S->C ("restart", byName) = มีคนกดเริ่มใหม่แล้ว
 local ServiceMinigame = remote("ServiceMinigame") -- S->C ("open", choice) / ("close")  C->S ("complete", choice)
+local Notice = remote("Notice") -- S->C (uiKey, seconds?) ข้อความบรรยายสั้นๆ ในกล่องล่างจอ
+local Curse = remote("Curse") -- S->C (symptom, seconds) อาการตอนศาลไม่คุ้มครอง / เสียงกระซิบ: "drowsy" | "shake" | "slow" | "stumble"
+local SummaryRemote = remote("Summary") -- C->S ("continue") กด "เฝ้าต่ออีกคืน" ในหน้าสรุปผล  S->C ("votes", n, total)
 
 -- แพ้ (ธูปดับหมด): ผู้เล่นทุกคนล้มนอนตาย จอแดง รอให้มีคนกด "เริ่มใหม่" (ใครกดก่อนนับทั้งร้าน)
 -- ล้มคว่ำหน้าลงพื้น (ทำฝั่ง Server ทุกคนเห็นเหมือนกัน) ยึดตัวไว้ เดินไม่ได้ จนกว่าจะเกิดใหม่
@@ -373,6 +401,30 @@ local shutterRejectThread: thread? = nil
 local servicePromptsOpen = false
 local activeMinigamePlayer: Player? = nil
 local currentSpeaker: any = nil
+local decisionBy: string? = nil -- ชื่อผู้เล่นที่ตัดสินใจล่าสุด (เติม / ดึงแผง) ใช้นับสถิติ
+local petrolLevel = 1 -- น้ำมันในหลอดตู้ 1 (0..1)
+local dieselLevel = 1 -- ตู้ 2
+local offeringUntil = math.huge -- ศาลคุ้มครองถึงเมื่อไหร่ (os.clock) เริ่มนับตอนเปิดร้าน
+local offeringWarned = false
+-- สถิติคืนนี้ (หน้าสรุปผลตอนชนะ)
+type PStat = { name: string, fills: number, earned: number, ghosts: number, offerings: number }
+local stats = { anomalies = 0, caught = 0, fooled = 0, offerings = 0, players = {} :: { [number]: PStat } }
+local function pstat(who: string?): PStat?
+	local p = who and Players:FindFirstChild(who)
+	if not (p and p:IsA("Player")) then
+		return nil
+	end
+	local s = stats.players[p.UserId]
+	if not s then
+		s = { name = p.DisplayName, fills = 0, earned = 0, ghosts = 0, offerings = 0 }
+		stats.players[p.UserId] = s
+	end
+	return s
+end
+local function resetStats()
+	stats.anomalies, stats.caught, stats.fooled, stats.offerings = 0, 0, 0, 0
+	table.clear(stats.players)
+end
 
 local function publishState()
 	remotes:SetAttribute("Money", money)
@@ -380,6 +432,8 @@ local function publishState()
 	remotes:SetAttribute("IsAnomaly", currentVehicleIsAnomaly)
 	remotes:SetAttribute("Anomaly", currentAnomaly or "")
 	remotes:SetAttribute("GameOver", gameOver)
+	remotes:SetAttribute("PetrolLevel", petrolLevel)
+	remotes:SetAttribute("DieselLevel", dieselLevel)
 end
 
 local function broadcastHUD(player: Player?)
@@ -659,6 +713,11 @@ local function setFuelLevel(frac: number, time: number)
 		Size = Vector3.new(fuelFull.X, h, fuelFull.Z),
 		Position = Vector3.new(p.X, fuelBottom + h / 2, p.Z),
 	}
+	-- หลอดว่างเปล่า = น้ำมันหายไปหมด (ไม่เหลือคราบก้นหลอด)
+	if fuelLiquid:GetAttribute("BaseT") == nil then
+		fuelLiquid:SetAttribute("BaseT", fuelLiquid.Transparency)
+	end
+	fuelLiquid.Transparency = if frac <= 0.001 then 1 else fuelLiquid:GetAttribute("BaseT")
 	local t = TweenService:Create(fuelLiquid, TweenInfo.new(time, Enum.EasingStyle.Sine), goal)
 	t:Play()
 	-- น้ำมันเลือด (ผี Anomaly_BloodFuel เห็นเฉพาะตอนพนมมือ) ลดระดับตามน้ำมันจริง
@@ -678,6 +737,10 @@ local function setDieselLevel(frac: number, time: number)
 	end
 	local h = math.max(0.05, dieselFull.Y * frac)
 	local p = dieselLiquid.Position
+	if dieselLiquid:GetAttribute("BaseT") == nil then
+		dieselLiquid:SetAttribute("BaseT", dieselLiquid.Transparency)
+	end
+	dieselLiquid.Transparency = if frac <= 0.001 then 1 else dieselLiquid:GetAttribute("BaseT")
 	local t = TweenService:Create(dieselLiquid, TweenInfo.new(time, Enum.EasingStyle.Sine), {
 		Size = Vector3.new(dieselFull.X, h, dieselFull.Z),
 		Position = Vector3.new(p.X, dieselBottom + h / 2, p.Z),
@@ -706,6 +769,7 @@ function CoreLoop.Decide(choice: string, who: string?): boolean
 		return false
 	end
 	decision = choice
+	decisionBy = who
 	setServicePrompts(false)
 	print("[" .. (who or "?") .. "] " .. (DECIDE_TEXT[choice] or choice))
 	decisionMade:Fire()
@@ -714,6 +778,13 @@ end
 
 local function startMinigameForPlayer(player: Player, stationChoice: string)
 	if decision or not currentVehicle or gameOver or not servicePromptsOpen then
+		return
+	end
+	-- น้ำมันในตู้ไม่พอเติม 1 ครั้ง: ต้องไปเอาแกลลอนมาเทก่อน
+	local level = if stationChoice == "fuel" then petrolLevel elseif stationChoice == "diesel" then dieselLevel else 1
+	if level < CONFIG.FuelPerFill - 0.001 then
+		Notice:FireClient(player, "FuelEmpty", 6)
+		SoundBank.PlayOneShot("PumpCrankLoop", if stationChoice == "diesel" then dieselBody else pumpBody, 40, 0.6)
 		return
 	end
 	Prayer.Stop(player)
@@ -756,6 +827,459 @@ openPrompt.Triggered:Connect(function(player)
 		toggleShutter(true, player.Name)
 	end
 end)
+
+local Items: { [string]: any } = {} -- ของในบล็อกนี้ที่ใช้ข้างนอก (บล็อก do ลดจำนวน local ของสคริปต์ ไม่ให้เกิน 200)
+do
+-- ---------------------------------------------------------------- น้ำมันในตู้หมด -> แกลลอน + ถังน้ำมันหลังร้าน
+-- หยิบแกลลอนในร้าน (ช่อง [3]) -> ตักน้ำมันจากถังหลังร้าน (ImportedYardProps.FuelDrum*) -> เทใส่ตู้หน้าร้าน (เต็มหลอด)
+-- ของในร้าน (ชั้นแกลลอน / ถาดขนม) ถ้าผู้พัฒนาวางไว้เองใน InteractiveProps ชื่อ FuelCanSpot / DessertTray จะใช้ของนั้น
+local floorParams = RaycastParams.new()
+floorParams.FilterType = Enum.RaycastFilterType.Exclude
+local function floorBelow(p: Vector3, ignore: { Instance }): Vector3
+	floorParams.FilterDescendantsInstances = ignore
+	local hit = Workspace:Raycast(p, Vector3.new(0, -20, 0), floorParams)
+	return if hit then hit.Position else p - Vector3.new(0, 3, 0)
+end
+
+local function weldAll(model: Instance, root: BasePart)
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") and d ~= root then
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = root
+			w.Part1 = d
+			w.Parent = d
+		end
+	end
+end
+
+local function propPart(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.Anchored = true
+	p.CanCollide = false
+	p.CastShadow = false
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+-- แกลลอนน้ำมันพลาสติกแดง (ใช้ทั้งเป็นของวางในร้านและเป็น Handle ของ Tool) จุดกลาง = กลางตัวแกลลอน
+local function buildCan(parent: Instance, cf: CFrame): Part
+	local body = propPart(parent, "Handle", Vector3.new(0.55, 1.15, 0.95), cf, Color3.fromRGB(170, 34, 26))
+	propPart(parent, "CanGrip", Vector3.new(0.18, 0.18, 0.6), cf * CFrame.new(0, 0.66, 0.08), Color3.fromRGB(150, 28, 22))
+	propPart(parent, "CanSpout", Vector3.new(0.28, 0.18, 0.18), cf * CFrame.new(0, 0.62, -0.38) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(230, 200, 40), nil, Enum.PartType.Cylinder)
+	return body
+end
+
+-- จานขนมไทย (ขนมชั้น ทองหยอด ลูกชุบ) จุดกลาง = กลางจาน
+local DESSERT_COLORS = { Color3.fromRGB(80, 170, 90), Color3.fromRGB(240, 190, 40), Color3.fromRGB(230, 100, 140), Color3.fromRGB(245, 240, 225), Color3.fromRGB(240, 150, 50) }
+local function buildDessert(parent: Instance, cf: CFrame, plateName: string?): Part
+	local plate = propPart(parent, plateName or "Handle", Vector3.new(0.12, 1.3, 1.3), cf * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(200, 196, 186), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+	for i = 1, 5 do
+		local a = (i / 5) * math.pi * 2
+		local pos = Vector3.new(math.cos(a) * 0.32, 0.14, math.sin(a) * 0.32)
+		if i % 2 == 0 then
+			propPart(parent, "Sweet" .. i, Vector3.new(0.24, 0.24, 0.24), cf * CFrame.new(pos), DESSERT_COLORS[i], Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+		else
+			propPart(parent, "Sweet" .. i, Vector3.new(0.3, 0.16, 0.22), cf * CFrame.new(pos) * CFrame.Angles(0, a, 0), DESSERT_COLORS[i])
+		end
+	end
+	return plate
+end
+
+local function makeTool(name: string, build: (Instance, CFrame) -> Part, grip: CFrame): Tool
+	local tool = Instance.new("Tool")
+	tool.Name = name
+	tool.CanBeDropped = false
+	tool.RequiresHandle = true
+	tool.Grip = grip
+	local handle = build(tool, CFrame.new())
+	for _, d in ipairs(tool:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = false
+			d.Massless = true
+		end
+	end
+	weldAll(tool, handle)
+	return tool
+end
+
+local function findTool(player: Player, name: string): Tool?
+	local char = player.Character
+	local t = char and char:FindFirstChild(name)
+	if t and t:IsA("Tool") then
+		return t
+	end
+	local bp = player:FindFirstChildOfClass("Backpack")
+	t = bp and bp:FindFirstChild(name)
+	return if t and t:IsA("Tool") then t else nil
+end
+
+local function giveTool(player: Player, tool: Tool)
+	local bp = player:FindFirstChildOfClass("Backpack")
+	if bp then
+		tool.Parent = bp
+	else
+		tool:Destroy()
+	end
+end
+
+local function setCanFull(tool: Tool, full: boolean)
+	tool:SetAttribute("Full", full)
+	local h = tool:FindFirstChild("Handle") :: BasePart?
+	if h then
+		h.Color = if full then Color3.fromRGB(190, 40, 30) else Color3.fromRGB(150, 60, 50)
+	end
+end
+
+-- ชั้นวางแกลลอนในร้าน (มุมหลังร้านฝั่งซ้าย) + ถาดขนมบนโต๊ะเคาน์เตอร์
+local shack = Workspace:WaitForChild("MapEnvironment"):WaitForChild("ShackStructure") :: Model
+local shackCF, shackSize = shack:GetBoundingBox()
+local function insideShop(pos: Vector3): boolean
+	local lp = shackCF:PointToObjectSpace(pos)
+	return math.abs(lp.X) < shackSize.X / 2 - 0.4 and pos.Z > shutterDoor.Position.Z + 0.3 and lp.Z < shackSize.Z / 2
+end
+
+local canSpot = interactive:FindFirstChild("FuelCanSpot") :: Instance?
+if not canSpot then
+	local m = Instance.new("Model")
+	m.Name = "FuelCanSpot"
+	local floor = floorBelow(Vector3.new(shackCF.Position.X - shackSize.X / 2 + 3.5, rejectRope.Position.Y, shackCF.Position.Z + shackSize.Z / 2 - 4), { m })
+	local body = buildCan(m, CFrame.new(floor + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, math.rad(30), 0))
+	body.Name = "CanBody"
+	m.PrimaryPart = body
+	m.Parent = interactive
+	canSpot = m
+end
+local canSpotPart = ((canSpot :: Instance):IsA("BasePart") and canSpot or (canSpot :: Model).PrimaryPart or (canSpot :: Instance):FindFirstChildWhichIsA("BasePart", true)) :: BasePart
+local takeCanPrompt = setupPrompt("TakeCanPrompt", canSpot :: Instance, canSpotPart, 0, "Take", "Jerry Can")
+takeCanPrompt.MaxActivationDistance = 8
+takeCanPrompt.Enabled = true
+
+local drums: { BasePart } = {}
+do
+	local yard = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("ImportedYardProps")
+	for _, n in ipairs({ "FuelDrum", "FuelDrum_Red" }) do
+		local d = yard and yard:FindFirstChild(n)
+		if d and d:IsA("BasePart") then
+			table.insert(drums, d)
+		end
+	end
+	if #drums == 0 then
+		-- ไม่มีถังในฉาก: วางถังสำรองหลังร้าน
+		local pos = floorBelow(Vector3.new(shackCF.Position.X - shackSize.X / 2 + 5, shackCF.Position.Y + 6, shackCF.Position.Z + shackSize.Z / 2 + 3), {})
+		table.insert(drums, propPart(interactive, "FuelDrum", Vector3.new(3, 2.4, 2.4), CFrame.new(pos + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(40, 70, 120), Enum.Material.Metal, Enum.PartType.Cylinder))
+	end
+end
+for _, drum in ipairs(drums) do
+	local fp = setupPrompt("FillCanPrompt", drum, drum, CONFIG.CanFillTime, "Fill Can", "Fuel Drum")
+	fp.Enabled = true
+	fp.Triggered:Connect(function(player)
+		local can = findTool(player, "FuelCan")
+		if not can or can:GetAttribute("Full") then
+			Notice:FireClient(player, "NeedCan", 3)
+			return
+		end
+		setCanFull(can, true)
+		SoundBank.PlayOneShot("FuelGlugLoop", drum, 45, 1.6)
+		print("🛢️ [" .. player.Name .. "] ตักน้ำมันใส่แกลลอน")
+	end)
+end
+
+local pourPetrolPrompt = setupPrompt("PourPetrolPrompt", gasPump, pumpBody, CONFIG.CanPourTime, "Pour Fuel", "Petrol Pump")
+local pourDieselPrompt = setupPrompt("PourDieselPrompt", dieselPump :: Model, dieselBody, CONFIG.CanPourTime, "Pour Diesel", "Diesel Pump")
+-- ปุ่มเทใช้ F (ปุ่ม E ของตู้เป็นปุ่มเติมให้ลูกค้า อยู่ชิ้นเดียวกัน)
+for _, pp in ipairs({ pourPetrolPrompt, pourDieselPrompt }) do
+	pp.KeyboardKeyCode = Enum.KeyCode.F
+	pp.GamepadKeyCode = Enum.KeyCode.ButtonB
+	pp.UIOffset = Vector2.new(0, 72)
+end
+local function updatePourPrompts()
+	pourPetrolPrompt.Enabled = petrolLevel < CONFIG.PourBelow
+	pourDieselPrompt.Enabled = dieselLevel < CONFIG.PourBelow
+	publishState()
+end
+local function pour(player: Player, diesel: boolean)
+	local can = findTool(player, "FuelCan")
+	if not (can and can:GetAttribute("Full")) then
+		Notice:FireClient(player, "NeedCan", 3)
+		return
+	end
+	setCanFull(can, false)
+	SoundBank.PlayOneShot("FuelGlugLoop", if diesel then dieselBody else pumpBody, 50, 2.0)
+	if diesel then
+		dieselLevel = 1
+		setDieselLevel(1, 2.5)
+	else
+		petrolLevel = 1
+		setFuelLevel(1, 2.5)
+	end
+	updatePourPrompts()
+	print("⛽ [" .. player.Name .. "] เทน้ำมันใส่ตู้ " .. (if diesel then "ดีเซล" else "หลอด") .. " เต็มแล้ว")
+end
+pourPetrolPrompt.Triggered:Connect(function(player)
+	pour(player, false)
+end)
+pourDieselPrompt.Triggered:Connect(function(player)
+	pour(player, true)
+end)
+-- แผงน้ำมันขวดหน้าร้าน (ShackDressing.FuelBottleRack): น้ำมันในขวด = mesh FuelRed / FuelGreen
+-- ว่างตอนเริ่มคืน (ซ่อนน้ำมัน) เอาแกลลอนเต็มมาเติมที่แผง = ขวดเต็ม
+local rackModel = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("FuelBottleRack", true)
+local rackFuel: { BasePart } = {}
+local rackFilled = true
+local fillRackPrompt: ProximityPrompt? = nil
+if rackModel then
+	for _, n in ipairs({ "FuelRed", "FuelGreen" }) do
+		local part = rackModel:FindFirstChild(n)
+		if part and part:IsA("BasePart") then
+			part:SetAttribute("BaseT", part.Transparency)
+			table.insert(rackFuel, part)
+		end
+	end
+	local rackPart = (rackModel:FindFirstChild("Rack") or rackModel:FindFirstChildWhichIsA("BasePart", true)) :: BasePart
+	fillRackPrompt = setupPrompt("FillRackPrompt", rackModel, rackPart, CONFIG.CanPourTime, "Fill Bottles", "Bottle Rack")
+end
+local function setRackFilled(on: boolean)
+	rackFilled = on
+	for _, part in ipairs(rackFuel) do
+		part.Transparency = if on then (part:GetAttribute("BaseT") or 0) else 1
+	end
+	if fillRackPrompt then
+		fillRackPrompt.Enabled = not on
+	end
+end
+if fillRackPrompt then
+	fillRackPrompt.Triggered:Connect(function(player)
+		local can = findTool(player, "FuelCan")
+		if rackFilled then
+			return
+		end
+		if not (can and can:GetAttribute("Full")) then
+			Notice:FireClient(player, "NeedCan", 3)
+			return
+		end
+		setCanFull(can, false)
+		SoundBank.PlayOneShot("FuelGlugLoop", (fillRackPrompt :: ProximityPrompt).Parent :: BasePart, 45, 2.0)
+		setRackFilled(true)
+		print("🍾 [" .. player.Name .. "] เติมน้ำมันขวดบนแผงเต็มแล้ว")
+	end)
+end
+
+takeCanPrompt.Triggered:Connect(function(player)
+	if findTool(player, "FuelCan") then
+		return
+	end
+	local can = makeTool("FuelCan", buildCan, CFrame.new(0, -0.6, 0.1))
+	setCanFull(can, false)
+	giveTool(player, can)
+end)
+
+-- ใช้น้ำมันจากตู้ 1 ครั้ง (เติมให้ลูกค้า/ผี) แล้วเตือนถ้าใกล้หมด
+local function useFuel(diesel: boolean, time: number): Tween?
+	local t
+	if diesel then
+		dieselLevel = math.max(0, dieselLevel - CONFIG.FuelPerFill)
+		t = setDieselLevel(dieselLevel, time)
+	else
+		petrolLevel = math.max(0, petrolLevel - CONFIG.FuelPerFill)
+		t = setFuelLevel(petrolLevel, time)
+	end
+	updatePourPrompts()
+	local left = if diesel then dieselLevel else petrolLevel
+	if left < CONFIG.FuelPerFill - 0.001 then
+		Notice:FireAllClients("FuelEmpty", 6)
+	elseif left < CONFIG.FuelPerFill * 2 - 0.001 then
+		Notice:FireAllClients("FuelLow", 3)
+	end
+	return t
+end
+
+-- ---------------------------------------------------------------- ขนมไทยถวายศาลพระภูมิ (ช่อง [2])
+local tray = interactive:FindFirstChild("DessertTray") :: Instance?
+if not tray then
+	local m = Instance.new("Model")
+	m.Name = "DessertTray"
+	local counter = shack:FindFirstChild("CounterTable", true) :: BasePart?
+	local top = if counter then counter.Position + Vector3.new(2.6, counter.Size.Y / 2, 0) else floorBelow(shackCF.Position + Vector3.new(2, 0, 0), {}) + Vector3.new(0, 3, 0)
+	top = floorBelow(top + Vector3.new(0, 1.5, 0), { m })
+	local plate = buildDessert(m, CFrame.new(top + Vector3.new(0, 0.07, 0)), "TrayPlate")
+	m.PrimaryPart = plate
+	m.Parent = interactive
+	tray = m
+end
+local trayPart = ((tray :: Instance):IsA("BasePart") and tray or (tray :: Model).PrimaryPart or (tray :: Instance):FindFirstChildWhichIsA("BasePart", true)) :: BasePart
+local takeDessertPrompt = setupPrompt("TakeDessertPrompt", tray :: Instance, trayPart, 0, "Take sweets", "Sweets tray")
+takeDessertPrompt.MaxActivationDistance = 8
+takeDessertPrompt.Enabled = true
+local function giveDessert(player: Player)
+	if not findTool(player, "ThaiDessert") then
+		giveTool(player, makeTool("ThaiDessert", buildDessert, CFrame.new(0, 0, 0.3)))
+	end
+end
+takeDessertPrompt.Triggered:Connect(giveDessert)
+
+local shrineBody = (spirit:FindFirstChild("SpiritHouseOnStilts") or spirit:FindFirstChildWhichIsA("BasePart", true)) :: BasePart
+local offerPrompt = setupPrompt("OfferDessertPrompt", spirit, shrineBody, 1.0, "Offer sweets", "Spirit House")
+offerPrompt.MaxActivationDistance = 11
+offerPrompt:SetAttribute("Range", 11)
+offerPrompt.Enabled = true
+local offeredPlate: Model? = nil
+offerPrompt.Triggered:Connect(function(player)
+	local d = findTool(player, "ThaiDessert")
+	if not d then
+		Notice:FireClient(player, "ShrineHungry", 4)
+		return
+	end
+	d:Destroy()
+	offeringUntil = os.clock() + CONFIG.OfferingDuration
+	offeringWarned = false
+	stats.offerings += 1
+	local s = pstat(player.Name)
+	if s then
+		s.offerings += 1
+	end
+	-- จานขนมวางหน้าศาลข้างธูป (หายไปเมื่อหมดเวลาคุ้มครอง)
+	if offeredPlate then
+		offeredPlate:Destroy()
+	end
+	local inc = spirit:FindFirstChild("Incense2") :: BasePart?
+	if inc then
+		local m = Instance.new("Model")
+		m.Name = "OfferedSweets"
+		local base = floorBelow(inc.Position + shrineBody.CFrame.LookVector * 0.5 + Vector3.new(0, 0.2, 0), { m, inc })
+		buildDessert(m, CFrame.new(base + Vector3.new(0, 0.07, 0)) * CFrame.new(0.45, 0, 0), "Plate")
+		for _, part in ipairs(m:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.Size *= 0.5
+				part.CFrame = CFrame.new(base + (part.Position - base) * 0.5) * part.CFrame.Rotation
+			end
+		end
+		m.Parent = spirit
+		offeredPlate = m
+	end
+	SoundBank.PlayOneShot("CoinTinDrop1", shrineBody, 40, 1.2)
+	Notice:FireAllClients("ShrineOffered", 4)
+	remotes:SetAttribute("Cursed", false)
+	print("🍡 [" .. player.Name .. "] ถวายขนมศาลพระภูมิ คุ้มครองอีก " .. CONFIG.OfferingDuration .. " วิ")
+end)
+-- เกิดใหม่: ได้ขนม 1 จานติดตัวทุกครั้ง (ช่อง [2])
+Players.PlayerAdded:Connect(function(p)
+	p.CharacterAdded:Connect(function()
+		task.wait(1)
+		giveDessert(p)
+	end)
+end)
+for _, p in ipairs(Players:GetPlayers()) do
+	task.spawn(giveDessert, p)
+end
+
+local function cursed(): boolean
+	return remotes:GetAttribute("ShopOpen") == true and not gameOver and os.clock() > offeringUntil
+end
+
+-- อาการตอนศาลไม่คุ้มครอง: สุ่มคนที่ยังยืนอยู่ (ไม่นอนล้ม) โดนทีละ 1 อาการ
+local CURSE_WHISPER = { "Curse_Whisper_1", "Curse_Whisper_2", "Curse_Whisper_3", "Curse_Whisper_4" }
+local slowUntil: { [Player]: number } = {}
+local function curseOne(p: Player, symptom: string?)
+	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+	if not (root and hum) or root.Anchored or hum.Health <= 0 then
+		return
+	end
+	local s = symptom or pick({ "drowsy", "drowsy", "shake", "slow", "stumble" })
+	if s == "drowsy" then
+		-- เสียงกระซิบข้างหู + ตาปรือจะหลับ (ฝั่ง Client เห็นเสียงกระซิบแล้วเล่นตาปรือเอง)
+		CustomerSpeech:FireClient(p, pick(CURSE_WHISPER), nil, { ghost = "WhisperSpeaker" }, nil)
+		task.delay(3.4, function()
+			CustomerSpeech:FireClient(p, nil)
+		end)
+	elseif s == "slow" then
+		slowUntil[p] = os.clock() + 8
+		hum.WalkSpeed = CONFIG.CurseSlowSpeed
+		Curse:FireClient(p, "slow", 8)
+		task.delay(8.1, function()
+			if slowUntil[p] and os.clock() >= slowUntil[p] then
+				slowUntil[p] = nil
+				local h = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+				local r = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if h and r and not r.Anchored and h.WalkSpeed == CONFIG.CurseSlowSpeed then
+					h.WalkSpeed = game:GetService("StarterPlayer").CharacterWalkSpeed
+				end
+			end
+		end)
+	elseif s == "stumble" then
+		-- เดินๆ อยู่สะดุดล้ม (ยืนนิ่ง/พนมมือ = ใช้อาการอื่นแทน)
+		if hum.MoveDirection.Magnitude > 0.1 and not Prayer.Duration(p) then
+			Curse:FireClient(p, "stumble", 2.5)
+			knockDown(p, 2.2)
+		else
+			Curse:FireClient(p, "shake", 2.5)
+		end
+	else
+		Curse:FireClient(p, s, if s == "shake" then 2.5 else 5)
+	end
+	print("🌑 ศาลไม่คุ้มครอง [" .. p.Name .. "] " .. s)
+end
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		local open = remotes:GetAttribute("ShopOpen") == true and not gameOver
+		-- แถบนับถอยหลังศาลบน HUD (ItemSlots.client): วินาทีที่ศาลยังคุ้มครอง (0 = ไม่คุ้มครองแล้ว, -1 = ยังไม่เริ่มคืน)
+		remotes:SetAttribute("OfferingLeft", if open and offeringUntil < math.huge then math.max(0, math.floor(offeringUntil - os.clock())) else -1)
+		remotes:SetAttribute("OfferingTotal", CONFIG.OfferingDuration)
+		if open and offeringUntil < math.huge then
+			local left = offeringUntil - os.clock()
+			if left <= CONFIG.OfferingWarn and left > 0 and not offeringWarned then
+				offeringWarned = true
+				Notice:FireAllClients("ShrineHungry", 5)
+			end
+		end
+		if cursed() then
+			if remotes:GetAttribute("Cursed") ~= true then
+				remotes:SetAttribute("Cursed", true)
+				Notice:FireAllClients("ShrineCursed", 5)
+				if offeredPlate then
+					offeredPlate:Destroy()
+					offeredPlate = nil
+				end
+			end
+			task.wait(CONFIG.CurseEvery[1] + math.random() * (CONFIG.CurseEvery[2] - CONFIG.CurseEvery[1]))
+			if cursed() then
+				local ps = Players:GetPlayers()
+				if #ps > 0 then
+					curseOne(ps[math.random(#ps)])
+				end
+			end
+		end
+	end
+end)
+
+	Items.insideShop = insideShop
+	Items.updatePourPrompts = updatePourPrompts
+	Items.useFuel = useFuel
+	Items.giveDessert = giveDessert
+	Items.curseOne = curseOne
+	Items.cursed = cursed
+	Items.setRackFilled = setRackFilled
+	Items.shack = shack
+	Items.clearOffering = function()
+		if offeredPlate then
+			offeredPlate:Destroy()
+			offeredPlate = nil
+		end
+	end
+end
 
 -- ทดสอบจาก Command Bar / เครื่องมือ: ServerStorage.DevDecision:Fire("fuel" | "reject")
 -- (require โมดูลนี้จาก Command Bar จะได้สำเนาใหม่คนละตัวกับที่เกมใช้ จึงต้องสั่งผ่าน BindableEvent)
@@ -812,6 +1336,40 @@ devDecision.Event:Connect(function(choice: string)
 			restartBy = "DevDecision"
 			DeathChoice:FireAllClients("restart", "DevDecision")
 		end
+	elseif choice == "fuelempty" or choice == "fuelfull" then
+		-- น้ำมันในตู้หมด (ทดสอบแกลลอน + ถังหลังร้าน) / เติมเต็ม
+		local lv = if choice == "fuelempty" then 0 else 1
+		petrolLevel, dieselLevel = lv, lv
+		setFuelLevel(lv, 1)
+		setDieselLevel(lv, 1)
+		Items.setRackFilled(lv == 1)
+		Items.updatePourPrompts()
+		if lv == 0 then
+			Notice:FireAllClients("FuelEmpty", 6)
+		end
+	elseif choice == "hungry" then
+		-- ศาลหมดเวลาคุ้มครองทันที (เริ่มอาการแปลกๆ) — ต้องเปิดร้านแล้ว
+		offeringUntil = os.clock() - 1
+		offeringWarned = true
+	elseif choice == "offer" then
+		offeringUntil = os.clock() + CONFIG.OfferingDuration
+		offeringWarned = false
+		remotes:SetAttribute("Cursed", false)
+		Notice:FireAllClients("ShrineOffered", 4)
+	elseif choice == "dessert" then
+		for _, p in ipairs(Players:GetPlayers()) do
+			Items.giveDessert(p)
+		end
+	elseif string.sub(choice, 1, 6) == "curse:" then
+		-- อาการเดียวกับตอนศาลไม่คุ้มครอง ใส่ทุกคนทันที: drowsy / shake / slow / stumble
+		for _, p in ipairs(Players:GetPlayers()) do
+			Items.curseOne(p, string.sub(choice, 7))
+		end
+	elseif choice == "intro" then
+		task.spawn(Cutscene.Intro) -- เล่นคัทซีนเปิดคืนซ้ำ (ร้านเปิดอยู่แล้วก็เล่นได้)
+	elseif choice == "win" then
+		money = math.max(money, CONFIG.TargetMoney) -- ลูปเกมจับได้แล้วเข้าคัทซีนเช้า + สรุปผล
+		broadcastHUD()
 	else
 		CoreLoop.Decide(choice, "DevDecision")
 	end
@@ -1083,7 +1641,7 @@ local function driverClipFor(v: Model): string
 	end
 	return "drive_car"
 end
-local function humanizeDriver(v: Model)
+local function humanizeDriver(v: Model, look: { [string]: any }?)
 	local old = v:FindFirstChild("DriverNPC") :: Model?
 	if not old or old:GetAttribute("Human") or not HumanNPC.Available() then
 		return
@@ -1100,6 +1658,10 @@ local function humanizeDriver(v: Model)
 		hip = hip * CFrame.new(0, 0, -0.5) -- รถยนต์: นั่งชิดพวงมาลัยขึ้น (แขนเอื้อมถึง)
 	elseif clip0 == "ride_moto" then
 		hip = hip * CFrame.new(0, 0.12, 0.15) -- มอไซค์: นั่งบนเบาะ สูงขึ้น/ถอยหลังนิด ต้นขาไม่จมเข้าไปในตัวถัง
+	end
+	-- look.hipForward: เลื่อนคนขับไปหน้าอีก (พี่ชายในคัทซีน เว้นเบาะหลังให้คนซ้อน)
+	if look and type(look.hipForward) == "number" then
+		hip = hip * CFrame.new(0, 0, -look.hipForward)
 	end
 	-- มือ/เท้าของคนขับเดิมวางอยู่บนแฮนด์และที่พักเท้าของรถพอดี: ใช้เป็นเป้า IK (+X ในรถ = ขวาของคนขับ)
 	local clip = driverClipFor(v)
@@ -1137,10 +1699,15 @@ local function humanizeDriver(v: Model)
 		end
 	end
 	-- คนขับรถยนต์ไม่ใส่หมวกทุกชนิด (งอบ/หมวกกันน็อกชนหลังคารถ)
-	HumanNPC.SeatIn(v, hip, clip, {
+	local opts: { [string]: any } = {
 		teen = string.find(string.lower(v.Name), "moto") ~= nil and math.random() < 0.6 or nil,
 		noHat = clip == "drive_car" or nil,
-	}, targets)
+	}
+	-- look = ชุด/ทรงผมตายตัว (พี่ชายในคัทซีน ให้หน้าตาเหมือนตอนลงเดิน)
+	for k, val in pairs(look or {}) do
+		opts[k] = val
+	end
+	HumanNPC.SeatIn(v, hip, clip, opts, targets)
 end
 
 local function templateOrNil(name: string): Model?
@@ -1193,7 +1760,8 @@ local function spawnCustomer(kind: string?)
 		ghost = true
 	else
 		forced = nil
-		ghost = forceGhostNext or math.random() < CONFIG.AnomalyChance
+		-- ศาลไม่คุ้มครอง (ไม่ได้ถวายขนม): ผีมาบ่อยขึ้นมาก
+		ghost = forceGhostNext or math.random() < (if Items.cursed() then CONFIG.CurseAnomalyChance else CONFIG.AnomalyChance)
 	end
 	forceGhostNext = false
 
@@ -1955,6 +2523,10 @@ local function serveCustomer(c: Customer)
 	publishState()
 
 	local ghost = c.ghost
+	if ghost then
+		stats.anomalies += 1
+	end
+	decisionBy = nil
 	local who = c.who
 	local speaker = { name = who.name, voice = who.voice, ghost = ghost }
 	currentSpeaker = speaker
@@ -2075,7 +2647,8 @@ local function serveCustomer(c: Customer)
 			local targetBody = if c.service == "diesel" and not ghost then dieselBody else pumpBody
 			SoundBank.PlayOneShot("PumpCrankLoop", targetBody, 55, 2.0)
 			SoundBank.PlayOneShot("FuelGlugLoop", targetBody, 50, 2.0)
-			local fillTween = if c.service == "diesel" and not ghost then setDieselLevel(0.2, 2) else setFuelLevel(0.15, 2)
+			-- น้ำมันในหลอดลดลงจริง (ไม่เติมคืนเอง) หมดแล้วต้องเอาแกลลอนไปตักจากถังหลังร้านมาเท
+			local fillTween = Items.useFuel(c.service == "diesel" and not ghost, 2)
 			if fillTween then
 				fillTween.Completed:Wait()
 			end
@@ -2091,6 +2664,7 @@ local function serveCustomer(c: Customer)
 				SoundBank.PlayOneShot("IncenseExtinguish", spiritPart, 85, 3.0)
 			end
 			TriggerJumpscare:FireAllClients(c.anomaly, v)
+			stats.fooled += 1
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
 			-- หลอกเสร็จ ผีกับรถหายวับไปตรงนั้น (ไม่ขับ/เดินออกไปต่อ): เริ่มจางตอนจอยังโดนผีหลอกเต็มจออยู่
 			task.delay(GHOST_VANISH_AFTER, function()
@@ -2122,30 +2696,71 @@ local function serveCustomer(c: Customer)
 			local tin = interactive:FindFirstChild("MoneyTin")
 			SoundBank.PlayOneShot("CoinTinDrop2", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			say("Pay_Slow", speaker, { amount = paid })
+			local s = pstat(decisionBy)
+			if s then
+				s.fills += 1
+				s.earned += paid
+			end
 			print("😒 เติมช้า ลูกค้าจ่ายแค่ " .. paid .. "฿ รวม " .. money)
 		else
 			money += price
 			local tin = interactive:FindFirstChild("MoneyTin")
 			SoundBank.PlayOneShot("CoinTinDrop1", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price })
+			local s = pstat(decisionBy)
+			if s then
+				s.fills += 1
+				s.earned += price
+			end
 			print("💰 ลูกค้าปกติ +" .. price .. "฿ รวม " .. money)
 		end
 		broadcastHUD()
-		setFuelLevel(1, 3)
-		setDieselLevel(1, 3)
 	elseif choice == "reject" then
 		if isShutterOpen then
 			closeShutter()
 		end
 		if ghost then
 			money += CONFIG.RejectGhostReward
+			stats.caught += 1
+			local s = pstat(decisionBy)
+			if s then
+				s.ghosts += 1
+			end
 			local tin = interactive:FindFirstChild("MoneyTin")
 			SoundBank.PlayOneShot("CoinTinDrop1", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			if c.anomaly then
 				AnomalyBook.Survived(c.anomaly) -- รอดจากผีตัวนี้ -> ปลดล็อกในสมุดของทุกคน
 			end
-			say("Ghost_Rejected", speaker)
-			print("✅ ไล่ผีถูกต้อง +" .. CONFIG.RejectGhostReward .. "฿ รวม " .. money)
+			-- ผีรู้ว่าเรารู้แล้ว: ใครยังอยู่นอกร้าน (ยังไม่ได้เข้าหลังแผง) โดนผีหลอกทันที แล้วผีหายวับไปตรงนั้น
+			local outside = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root and not root.Anchored and not soloDead[p] and not Items.insideShop(root.Position) then
+					table.insert(outside, p)
+				end
+			end
+			task.wait(CONFIG.RejectScareDelay)
+			for _, p in ipairs(outside) do
+				print("👻 [" .. p.Name .. "] ยังอยู่นอกร้านตอนปิดแผงใส่ผี โดนหลอก")
+				TriggerJumpscare:FireClient(p, c.anomaly, v, "chased")
+				task.delay(0.35, function()
+					knockDown(p, CONFIG.KnockdownTime)
+				end)
+			end
+			say(if #outside > 0 then "Ghost_Chased" else "Ghost_Rejected", speaker)
+			task.delay(if #outside > 0 then GHOST_VANISH_AFTER else 1.6, function()
+				if v.Parent then
+					for _, d in ipairs(v:GetDescendants()) do
+						if d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("Beam") then
+							(d :: any).Enabled = false
+						elseif d:IsA("Sound") then
+							d:Stop()
+						end
+					end
+					Pedestrian.FadeAway(v, GHOST_VANISH_FADE)
+				end
+			end)
+			print("✅ ไล่ผีถูกต้อง +" .. CONFIG.RejectGhostReward .. "฿ รวม " .. money .. " (นอกร้านโดนหลอก " .. #outside .. " คน)")
 		else
 			say(pick({ "Rejected_1", "Rejected_2" }), speaker)
 			print("😤 ปิดร้านใส่ลูกค้าปกติ อดได้เงิน")
@@ -2172,52 +2787,23 @@ local function serveCustomer(c: Customer)
 	AnomalyManager.SetGhostPresent(false)
 	publishState()
 	task.wait(1)
-	-- ผีที่โดนปิดร้านใส่: ออกไปช้าๆ ถ้าใครวิ่งตามไปใกล้ๆ ผีหันมาหลอกแล้วคนนั้นล้มตึง
-	local chased = false
-	local watching = ghost and choice == "reject"
-	if watching then
-		task.spawn(function()
-			while watching and v.Parent and not chased do
-				for _, p in ipairs(Players:GetPlayers()) do
-					local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-					if root and not root.Anchored then
-						local d = (root.Position - v:GetPivot().Position).Magnitude
-						local fromShop = (root.Position - stopPoint.Position).Magnitude
-						if d < CONFIG.ChaseRadius and fromShop > CONFIG.ChaseMinFromShop then
-							chased = true
-							print("👻 [" .. p.Name .. "] วิ่งตามผีไป โดนหลอกล้มตึง")
-							CustomerSpeech:FireAllClients("Ghost_Chased", getHead(v), speaker, nil)
-							TriggerJumpscare:FireClient(p, c.anomaly, v, "chased") -- (ไม่ได้เติมน้ำมัน: ข้อความต่างจากตอนเติมให้ผี)
-							task.wait(0.35)
-							knockDown(p, CONFIG.KnockdownTime)
-							task.delay(3, function()
-								CustomerSpeech:FireAllClients(nil)
-							end)
-							break
-						end
-					end
-				end
-				task.wait(0.1)
-			end
-		end)
-	end
-	local servedGhost = ghost and choice == "fuel" -- เติมน้ำมัน/เติมลมให้ผี: หายไปแล้ว (ด้านบน) ไม่ต้องออกจากร้าน
-	if servedGhost then
-		while v.Parent do
+	-- ผีที่เติมให้ หรือโดนปิดร้านใส่: จางหายไปตรงนั้นแล้ว (ด้านบน) ไม่ขี่/เดินออกจากร้าน
+	-- (เดิมผีที่โดนปิดร้านใส่ขี่ออกไปช้าๆ ให้วิ่งตาม -> เปลี่ยนเป็นหลอกคนที่อยู่นอกร้านทันทีแล้วหายไป 2026-11-03)
+	local vanishing = ghost and (choice == "fuel" or choice == "reject")
+	if vanishing then
+		local t0 = os.clock()
+		while v.Parent and os.clock() - t0 < 8 do
 			task.wait(0.1)
 		end
+		if v.Parent then
+			v:Destroy()
+		end
 	elseif c.kind == "walker" or c.kind == "bicycle" then
-		Pedestrian.WalkTo(v, stopPoint.Position - backDir() * 55, if watching then CONFIG.WalkSpeed * 0.7 else CONFIG.WalkSpeed)
+		Pedestrian.WalkTo(v, stopPoint.Position - backDir() * 55, CONFIG.WalkSpeed)
+		v:Destroy()
 	else
 		local exit = exitPoint.Position
-		driveTo(v, Vector3.new(exit.X, exit.Y, exit.Z), false, if watching then CONFIG.GhostLeaveSpeed else nil)
-	end
-	watching = false
-	if servedGhost then
-		-- หายไปแล้ว
-	elseif chased and (c.kind == "walker" or c.kind == "bicycle") then
-		Pedestrian.FadeAway(v, 1)
-	else
+		driveTo(v, Vector3.new(exit.X, exit.Y, exit.Z), false)
 		v:Destroy()
 	end
 	-- รถไปแล้วพ้นแมพ: เอาออกจากคิวและคืนวิทยุ หุ่นไล่กา ผีตานีหลังกอกล้วย น้ำมัน ให้ปกติ
@@ -2332,34 +2918,205 @@ local function resetGame()
 	clearQueue()
 	Weather.Reset()
 	refreshIncense()
-	setFuelLevel(1, 0.5)
+	-- เริ่มคืน: ตู้ทั้ง 2 และแผงน้ำมันขวดว่างเปล่า ต้องเอาแกลลอนไปตักจากถังหลังร้านมาเติมก่อนขายได้
+	petrolLevel, dieselLevel = 0, 0
+	setFuelLevel(0, 0.5)
+	setDieselLevel(0, 0.5)
+	Items.setRackFilled(false)
+	Items.updatePourPrompts()
+	offeringUntil = math.huge
+	offeringWarned = false
+	remotes:SetAttribute("Cursed", false)
+	Items.clearOffering()
+	resetStats()
 	broadcastHUD()
 end
 
--- เริ่มคืน: แผงสังกะสีปิดไว้ ยังไม่มีลูกค้า จนกว่าจะมีคนดึงเชือกเปิดร้าน
+-- ---------------------------------------------------------------- คัทซีนเปิดคืน / จบคืน (Cutscene.luau)
+Cutscene = require(script.Parent:WaitForChild("Cutscene"))
+Cutscene.Init({
+	remote = remote,
+	templates = templates,
+	prepThaiVehicle = prepThaiVehicle,
+	seatDriver = seatDriver,
+	humanizeDriver = humanizeDriver,
+	driveTo = driveTo,
+	groundAt = groundAt,
+	Pedestrian = Pedestrian,
+	spawnPoint = spawnPoint,
+	stopPoint = stopPoint,
+	exitPoint = exitPoint,
+	ROAD_DIR = ROAD_DIR,
+	shack = Items.shack,
+	rejectRope = rejectRope,
+	shutterDoor = shutterDoor,
+	insideShop = Items.insideShop,
+	-- พี่ชายดึงเชือกยกแผงให้ดู (ยังไม่เริ่มคืน)
+	openShutter = function()
+		if not isShutterOpen and not shutterTweening then
+			openShutter()
+		end
+	end,
+	-- จบคัทซีน: ถ้ายังไม่มีใครดึงเชือกเปิดร้านจริง แผงต้องปิดอยู่
+	resetShutter = function()
+		if not shopOpened and isShutterOpen and not shutterTweening then
+			closeShutter()
+		end
+	end,
+	-- เช้าแล้ว ปิดร้าน
+	closeShop = function()
+		if isShutterOpen and not shutterTweening then
+			closeShutter()
+		end
+	end,
+})
+
+-- เริ่มคืน: แผงสังกะสีปิดไว้ -> คัทซีนพี่ชายมาส่ง (ข้ามได้) -> ผู้เล่นเข้าร้าน แผงปิด เข้ากลางคืน
+-- -> ผู้เล่นดึงเชือกเปิดร้านเองเพื่อเริ่มคืน (ลูกค้าเริ่มมาหลังจากนั้น)
 local function waitForShopOpen()
 	local p = shutterDoor.Position
 	shutterDoor.Position = Vector3.new(p.X, closedY, p.Z)
 	isShutterOpen = false
 	shopOpened = false
 	updateShutterPrompts()
-	GameState:FireAllClients("Waiting")
 	remotes:SetAttribute("ShopOpen", false)
+	-- ไฟร้านดับตั้งแต่ก่อนคัทซีน (เครื่องปั่นไฟยังไม่ติด): คัทซีนเย็นเห็นร้านไฟปิด เข้ากลางคืนก็มืดต่อ
+	-- (Client จำค่าแสงตอนเริ่มคัทซีน = ค่าไฟดับ แล้วคืนค่านี้ตอนจบ) ตัดแบบเงียบ: ไม่มีเสียงกระแทกตอนโหลดเข้าเกม
+	Power.Cut(true)
+	local introDone = false
+	task.spawn(function()
+		local ok, err = pcall(Cutscene.Intro)
+		if not ok then
+			warn("[CoreLoop] Intro ล้ม:", err)
+		end
+		introDone = true
+	end)
+	while not introDone do
+		task.wait(0.2)
+	end
+	-- เข้ากลางคืนแล้วเครื่องปั่นไฟยังไม่ติด (ตัดไฟไว้ตั้งแต่ก่อนคัทซีน ด้านบน): ต้องเปิดไฟฉาย ดึงเชือกเปิดร้าน แล้วเดินไปสตาร์ทเครื่องเอง
+	if not shopOpened then
+		GameState:FireAllClients("Waiting") -- "ไปดึงเชือกเปิดแผงเพื่อเริ่มคืนนี้"
+	end
 	while not shopOpened do
 		task.wait(0.2)
 	end
 	remotes:SetAttribute("ShopOpen", true)
-	openShutter()
+	if not isShutterOpen then
+		openShutter()
+	end
+	-- ต้องถวายขนมศาลภายในเวลานี้ (เตือนตั้งแต่ต้นคืน)
+	offeringUntil = os.clock() + CONFIG.OfferingGrace
+	offeringWarned = false
 	GameState:FireAllClients("Playing")
+	-- ตู้/แผงยังว่าง: บอกให้ไปเอาน้ำมันหลังร้านมาเติมก่อนลูกค้ามา
+	task.delay(5.5, function()
+		if remotes:GetAttribute("ShopOpen") and petrolLevel <= 0 and dieselLevel <= 0 then
+			Notice:FireAllClients("StartRefuel", 6)
+		end
+	end)
+	task.delay(12, function()
+		if remotes:GetAttribute("ShopOpen") and os.clock() < offeringUntil and stats.offerings == 0 then
+			Notice:FireAllClients("ShrineHungry", 6)
+		end
+	end)
 end
 
--- ผู้เล่นที่เข้ามาตอนร้านยังปิด ให้เห็นข้อความรอเปิดร้านด้วย
+-- ผู้เล่นที่เข้ามาตอนร้านยังปิด (ไม่มีคัทซีนเล่นอยู่) ให้เห็นข้อความรอเปิดร้านด้วย
 Players.PlayerAdded:Connect(function(p)
 	task.wait(3)
-	if openPrompt.Enabled then
+	if openPrompt.Enabled and not Cutscene.Running() then
 		GameState:FireClient(p, "Waiting")
 	end
 end)
+
+-- ค่าเฝ้าร้าน: ตัวคูณความยากจากห้องใน Lobby (TeleportData.difficulty)
+local Difficulty = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Difficulty"))
+local function rewardMult(p: Player): number
+	local ok, data = pcall(function()
+		return p:GetJoinData().TeleportData
+	end)
+	local id = if ok and type(data) == "table" then data.difficulty else nil
+	return Difficulty.Get(id).reward
+end
+
+local function buildSummary(): { [string]: any }
+	local rows = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		local s = stats.players[p.UserId] or { name = p.DisplayName, fills = 0, earned = 0, ghosts = 0, offerings = 0 }
+		local wage = (CONFIG.WageBase + s.fills * CONFIG.WagePerFill + s.ghosts * CONFIG.WagePerGhost + s.offerings * CONFIG.WagePerOffering) * rewardMult(p)
+		table.insert(rows, { userId = p.UserId, name = p.DisplayName, fills = s.fills, earned = s.earned, ghosts = s.ghosts, offerings = s.offerings, wage = math.floor(wage / 5 + 0.5) * 5 })
+	end
+	table.sort(rows, function(a, b)
+		return a.earned > b.earned
+	end)
+	return {
+		team = money,
+		target = CONFIG.TargetMoney,
+		anomalies = stats.anomalies,
+		caught = stats.caught,
+		fooled = stats.fooled,
+		offerings = stats.offerings,
+		incense = incense,
+		maxIncense = CONFIG.StartIncense,
+		players = rows,
+	}
+end
+
+-- ชนะ: คัทซีนเช้า + หน้าสรุปผล แล้วรอทุกคนกด "เฝ้าต่ออีกคืน" (หรือหมดเวลา)
+local summaryVotes: { [Player]: boolean } = {}
+local summaryOpen = false
+SummaryRemote.OnServerEvent:Connect(function(p, action: any)
+	if action == "continue" and summaryOpen then
+		summaryVotes[p] = true
+		local n = 0
+		for q in pairs(summaryVotes) do
+			if q.Parent then
+				n += 1
+			end
+		end
+		SummaryRemote:FireAllClients("votes", n, #Players:GetPlayers())
+	end
+end)
+local function winSequence()
+	for _, p in ipairs(Players:GetPlayers()) do
+		Prayer.Stop(p)
+	end
+	clearQueue()
+	ServiceMinigame:FireAllClients("close")
+	CustomerSpeech:FireAllClients(nil)
+	remotes:SetAttribute("Cursed", false)
+	-- เช้าแล้ว ขายหมด: ตู้และแผงน้ำมันขวดว่างเปล่าในคัทซีนจบ
+	petrolLevel, dieselLevel = 0, 0
+	setFuelLevel(0, 0.3)
+	setDieselLevel(0, 0.3)
+	Items.setRackFilled(false)
+	Items.updatePourPrompts()
+	local summary = buildSummary()
+	print("🌅 ชนะ: คัทซีนเช้า + สรุปผล", summary.team, "฿")
+	table.clear(summaryVotes)
+	summaryOpen = true
+	local ok, err = pcall(Cutscene.Outro, summary)
+	if not ok then
+		warn("[CoreLoop] Outro ล้ม:", err)
+	end
+	GameState:FireAllClients("Win")
+	local t0 = os.clock()
+	while os.clock() - t0 < CONFIG.SummaryTimeout do
+		local all = #Players:GetPlayers() > 0
+		for _, p in ipairs(Players:GetPlayers()) do
+			if not summaryVotes[p] then
+				all = false
+			end
+		end
+		if all then
+			break
+		end
+		task.wait(0.3)
+	end
+	summaryOpen = false
+	SummaryRemote:FireAllClients("close")
+end
 
 function CoreLoop.Start()
 	math.randomseed(os.time())
@@ -2384,27 +3141,24 @@ function CoreLoop.Start()
 	task.spawn(function()
 		while true do
 			resetGame()
-			Power.Restore() -- คืนใหม่ ไฟติด
+			-- (คืนใหม่: ไฟดับรอสตาร์ทเครื่องปั่นไฟ — waitForShopOpen ตัดไฟให้)
 			waitForShopOpen()
 			task.spawn(spawnerLoop)
 			while not gameOver do
 				local front = queue[1]
-				if front and front.atPump and not front.serving then
-					serveCustomer(front)
-					if incense <= 0 then
-						gameOver = true
-						print("💀 ธูปดับครบ 3 ดอก Game Over")
-					elseif money >= CONFIG.TargetMoney then
-						gameOver = true
-						for _, player in ipairs(Players:GetPlayers()) do
-							LeaderboardStats.Increment("completions", player.UserId, 1)
-						end
-						GameState:FireAllClients("Win")
-						print("🏆 ครบ " .. CONFIG.TargetMoney .. "฿ ชนะ!")
-					end
-				elseif incense <= 0 then
-					-- (ธูปหมดระหว่างไม่มีลูกค้า เช่น ทดสอบ) ก็จบเกมเหมือนกัน
+				if incense <= 0 then
+					-- ธูปดับหมด (เติมให้ผีครบ หรือทดสอบ) จบเกม
 					gameOver = true
+					print("💀 ธูปดับครบ 3 ดอก Game Over")
+				elseif money >= CONFIG.TargetMoney then
+					-- ครบโควตา (หลังลูกค้าคนล่าสุด หรือ admin สั่งชนะ)
+					gameOver = true
+					for _, player in ipairs(Players:GetPlayers()) do
+						LeaderboardStats.Increment("completions", player.UserId, 1)
+					end
+					print("🏆 ครบ " .. CONFIG.TargetMoney .. "฿ ชนะ!")
+				elseif front and front.atPump and not front.serving then
+					serveCustomer(front)
 				else
 					task.wait(0.2)
 				end
@@ -2430,7 +3184,8 @@ function CoreLoop.Start()
 				end
 				task.wait(1)
 			else
-				task.wait(CONFIG.RestartDelay)
+				-- ชนะ: คัทซีนเช้า -> หน้าสรุปผล -> รอทุกคนกดเฝ้าต่อ แล้วเริ่มคืนใหม่ (คัทซีนเปิดคืนอีกรอบ)
+				winSequence()
 			end
 		end
 	end)

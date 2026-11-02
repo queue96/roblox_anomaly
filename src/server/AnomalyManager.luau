@@ -234,7 +234,7 @@ if radioFx then
 		while true do
 			task.wait(math.random(RADIO_FX_EVERY[1], RADIO_FX_EVERY[2]))
 			local chanting = radioChant ~= nil and radioChant.IsPlaying
-			if not chanting and not radioFx.IsPlaying and math.random() < RADIO_FX_CHANCE then
+			if not chanting and not radioFx.IsPlaying and math.random() < RADIO_FX_CHANCE and not game:GetService("ReplicatedStorage"):GetAttribute("CutsceneRunning") then
 				radioFx.TimePosition = 0
 				radioFx:Play()
 			end
@@ -873,19 +873,35 @@ function AnomalyManager.StartAmbience()
 
 	task.spawn(function()
 		-- ตอนเริ่มเกม: หน่วง 25 วินาทีแล้วเปิดด้วยเสียงหมาหอนแว่วจากหลังเขา
+		-- (คัทซีนเปิด/จบคืน: เงียบ ไม่สุ่มเสียง — ReplicatedStorage.CutsceneRunning จาก Cutscene.luau)
+		local function inCutscene(): boolean
+			return game:GetService("ReplicatedStorage"):GetAttribute("CutsceneRunning") == true
+		end
+		game:GetService("ReplicatedStorage"):GetAttributeChangedSignal("CutsceneRunning"):Connect(function()
+			if inCutscene() then
+				for _, s in pairs(sounds) do
+					s:Stop()
+				end
+				thunder:Stop()
+			end
+		end)
 		task.delay(25, function()
-			playAmbient(AMBIENT[1])
+			if not inCutscene() then
+				playAmbient(AMBIENT[1])
+			end
 		end)
 		-- สุ่มเสียงธรรมชาติรอบทุ่งทุกๆ 45 วินาที
 		while true do
 			task.wait(45)
-			playAmbient(pickAmbient())
+			if not inCutscene() then
+				playAmbient(pickAmbient())
+			end
 		end
 	end)
 	task.spawn(function()
 		while true do
 			task.wait(math.random(18, 40))
-			if remotes:GetAttribute("Weather") == "Rain" then
+			if remotes:GetAttribute("Weather") == "Rain" and not game:GetService("ReplicatedStorage"):GetAttribute("CutsceneRunning") then
 				remotes:SetAttribute("ThunderAt", os.clock()) -- Client: ฟ้าแลบก่อน
 				task.wait(0.4 + math.random() * 0.8) -- แล้วเสียงตามมา
 				thunder.PlaybackSpeed = 1.0

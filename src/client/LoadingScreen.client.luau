@@ -82,6 +82,18 @@ local TIPS = {
 		th = "คำแนะนำ: เก็บเงินให้ครบ 1,500 บาทก่อนที่ธูปทั้ง 3 ดอกจะดับลงเพื่อเอาชีวิตรอดผ่านคืนนี้",
 		en = "Tip: Earn 1,500 Baht before all 3 incense sticks burn out to survive the night.",
 	},
+	{
+		th = "คำแนะนำ: เริ่มคืนมาไฟดับ กด 1 เปิดไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",
+		en = "Tip: The night starts in a blackout — press 1 for your flashlight, open the shutter, then start the generator.",
+	},
+	{
+		th = "คำแนะนำ: เอาขนมไทย (ช่อง 2) ไปถวายศาลพระภูมิเป็นระยะ ไม่งั้นจะโดนหลอกไม่หยุด",
+		en = "Tip: Keep offering Thai sweets (slot 2) at the spirit house, or the haunting won't stop.",
+	},
+	{
+		th = "คำแนะนำ: น้ำมันในตู้หมดได้ หยิบแกลลอนในร้าน ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้",
+		en = "Tip: Pumps run dry — grab the jerry can, fill it at the drum behind the shop, and pour it in.",
+	},
 }
 
 local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
@@ -577,7 +589,7 @@ task.spawn(function()
 	else
 		-- แมพเล่นเกม: ปิดหน้าโหลดเมื่อฉากพร้อมจริงเท่านั้น (เคยเข้าไปทั้งที่ไฟร้านยังไม่ติด / โมเดลยังไม่ขึ้น)
 		--   1) game.Loaded  2) server สร้างฉาก + ระบบเกมเสร็จ (SceneReady)  3) โหลดทรัพยากรในฉาก
-		--   4) ตัวละครเกิดแล้ว  5) ไฟร้านติด (หลอดนีออนหน้าร้านเปิด)
+		--   4) ตัวละครเกิดแล้ว  5) ไฟหน้าร้านพร้อม (หรือไฟดับตั้งใจตอนเริ่มคืน: เครื่องปั่นไฟยังไม่ติด)
 		setProgressMode(true)
 		ui.skipBtn.Visible = false
 		local startTime = os.clock()
@@ -595,13 +607,14 @@ task.spawn(function()
 			local c = player.Character
 			return c ~= nil and c:FindFirstChild("HumanoidRootPart") ~= nil
 		end, 30)
-		setProgress(0.94, tr("กำลังเปิดไฟร้าน...", "Turning on the shop lights..."))
+		setProgress(0.94, tr("พี่ชายกำลังขี่รถพาไปส่งที่ร้าน...", "Your brother is riding you to the shop..."))
 		waitFor(function()
 			local env = Workspace:FindFirstChild("MapEnvironment")
 			local road = env and env:FindFirstChild("DirtRoad")
 			local neon = road and road:FindFirstChild("NeonLightPart")
 			local light = neon and neon:FindFirstChildWhichIsA("Light", true)
-			return light ~= nil and light.Enabled
+			-- ไฟดับตั้งใจ (เริ่มคืนเครื่องปั่นไฟยังไม่ติด) = ถือว่าพร้อม ไม่ต้องรอไฟ
+			return (light ~= nil and light.Enabled) or ReplicatedStorage:GetAttribute("PowerOn") == false
 		end, 20)
 		setProgress(1, tr("พร้อมแล้ว", "Ready"))
 		local elapsed = os.clock() - startTime

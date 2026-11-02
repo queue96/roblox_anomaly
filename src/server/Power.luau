@@ -87,7 +87,8 @@ function Power.IsOn(): boolean
 	return powerOn
 end
 
-function Power.Cut()
+-- silent = ไม่มีเสียงคัตเอาต์ตัด (ตอนเริ่มคืน: ไฟดับรอสตาร์ทเครื่องอยู่แล้ว ไม่ให้ได้ยินเสียงกระแทกตอนโหลดเข้าเกม)
+function Power.Cut(silent: boolean?)
 	if not powerOn then
 		return
 	end
@@ -117,11 +118,11 @@ function Power.Cut()
 	end
 	setNeon(false)
 	local gp = genPart()
-	if gp then
+	if gp and not silent then
 		SoundBank.PlayAtPosition("PowerOffClunk", gp.Position, 120, 2)
 	end
 	local lp = shopLights()[1]
-	if lp then
+	if lp and not silent then
 		SoundBank.PlayAtPosition("PowerOffClunk", lp.Position, 120, 2)
 	end
 	if prompt then

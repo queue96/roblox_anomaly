@@ -203,6 +203,19 @@ LanguageModule.Dialogues = {
 	Pray_Summon_1 = { th = "...ใครเรียก...", en = "...who called me..." },
 	Pray_Summon_2 = { th = "...ได้ยินแล้ว... กำลังไป...", en = "...I heard you... I'm coming..." },
 	Pray_Summon_3 = { th = "...สวดให้ข้าเหรอ...", en = "...are you praying for me..." },
+	-- คัทซีนเปิดคืน / จบคืน (พี่ชายเจ้าของร้าน)
+	Intro_Brother_1 = { th = "คืนนี้เฝ้าร้านให้พี่หน่อยนะ พี่มีธุระในเมือง", en = "Mind the shop for me tonight, okay? I've got business in town." },
+	Intro_Player_1 = { th = "ได้เลยพี่ ไว้ใจได้", en = "Sure thing. Leave it to me." },
+	Intro_Brother_2 = { th = "เปิดร้านให้แล้วนะ อย่าลืมเอาขนมไปถวายศาลพระภูมิล่ะ", en = "Shop's open. Don't forget to offer sweets at the spirit house." },
+	Intro_Brother_3 = { th = "ใครมาดึกๆ ดูให้ดีก่อนเติมนะ... ไปละ", en = "If anyone shows up late, take a good look before you fill them up... I'm off." },
+	Outro_Brother_1 = { th = "เมื่อคืนเป็นไงบ้าง เฝ้าไหวไหม?", en = "So how was last night? Hold up alright?" },
+	Outro_Player_1 = { th = "ผ่านไปได้ด้วยดีพี่... แต่คืนหน้าพี่เฝ้าเองนะ", en = "Got through it fine... but you're taking the next one." },
+	Outro_Brother_2 = { th = "ฮ่าๆ ขึ้นรถ ไปกินข้าวต้มกัน", en = "Haha, hop on. Let's go get some rice soup." },
+	-- ไม่ได้ถวายขนมศาล: ศาลไม่คุ้มครอง
+	Curse_Whisper_1 = { th = "...หิว...", en = "...hungry..." },
+	Curse_Whisper_2 = { th = "...ไม่มีใครเอาอะไรมาให้เลย...", en = "...no one brought me anything..." },
+	Curse_Whisper_3 = { th = "...หลับเถอะ... หลับตาลง...", en = "...sleep... close your eyes..." },
+	Curse_Whisper_4 = { th = "...ข้าอยู่ข้างหลังเอ็ง...", en = "...I'm right behind you..." },
 }
 
 -- ชื่อลูกค้า (แสดงบนหัวกล่องคำพูด จะได้จำกันได้ ผีก็ปลอมใช้ชื่อเดียวกัน)
@@ -222,6 +235,7 @@ LanguageModule.Names = {
 	Name_Coyote = { th = "สาวโคโยตี้", en = "Coyote girl" },
 	Name_ParadeHost = { th = "เจ้าภาพงานบวช", en = "Ordination host" },
 	Name_ParadeCrowd = { th = "ขบวนแห่", en = "Parade crowd" },
+	Name_Brother = { th = "พี่ชาย", en = "Big Brother" },
 }
 
 function LanguageModule.GetName(key: string, localeId: string?): string
@@ -312,7 +326,7 @@ LanguageModule.UI = {
 	Quit = { th = "กลับ Lobby", en = "Back to Lobby" },
 	GoingToLobby = { th = "กำลังกลับวัด...", en = "Heading back to the temple..." },
 	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
-	WaitOpen = { th = "ร้านยังปิดอยู่... ไปดึงเชือกเปิดแผงสังกะสีเพื่อเริ่มคืนนี้", en = "The shop is closed... pull the shutter rope to begin the night." },
+	WaitOpen = { th = "ไฟดับ... กด [1] เปิดไฟฉาย ดึงเชือกเปิดแผงร้าน แล้วไปสตาร์ทเครื่องปั่นไฟ", en = "The power's out... press [1] for the flashlight, pull the shutter rope, then go start the generator." },
 	-- มินิเกมเติมน้ำมัน / เติมลม
 	MG_FuelTitle = { th = "สูบเบนซิน", en = "Hand-Crank Petrol" },
 	MG_DieselTitle = { th = "สูบดีเซล", en = "Hand-Crank Diesel" },
@@ -326,6 +340,65 @@ LanguageModule.UI = {
 	MG_AirMiss = { th = "ผิดจังหวะ! รอเข็มวิ่งกลับ", en = "Missed! Wait for needle" },
 	MG_Success = { th = "สำเร็จ!", en = "Complete!" },
 	MG_CancelHint = { th = "[X] ปิด", en = "[X] Close" },
+	-- คัทซีน
+	SkipCutscene = { th = "กด [Enter] / แตะค้างเพื่อข้าม", en = "Press [Enter] / hold to skip" },
+	SkipBtn = { th = "ข้าม ▶▶", en = "Skip ▶▶" },
+	-- น้ำมันในตู้ + ถังน้ำมัน
+	FuelEmpty = { th = "น้ำมันในตู้หมด! หยิบแกลลอนในร้าน ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้", en = "The pump is empty! Grab the jerry can in the shop, fill it at the drum behind the shop, then pour it into the pump." },
+	FuelLow = { th = "น้ำมันในตู้ใกล้หมดแล้ว", en = "The pump is running low" },
+	CanSlot = { th = "แกลลอน", en = "Jerry can" },
+	CanEmpty = { th = "(ว่าง)", en = "(empty)" },
+	CanFull = { th = "(เต็ม)", en = "(full)" },
+	TakeCan = { th = "หยิบแกลลอน", en = "Take" },
+	CanName = { th = "แกลลอนน้ำมัน", en = "Jerry Can" },
+	FillCan = { th = "ตักน้ำมันใส่แกลลอน", en = "Fill Can" },
+	DrumName = { th = "ถังน้ำมัน", en = "Fuel Drum" },
+	PourPetrol = { th = "เทน้ำมันใส่ตู้", en = "Pour Fuel" },
+	PourDiesel = { th = "เทดีเซลใส่ตู้", en = "Pour Diesel" },
+	FillRack = { th = "เติมน้ำมันขวด", en = "Fill Bottles" },
+	-- สอนเล่นทีละขั้น (TutorialController)
+	Tut_Title = { th = "วิธีเฝ้าร้าน", en = "How to mind the shop" },
+	Tut_Hide = { th = "[H] ซ่อน/แสดงคำแนะนำ", en = "[H] hide/show tips" },
+	Tut_Flashlight = { th = "ไฟดับมืดตื้อ... กด [1] เปิดไฟฉายก่อน", en = "It's pitch dark... press [1] to turn on your flashlight." },
+	Tut_OpenShop = { th = "เดินไปที่เชือกหลังโต๊ะ แล้วกด [E] ดึงเปิดแผงร้าน", en = "Go to the rope behind the counter and press [E] to raise the shutter." },
+	Tut_Generator = { th = "ไฟร้านยังดับ: ไปที่เครื่องปั่นไฟข้างร้าน กด [E] แล้วกดตามจังหวะจนเครื่องติด", en = "Still no power: go to the generator beside the shop, press [E], and follow the rhythm until it starts." },
+	Tut_TakeCan = { th = "ตู้ยังไม่มีน้ำมัน: หยิบแกลลอนแดงมุมหลังร้าน กด [E]", en = "The pumps are empty: take the red jerry can in the back corner of the shop with [E]." },
+	Tut_FillCan = { th = "ไปที่ถังน้ำมันหลังร้าน กด [E] ค้างตักน้ำมันใส่แกลลอน", en = "Go to the fuel drum behind the shop and hold [E] to fill the can." },
+	Tut_Pour = { th = "กลับมาที่ตู้น้ำมันหน้าร้าน กด [F] ค้างเทน้ำมันใส่ตู้ (ตู้หมดเมื่อไหร่ทำแบบนี้อีก)", en = "Back at the pumps, hold [F] to pour the fuel in (repeat whenever a pump runs dry)." },
+	Tut_Offer = { th = "กด [2] ถือขนมไทย ไปที่ศาลพระภูมิ กด [E] ค้างถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Press [2] for the Thai sweets, go to the spirit house and hold [E] to offer them (protection timer is top-right)." },
+	Tut_Ghosts = { th = "ลูกค้ามาแล้วกด [G] ค้างพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน", en = "When customers arrive, hold [G] to pray and see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside." },
+	RackName = { th = "แผงน้ำมันขวด", en = "Bottle Rack" },
+	StartRefuel = { th = "ตู้กับแผงยังไม่มีน้ำมัน! หยิบแกลลอนในร้าน ไปตักที่ถังหลังร้านมาเติมก่อนลูกค้ามา", en = "The pumps and bottle rack are empty! Grab the jerry can, fill it at the drum behind the shop, and refuel before customers arrive." },
+	NeedCan = { th = "ต้องถือแกลลอนเปล่าก่อน", en = "You need an empty jerry can" },
+	-- ขนมถวายศาล
+	DessertSlot = { th = "ขนมไทย", en = "Thai sweets" },
+	TakeDessert = { th = "หยิบขนม", en = "Take sweets" },
+	DessertTray = { th = "ถาดขนมไทย", en = "Sweets tray" },
+	OfferDessert = { th = "ถวายขนม", en = "Offer sweets" },
+	SpiritHouseName = { th = "ศาลพระภูมิ", en = "Spirit House" },
+	ShrineHungry = { th = "ศาลพระภูมิยังไม่ได้รับของถวาย... รีบเอาขนมไปถวายก่อนจะมีเรื่อง", en = "The spirit house has no offering... bring sweets before something happens." },
+	ShrineCursed = { th = "ศาลไม่คุ้มครองแล้ว... เอาขนมไปถวายเดี๋ยวนี้!", en = "The shrine no longer protects you... offer sweets now!" },
+	ShrineTimer = { th = "ศาลคุ้มครองอีก", en = "Shrine protects for" },
+	ShrineTimerSoon = { th = "ใกล้หมด! ไปถวายขนม", en = "Running out! Offer sweets" },
+	ShrineTimerCursed = { th = "ศาลไม่คุ้มครอง! ถวายขนม", en = "Unprotected! Offer sweets" },
+	ShrineOffered = { th = "ถวายขนมแล้ว ศาลคุ้มครองไปอีกพัก", en = "Sweets offered. The shrine will protect you for a while." },
+	-- สรุปผลจบคืน
+	SummaryTitle = { th = "รอดมาได้อีกคืน", en = "You Survived the Night" },
+	SummaryTeam = { th = "เงินในกระป๋องทั้งร้าน", en = "Total in the money tin" },
+	SummaryAnomalies = { th = "สิ่งผิดปกติที่เจอทั้งคืน", en = "Anomalies encountered" },
+	SummaryCaught = { th = "ไล่ผีได้", en = "Ghosts turned away" },
+	SummaryFooled = { th = "เติมให้ผีไป", en = "Ghosts served by mistake" },
+	SummaryOfferings = { th = "ถวายขนมศาล", en = "Shrine offerings" },
+	SummaryPlayer = { th = "ผู้เล่น", en = "Player" },
+	SummaryFills = { th = "เติม (ครั้ง)", en = "Fills" },
+	SummaryEarned = { th = "ทำเงิน", en = "Earned" },
+	SummaryGhosts = { th = "ไล่ผี", en = "Ghosts" },
+	SummaryWage = { th = "ค่าเฝ้าร้าน", en = "Wage" },
+	SummaryNext = { th = "เฝ้าต่ออีกคืน", en = "Another night" },
+	SummaryWait = { th = "รอเพื่อนกด... ({n})", en = "Waiting for others... ({n})" },
+	Baht = { th = "บาท", en = "฿" },
+	Times = { th = "ครั้ง", en = "x" },
+	Units = { th = "ตัว", en = "" },
 }
 
 -- ป้ายชื่อที่ลอยตามวัตถุในฉาก (ObjectLabels.client) ชื่อสั้น สุภาพ ไม่อธิบาย

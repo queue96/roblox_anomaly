@@ -7673,4 +7673,81 @@ function MapBuilder.PopulateFrontBanksGrass()
 	MapBuilder.PaintFrontBanksGrassTerrain()
 end
 
+-- ศาลพระภูมิ: ฐานเดิมหันผิด (ช่องราว + บันไดอยู่ด้านข้างศาล) -> ใช้ mesh ใหม่ที่หมุนฐาน -90° ให้บันไดอยู่หน้าศาล
+-- (assets/models/SpiritHouseOnStilts_Fixed.fbx ทำจาก Blender ตัวศาลไม่ขยับ)
+-- วิธีใช้: Import 3D ไฟล์นั้นเข้า Workspace (โมเดลชื่อ SpiritHouseOnStilts_Fixed) แล้วรัน
+--   require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).SwapSpiritHouseMesh()
+-- จัดตำแหน่งโดยเทียบธูป Incense2 ชุดใหม่กับของเดิม (ศาลไม่ขยับ ธูปจึงตรงกัน) ธูป/แสง/ควันเดิมเก็บไว้ทั้งหมด
+-- ชิ้นศาลเก่าย้ายไป ServerStorage.ArchivedPlaceholders.SpiritHouseOld
+function MapBuilder.SwapSpiritHouseMesh(): string
+	local ServerStorage = game:GetService("ServerStorage")
+	local CollectionService = game:GetService("CollectionService")
+	local spirit = Workspace:FindFirstChild("SpiritHouse")
+	local old = spirit and spirit:FindFirstChild("SpiritHouseOnStilts") :: MeshPart?
+	local oldIncense = spirit and spirit:FindFirstChild("Incense2") :: BasePart?
+	local imported = Workspace:FindFirstChild("SpiritHouseOnStilts_Fixed", true)
+	if not (old and oldIncense and imported) then
+		return "ไม่พบ SpiritHouse.SpiritHouseOnStilts / Incense2 หรือโมเดล SpiritHouseOnStilts_Fixed ที่ Import มา"
+	end
+	local newMain: MeshPart? = nil
+	local newIncense: BasePart? = nil
+	for _, d in ipairs(imported:GetDescendants()) do
+		if d:IsA("MeshPart") then
+			if d.Name == "SpiritHouseOnStilts" then
+				newMain = d
+			elseif d.Name == "Incense2" then
+				newIncense = d
+			end
+		end
+	end
+	if not (newMain and newIncense) then
+		return "โมเดลที่ Import ไม่มี MeshPart ชื่อ SpiritHouseOnStilts / Incense2"
+	end
+	-- ขนาดให้เท่าของเดิม (ตัว import อาจย่อ/ขยาย): เทียบความสูง (แกนตั้งของ mesh ไม่เปลี่ยนตอนหมุนฐาน)
+	local k = old.Size.Y / newMain.Size.Y
+	if math.abs(k - 1) > 0.001 then
+		local piv = newIncense.CFrame
+		for _, d in ipairs(imported:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local rel = piv:ToObjectSpace(d.CFrame)
+				d.Size *= k
+				d.CFrame = piv * CFrame.new(rel.Position * k) * rel.Rotation
+			end
+		end
+	end
+	newMain.CFrame = oldIncense.CFrame * newIncense.CFrame:Inverse() * newMain.CFrame
+	newMain.Anchored = true
+	newMain.CanCollide = old.CanCollide
+	newMain.CollisionFidelity = old.CollisionFidelity
+	newMain.CastShadow = old.CastShadow
+	-- พื้นผิว / ป้าย / attribute / tag ย้ายตามมาจากชิ้นเดิม
+	for _, c in ipairs(newMain:GetChildren()) do
+		if c:IsA("SurfaceAppearance") then
+			c:Destroy()
+		end
+	end
+	for _, c in ipairs(old:GetChildren()) do
+		c.Parent = newMain
+	end
+	for name, v in pairs(old:GetAttributes()) do
+		newMain:SetAttribute(name, v)
+	end
+	for _, tag in ipairs(CollectionService:GetTags(old)) do
+		CollectionService:AddTag(newMain, tag)
+	end
+	newMain.Name = "SpiritHouseOnStilts"
+	newMain.Parent = spirit
+	local archive = ServerStorage:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	archive.Name = "ArchivedPlaceholders"
+	archive.Parent = ServerStorage
+	local prev = archive:FindFirstChild("SpiritHouseOld")
+	if prev then
+		prev:Destroy()
+	end
+	old.Name = "SpiritHouseOld"
+	old.Parent = archive
+	imported:Destroy()
+	return "สลับศาลพระภูมิเป็นฐานหันหน้าเดียวกับศาลแล้ว"
+end
+
 return MapBuilder

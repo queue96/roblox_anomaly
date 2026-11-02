@@ -50,7 +50,7 @@ local function track(name: string, priority: Enum.AnimationPriority?): Animation
 	return tracks[name]
 end
 -- โหลดล่วงหน้า (ท่าที่ยังโหลดไม่เสร็จเล่นไม่ออก ตัวจะเป็นท่า A แวบหนึ่ง)
-for _, n in ipairs({ "idle", "walk", "fall", "sit" }) do
+for _, n in ipairs({ "idle", "walk", "fall", "sit", "ride_moto", "pull_rope" }) do
 	track(n, Enum.AnimationPriority.Core)
 end
 for _, n in ipairs({ "hold_flashlight", "pray" }) do
@@ -193,7 +193,12 @@ RunService:BindToRenderStep("VillagerBodyYaw", Enum.RenderPriority.Camera.Value 
 		return
 	end
 	local free = not root.Anchored and hum.WalkSpeed > 0 and not hum.Sit and hum.Health > 0
-	if not free then
+	-- คัทซีน (CutsceneController ตั้ง Lighting.Cutscene): กล้องอยู่ไกลตัว -> ตัวหันตามทางเดินเอง ไม่หันตามกล้อง
+	local cutscene = game:GetService("Lighting"):GetAttribute("Cutscene") == true
+	if cutscene and not hum.AutoRotate then
+		hum.AutoRotate = true
+	end
+	if not free or cutscene then
 		headYaw, headPitch = 0, 0
 		return
 	end
@@ -296,8 +301,14 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	-- ล้มตาย (Server ยึดตัวไว้นอนคว่ำ): นอนนิ่ง ไม่หายใจ ไม่ก้าว = ท่ายืนเฟรมแรกหยุดค้าง (แขนแนบตัว)
 	--   (ตัวหมุนตอนล้มอย่านับเป็นการหันตัว ไม่งั้นท่าก้าวเล่นระหว่างล้ม)
-	local downed = root ~= nil and root.Anchored
-	if downed then
+	-- นั่งซ้อนรถในคัทซีน (Server ยึดตัว anchored + Sit = true): ท่านั่ง ไม่ใช่ท่าล้มนิ่ง
+	-- (คัทซีนยึดตัวยืนรอ = ยืนหายใจปกติ ไม่ใช่ท่าล้มนิ่ง)
+	local downed = root ~= nil and root.Anchored and not hum.Sit and game:GetService("Lighting"):GetAttribute("Cutscene") ~= true
+	-- ท่าตามบทคัทซีน (Server ตั้ง attribute PoseClip เช่น "pull_rope" ตอนดึงเชือกปิดร้าน)
+	local pose = hum:GetAttribute("PoseClip")
+	if type(pose) == "string" and ids[pose] then
+		setBase(pose)
+	elseif downed then
 		turningUntil = 0
 		setTurnStep(false)
 		setBase("idle", 0)
@@ -306,7 +317,9 @@ RunService.Heartbeat:Connect(function(dt)
 			idle.TimePosition = 0
 		end
 	elseif hum.Sit or state == Enum.HumanoidStateType.Seated then
-		setBase("sit")
+		-- ท่านั่งเฉพาะ (Server ตั้ง attribute SitClip): ซ้อนมอไซค์ในคัทซีน = "ride_moto" ขากางคร่อมเบาะ ไม่หนีบเข่าแบบนั่งเก้าอี้
+		local clip = hum:GetAttribute("SitClip")
+		setBase(if type(clip) == "string" and ids[clip] then clip else "sit")
 	elseif state == Enum.HumanoidStateType.Freefall then
 		setBase("fall")
 	elseif speedNow > 0.6 then

@@ -1404,6 +1404,12 @@ local function showNarration(key: string, seconds: number?)
 	end
 end
 
+-- ข้อความบรรยายสั้นๆ จาก Server (น้ำมันหมด / ศาลหิว ฯลฯ)
+local NoticeRemote = remotes:WaitForChild("Notice") :: RemoteEvent
+NoticeRemote.OnClientEvent:Connect(function(key: string, seconds: number?)
+	showNarration(key, seconds or 4)
+end)
+
 CustomerSpeech.OnClientEvent:Connect(function(key: string?, head: BasePart?, who: { [string]: any }?, vars: { [string]: any }?)
 	if key then
 		narrationKey = nil -- ลูกค้าพูดทับข้อความบรรยาย
@@ -1455,11 +1461,10 @@ end)
 
 -- ---------------------------------------------------------------- ชนะ / แพ้ / คืนใหม่
 GameState.OnClientEvent:Connect(function(state: string)
-	lobbyBtn.Visible = state == "Win"
+	-- ชนะ: คัทซีนเช้า + หน้าสรุปผล (มีปุ่มกลับ Lobby) อยู่ใน CutsceneController แล้ว
+	lobbyBtn.Visible = false
 	if state == "Win" then
-		showBanner("Win", false, 10)
-		lobbyBtn.Text = ui("Quit")
-		lobbyBtn.Active = true
+		-- (ไม่ต้องขึ้นแถบประกาศซ้อนหน้าสรุปผล)
 	elseif state == "Lose" then
 		-- แพ้: จอตายสีแดง + ถามเริ่มใหม่ / กลับ Lobby อยู่ใน DeathScreen.client.luau
 	elseif state == "Waiting" then
@@ -1476,6 +1481,13 @@ local PROMPTS = {
 	OpenShopPrompt = { "OpenShop", "ShutterRope" },
 	DieselFuelPrompt = { "FillDiesel", "DieselPump" },
 	AirPumpPrompt = { "PumpAir", "AirCompressorName" },
+	TakeCanPrompt = { "TakeCan", "CanName" },
+	FillCanPrompt = { "FillCan", "DrumName" },
+	PourPetrolPrompt = { "PourPetrol", "GasPump" },
+	PourDieselPrompt = { "PourDiesel", "DieselPump" },
+	FillRackPrompt = { "FillRack", "RackName" },
+	TakeDessertPrompt = { "TakeDessert", "DessertTray" },
+	OfferDessertPrompt = { "OfferDessert", "SpiritHouseName" },
 	StartGeneratorPrompt = { "StartGenerator", "GeneratorName" },
 	-- วิทยุ: ปุ่มเปลี่ยนเปิด/ปิดตาม attribute "RadioOn" ที่เซิร์ฟเวอร์ตั้ง (AnomalyManager)
 	TuneRadioPrompt = { "RadioOn", "RadioName", "RadioOff" },
