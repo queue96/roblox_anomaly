@@ -80,6 +80,7 @@ build_variants.py   สร้างตัว + rig + รูปร่าง (ด�
 - **ผมยาวที่ผ่านตัว:** ใส่ใน `BODY_BOUND` ให้ผูกน้ำหนักตามความสูงไล่ head → neck → chest → spine → hips
 - **ข้อควรระวัง:**
   - ผมบางกว่า 6–8 มม. หนังศีรษะ low-poly จะโผล่
+  - Roblox วาดหน้าเดียว: ทุกชิ้นของผมต้องหันหน้าออก (`finish()` กลับชิ้นที่ปริมาตรติดลบ) ไม่อย่างนั้นใน Blender ดูปกติ แต่ใน Roblox ผมแหว่ง (เคยเกิดกับ `rong_song_sung`)
   - ผมยาวต่ำกว่าสะโพกต้องดันออกตามทิศที่ผมห้อย ห้ามดันไปหาผิวที่ใกล้ที่สุด ไม่อย่างนั้นผมจะไปติดระหว่างขา
 
 ### 4.2 ผิว หน้า และริ้วรอย (`build_skin.py`)
@@ -147,6 +148,11 @@ build_variants.py   สร้างตัว + rig + รูปร่าง (ด�
   - `limit_weights()` เหลือกระดูกไม่เกิน 4 ตัวต่อจุด
   - `export_all()` ได้ FBX หน่วย studs (1 ม. = 3.5 studs) ไฟล์ละ 1 ตัว และไฟล์ละ 1 ท่า
   - rig นี้ไม่ใช่ R15
+- **นำเข้า Studio (แทนแม่แบบ `ServerStorage.HumanTemplates.<ชื่อ>`):**
+  - 3D Importer: Scale Factor 0.01, Rig Type Custom, Anchored
+  - ใส่ `Animator` ใต้ `AnimationController` แล้วย้ายเข้า `HumanTemplates`
+  - ผมไม่มี texture (importer ไม่สร้าง SurfaceAppearance ให้): ต้องตั้ง `Color` ของ `Hair_*` เอง (ผมดำ 36, 34, 32) ไม่อย่างนั้นจะเป็นสีเทา
+  - ชิ้น `Skin_*` ต้องอยู่ครบ (`HumanNPC` ลบชิ้นที่ชุดปิดเองตาม `HumanSkinParts`)
 
 ---
 

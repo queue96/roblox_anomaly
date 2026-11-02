@@ -221,6 +221,21 @@ class Build:
         bm = self.bm
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        # recalc can still turn a whole piece inside out (thin shells whose inner layer touches the outer one:
+        # rong_song_sung came out 70% inward). Roblox draws one side only, so such hair looked torn. Each piece
+        # must enclose a positive volume; flip it if not.
+        bm.faces.ensure_lookup_table(); seen = set()
+        for f0 in bm.faces:
+            if f0.index in seen: continue
+            isl, stack = [], [f0]; seen.add(f0.index)
+            while stack:
+                f = stack.pop(); isl.append(f)
+                for e in f.edges:
+                    for g in e.link_faces:
+                        if g.index not in seen: seen.add(g.index); stack.append(g)
+            c = sum((f.calc_center_median() for f in isl), Vector())/len(isl)
+            vol = sum((f.calc_center_median() - c).dot(f.normal)*f.calc_area() for f in isl)
+            if vol < 0: bmesh.ops.reverse_faces(bm, faces=isl)
         me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
         for p in me.polygons: p.use_smooth = True
         for mn in self.mats: me.materials.append(mat(mn))

@@ -1459,9 +1459,25 @@ local function eventParty()
 	table.insert(people, { m = coyote, offset = CFrame.new(5.5, 0, -len * 0.15) * CFrame.Angles(0, math.rad(-90), 0), dance = false })
 	-- วัยรุ่น 4 คนเต้นอยู่ท้ายรถ
 	local teenColors = { Color3.fromRGB(40, 90, 160), Color3.fromRGB(200, 170, 40), Color3.fromRGB(30, 30, 30), Color3.fromRGB(160, 40, 40) }
+	-- ท่าส่ายสะโพก / ย่อต่ำ ให้เฉพาะแถวหลัง (ไม่มีใครยืนข้างหลัง) ทุกคนหันตามรถ เว้นระยะกัน
+	-- ห้ามวางให้คนเต้นท่าพวกนี้หันก้นหรือหันหน้าเข้าหาคนอื่นใกล้ๆ (ไม่ให้ดูล่อแหลม)
+	local frontDances = { "wan_bounce", "wan_rock", "wan_point", "wan_hands_up" }
+	local backDances = { "wan_hip_shake", "wan_low_bounce", "wan_bounce", "wan_hands_up" }
+	local function pick(list: { string }, used: { [string]: boolean }): string
+		local pool = {}
+		for _, d in ipairs(list) do
+			if not used[d] then
+				table.insert(pool, d)
+			end
+		end
+		local d = pool[math.random(#pool)]
+		used[d] = true
+		return d
+	end
+	local usedDances = {}
 	for i = 1, 4 do
-		local teenDances = { "wan_bounce", "wan_rock", "wan_point", "wan_hands_up" }
-		local tm = Pedestrian.Build({ shirt = teenColors[i], teen = true, dance = teenDances[(i - 1) % #teenDances + 1] })
+		local back = i > 2
+		local tm = Pedestrian.Build({ shirt = teenColors[i], teen = true, dance = pick(if back then backDances else frontDances, usedDances) })
 		tm.Name = "Teen"
 		tm.Parent = Workspace
 		local col = if i % 2 == 0 then 2.2 else -2.2

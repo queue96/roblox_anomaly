@@ -28,6 +28,8 @@ return {
 		wan_point = 106947707514064,
 		wan_cool = 93412543260590,
 		wan_hands_up = 120111047239636,
+		wan_hip_shake = 103216869960969,
+		wan_low_bounce = 89148599673738,
 	}),
 	-- human_female, human_child, human_elder_male, human_elder_female: not published yet
 }
