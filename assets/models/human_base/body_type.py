@@ -3,7 +3,7 @@
 # closest points on those bones), so skin weights stay valid. Set before exec-ing:
 #   BODY_TYPE = "thin"  - starved: wasted limbs with knobby joints, sunken belly, scrawny neck
 #   BODY_TYPE = "fat"   - obese: pot belly, thick limbs, double chin, legs set wider apart
-import bpy
+import bpy, math
 from mathutils import Vector
 from mathutils.geometry import intersect_point_line
 
@@ -33,6 +33,9 @@ BELLY = globals().get("BELLY", (1.0, 1.0))
 ARMPIT_R = globals().get("ARMPIT_R", 0.10)
 ARM_UNDER = globals().get("ARM_UNDER", 0.45)
 APEX_ITER = globals().get("APEX_ITER", 6)   # armpit pocket fill (0 = off)
+KNOBBY = globals().get("KNOBBY", 0.55)       # thin: how much knees / elbows keep their size (0 = slim evenly)
+GAUNT = globals().get("GAUNT", 0.10)         # thin: hollow cheeks
+ARM_SAG = globals().get("ARM_SAG", 0.0)      # fat: soft upper arm hanging under (flab), mid upper arm
 LIMB = {"upper_arm", "forearm", "thigh", "shin"}
 INNER_DAMP = {"thigh": 0.40, "shin": 0.10}   # 0 = inner side grows like the outer side
 
@@ -54,7 +57,7 @@ def factor(bname, off, t):
         # joints stay closer to their size: knobby knees/elbows when thin, dimpled when fat
         # (thin only: a fat knee stays as thick as the leg, or the leg pinches and looks bowed)
         j = max(0.0, 1.0 - min(t, 1.0 - t)/0.18)
-        k = k + (1.0 - k)*(0.55 if BODY_TYPE == "thin" else 0.10)*j
+        k = k + (1.0 - k)*(KNOBBY if BODY_TYPE == "thin" else 0.10)*j
     if BODY_TYPE == "fat" and base_of(bname) in ("thigh", "shin"):
         # legs grow all round; the inner side a bit less so the thighs meet instead of fusing
         inward = max(0.0, -n.x if bname.endswith(".L") else n.x)
@@ -65,13 +68,14 @@ def factor(bname, off, t):
         under = max(0.0, -n.z)
         a = max(0.0, 1.0 - t/0.45)
         k = k - (k - 1.0)*ARM_UNDER*a*under
+        k = k + ARM_SAG*max(0.0, -n.z)*math.sin(math.pi*min(max(t, 0.0), 1.0))
     if BODY_TYPE == "fat" and base_of(bname) == "shin":
         # taper the fat calf down into a slimmer ankle instead of a column ending in a pinch
         a = max(0.0, min(1.0, (t - 0.55)/0.45)); a = a*a*(3 - 2*a)
         k = k*(1 - a) + 1.22*a
     if BODY_TYPE == "thin" and base_of(bname) == "head":
         # hollow cheeks / gaunt jaw
-        k = k - 0.10*max(0.0, 1.0 - t/0.4)
+        k = k - GAUNT*max(0.0, 1.0 - t/0.4)
     if BODY_TYPE == "fat" and base_of(bname) == "head":
         # jowls / double chin: lower face widens more than the skull
         lo = max(0.0, 1.0 - t/0.35)

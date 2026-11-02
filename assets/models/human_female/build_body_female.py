@@ -58,8 +58,8 @@ SOCK0 = len(T)
 T.append(sring(1.31, 0.155, 0.108, 0.094, n=2.3, dent={0: -0.026, 1: -0.060, 2: -0.060, 14: -0.060, 15: -0.060, 3: -0.032, 13: -0.032}))        # 5 bust apex / armpit (socket bottom)
 T.append(sring(1.355, 0.158, 0.104, 0.093, n=2.3, dent={0: -0.014, 1: -0.036, 2: -0.036, 14: -0.036, 15: -0.036, 3: -0.016, 13: -0.016}, zfun=lambda ph, a=0.008, b=0.0: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))       # 5b socket
 T.append(sring(1.404, 0.153, 0.095, 0.090, n=2.3, dent={0: -0.002, 1: -0.008, 2: -0.008, 14: -0.008, 15: -0.008, 3: 0.0, 13: 0.0}, zfun=lambda ph, a=0.018, b=0.0: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))       # 5c socket
-T.append(sring(1.452, 0.142, 0.085, 0.085, cy=0.005, n=2.2, zfun=lambda ph, a=0.025, b=0.0: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))  # 6 shoulder top
-T.append(sring(1.480, 0.105, 0.068, 0.070, cy=0.010, n=2.2, zfun=lambda ph, a=0.016, b=0.010: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))  # 7 trapezius
+T.append(sring(1.452, 0.138, 0.083, 0.083, cy=0.005, n=2.2, zfun=lambda ph, a=0.014, b=0.0: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))  # 6 shoulder top (low: soft sloping shoulders, no trapezius hump)
+T.append(sring(1.480, 0.100, 0.066, 0.068, cy=0.010, n=2.2, zfun=lambda ph, a=0.010, b=0.010: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))  # 7 trapezius
 T.append(sring(1.497, 0.076, 0.058, 0.060, cy=0.012, n=2.1, zfun=lambda ph, a=0.014, b=0.012: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))  # 7b trap-to-neck
 T.append(sring(1.510, 0.055, 0.050, 0.050, cy=0.014, zfun=lambda ph, a=0.012, b=0.015: a*math.sin(ph)**2 + b*max(0.0, -math.cos(ph))))    # 8 neck base
 T.append(sring(1.553, 0.049, 0.048, 0.040, cy=0.015, zfun=lambda ph: -0.020*math.cos(ph)))    # 9 neck top
@@ -142,12 +142,13 @@ for sx in (1, -1):
             out.append(V(c + v*(math.cos(th)*rv) + uu*(math.sin(th)*ru)))
         return out
     def aring(t, ru, rv): return ring_at(S + d*t, ARM_DEG, ru, rv)
-    # shoulder: arm leaves the socket nearly horizontal, deltoid caps over, then bends down
-    AR = [ring_at(Vector(((SHO[0]+0.012)*sx, 0.0, 1.392)), 10, 0.060, 0.052),
-          ring_at(Vector(((SHO[0]+0.048)*sx, 0.0, 1.380)), 28, 0.057, 0.052),
-          aring(0.12, 0.049, 0.047), aring(0.19, 0.044, 0.043),
-          aring(0.27, 0.036, 0.035), aring(0.30, 0.035, 0.036), aring(0.36, 0.040, 0.037),
-          aring(0.46, 0.030, 0.028), aring(0.545, 0.022, 0.027)]
+    # shoulder: arm leaves the socket nearly horizontal, a small rounded cap, then bends down. Slim soft arms
+    # (village women: no deltoid, biceps or forearm muscle); the upper arm tapers evenly into the elbow
+    AR = [ring_at(Vector(((SHO[0]+0.012)*sx, 0.0, 1.392)), 10, 0.054, 0.049),
+          ring_at(Vector(((SHO[0]+0.048)*sx, 0.0, 1.380)), 28, 0.049, 0.047),
+          aring(0.12, 0.042, 0.042), aring(0.19, 0.039, 0.039),
+          aring(0.27, 0.034, 0.034), aring(0.30, 0.033, 0.034), aring(0.36, 0.034, 0.033),
+          aring(0.46, 0.028, 0.027), aring(0.545, 0.022, 0.026)]
     if sx == 1: ks = (3, 4, 5)
     else:       ks = (13, 12, 11)
     a_, b_, c_ = ks

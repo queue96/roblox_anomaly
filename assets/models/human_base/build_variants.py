@@ -32,8 +32,15 @@ TYPE_SHAPE = {
     ("child", "fat"): dict(BELLY=(0.70, 0.25), TYPE_OVERRIDES={"thigh": (1.60,)*3, "shin": (1.50,)*3,
                            "chest": (1.12, 1.35, 1.25), "shoulder": (1.25,)*3,
                            "spine": (1.18, 1.40, 1.25), "hips": (1.15, 1.20, 1.35)}),
-    # elderly woman: her base calves are thin, so the fat legs get extra on the shins
-    ("elder_female", "fat"): dict(BELLY=(0.85, 1.0), TYPE_OVERRIDES={"thigh": (1.45,)*3, "shin": (1.55,)*3}),
+    # elderly woman: her base calves are thin, so the fat legs get extra on the shins; soft, hanging belly and arms
+    ("elder_female", "fat"): dict(BELLY=(0.85, 1.4), ARM_SAG=0.25, TYPE_OVERRIDES={"thigh": (1.45,)*3, "shin": (1.55,)*3}),
+    # village woman, thin = slender (slim evenly, no knobby joints or hollow cheeks), not starved like the thin man
+    ("female", "thin"): dict(KNOBBY=0.12, GAUNT=0.0, TYPE_OVERRIDES={
+        "hips": (0.84, 0.74, 0.80), "spine": (0.80, 0.55, 0.88), "chest": (0.94, 0.92, 0.95), "neck": (0.82,)*3,
+        "head": (0.97,)*3, "shoulder": (0.86,)*3, "upper_arm": (0.74,)*3, "forearm": (0.78,)*3,
+        "thigh": (0.72,)*3, "shin": (0.76,)*3}),
+    # village woman, fat = soft and saggy (no exercise): belly hangs low, flabby upper arms, thighs not muscular
+    ("female", "fat"): dict(BELLY=(1.05, 1.6), ARM_SAG=0.30),
 }
 
 def run(path, ns):

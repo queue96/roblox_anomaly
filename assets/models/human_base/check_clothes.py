@@ -8,6 +8,7 @@
 #
 # Covered = the body faces under a shell piece (minus its hem edge), the trunk and legs between the waist and
 # 6 cm above the hem of a skirt, the head inside a helmet. Bands, sashes, scarves and jewellery cover nothing.
+# Skin that Roblox hides under the outfit (build_clothes.hidden_faces) is left out: it can't show.
 import bpy, math, os, json
 import numpy as np
 from mathutils import Vector
@@ -40,7 +41,10 @@ def covered(char, outfit, body, rig, b, faces):
         elif kind == "helmet" and sp[1] == "helmet":
             zc = b.J["head"][0][2] + 0.06*b.s                    # skip the jaw: the helmet is open underneath
             out.update(i for i in range(len(me.vertices)) if b.reg[i] == "head" and b.co[i][2] > zc)
-    return sorted(out)
+    # skin cut out under the outfit in Roblox (build_clothes.hidden_faces) can't show: only check what stays
+    hid = set(_CL["hidden_faces"](me, {outfit: faces[outfit]})[outfit])
+    shown = {v for p in me.polygons if p.index not in hid for v in p.vertices}
+    return sorted(out & shown)
 
 def outfit_objects(outfit):
     return [o for o in bpy.data.objects if o.name == f"Cloth_{outfit}" or o.name.startswith(f"Cloth_{outfit}_")]

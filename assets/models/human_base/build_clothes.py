@@ -155,41 +155,59 @@ def leg(reg): return reg.startswith("leg")
 def foot(reg): return reg.startswith("foot")
 def torso(reg): return reg == "torso"
 
+# Room for the skin under the cloth (m, x body scale): where a joint bends, skin and cloth skinned to the same bones
+# don't move the same way, and a shell close to the skin lets it through. The skin under a shell is hidden in Roblox
+# (hidden_faces) except a ring along its openings, so the room is only given near the openings (cuffs, hems, collar)
+# and the cloth hugs the body everywhere else. With the room all over, the men looked like american-football players.
+ROOM = 1.0              # near the openings only (EDGE_RINGS of the shell's edge): the skin still shows there
+EDGE_RINGS = 3          # vertex rings from a shell's open edge that get ROOM, fading out over the last one
+ARMPIT_SIDE = 0.03      # torso skin that partly follows the upper arm, at armw >= 1/ARMPIT_RAMP
+ARMPIT_RAMP = 3.0
+ARMPIT = 0.025          # the armpit itself (trunk-ring vertices held by the arm)
+SLEEVE_ROOT = 0.010     # top of the sleeve, fading out by mid upper arm
+CHEST_EASE = 0.006      # upper chest
+ELBOW = 0.020           # inside of the elbow of long sleeves
+HIP = 0.020             # hip crease and seat (thigh lifting) / knee of long trousers
+CROTCH = 0.012
+# the armpit room on the arm (ARMPIT and SLEEVE_ROOT) is cut where the skin faces up: the top / outside of the
+# shoulder keeps less of it, so the shoulder doesn't stick out
+ARMPIT_MODE = "up"
+ARMPIT_UP = (0.2, 0.7)
+ARMPIT_IN = (-0.4, 0.7)
+ARMPIT_TOP = 0.3        # share of the cut room the top of the shoulder still keeps
+
 def top(sleeve, hem=1.05, loose=0.006, hang=0.010):
     """shirt: trunk from `hem` (tz) up to the neck, sleeves to arm parameter `sleeve` (1 = elbow, 2 = wrist)"""
     test = lambda r, tz, ap, lp: ((torso(r) or leg(r)) and hem <= tz) or (arm(r) and ap < sleeve)   # front of the hip can be "leg"
-    def off(r, tz, ap, lp):
+    def off(r, tz, ap, lp, room=ROOM):
         o = loose
         if torso(r): o += hang*(1 - sst(hem, hem + 0.45, tz))        # hangs out a little at the hem
         if arm(r): o += 0.006*sst(sleeve - 0.5, sleeve, ap)*(sleeve < 1.8)   # short sleeves open out
-        # roomier at the armpit and shoulder: with the arm raised, skin and cloth skinned to the same bones
-        # don't bend the same way, and a tight shirt lets the skin through there
-        if arm(r): o += 0.016*(1 - sst(0.0, 0.6, ap))
-        if arm(r) and sleeve > 1.1: o += 0.020*math.exp(-((ap - 1.0)/0.30)**2)   # elbow: the inside folds through when it bends
-        if torso(r): o += 0.012*sst(1.9, 2.4, tz)*(1 - sst(2.9, 3.1, tz))
+        if arm(r) and sleeve > 1.1: o += room*ELBOW*math.exp(-((ap - 1.0)/0.30)**2)   # elbow: the inside folds through when it bends
+        if torso(r): o += room*CHEST_EASE*sst(1.9, 2.4, tz)*(1 - sst(2.9, 3.1, tz))
         return o
     return test, off
 
 def bottom(length, top_tz=1.05, loose=0.007, flare=0.0, puff=0.0, wide=0.0):
     """trousers: trunk below `top_tz` and legs to leg parameter `length` (1 = knee, 2 = ankle); `wide` = baggy legs"""
     test = lambda r, tz, ap, lp: (torso(r) and tz < top_tz) or (leg(r) and lp < length)
-    def off(r, tz, ap, lp):
+    def off(r, tz, ap, lp, room=ROOM):
         o = loose
         if leg(r):
             o += flare*sst(length - 0.6, length, lp)
             o += puff*math.sin(math.pi*min(lp/length, 1.0))**0.8
             o += wide*sst(0.15, 1.3, lp)
-            o += 0.020*(1 - sst(0.0, 0.60, lp))          # hip crease and seat: room for the thigh lifting (running)
-            if length > 1.3: o += 0.020*math.exp(-((lp - 1.0)/0.25)**2)   # knee of long trousers
+            o += room*HIP*(1 - sst(0.0, 0.60, lp))       # hip crease and seat: room for the thigh lifting (running)
+            if length > 1.3: o += room*HIP*math.exp(-((lp - 1.0)/0.25)**2)   # knee of long trousers
         elif torso(r):
-            o += 0.008*(1 - sst(0.3, 0.9, tz))
+            o += room*0.008*(1 - sst(0.3, 0.9, tz))
             o += puff*0.45*sst(top_tz, top_tz - 0.6, tz)
         return o
     return test, off
 
 def boots(top_lp=1.55):
     return (lambda r, tz, ap, lp: (leg(r) and lp >= top_lp) or foot(r),
-            lambda r, tz, ap, lp: 0.006 + 0.008*sst(top_lp + 0.25, top_lp, lp)*leg(r) + 0.010*math.exp(-((lp - 2.0)/0.25)**2))   # roomy ankle
+            lambda r, tz, ap, lp, room=0: 0.006 + 0.008*sst(top_lp + 0.25, top_lp, lp)*leg(r) + 0.010*math.exp(-((lp - 2.0)/0.25)**2))   # roomy ankle
 
 # --- strip paths, in body landmarks (functions of Body -> list of world points)
 def _front(b, x, z, trunk=True): return b.surf((x, -2, z), (0, 1, 0), trunk)[0]
@@ -247,64 +265,83 @@ def path_chains(b):
         out += [f, bk]
     return out
 
+# footwear: villagers wear flip-flops (sandal), teens and the better dressed sneakers (shoe), field work boots
 OUTFITS = {
     # ---- men (refs: ม่อฮ่อม + ขาก๊วย + ผ้าขาวม้า, ชาวนา, โสร่ง, เสื้อแดงคอปก)
     "mohom": [("shell", "shirt", *top(1.25, hem=0.95), "indigo"), ("shell", "shorts", *bottom(1.12, top_tz=0.95, flare=0.020), "indigo_dark"),
               ("tube", "sash", 0.85, ("tz", 1.20), "plaid_pink", dict(clear=0.012, band=True)),
-              ("strip", "sash_tails", path_sash_tails, 0.075, "plaid_pink", dict(clear=0.02))],
+              ("strip", "sash_tails", path_sash_tails, 0.075, "plaid_pink", dict(clear=0.02)),
+              ("sandal", "sandals", "sandal_blue")],
     "farmer": [("shell", "shirt", *top(1.98, hem=0.95), "indigo_pocket"), ("shell", "jeans", *bottom(1.56, top_tz=0.95, loose=0.008), "denim"),
                ("shell", "boots", *boots(1.55), "rubber"),
                ("tube", "sash", 0.85, ("tz", 1.20), "plaid_pink", dict(clear=0.012, band=True)),
                ("strip", "sash_tails", path_sash_tails, 0.075, "plaid_pink", dict(clear=0.02)),
                ("hat", "ngob", "straw")],
     "sarong": [("tube", "sarong", 0.70, ("lp", 2.0), "plaid_red", dict(clear=0.024, roll=True)),
-               ("strip", "shoulder_cloth", path_shoulder_cloth, 0.12, "red_cloth", dict(clear=0.004, thick=0.004))],
-    "red_shirt": [("shell", "shirt", *top(1.98, hem=0.40, loose=0.008, hang=0.012), "red_knit"),
-                  ("shell", "trousers", *bottom(1.97, top_tz=0.40, loose=0.008, flare=0.006), "black_cotton")],
-    "wan_baggy": [("shell", "shirt", *top(1.15, hem=0.40, loose=0.012, hang=0.016), "grey_shirt"),
+               ("strip", "shoulder_cloth", path_shoulder_cloth, 0.12, "red_cloth", dict(clear=0.004, thick=0.004)),
+               ("sandal", "sandals", "sandal_black")],
+    "red_shirt": [("shell", "shirt", *top(1.98, hem=0.40, loose=0.006, hang=0.008), "red_knit"),
+                  ("shell", "trousers", *bottom(1.97, top_tz=0.40, loose=0.008, flare=0.006), "black_cotton"),
+                  ("shoe", "shoes", "skate_black")],
+    "wan_baggy": [("shell", "shirt", *top(1.15, hem=0.40, loose=0.006, hang=0.008), "grey_shirt"),
                   ("shell", "pants", *bottom(2.0, top_tz=0.40, loose=0.010, wide=0.035, flare=0.015), "black_baggy"),
                   ("shoe", "shoes", "vans_checker")],
-    "wan_flannel": [("shell", "shirt", *top(1.97, hem=0.40, loose=0.012, hang=0.016), "flannel_tee"),
+    "wan_flannel": [("shell", "shirt", *top(1.97, hem=0.40, loose=0.006, hang=0.008), "flannel_tee"),
                     ("shell", "pants", *bottom(2.0, top_tz=0.40, loose=0.010, wide=0.035, flare=0.015), "black_baggy"),
                     ("shoe", "shoes", "skate_black")],
-    "wan_denim": [("shell", "jacket", *top(1.97, hem=0.55, loose=0.012, hang=0.012), "denim_jacket"),
-                  ("shell", "jeans", *bottom(1.98, top_tz=0.55, loose=0.008), "jeans_ripped"),
+    "wan_denim": [("shell", "jacket", *top(1.97, hem=0.55, loose=0.006, hang=0.008), "denim_jacket"),
+                  ("shell", "jeans", *bottom(1.98, top_tz=0.55, loose=0.008), "jeans_ripped"), ("shoe", "shoes", "vans_checker"),
                   ("helmet", "helmet", "helmet_white"), ("helmet", "visor", "visor_black")],
-    "wan_camo": [("shell", "tee", *top(1.2, hem=0.40, loose=0.012, hang=0.018), "black_tee"),
+    "wan_camo": [("shell", "tee", *top(1.2, hem=0.40, loose=0.006, hang=0.008), "black_tee"),
                  ("shell", "pants", *bottom(1.98, top_tz=0.40, loose=0.012, wide=0.025), "camo"),
                  ("shoe", "shoes", "skate_black"),
                  ("helmet", "helmet", "helmet_white"), ("helmet", "visor", "visor_black")],
     # ---- women (refs: เสื้อแขนกระบอก + ผ้าซิ่น, เสื้อครามพาดผ้า, เสื้อขาว + สไบ + ซิ่นตีนจก, ผ้าแถบ + โจงกระเบน)
-    "blouse_sin": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "pink_blouse"),
-                   ("tube", "sin", 1.30, ("lp", 1.62), "sin_purple", dict(clear=0.024))],
+    "blouse_sin": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "jade_blouse"),
+                   ("tube", "sin", 1.30, ("lp", 1.62), "sin_purple", dict(clear=0.024)),
+                   ("sandal", "sandals", "sandal_brown")],
     "indigo_scarf": [("shell", "shirt", *top(1.97, hem=0.35, loose=0.005, hang=0.008), "indigo"),
                      ("tube", "sin", 1.30, ("lp", 1.92), "sin_ikat", dict(clear=0.024)),
-                     ("strip", "scarf", path_scarf, 0.10, "scarf_stripe", dict(clear=0.012))],
+                     ("strip", "scarf", path_scarf, 0.10, "scarf_stripe", dict(clear=0.012)),
+                     ("sandal", "sandals", "sandal_blue")],
     "sabai": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "white_blouse"),
               ("tube", "sin", 1.30, ("lp", 1.92), "sin_tinjok", dict(clear=0.024)),
-              ("strip", "sabai", path_sabai, 0.12, "sabai_red", dict(clear=0.012))],
-    "chest_wrap": [("shell", "wrap", lambda r, tz, ap, lp: torso(r) and 1.80 <= tz < 2.35, lambda r, tz, ap, lp: 0.004, "red_satin"),
+              ("strip", "sabai", path_sabai, 0.12, "sabai_red", dict(clear=0.012)),
+              ("sandal", "sandals", "sandal_red")],
+    "chest_wrap": [("shell", "wrap", lambda r, tz, ap, lp: torso(r) and 1.80 <= tz < 2.35, lambda r, tz, ap, lp, room=0: 0.004, "red_satin"),
                    ("shell", "chong", *bottom(1.30, top_tz=0.92, loose=0.008, puff=0.030), "maroon"),
-                   ("tube", "belt", 0.88, ("tz", 1.12), "gold", dict(clear=0.010, band=True))],
+                   ("tube", "belt", 0.88, ("tz", 1.12), "gold", dict(clear=0.010, band=True)),
+                   ("sandal", "sandals", "sandal_red")],
+    "wan_band_tee": [("shell", "tee", *top(1.2, hem=0.40, loose=0.006, hang=0.006), "band_tee"),
+                     ("shell", "jeans", *bottom(2.0, top_tz=0.40, loose=0.006, flare=0.004), "black_jeans"),
+                     ("shoe", "shoes", "skate_black")],
+    "wan_crop": [("shell", "tee", *top(1.12, hem=1.55, loose=0.004, hang=0.0), "cocoa_tee"),
+                 ("shell", "pants", *bottom(2.0, top_tz=1.0, loose=0.008, wide=0.030, flare=0.010), "pink_dots"),
+                 ("sandal", "slides", "sandal_pink", dict(slide=True))],
+    "wan_plaid": [("shell", "shirt", *top(1.97, hem=0.35, loose=0.009, hang=0.012), "green_plaid"),
+                  ("shell", "jeans", *bottom(2.0, top_tz=0.35, loose=0.006, flare=0.004), "black_jeans"),
+                  ("shoe", "shoes", "skate_black")],
     # ---- child (refs: โจงกระเบนแดง + สังวาล + กำไล, ม่อฮ่อมเด็ก)
-    "wan_girl": [("shell", "shirt", *top(1.97, hem=1.06, loose=0.010, hang=0.012), "lightblue_open"),
+    "wan_girl": [("shell", "shirt", *top(1.97, hem=1.06, loose=0.006, hang=0.008), "lightblue_open"),
                  ("shell", "jeans", *bottom(2.0, top_tz=1.06, loose=0.010, wide=0.030, flare=0.012), "jeans_belt"),
                  ("shoe", "shoes", "skate_black")],
     "chong_gold": [("shell", "chong", *bottom(1.25, top_tz=0.92, loose=0.008, puff=0.026), "red_chong"),
                    ("tube", "belt", 0.86, ("tz", 1.10), "gold", dict(clear=0.010, band=True)),
                    ("strip", "chains", path_chains, 0.012, "gold", dict(clear=0.006, thick=0.006)),
-                   ("ring", "bracelets", "hand", 0.0, "gold", {}), ("ring", "anklets", "foot", 0.0, "gold", {})],
-    "mohom_child": [("shell", "shirt", *top(1.2, hem=0.95), "indigo"), ("shell", "shorts", *bottom(0.85, top_tz=0.95, flare=0.014), "indigo_dark")],
+                   ("ring", "bracelets", "hand", 0.0, "gold", {}), ("ring", "anklets", "foot", 0.0, "gold", {}),
+                   ("sandal", "sandals", "sandal_red")],
+    "mohom_child": [("shell", "shirt", *top(1.2, hem=0.95), "indigo"), ("shell", "shorts", *bottom(0.85, top_tz=0.95, flare=0.014), "indigo_dark"),
+                    ("sandal", "sandals", "sandal_blue")],
 }
 CHAR_OUTFITS = {
     "male": ["mohom", "farmer", "sarong", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo"],
-    "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl"],
+    "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid"],
     "child": ["chong_gold", "mohom_child"],
     "elder_male": ["mohom", "sarong", "farmer"],
     "elder_female": ["blouse_sin", "sabai", "indigo_scarf"],
 }
 # elders wear their colours a little faded
-CHAR_FABRIC = {("elder_female", "pink_blouse"): "cream_blouse"}
+CHAR_FABRIC = {("elder_female", "jade_blouse"): "cream_blouse"}
 
 # ---------------------------------------------------------------- fabrics painted in body-UV space (shell pieces)
 FABRIC = {
@@ -315,7 +352,7 @@ FABRIC = {
     "rubber":        dict(c=(0.04, 0.04, 0.045), weave=0.0, rough=0.35),
     "red_knit":      dict(c=(0.62, 0.05, 0.07), weave=0.8, vneck=(0.05, 0.05, 0.05), logo=True),
     "black_cotton":  dict(c=(0.04, 0.04, 0.05), weave=0.8, folds=1.0),
-    "pink_blouse":   dict(c=(0.95, 0.74, 0.66), weave=0.6, buttons="blouse"),
+    "jade_blouse":   dict(c=(0.30, 0.56, 0.48), weave=0.6, buttons="blouse"),      # jade green: a pink one read as bare skin
     "cream_blouse":  dict(c=(0.90, 0.84, 0.72), weave=0.6, buttons="blouse"),
     "white_blouse":  dict(c=(0.93, 0.92, 0.88), weave=0.6, buttons="blouse"),
     "red_satin":     dict(c=(0.58, 0.06, 0.12), weave=0.3, rough=0.35),
@@ -331,6 +368,13 @@ FABRIC = {
     "camo":          dict(c=(0.33, 0.36, 0.22), weave=1.0, camo=True, folds=1.6, pockets=True),
     "lightblue_open": dict(c=(0.62, 0.72, 0.88), weave=0.7, open=(0.05, 0.05, 0.06), collar=True, folds=0.5),
     "jeans_belt":    dict(c=(0.09, 0.10, 0.16), weave=1.6, folds=1.8, seams=True, belt=True),
+    # teen girls at the rod-hae (ref: Screenshot 2026-11-02 143249)
+    "band_tee":      dict(c=(0.05, 0.05, 0.06), weave=0.7, band=True, folds=0.6),
+    "black_jeans":   dict(c=(0.06, 0.06, 0.07), weave=1.6, folds=1.0, seams=True),
+    "cocoa_tee":     dict(c=(0.30, 0.21, 0.18), weave=0.7, folds=0.3),        # darker than the skin, so it reads as a shirt
+    "pink_dots":     dict(c=(0.80, 0.56, 0.63), weave=0.6, dots=(0.55, 0.34, 0.42), folds=1.8),
+    "green_plaid":   dict(c=(0.16, 0.34, 0.24), weave=0.8, buttons="mohom", collar=True, folds=0.8,
+                          plaid=[(0.30, (0.13, 0.30, 0.21)), (0.10, (0.88, 0.90, 0.86)), (0.25, (0.30, 0.52, 0.38)), (0.10, (0.88, 0.90, 0.86)), (0.25, (0.06, 0.14, 0.10))]),
 }
 
 # ---------------------------------------------------------------- noise
@@ -364,7 +408,12 @@ def save_png(arr, path, noncolor):
     name = "_tmp_save"
     img = bpy.data.images.new(name, arr.shape[1], arr.shape[0], alpha=False)
     if noncolor: img.colorspace_settings.name = "Non-Color"
-    img.pixels.foreach_set(rgba.ravel()); img.filepath_raw = path; img.file_format = 'PNG'; img.save()
+    img.pixels.foreach_set(rgba.ravel()); img.filepath_raw = path; img.file_format = 'PNG'
+    for attempt in range(6):        # Windows sometimes refuses a file that was just read / written (scanner, indexer)
+        try: img.save(); break
+        except RuntimeError:
+            if attempt == 5: raise
+            import time; time.sleep(1.0 + attempt)
     bpy.data.images.remove(img)
 
 def normal_from_height(hgt, ppm_x, ppm_y, wrap=False):
@@ -474,6 +523,21 @@ def _skate_black(X, Y):     # black skate shoe, white wave stripe, white sole
     c = mix(c, (0.92, 0.92, 0.90), np.abs(Y - 0.48 - 0.08*np.sin(X*2*math.pi/(TILE/4))) < 0.035)
     c = mix(c, (0.93, 0.92, 0.89), Y < 0.22)
     return c, 0.55, 0.0004*(Y < 0.22)*(np.sin(X*900) > 0)
+def _sandal(strap, sole=(0.93, 0.92, 0.88)):
+    """flip-flops (UV v: 0-0.5 top of the sole, 0.5-0.6 its edge, 0.6-1 the strap)"""
+    def fn(X, Y):
+        c = np.ones(X.shape + (3,))*np.array(sole)
+        c = mix(c, np.array(sole)*0.82, (Y < 0.5)*(np.sin(X*700)*np.sin(Y*400) > 0.6))     # worn foot print texture
+        c = mix(c, strap, (Y >= 0.52)*(Y < 0.56))                                             # coloured line round the sole edge
+        c = mix(c, strap, Y >= 0.6)
+        return c, 0.8, 0.0003*(Y < 0.5)*(np.sin(X*700) > 0)
+    return fn
+pattern("sandal_blue", "norm")(_sandal((0.10, 0.30, 0.70)))     # รองเท้าแตะช้างดาว: white sole, blue strap
+pattern("sandal_red", "norm")(_sandal((0.72, 0.12, 0.10)))
+pattern("sandal_black", "norm")(_sandal((0.08, 0.08, 0.09), sole=(0.16, 0.15, 0.15)))
+pattern("sandal_pink", "norm")(_sandal((0.90, 0.62, 0.66), sole=(0.92, 0.70, 0.72)))   # pink slides (all one colour)
+pattern("sandal_brown", "norm")(_sandal((0.36, 0.22, 0.12), sole=(0.30, 0.20, 0.13)))
+
 @pattern("helmet_white", "norm")
 def _helmet_white(X, Y):    # glossy white, twin black stripes over the crown, red side flash, black rubber trim, vents
     A = X/TILE*360 - 180; E = H_EL[0] + Y*(H_EL[-1] - H_EL[0]); aa = np.abs(A)
@@ -538,6 +602,33 @@ def pick_faces(b, char):
             taken.update(fs); out[name][piece] = fs
     return out
 
+# ---------------------------------------------------------------- skin hidden under each outfit
+# Skin and cloth are skinned to the same bones but a cloth shell is pushed out along the normals, so when a joint
+# bends they don't move the same way and the skin pokes through unless the cloth stands well off (which made the
+# men look like american-football players). Instead the skin a shirt / trousers cover is cut out of the body in
+# Roblox for that outfit (build_anims.export_model splits the Body by these sets), and the cloth can sit thin.
+# HIDE_KEEP rings of faces along every opening of the cloth stay, so a look into a sleeve / collar still meets skin.
+HIDE_KEEP = 1
+
+def hidden_faces(me, outfit_faces, keep=HIDE_KEEP):
+    """{outfit: sorted body faces under its shell pieces, minus `keep` rings along the openings}"""
+    vf = [[] for _ in me.vertices]
+    for p in me.polygons:
+        for v in p.vertices: vf[v].append(p.index)
+    out = {}
+    for name, pieces in outfit_faces.items():
+        fs = set(f for lst in pieces.values() for f in lst)
+        for _ in range(keep):
+            cnt = {}
+            for fi in fs:
+                vs = list(me.polygons[fi].vertices)
+                for k in range(len(vs)):
+                    e = (min(vs[k], vs[(k + 1) % len(vs)]), max(vs[k], vs[(k + 1) % len(vs)])); cnt[e] = cnt.get(e, 0) + 1
+            edge_v = {v for e, c in cnt.items() if c == 1 for v in e}
+            fs -= {f for v in edge_v for f in vf[v]}
+        out[name] = sorted(fs)
+    return out
+
 # ---------------------------------------------------------------- shell texture (per character, body UV space)
 def raster_body(b, uv):
     """texel -> world position, normal, face index over the whole UV square"""
@@ -599,9 +690,19 @@ def paint_shell(b, ras, faces, char, outfit):
                 hx = b.J["thigh.L" if sd > 0 else "thigh.R"][0][0]
                 seam = (Nn[..., 0]*sd > 0.6) & (np.abs(Nn[..., 1]) < 0.035) & (x*sd > 0)
                 c = mix(c, (0.75, 0.55, 0.25), seam*0.6); h -= 0.0002*seam
-        if fab.get("flannel"):      # black / white / grey flannel check
-            B = [(0.42, (0.06, 0.06, 0.07)), (0.08, (0.85, 0.85, 0.83)), (0.20, (0.40, 0.40, 0.42)), (0.08, (0.85, 0.85, 0.83)), (0.22, (0.06, 0.06, 0.07))]
+        if fab.get("flannel") or fab.get("plaid"):      # check: black / white / grey flannel, or the listed bands
+            B = fab.get("plaid") or [(0.42, (0.06, 0.06, 0.07)), (0.08, (0.85, 0.85, 0.83)), (0.20, (0.40, 0.40, 0.42)), (0.08, (0.85, 0.85, 0.83)), (0.22, (0.06, 0.06, 0.07))]
             c = 0.5*(stripes(x + 0.6*y, 0.07, B) + stripes(z, 0.07, B))*(0.93 + 0.07*fbm(x*30, y*30, z*30, seed=k))[..., None]
+        if fab.get("dots"):         # small all-over dots (pyjama-style pants)
+            d = np.hypot(((x + y)*90) % 1.0 - 0.5, (z*90) % 1.0 - 0.5)
+            c = mix(c, fab["dots"], sstep(0.22, 0.16, d))
+        if fab.get("band"):         # band-tee print: a framed picture with a title above, faded
+            g = front & trunk
+            box = g & (np.abs(x) < 0.07*s) & (z > zc - 0.10*s) & (z < zc + 0.03*s)
+            pic = fbm(x*40, z*40, seed=50)
+            c = mix(c, np.stack([0.75*pic, 0.45*pic, 0.35*pic + 0.1], -1), box*0.85)
+            title = g & (np.abs(x) < 0.08*s) & (np.abs(z - zc - 0.05*s) < 0.012*s) & (np.sin(x*900) > -0.2)
+            c = mix(c, (0.88, 0.86, 0.80), title)
         if fab.get("camo"):
             for cc, sd, th in (((0.38, 0.29, 0.18), 31, 0.52), ((0.15, 0.21, 0.12), 32, 0.55), ((0.62, 0.56, 0.40), 33, 0.60), ((0.07, 0.07, 0.06), 34, 0.62)):
                 c = mix(c, cc, sstep(th, th + 0.02, fbm(x*9, y*9, z*5, seed=sd)))
@@ -735,17 +836,39 @@ def build_shell(b, spec, faces):
     _, piece, test, off, fab = spec
     me = b.ob.data; uvl = me.uv_layers.active.data; s = b.s
     msh = Mesh(); vmap = {}
+    # rings from the open edge: the skin under the rest is hidden in Roblox, so only these need room for it
+    cnt = {}
+    for fi in faces:
+        vs = list(me.polygons[fi].vertices)
+        for k in range(len(vs)):
+            e = (min(vs[k], vs[(k + 1) % len(vs)]), max(vs[k], vs[(k + 1) % len(vs)])); cnt[e] = cnt.get(e, 0) + 1
+    mine = {v for fi in faces for v in me.polygons[fi].vertices}
+    ring = {v: 0 for e, c in cnt.items() if c == 1 for v in e}; front = list(ring)
+    while front:
+        nxt = []
+        for v in front:
+            for w_ in b.nbr[v]:
+                if w_ in mine and w_ not in ring: ring[w_] = ring[v] + 1; nxt.append(w_)
+        front = nxt
     def out_v(vi):
         if vi not in vmap:
-            o = off(b.reg[vi], b.tz[vi], b.ap[vi], b.lp[vi])*s
+            room = ROOM*(1 - sst(EDGE_RINGS - 1, EDGE_RINGS, ring.get(vi, 99)))
+            o = off(b.reg[vi], b.tz[vi], b.ap[vi], b.lp[vi], room=room)*s
+            nx, _, nz = b.nrm[vi]                           # shells only reach the arm as sleeves
+            inward = -(nx if b.co[vi][0] > 0 else -nx) - nz
+            keep = sst(ARMPIT_IN[0], ARMPIT_IN[1], inward) if ARMPIT_MODE == "inward" else 1 - sst(ARMPIT_UP[0], ARMPIT_UP[1], nz)
+            arm_in = ARMPIT_TOP + (1 - ARMPIT_TOP)*keep
+            if b.reg[vi].startswith("arm"):
+                o += room*SLEEVE_ROOT*s*(1 - sst(0.0, 0.6, b.ap[vi]))*arm_in
             if b.reg[vi] == "torso":
                 # skin on the side of the chest is partly skinned to the arm; when the arm goes up it bulges out
                 # past a shell at the usual distance, so the cloth stands off further where the arm pulls the skin
-                o += 0.06*s*min(1.0, b.armw[vi]*3.0)
+                # (all round: cutting it on the top of the shoulder lets the skin through when running)
+                o += room*ARMPIT_SIDE*s*min(1.0, b.armw[vi]*ARMPIT_RAMP)
             elif b.reg[vi].startswith("arm") and (b.ring[vi] >= 0 or b.ap[vi] < 0.15):
-                o += 0.035*s                                    # the armpit itself (trunk-ring vertices held by the arm)
+                o += room*ARMPIT*s*arm_in                            # the armpit itself (trunk-ring vertices held by the arm)
             if b.reg[vi] == "torso" and b.tz[vi] < 0:
-                o += 0.012*s                                    # crotch: room for the thighs lifting
+                o += room*CROTCH*s                                   # crotch: room for the thighs lifting
             vmap[vi] = msh.vert(Vector(b.co[vi]) + Vector(b.nrm[vi])*o, vweights(b, vi), vi)
         return vmap[vi]
     edges = {}
@@ -1001,6 +1124,72 @@ def build_shoe(b, spec):
         bm.free()
     return msh
 
+def _hull2d(P):
+    P = sorted(set(map(tuple, P)))
+    def half(pts):
+        h = []
+        for p in pts:
+            while len(h) >= 2 and (h[-1][0] - h[-2][0])*(p[1] - h[-2][1]) - (h[-1][1] - h[-2][1])*(p[0] - h[-2][0]) <= 0: h.pop()
+            h.append(p)
+        return h
+    lo, hi = half(P), half(P[::-1])
+    return lo[:-1] + hi[:-1]           # counter-clockwise
+
+def build_sandal(b, spec):
+    """flip-flops: a flat sole under each foot (outline of the sole, about 1 cm thick) and a V-shaped thong strap
+    from between the big and second toe to both sides of the foot"""
+    s = b.s; msh = Mesh(); th = 0.011*s; rim = 0.007*s
+    for sd in "LR":
+        sx = 1 if sd == "L" else -1
+        idx = np.where(b.reg == "foot." + sd)[0]; P = b.co[idx]; z0 = float(P[:, 2].min())
+        low = P[P[:, 2] < z0 + 0.025*s]
+        hull = _hull2d(np.round(low[:, :2], 5))
+        c2 = np.mean(hull, 0)
+        ring = []
+        for x, y in hull:
+            d = np.array((x, y)) - c2; d = d/(np.linalg.norm(d) or 1)
+            ring.append((x + d[0]*rim, y + d[1]*rim))
+        def wt(x, y):
+            _, vi, _ = b.kd.find((x, y, z0 + 0.01*s)); return vweights(b, vi)
+        top = [msh.vert((x, y, z0 - 0.001*s), wt(x, y)) for x, y in ring]
+        bot = [msh.vert((x, y, z0 - th), wt(x, y)) for x, y in ring]
+        n = len(ring); per = sum(math.dist(ring[i], ring[(i + 1) % n]) for i in range(n))
+        ymin, ymax = min(y for _, y in ring), max(y for _, y in ring)
+        uv_top = [(x - c2[0], 0.02 + 0.46*(y - ymin)/(ymax - ymin)) for x, y in ring]
+        msh.face(top, uv_top); msh.face(bot[::-1], uv_top[::-1])
+        L = 0.0
+        for i in range(n):
+            j = (i + 1) % n; L2 = L + math.dist(ring[i], ring[j])
+            msh.face([top[j], top[i], bot[i], bot[j]], [(L2, 0.58), (L, 0.58), (L, 0.50), (L2, 0.50)]); L = L2
+        # thong strap: post between the big and second toe, two straps over the foot to its sides
+        xs = P[:, 0]; inner = xs.min() if sx > 0 else xs.max(); outer = xs.max() if sx > 0 else xs.min()
+        ytoe = float(P[:, 1].min()); yheel = float(P[:, 1].max()); flen = yheel - ytoe
+        gap = Vector((inner + (outer - inner)*0.30, ytoe + 0.22*flen, z0 + 0.004*s))
+        post = b.surf((gap.x, gap.y, z0 + 0.3*s), (0, 0, -1), False)[0]
+        ymid = ytoe + 0.48*flen
+        paths = []
+        slide = len(spec) > 3 and spec[3].get("slide")
+        if slide:           # slides: one wide band over the instep instead of the thong
+            yb = ytoe + 0.36*flen
+            pts = [Vector((inner - rim*0.6*sx, yb, z0 + 0.004*s))]
+            for f in (0.15, 0.5, 0.85):
+                xx = inner + (outer - inner)*f; pts.append(b.surf((xx, yb, z0 + 0.3*s), (0, 0, -1), False)[0])
+            pts.append(Vector((outer + rim*0.6*sx, yb, z0 + 0.004*s)))
+            paths.append(pts)
+        for xe in (() if slide else (inner, outer)):
+            pts = [post]
+            for t in (0.3, 0.6):
+                q = gap.lerp(Vector((xe, ymid, z0)), t)
+                pts.append(b.surf((q.x, q.y, z0 + 0.3*s), (0, 0, -1), False)[0])
+            pts.append(Vector((xe + (rim*0.6 if xe == outer else -rim*0.6)*sx, ymid, z0 + 0.004*s)))
+            paths.append(pts)
+        st = build_strip(b, ("strip", "strap", lambda b_: paths, 0.05 if slide else 0.016, "", dict(clear=0.003, thick=0.005)))
+        off = len(msh.v)
+        msh.v += st.v; msh.w += st.w; msh.src += st.src
+        msh.f += [[i + off for i in f] for f in st.f]
+        msh.uv += [[(u, 0.62 + 0.36*min(max(v, 0.0), 1.0)) for u, v in fu] for fu in st.uv]
+    return msh
+
 # full-face helmet layout (degrees): azimuth a (0 = face, +90 = left), elevation e round the head centre
 H_EL = [-72, -64, -56, -48, -40, -32, -24, -16, -8, 0, 8, 16, 24, 32, 42, 52, 62, 72, 81, 89]
 def h_bottom(a):     # lower edge: chin bar low in front, up under the jaw, down again over the nape
@@ -1131,7 +1320,7 @@ def add_clothes(char, outfits=None):
             if kind == "shell": continue
             pat = sp[4] if kind in ("tube", "strip", "ring") else sp[2]          # hat / helmet / shoe: (kind, name, pattern)
             msh = build_tube(b, sp, under) if kind == "tube" else \
-                  {"strip": build_strip, "ring": build_ring, "hat": build_hat, "helmet": build_helmet, "shoe": build_shoe}[kind](b, sp)
+                  {"strip": build_strip, "ring": build_ring, "hat": build_hat, "helmet": build_helmet, "shoe": build_shoe, "sandal": build_sandal}[kind](b, sp)
             mat = tex_material(f"Cloth_{pat}", os.path.join(TEX, pat), PATTERNS[pat][2])
             ob = msh.to_object(f"Cloth_{name}_{sp[1]}", rig, mat)
             if kind in ("hat", "helmet"):

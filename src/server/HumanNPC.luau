@@ -3,6 +3,8 @@
 -- ชาวบ้านแบบใหม่: ตัวละคร skinned mesh จาก Blender (assets/models/human_base -> roblox/human_base/human_base.fbx)
 --   แม่แบบ = ServerStorage.HumanTemplates.human_base (นำเข้าด้วย Import 3D: Scale 0.01, Rig Custom, Anchored)
 --   ในแม่แบบมีผมทุกทรงและชุดทุกชุด ตอนสร้างจะสุ่ม 1 ชุด + 1 ทรงผม แล้วลบชิ้นที่ไม่ได้ใช้ทิ้ง
+--   ผิวถูกตัดเป็น Body (ไม่มีชุดไหนปิด) + Skin_<n> (ผิวใต้ชุด): ลบ Skin_ ที่ชุดที่ใส่ปิดอยู่ (ReplicatedStorage.Shared.HumanSkinParts)
+--   เสื้อผ้าจึงแนบตัวได้บาง ๆ โดยผิวไม่โผล่ทะลุเวลาขยับ
 --   ท่าทาง = AnimationController.Animator + ID ใน ReplicatedStorage.Shared.HumanAnimIds
 --
 -- โครงสร้างที่คืนให้ Pedestrian (ให้โค้ดเดิมที่หา DriverNPC / Head / Torso ใช้ต่อได้):
@@ -44,6 +46,16 @@ end
 
 function HumanNPC.Available(): boolean
 	return template() ~= nil
+end
+
+-- Skin_<n> -> ชุดที่ปิดผิวชิ้นนั้น (สร้างจาก build_anims.py ตอน export)
+local function skinParts(): { [string]: { string } }
+	local shared = ReplicatedStorage:FindFirstChild("Shared")
+	local mod = shared and shared:FindFirstChild("HumanSkinParts")
+	if not mod then
+		return {}
+	end
+	return (require(mod :: ModuleScript) :: any)[TEMPLATE_NAME] or {}
 end
 
 local function animIds(): { [string]: string }
@@ -120,10 +132,16 @@ function HumanNPC.Build(opts: { [string]: any }): Model
 	d:PivotTo(CFrame.new())
 	local outfit = pickOutfit(opts)
 	local hair = if outfit.helmet then nil else (opts.hair or HAIRS[math.random(#HAIRS)])
+	local skin = skinParts()
 	for _, c in ipairs(d:GetChildren()) do
 		if c:IsA("MeshPart") and c.Name ~= "Body" then
 			local n = c.Name
-			local keep = n == "Cloth_" .. outfit.name or string.sub(n, 1, #outfit.name + 7) == "Cloth_" .. outfit.name .. "_" or (hair ~= nil and n == "Hair_" .. hair)
+			local keep
+			if string.sub(n, 1, 5) == "Skin_" then
+				keep = not table.find(skin[n] or {}, outfit.name)
+			else
+				keep = n == "Cloth_" .. outfit.name or string.sub(n, 1, #outfit.name + 7) == "Cloth_" .. outfit.name .. "_" or (hair ~= nil and n == "Hair_" .. hair)
+			end
 			if not keep then
 				c:Destroy()
 			end
@@ -271,12 +289,15 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 			hb.CFrame = hb.CFrame * CFrame.fromAxisAngle(axis, math.pi)
 		end
 	elseif kind == "pale" then
-		local body = double:FindFirstChild("Body")
-		local sa = body and body:FindFirstChildOfClass("SurfaceAppearance")
-		if sa then
-			pcall(function()
-				(sa :: any).Color = Color3.fromRGB(176, 196, 184)
-			end)
+		for _, c in ipairs(double:GetChildren()) do
+			if c.Name == "Body" or string.sub(c.Name, 1, 5) == "Skin_" then
+				local sa = c:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					pcall(function()
+						(sa :: any).Color = Color3.fromRGB(176, 196, 184)
+					end)
+				end
+			end
 		end
 	end
 	double.Parent = d

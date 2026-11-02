@@ -1,0 +1,55 @@
+{
+ "Body": [],
+ "Skin_00": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_crop",
+  "wan_plaid"
+ ],
+ "Skin_01": [
+  "chest_wrap",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_crop",
+  "wan_plaid"
+ ],
+ "Skin_02": [
+  "wan_girl",
+  "wan_band_tee",
+  "wan_crop",
+  "wan_plaid"
+ ],
+ "Skin_03": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_plaid"
+ ],
+ "Skin_04": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "wan_girl",
+  "wan_plaid"
+ ],
+ "Skin_05": [
+  "wan_girl",
+  "wan_band_tee",
+  "wan_plaid"
+ ],
+ "Skin_06": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "chest_wrap",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_crop",
+  "wan_plaid"
+ ]
+}

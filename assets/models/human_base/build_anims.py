@@ -306,6 +306,48 @@ def c_wan_hands_up(P, t, st, s):
     up = min(RAISE_MAX*min(1.0, 0.7 + e*0.4), P.raise_max)
     P.rot("upper_arm.L", up, 0, -24 - 12*wave*e); P.rot("upper_arm.R", up, 0, -24 + 12*wave*e)   # a bit forward: clear of the armpit fold
 
+def hip_drop(depth, s):
+    """how far the hips go down when legs_bounce bends the knees by `depth` deg (feet stay on the ground)"""
+    a, b_ = math.radians(depth*0.55), math.radians(depth*0.45)
+    return 0.45*s*((1 - math.cos(a)) + (1 - math.cos(b_)))
+
+# The two below are the rod-hae teens' "twerk" and "floor" dances made tame for a Roblox game: body upright, facing
+# front, no bending over or thrusting. Place dancers facing the way the parade goes, spaced apart, never backed up
+# to or facing another character close by.
+def c_wan_hip_shake(P, t, st, s):
+    """hip shake (tame twerk): knees soft, hips swaying side to side on every half beat, torso upright,
+    one hand up waving and the other on the hip, swapping halfway"""
+    e = st["energy"]; ph = 2*math.pi*t; b = beat(t, 8, 1.5)
+    shake = math.sin(ph*16)                                          # two hip swings per beat
+    legs_bounce(P, 14 + 6*b*e, 5*shake*e)
+    P.lift("hips", -hip_drop(14 + 6*b*e, s))
+    P.rot("hips", 0, 6*shake*e, 7*shake*e)
+    P.rot("spine", 3, -4*shake*e, -5*shake*e); P.rot("chest", 2, -2*shake*e, -2*shake*e)
+    P.rot("neck", 2); P.rot("head", 4 + 4*b, 6*math.sin(ph*2), 3*shake)
+    sw = 1 if t < 0.5 else -1
+    mix_ = sm(0.0, 0.1, (t*2) % 1.0)*(1 - sm(0.9, 1.0, (t*2) % 1.0))
+    for sd, hi in (("L", sw > 0), ("R", sw < 0)):
+        h = mix_ if hi else 0.0
+        wave = math.sin(ph*4)
+        arm(P, sd, raise_=-28 + 92*h, fwd=10 + 15*h, bend=95 - 70*h, wrist=10*h + 15*wave*h, dev=-20*(1 - h))
+        hand(P, sd, "wong" if h > 0.5 else "relax")
+    P.both("shoulder", 3*b)
+
+def c_wan_low_bounce(P, t, st, s):
+    """floor dance (tame): sink low over two beats, bounce at the bottom pumping both fists forward, come back up;
+    back straight, facing front"""
+    e = st["energy"]; b = beat(t, 8, 1.5)
+    down = sm(0.0, 0.25, t)*(1 - sm(0.75, 1.0, t))                   # 2 beats down, 4 at the bottom, 2 up
+    depth = 12 + (55*min(1.0, e) + 8*b)*down + 6*b*(1 - down)
+    legs_bounce(P, depth)
+    P.lift("hips", -hip_drop(depth, s))
+    P.rot("spine", 6 + 6*down, 0, 0); P.rot("chest", 2)
+    P.rot("neck", 2 + 4*b); P.rot("head", 2 + 6*b, 8*math.sin(2*math.pi*t*2))
+    pump = math.sin(2*math.pi*t*8)
+    for sd, sg in (("L", 1), ("R", -1)):
+        arm(P, sd, raise_=-5 + 20*down, fwd=45 + 20*pump*sg*down, bend=70 - 20*pump*sg*down, wrist=0)
+        hand(P, sd, "fist", 0.8)
+
 def c_ghost_dance(P, t, st, s):
     """ผีเต้น: floating, jerking from pose to pose on a broken rhythm, limbs out of step, head rolling"""
     stops = [0.0, 0.07, 0.12, 0.25, 0.31, 0.44, 0.5, 0.58, 0.69, 0.75, 0.86, 0.93]
@@ -339,9 +381,12 @@ CLIPS = {   # name: (fn, frames for the adult man)
     "wan_point": (c_wan_point, 120),
     "wan_cool": (c_wan_cool, 120),
     "wan_hands_up": (c_wan_hands_up, 120),
+    "wan_hip_shake": (c_wan_hip_shake, 120),
+    "wan_low_bounce": (c_wan_low_bounce, 120),
     "ghost_dance": (c_ghost_dance, 120),
 }
-FIXED_TEMPO = {"idle", "ramwong", "wan_rock", "wan_bounce", "wan_point", "wan_cool", "wan_hands_up", "ghost_dance"}
+FIXED_TEMPO = {"idle", "ramwong", "wan_rock", "wan_bounce", "wan_point", "wan_cool", "wan_hands_up", "wan_hip_shake",
+               "wan_low_bounce", "ghost_dance"}
 
 def add_anims(char):
     rig = bpy.data.objects["HumanRig"]; st = STYLE[char]
@@ -366,6 +411,16 @@ def add_anims(char):
     bpy.context.scene.frame_start, bpy.context.scene.frame_end = 1, made["idle"] + 1
     return made
 
+def save_retry():
+    """save the open .blend, retrying: Windows sometimes holds the old file a moment (scanner, indexer) and Blender
+    can't swap the new one in ("Cannot change old file")"""
+    import time
+    for attempt in range(6):
+        try: bpy.ops.wm.save_mainfile(); return
+        except RuntimeError:
+            if attempt == 5: raise
+            time.sleep(1.0 + attempt)
+
 def anims_all():
     bpy.context.preferences.filepaths.save_version = 0
     out = {}
@@ -373,7 +428,7 @@ def anims_all():
         bpy.ops.wm.open_mainfile(filepath=f)
         cut = limit_weights(); made = add_anims(char_of(f))
         out[os.path.basename(f)] = (sum(cut.values()), made)
-        bpy.ops.wm.save_mainfile()
+        save_retry()
     return out
 
 # ---------------------------------------------------------------- Roblox export
@@ -387,12 +442,57 @@ def fbx(path, **kw):
             if "Errno 22" not in str(e) and "Errno 13" not in str(e) or attempt == 5: raise
             time.sleep(1.5*(attempt + 1))
 
+def _clothes():
+    ns = {"__name__": "clothes"}
+    exec(open(os.path.join(M, "human_base", "build_clothes.py"), encoding="utf-8").read(), ns)
+    return ns
+
+def split_skin(char):
+    """The Body cut into pieces by which outfits cover them (build_clothes.hidden_faces): "Body" = skin no outfit
+    hides, Skin_00, Skin_01, ... = skin hidden under the outfits listed for it in the returned map. Roblox drops
+    the pieces the chosen outfit covers, so a thin shirt never has skin coming through it.
+    The pieces keep the whole body's normals (no shading seam where they meet). Returns (pieces, {piece: outfits})."""
+    import json, bmesh
+    body = bpy.data.objects["Body"]; me = body.data
+    faces = json.load(open(os.path.join(M, NAMES[char], NAMES[char] + "_clothes.json")))["outfits"]
+    hid = {o: set(fs) for o, fs in _clothes()["hidden_faces"](me, faces).items()}
+    groups = {}
+    for p in me.polygons:
+        groups.setdefault(tuple(o for o in faces if p.index in hid[o]), []).append(p.index)
+    def key(co, c): return (round(co.x, 5), round(co.y, 5), round(co.z, 5), round(c.x, 5), round(c.y, 5), round(c.z, 5))
+    nrm = {}
+    for p in me.polygons:
+        for li in p.loop_indices: nrm[key(me.vertices[me.loops[li].vertex_index].co, p.center)] = me.corner_normals[li].vector.copy()
+    body.name = "Body_whole"
+    pieces, hides = [], {}
+    order = sorted(groups.items(), key=lambda kv: (len(kv[0]) > 0, -len(kv[1])))
+    for n, (outfits, fs) in enumerate(order):
+        name = "Body" if not outfits else f"Skin_{n - 1:02d}"
+        ob = body.copy(); ob.data = me.copy(); ob.name = name; ob.data.name = name
+        for c in body.users_collection: c.objects.link(ob)
+        bm = bmesh.new(); bm.from_mesh(ob.data); keep = set(fs)
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context='FACES')
+        bm.to_mesh(ob.data); bm.free()
+        pm = ob.data
+        pm.normals_split_custom_set([nrm[key(pm.vertices[pm.loops[li].vertex_index].co, p.center)] for p in pm.polygons for li in p.loop_indices])
+        pieces.append(ob); hides[name] = list(outfits)
+    return pieces, hides
+
+def unsplit_skin(pieces):
+    for ob in pieces:
+        me = ob.data; bpy.data.objects.remove(ob, do_unlink=True); bpy.data.meshes.remove(me)
+    bpy.data.objects["Body_whole"].name = "Body"
+
 def export_model(path):
     """Body + every hair style + every outfit + the rig, in studs; hidden pieces come along (switch them in Roblox).
     path_mode COPY puts the textures next to the FBX, so Roblox's 3D Importer finds them and builds each
-    SurfaceAppearance itself (with STRIP it only knew the file names and could not read them)"""
+    SurfaceAppearance itself (with STRIP it only knew the file names and could not read them).
+    The Body goes out cut by split_skin; which piece each outfit hides is written to <file>_skin.json."""
+    import json
     rig = bpy.data.objects["HumanRig"]
-    objs = bound_meshes(rig)
+    pieces, hides = split_skin(char_of(bpy.data.filepath))
+    json.dump(hides, open(path[:-4] + "_skin.json", "w"), indent=1)
+    objs = [o for o in bound_meshes(rig) if o.name != "Body_whole"]
     keep = {o: (o.hide_get(), o.hide_viewport) for o in objs}
     for o in objs: o.hide_viewport = False; o.hide_set(False)
     bpy.ops.object.mode_set(mode='OBJECT') if bpy.context.object and bpy.context.object.mode != 'OBJECT' else None
@@ -407,7 +507,9 @@ def export_model(path):
                              add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=True,
                              mesh_smooth_type='FACE', path_mode='COPY', embed_textures=False, bake_anim=False, use_mesh_modifiers=False)
     if rig.animation_data: rig.animation_data.action = act
-    for o, (h, hv) in keep.items(): o.hide_viewport = hv; o.hide_set(h)
+    for o, (h, hv) in keep.items():
+        if o not in pieces: o.hide_viewport = hv; o.hide_set(h)
+    unsplit_skin(pieces)
 
 def export_clip(path, clip):
     rig = bpy.data.objects["HumanRig"]
@@ -463,7 +565,26 @@ def export_all(out_dir=os.path.join(M, "roblox")):
         export_model(os.path.join(d, name + ".fbx")); done.append(name)
         if name == NAMES[char]:                                       # clips once per character (from the normal body)
             for clip in CLIPS: export_clip(os.path.join(d, f"{name}_{clip}.fbx"), clip)
+    write_skin_luau(out_dir)
     return done
+
+def write_skin_luau(out_dir=os.path.join(M, "roblox")):
+    """src/shared/HumanSkinParts.luau: per character, the Skin_ pieces of its Body and the outfits that hide them
+    (the same for its fat / thin / pregnant files: same topology, same cut)"""
+    import json
+    lines = ["--!strict", "-- Generated by assets/models/human_base/build_anims.py (write_skin_luau). Do not edit.",
+             "-- Per character: Skin_<n> MeshPart of the imported model -> outfits that cover it (drop the piece when",
+             "-- one of these is worn). \"Body\" (skin no outfit covers) is not listed: it always stays.", "return {"]
+    for char in DIRS.values():
+        f = os.path.join(out_dir, NAMES[char], NAMES[char] + "_skin.json")
+        if not os.path.exists(f): continue
+        lines.append(f"\t{NAMES[char]} = {{")
+        for piece, outfits in json.load(open(f)).items():
+            if outfits: lines.append(f"\t\t{piece} = {{ " + ", ".join(f'"{o}"' for o in outfits) + " },")
+        lines.append("\t},")
+    lines.append("}")
+    dst = os.path.join(os.path.dirname(os.path.dirname(M)), "src", "shared", "HumanSkinParts.luau")
+    open(dst, "w", newline="\n").write("\n".join(lines) + "\n")
 
 # ---------------------------------------------------------------- preview: rows = clips, 6 moments each, front and side
 def preview(char, out):
