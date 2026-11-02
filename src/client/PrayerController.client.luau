@@ -270,14 +270,43 @@ local function playOrUpdateMyChant(scaredMode: boolean, forceNewIndex: boolean?)
 	end
 end
 
--- ถ้าระหว่างพนมมืออยู่แล้วผีโผล่มา (หรือตาทิพย์เปิดแล้วเห็นผี) ให้สลับเสียงสวดของตัวเองเป็นโหมดสวดเร็วกลัวผีทันที!
-remotes:GetAttributeChangedSignal("IsAnomaly"):Connect(function()
-	if localPlayer:GetAttribute("Praying") == true and sightOpen then
-		local ghostNow = isGhostDetectedNow()
-		if ghostNow ~= currentChantScared then
-			playOrUpdateMyChant(ghostNow, false)
-		end
+-- เจอผีระหว่างพนมมือ (ผีโผล่มาตอนสวดอยู่ หรือตาทิพย์เปิดแล้วเห็นผี): เสียงสวดคงเดิม ไม่เปลี่ยนเป็นสวดเร็ว
+-- แต่เล่นเสียงตกใจ GHOST_SIGHT_ID หนึ่งครั้งต่อการเจอผีหนึ่งรอบ (ผีหายไปแล้วโผล่ใหม่ = เล่นอีก)
+local GHOST_SIGHT_ID = "rbxassetid://123314010660698"
+local GHOST_SIGHT_VOLUME = 0.5
+local ghostStung = false
+local function onGhostCheck()
+	local ghostNow = isGhostDetectedNow()
+	if not ghostNow then
+		ghostStung = false
+		return
 	end
+	if ghostStung or localPlayer:GetAttribute("Praying") ~= true or not sightOpen then
+		return
+	end
+	ghostStung = true
+	local s = Instance.new("Sound")
+	s.Name = "GhostSightSting"
+	s.SoundId = GHOST_SIGHT_ID
+	s.Volume = GHOST_SIGHT_VOLUME
+	s:SetAttribute("SoundCategory", "Music") -- ไม่โดน PrayMuffle (กลุ่ม SFX อู้อี้ตอนพนมมือ) ต้องได้ยินชัด
+	s.Parent = SoundService
+	s:Play()
+	s.Ended:Once(function()
+		s:Destroy()
+	end)
+	task.delay(30, function()
+		if s.Parent then
+			s:Destroy()
+		end
+	end)
+end
+remotes:GetAttributeChangedSignal("IsAnomaly"):Connect(onGhostCheck)
+CollectionService:GetInstanceAddedSignal(GHOST_TAG):Connect(function()
+	task.defer(onGhostCheck)
+end)
+CollectionService:GetInstanceRemovedSignal(GHOST_TAG):Connect(function()
+	task.defer(onGhostCheck)
 end)
 
 -- ---------------------------------------------------------------- สถานะพนมมือ (ยึดตาม attribute ที่ Server ตั้ง)
@@ -293,11 +322,8 @@ local function setSight(open: boolean)
 	TweenService:Create(grade, TweenInfo.new(if open then 0.8 else 0.5), if open then SIGHT_GRADE else NO_GRADE):Play()
 	label.Text = ui(if open then "PraySightOpen" else "PrayChanting")
 	label.TextColor3 = Color3.fromRGB(236, 228, 208)
-	if open and localPlayer:GetAttribute("Praying") == true then
-		-- พอตาทิพย์เปิด ถ้ามีผีอยู่ตรงหน้า ให้เปลี่ยนจากสวดปกติเป็นสวดเร็วกลัวผีทันที!
-		if isGhostDetectedNow() and not currentChantScared then
-			playOrUpdateMyChant(true, false)
-		end
+	if open then
+		onGhostCheck() -- ตาทิพย์เปิดแล้วมีผีอยู่ = เสียงตกใจ (เสียงสวดคงเดิม)
 	end
 end
 

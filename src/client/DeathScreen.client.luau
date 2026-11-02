@@ -43,9 +43,13 @@ local function new(className: string, props: { [string]: any }, parent: Instance
 end
 
 -- ---------------------------------------------------------------- ควบคุมตัวละคร
+-- ไม่มี PlayerModule ใน PlayerScripts ก็ไม่เป็นไร (เกมนี้ไม่มี): ตอนแพ้ Server ยึดตัว + WalkSpeed 0 ให้อยู่แล้ว
+-- (เดิม WaitForChild ไม่มีกำหนด = ค้างตลอด จอตายไม่ขึ้นเลย)
 local function controls()
 	local ok, mod = pcall(function()
-		return require(localPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")) :: any
+		local ps = localPlayer:WaitForChild("PlayerScripts", 2)
+		local pm = ps and ps:WaitForChild("PlayerModule", 1)
+		return if pm then require(pm) :: any else nil
 	end)
 	return if ok and mod then mod:GetControls() else nil
 end
@@ -152,6 +156,19 @@ end
 drawTexts()
 localPlayer:GetAttributeChangedSignal("Lang"):Connect(drawTexts)
 
+-- ---------------------------------------------------------------- เพลงจอตาย
+-- เล่นวนตอนจอถามว่าจะเริ่มใหม่หรือกลับ Lobby จนจอนี้ปิด (เจ้าของเกมอัปโหลด) กลุ่ม Music ปรับได้ในหน้าตั้งค่า
+local DEATH_MUSIC_ID = "rbxassetid://111438100874990"
+local DEATH_MUSIC_VOLUME = 0.5
+local SoundService = game:GetService("SoundService")
+local deathMusic = Instance.new("Sound")
+deathMusic.Name = "DeathMusic"
+deathMusic.SoundId = DEATH_MUSIC_ID
+deathMusic.Volume = DEATH_MUSIC_VOLUME
+deathMusic.Looped = true
+deathMusic:SetAttribute("SoundCategory", "Music")
+deathMusic.Parent = SoundService
+
 -- ---------------------------------------------------------------- เปิด / ปิดจอตาย
 local dead = false
 local pulseToken = 0
@@ -173,6 +190,9 @@ local function showDeath()
 		ctl:Disable()
 	end
 	gui.Enabled = true
+	deathMusic.Volume = DEATH_MUSIC_VOLUME
+	deathMusic.TimePosition = 0
+	deathMusic:Play()
 	buttons.Visible = false
 	restartBtn.Active = true
 	quitBtn.Active = true
@@ -235,6 +255,13 @@ local function hideDeath()
 	dead = false
 	pulseToken += 1
 	gui.Enabled = false
+	local fade = TweenService:Create(deathMusic, TweenInfo.new(0.8), { Volume = 0 })
+	fade.Completed:Once(function()
+		if not dead then
+			deathMusic:Stop()
+		end
+	end)
+	fade:Play()
 	local ctl = controls()
 	if ctl then
 		ctl:Enable()
@@ -266,7 +293,9 @@ quitBtn.Activated:Connect(function()
 end)
 
 DeathChoice.OnClientEvent:Connect(function(kind: string, who: string?)
-	if kind == "restart" and dead then
+	if kind == "revive" then
+		hideDeath() -- admin ชุบชีวิต: ลุกขึ้นตรงที่ล้ม เล่นต่อ
+	elseif kind == "restart" and dead then
 		buttons.Visible = false
 		restartBtn.Active = false
 		ask.Text = string.gsub(ui("RestartBy"), "{name}", who or "?")

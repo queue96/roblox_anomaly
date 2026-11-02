@@ -1011,6 +1011,9 @@ local mgFuelTargetMin = 0.66
 local mgFuelTargetMax = 0.84
 local mgAirNeedlePos = 0
 local mgAirNeedleDir = 1
+local AIR_LATENCY = 0.15 -- วินาที: ย้อนดูตำแหน่งเข็มได้เท่านี้ตอนกด
+local AIR_EDGE = 0.035 -- เผื่อขอบช่อง (สัดส่วนของแถบ)
+local mgAirHistory: { { t: number, p: number } } = {}
 local mgAirZoneMin = 0.36
 local mgAirZoneMax = 0.58
 local mgAirHits = 0
@@ -1107,6 +1110,7 @@ local function openMinigame(stationType: string)
 		mgAirHits = 0
 		mgAirNeedlePos = 0.08
 		mgAirNeedleDir = 1
+		table.clear(mgAirHistory)
 		updateAirPipsText()
 		randomizeAirTarget()
 		mgFuelView.Visible = false
@@ -1119,7 +1123,21 @@ local function tryAirStrike()
 	if activeMGType ~= "air" or mgDone or os.clock() - mgOpenedAt < 0.18 then
 		return
 	end
-	if mgAirNeedlePos >= mgAirZoneMin - 0.025 and mgAirNeedlePos <= mgAirZoneMax + 0.025 then
+	-- นับว่าโดนถ้าเข็มอยู่ในช่องตอนไหนก็ได้ในช่วง AIR_LATENCY วินาทีล่าสุด (เผื่อเวลาที่คนเห็นแล้วกด + จอแสดงช้ากว่าจริง)
+	-- เดิมดูแค่ตำแหน่งตอนกด: เข็มวิ่ง ~1.2-1.6 ช่อง/วินาที กดตอนเห็นอยู่ในช่องพอดี เข็มเลยไปแล้ว = ไม่ผ่าน
+	local now = os.clock()
+	local hit = false
+	for _, h in ipairs(mgAirHistory) do
+		if now - h.t <= AIR_LATENCY and h.p >= mgAirZoneMin - AIR_EDGE and h.p <= mgAirZoneMax + AIR_EDGE then
+			hit = true
+			break
+		end
+	end
+	if not hit and mgAirNeedlePos >= mgAirZoneMin - AIR_EDGE and mgAirNeedlePos <= mgAirZoneMax + AIR_EDGE then
+		hit = true
+	end
+	if hit then
+		table.clear(mgAirHistory) -- ช่องใหม่สุ่มที่อื่น: ประวัติเข็มของช่องเก่าไม่นับต่อ
 		mgAirHits += 1
 		updateAirPipsText()
 		if mgAirHits >= MG_AIR_NEEDED then
@@ -1285,6 +1303,12 @@ RunService:BindToRenderStep("PumpCameraFlashlight", Enum.RenderPriority.Camera.V
 				mgAirNeedleDir = 1
 			end
 			mgAirNeedle.Position = UDim2.fromScale(mgAirNeedlePos, 0.5)
+			-- จำตำแหน่งที่แสดงบนจอไว้ AIR_LATENCY วินาที (tryAirStrike ย้อนดู)
+			local now = os.clock()
+			table.insert(mgAirHistory, { t = now, p = mgAirNeedlePos })
+			while #mgAirHistory > 0 and now - mgAirHistory[1].t > AIR_LATENCY + 0.05 do
+				table.remove(mgAirHistory, 1)
+			end
 		end
 	end
 end)

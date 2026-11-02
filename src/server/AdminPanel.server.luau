@@ -21,6 +21,7 @@ local ALLOWED = {
 	walker = true, car = true, tuktuk = true, bicycle = true, spawn = true, shelter = true,
 	racer = true, party = true, parade = true,
 	rain = true, clear = true, powercut = true,
+	lose = true, -- ทุกคนตาย (แพ้ทั้งร้าน: ธูปหมด)
 }
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes") or Instance.new("Folder")
@@ -61,7 +62,21 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 	end
 	last[p] = os.clock()
 	local key = string.match(cmd, "^anomaly:(.+)$")
-	if key then
+	local killId = tonumber(string.match(cmd, "^kill:(%d+)$") or "")
+	local reviveId = tonumber(string.match(cmd, "^revive:(%d+)$") or "")
+	if killId then
+		-- ให้ผู้เล่นคนนี้ตาย (ตัวเองหรือคนอื่นในห้อง): ล้มนอน จอตาย เลือกเกิดใหม่ (เฉพาะคนนั้น) หรือกลับ Lobby
+		if not Players:GetPlayerByUserId(killId) then
+			return
+		end
+		devDecision():Fire("kill:" .. killId)
+	elseif reviveId then
+		-- ชุบคนที่ตาย (คนเดียว): ลุกขึ้นตรงที่ล้ม เล่นต่อ
+		if not Players:GetPlayerByUserId(reviveId) then
+			return
+		end
+		devDecision():Fire("revive:" .. reviveId)
+	elseif key then
 		if not AnomalyManager.Anomalies[key] then
 			return
 		end

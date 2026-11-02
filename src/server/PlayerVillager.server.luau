@@ -13,6 +13,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
+local CollisionGroups = require(script.Parent:WaitForChild("CollisionGroups"))
 
 local HIP = 3.08 -- สะโพก (กระดูก hips) สูงจากพื้นเท่านี้ (studs) ในแม่แบบ
 -- หนา (แกน Z) 2 studs: กล้องมุมบุคคลที่หนึ่งอยู่หน้าหัวราว 0.6 จากกลางตัว ต้องอยู่ข้างในกล่องชนเสมอ
@@ -173,6 +174,7 @@ end
 
 local function onPlayer(p: Player)
 	local function onCharacter(char: Model)
+		CollisionGroups.Set(char, CollisionGroups.PLAYERS) -- เดินทะลุลูกค้า/รถลูกค้าได้ (กลุ่ม NPC)
 		if char.Name ~= "StarterCharacter" and char:FindFirstChild("RootPart") then
 			dress(char, p)
 		end

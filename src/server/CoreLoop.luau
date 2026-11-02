@@ -138,8 +138,10 @@ local DeathChoice = remote("DeathChoice") -- C->S ("restart" | "quit")  S->C ("r
 local ServiceMinigame = remote("ServiceMinigame") -- S->C ("open", choice) / ("close")  C->S ("complete", choice)
 
 -- แพ้ (ธูปดับหมด): ผู้เล่นทุกคนล้มนอนตาย จอแดง รอให้มีคนกด "เริ่มใหม่" (ใครกดก่อนนับทั้งร้าน)
--- ล้มหงายลงพื้น (ทำฝั่ง Server ทุกคนเห็นเหมือนกัน) ยึดตัวไว้ เดินไม่ได้ จนกว่าจะเกิดใหม่
+-- ล้มคว่ำหน้าลงพื้น (ทำฝั่ง Server ทุกคนเห็นเหมือนกัน) ยึดตัวไว้ เดินไม่ได้ จนกว่าจะเกิดใหม่
+-- คว่ำ ไม่ใช่หงาย: ตัวละครไม่มีหน้าตาตอนตาย นอนหงายแล้วเห็นหน้าปกติ ดูไม่เหมือนตาย
 local Prayer = require(script.Parent:WaitForChild("Prayer"))
+local CollisionGroups = require(script.Parent:WaitForChild("CollisionGroups"))
 local function collapse(player: Player)
 	Prayer.Stop(player) -- ล้มแล้วเลิกพนมมือ
 	local char = player.Character
@@ -148,6 +150,8 @@ local function collapse(player: Player)
 	if not (root and hum) then
 		return
 	end
+	-- ของในมือ (ไฟฉาย ฯลฯ) เก็บเข้ากระเป๋า: ไม่ค้างท่าถือ / ไม่มีไฟฉายลอยค้างตอนกล้องจอตายมองร่าง
+	hum:UnequipTools()
 	hum.WalkSpeed = 0
 	hum.JumpPower = 0
 	hum.JumpHeight = 0
@@ -159,30 +163,35 @@ local function collapse(player: Player)
 	local groundY = if hit then hit.Position.Y else root.Position.Y - 3
 	local look = root.CFrame.LookVector
 	local yaw = CFrame.lookAt(Vector3.zero, Vector3.new(look.X, 0, look.Z))
-	local lying = CFrame.new(root.Position.X, groundY + 0.6, root.Position.Z) * yaw * CFrame.Angles(math.rad(85), 0, 0)
+	local lying = CFrame.new(root.Position.X, groundY + 0.6, root.Position.Z) * yaw * CFrame.Angles(math.rad(-85), 0, 0) -- -85 = คว่ำ
 	root.Anchored = true
 	TweenService:Create(root, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = lying }):Play()
+end
+
+-- ลุกขึ้นจากท่าล้ม ตรงจุดเดิม หันทางเดิม เดินได้อีกครั้ง
+local function standUp(player: Player)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not (root and hum) or not root.Anchored then
+		return
+	end
+	local p = root.Position
+	local look = Vector3.yAxis:Cross(root.CFrame.RightVector) -- ทิศหน้าเดิม (แกนขวาไม่เปลี่ยนตอนล้ม)
+	root.CFrame = CFrame.lookAt(p + Vector3.new(0, 2.6, 0), p + Vector3.new(0, 2.6, 0) + Vector3.new(look.X, 0, look.Z))
+	root.Anchored = false
+	local sp = game:GetService("StarterPlayer")
+	hum.WalkSpeed = sp.CharacterWalkSpeed
+	hum.JumpPower = sp.CharacterJumpPower
+	hum.JumpHeight = sp.CharacterJumpHeight
+	hum.AutoRotate = true
 end
 
 -- ล้มตึงชั่วคราว แล้วลุกขึ้นมาเล่นต่อ (ตามผีไป)
 local function knockDown(player: Player, seconds: number)
 	collapse(player)
 	task.delay(seconds, function()
-		local char = player.Character
-		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if not (root and hum) or not root.Anchored then
-			return
-		end
-		local p = root.Position
-		local look = Vector3.yAxis:Cross(root.CFrame.RightVector) -- ทิศหน้าเดิม (แกนขวาไม่เปลี่ยนตอนล้มหงาย)
-		root.CFrame = CFrame.lookAt(p + Vector3.new(0, 2.6, 0), p + Vector3.new(0, 2.6, 0) + Vector3.new(look.X, 0, look.Z))
-		root.Anchored = false
-		local sp = game:GetService("StarterPlayer")
-		hum.WalkSpeed = sp.CharacterWalkSpeed
-		hum.JumpPower = sp.CharacterJumpPower
-		hum.JumpHeight = sp.CharacterJumpHeight
-		hum.AutoRotate = true
+		standUp(player)
 	end)
 end
 -- ออกจากเกม: Teleport กลับ Lobby (ใน Studio Teleport ไม่ได้ / Teleport พลาด -> Kick พร้อมข้อความลาแทน)
@@ -224,8 +233,41 @@ end)
 
 local losePending = false
 local restartBy: string? = nil
+-- ตายคนเดียว (คำสั่ง admin "kill:<UserId>"): ล้มนอน + จอตายเฉพาะคนนั้น ร้านเล่นต่อ กดเริ่มใหม่ = คนนั้นเกิดใหม่คนเดียว
+local soloDead: { [Player]: boolean } = {}
+local function killOne(p: Player)
+	if soloDead[p] or losePending or not p.Character then
+		return
+	end
+	soloDead[p] = true
+	collapse(p)
+	GameState:FireClient(p, "Lose")
+	print("💀 [" .. p.Name .. "] ตาย (admin)")
+end
+-- ชุบชีวิต (คำสั่ง admin "revive:<UserId>"): คนที่ตายคนเดียวลุกขึ้นตรงที่ล้ม เล่นต่อได้ทันที จอตายปิด
+-- (แพ้ทั้งร้านอยู่ = ชุบไม่ได้ ต้องกดเริ่มคืนใหม่)
+local function reviveOne(p: Player)
+	if not soloDead[p] or losePending then
+		return
+	end
+	soloDead[p] = nil
+	standUp(p)
+	DeathChoice:FireClient(p, "revive") -- DeathScreen: ปิดจอตาย คืนกล้อง/การควบคุม
+	print("✨ [" .. p.Name .. "] ชุบชีวิต (admin)")
+end
+Players.PlayerRemoving:Connect(function(p)
+	soloDead[p] = nil
+end)
 DeathChoice.OnServerEvent:Connect(function(player, choice: any)
-	if choice == "restart" and losePending and not restartBy then
+	if choice == "restart" and soloDead[player] and not losePending then
+		soloDead[player] = nil
+		DeathChoice:FireClient(player, "restart", player.DisplayName)
+		task.delay(1.2, function()
+			if player.Parent then
+				player:LoadCharacter()
+			end
+		end)
+	elseif choice == "restart" and losePending and not restartBy then
 		restartBy = player.DisplayName
 		DeathChoice:FireAllClients("restart", player.DisplayName)
 		print("🔁 [" .. player.Name .. "] เลือกเริ่มใหม่")
@@ -751,6 +793,16 @@ devDecision.Event:Connect(function(choice: string)
 		incense = 1 -- ทดสอบ: เหลือธูปดอกสุดท้าย
 		refreshIncense()
 		broadcastHUD()
+	elseif string.sub(choice, 1, 5) == "kill:" then
+		local p = Players:GetPlayerByUserId(tonumber(string.sub(choice, 6)) or 0)
+		if p then
+			killOne(p) -- ผู้เล่นคนนี้ตายคนเดียว (แผง admin)
+		end
+	elseif string.sub(choice, 1, 7) == "revive:" then
+		local p = Players:GetPlayerByUserId(tonumber(string.sub(choice, 8)) or 0)
+		if p then
+			reviveOne(p) -- ชุบคนที่ตาย (แผง admin)
+		end
 	elseif choice == "lose" then
 		incense = 0 -- ทดสอบฉากตาย: คันถัดไปจบเกม (หรือทันทีถ้าไม่มีลูกค้า)
 		refreshIncense()
@@ -1121,6 +1173,8 @@ local function pickKind(): string
 	return kind
 end
 
+local GHOST_VANISH_AFTER = 1.0 -- เติมให้ผีแล้ว: ผีหลอกได้กี่วินาทีผี+รถเริ่มจางหาย
+local GHOST_VANISH_FADE = 0.8 -- จางหายในกี่วินาที
 local ENGINE_RANGE = 200 -- เสียงเครื่องยนต์รถลูกค้าได้ยินไกลเท่านี้ (studs)
 local ENGINE_LEAD = 2 -- ได้ยินเสียงเครื่องกี่วินาทีก่อนรถโผล่ที่จุดเกิด
 local function spawnCustomer(kind: string?)
@@ -1260,6 +1314,7 @@ local function spawnCustomer(kind: string?)
 	end
 	v:PivotTo(CFrame.lookAt(start, Vector3.new(stopPoint.Position.X, start.Y, stopPoint.Position.Z)))
 	v.Name = "Customer"
+	CollisionGroups.Set(v, CollisionGroups.NPC) -- ผู้เล่นเดินทะลุได้
 	v.Parent = Workspace
 	if engReady then
 		local engPart = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
@@ -1362,6 +1417,7 @@ local function spawnShelter()
 	v:PivotTo(CFrame.lookAt(start, Vector3.new(stopPoint.Position.X, start.Y, stopPoint.Position.Z)))
 	v.Name = "ShelterVisitor"
 	v:SetAttribute("IsAnomaly", ghost)
+	CollisionGroups.Set(v, CollisionGroups.NPC)
 	v.Parent = Workspace
 	table.insert(shelters, sh)
 	print("☔ คนแวะหลบฝน (" .. (if ghost then "ผี" else "คน") .. ")")
@@ -1481,6 +1537,7 @@ local function roadVehicle(name: string): Model?
 	local start = spawnPoint.Position
 	start = Vector3.new(start.X, groundAt(start), start.Z)
 	v:PivotTo(CFrame.lookAt(start, start + ROAD_DIR))
+	CollisionGroups.Set(v, CollisionGroups.NPC)
 	v.Parent = Workspace
 	return v
 end
@@ -1620,6 +1677,7 @@ local function eventParty()
 		local back = i > 2
 		local tm = Pedestrian.Build({ shirt = teenColors[i], teen = true, dance = pick(if back then backDances else frontDances, usedDances) })
 		tm.Name = "Teen"
+		CollisionGroups.Set(tm, CollisionGroups.NPC)
 		tm.Parent = Workspace
 		local col = if i % 2 == 0 then 2.2 else -2.2
 		local row = math.floor((i - 1) / 2)
@@ -1653,12 +1711,14 @@ local function eventParade()
 	-- นาค (ชุดขาว ร่มทอง) เดินหน้าขบวนท้ายรถ
 	local naga = Pedestrian.Build({ umbrella = true, shirt = Color3.fromRGB(235, 232, 225), pants = Color3.fromRGB(235, 232, 225), umbrellaColor = Color3.fromRGB(210, 170, 50) })
 	naga.Name = "Ordinand"
+	CollisionGroups.Set(naga, CollisionGroups.NPC)
 	naga.Parent = Workspace
 	table.insert(people, { m = naga, offset = CFrame.new(0, 0, len / 2 + 3), dance = false })
 	local colors = { Color3.fromRGB(230, 120, 40), Color3.fromRGB(60, 130, 200), Color3.fromRGB(200, 60, 90), Color3.fromRGB(240, 200, 60), Color3.fromRGB(120, 60, 160) }
 	for i = 1, 10 do
 		local m = Pedestrian.Build({ shirt = colors[(i - 1) % #colors + 1], teen = false, noHelmet = true, dance = "ramwong" })
 		m.Name = "ParadeDancer"
+		CollisionGroups.Set(m, CollisionGroups.NPC)
 		m.Parent = Workspace
 		local col = if i % 2 == 0 then 2.4 else -2.4
 		local row = math.floor((i - 1) / 2)
@@ -2032,6 +2092,19 @@ local function serveCustomer(c: Customer)
 			end
 			TriggerJumpscare:FireAllClients(c.anomaly, v)
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
+			-- หลอกเสร็จ ผีกับรถหายวับไปตรงนั้น (ไม่ขับ/เดินออกไปต่อ): เริ่มจางตอนจอยังโดนผีหลอกเต็มจออยู่
+			task.delay(GHOST_VANISH_AFTER, function()
+				if v.Parent then
+					for _, d in ipairs(v:GetDescendants()) do
+						if d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("Beam") then
+							(d :: any).Enabled = false
+						elseif d:IsA("Sound") then
+							d:Stop()
+						end
+					end
+					Pedestrian.FadeAway(v, GHOST_VANISH_FADE)
+				end
+			end)
 			if incense <= 0 then
 				-- ธูปดอกสุดท้ายดับ: ตายทันทีหลังผีหลอก ไม่ต้องรอลูกค้าพูด/ขี่ออก
 				broadcastHUD()
@@ -2128,14 +2201,21 @@ local function serveCustomer(c: Customer)
 			end
 		end)
 	end
-	if c.kind == "walker" or c.kind == "bicycle" then
+	local servedGhost = ghost and choice == "fuel" -- เติมน้ำมัน/เติมลมให้ผี: หายไปแล้ว (ด้านบน) ไม่ต้องออกจากร้าน
+	if servedGhost then
+		while v.Parent do
+			task.wait(0.1)
+		end
+	elseif c.kind == "walker" or c.kind == "bicycle" then
 		Pedestrian.WalkTo(v, stopPoint.Position - backDir() * 55, if watching then CONFIG.WalkSpeed * 0.7 else CONFIG.WalkSpeed)
 	else
 		local exit = exitPoint.Position
 		driveTo(v, Vector3.new(exit.X, exit.Y, exit.Z), false, if watching then CONFIG.GhostLeaveSpeed else nil)
 	end
 	watching = false
-	if chased and (c.kind == "walker" or c.kind == "bicycle") then
+	if servedGhost then
+		-- หายไปแล้ว
+	elseif chased and (c.kind == "walker" or c.kind == "bicycle") then
 		Pedestrian.FadeAway(v, 1)
 	else
 		v:Destroy()
@@ -2343,7 +2423,8 @@ function CoreLoop.Start()
 				end
 				task.wait(1.2) -- ให้เห็นว่าใครกดเริ่มใหม่
 				losePending = false
-				-- เกิดใหม่ทุกคน (ลุกขึ้น ควบคุมได้อีกครั้ง)
+				-- เกิดใหม่ทุกคน (ลุกขึ้น ควบคุมได้อีกครั้ง) รวมคนที่ตายคนเดียวค้างอยู่
+				table.clear(soloDead)
 				for _, p in ipairs(Players:GetPlayers()) do
 					p:LoadCharacter()
 				end

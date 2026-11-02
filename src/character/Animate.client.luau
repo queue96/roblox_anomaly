@@ -248,7 +248,12 @@ local function eyeFollowHead(eye: Vector3): Vector3
 	return ha:PointToWorldSpace(hb:PointToObjectSpace(CAM_SUBJECT + eye)) - CAM_SUBJECT
 end
 
+-- กล้องออกจากหัวแล้ว (จอตาย: กล้องลอยขึ้นมองร่าง ฯลฯ) = เห็นตัวเองครบ หัว ผม หมวก (ซ่อนเฉพาะตอนกล้องอยู่ที่ตา)
+local OUT_OF_HEAD = 2.5
+local headMarker = char:FindFirstChild("Head") :: BasePart?
 RunService:BindToRenderStep("VillagerBodyVisible", Enum.RenderPriority.Camera.Value + 2, function()
+	local cam = workspace.CurrentCamera
+	local outside = cam ~= nil and headMarker ~= nil and (cam.CFrame.Position - headMarker.Position).Magnitude > OUT_OF_HEAD
 	for i = #bodyParts, 1, -1 do
 		local p = bodyParts[i]
 		if not p:IsDescendantOf(char) then
@@ -256,7 +261,10 @@ RunService:BindToRenderStep("VillagerBodyVisible", Enum.RenderPriority.Camera.Va
 		else
 			-- ของในมือ (Tool เช่นไฟฉาย) ซ่อนบนจอเรา: HUDController วางไฟฉายที่เห็นในมือแทน
 			-- (ไม่ซ่อน = เห็นไฟฉายจริงลอยอยู่อีกอัน ที่จุดเชื่อม VillagerGrip ของเซิร์ฟเวอร์)
-			local want = if hiddenInFpp(p.Name) or p:FindFirstAncestorOfClass("Tool") then 1 else 0
+			local hide = if outside
+				then (p.Name == "HumanoidRootPart" or p.Name == "RootPart" or p.Name == "Head")
+				else (hiddenInFpp(p.Name) or p:FindFirstAncestorOfClass("Tool") ~= nil)
+			local want = if hide then 1 else 0
 			if p.LocalTransparencyModifier ~= want then
 				p.LocalTransparencyModifier = want
 			end
@@ -286,17 +294,28 @@ RunService.Heartbeat:Connect(function(dt)
 	if turnRate > 1.2 then
 		turningUntil = os.clock() + 0.25 -- ก้าวต่ออีกนิดหลังหยุดหัน (ไม่ตัดท่ากลางก้าว)
 	end
-	if hum.Sit or state == Enum.HumanoidStateType.Seated then
+	-- ล้มตาย (Server ยึดตัวไว้นอนคว่ำ): นอนนิ่ง ไม่หายใจ ไม่ก้าว = ท่ายืนเฟรมแรกหยุดค้าง (แขนแนบตัว)
+	--   (ตัวหมุนตอนล้มอย่านับเป็นการหันตัว ไม่งั้นท่าก้าวเล่นระหว่างล้ม)
+	local downed = root ~= nil and root.Anchored
+	if downed then
+		turningUntil = 0
+		setTurnStep(false)
+		setBase("idle", 0)
+		local idle = tracks.idle
+		if idle and idle.TimePosition ~= 0 then
+			idle.TimePosition = 0
+		end
+	elseif hum.Sit or state == Enum.HumanoidStateType.Seated then
 		setBase("sit")
 	elseif state == Enum.HumanoidStateType.Freefall then
 		setBase("fall")
 	elseif speedNow > 0.6 then
 		setBase("walk", math.clamp(speedNow / WALK_CLIP_SPEED, 0.6, 2.4))
 	elseif os.clock() < turningUntil then
-		setBase("idle")
+		setBase("idle", 1)
 		setTurnStep(true) -- ก้าวสั้นๆ ตอนหันตัว (เดินเบาๆ ซ้อนท่ายืน)
 	else
-		setBase("idle")
+		setBase("idle", 1) -- ความเร็ว 1: คืนจากตอนนอนนิ่ง (ความเร็ว 0) หลังชุบ
 		setTurnStep(false)
 	end
 
@@ -305,7 +324,8 @@ RunService.Heartbeat:Connect(function(dt)
 	-- CameraOffset อยู่ในกรอบของตัว: ตาตามหัวที่หัน/เอน (eyeFollowHead)
 	hum:SetAttribute("EyeOffset", eyeFollowHead(if praying then EYE_PRAY else EYE))
 	local flashlight = char:FindFirstChild("FrogFlashlight") ~= nil
+	-- ล้มตาย: ยกเลิกท่าถือ/พนมมือทั้งหมดด้วย (downed ด้านบน)
 	-- พนมมือ = มือว่าง ไม่ถืออะไร
-	setOverlay("pray", praying)
-	setOverlay("hold_flashlight", flashlight and not praying)
+	setOverlay("pray", praying and not downed)
+	setOverlay("hold_flashlight", flashlight and not praying and not downed)
 end)

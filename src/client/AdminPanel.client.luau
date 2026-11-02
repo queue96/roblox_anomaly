@@ -2,6 +2,7 @@
 -- AdminPanel.client.luau
 -- แผง admin (กด F2 เปิด/ปิด) เห็นเฉพาะคนที่ server ติด attribute Admin = true ให้ (ดู server/AdminPanel.server.luau)
 -- ปุ่มเรียกลูกค้า อีเวนต์บนถนน สภาพอากาศ ไฟดับ และผีแต่ละตัว ได้ทันทีไม่ต้องรอสุ่ม
+-- สั่งผู้เล่นตาย (ตัวเองหรือคนอื่นในห้อง ทีละคน) / ทุกคนตาย (แพ้ทั้งร้าน)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -75,7 +76,7 @@ local function start()
 		l.TextXAlignment = Enum.TextXAlignment.Left
 		l.Parent = frame
 	end
-	local function button(text: string, cmd: string)
+	local function button(text: string, cmd: string, parent: GuiObject?)
 		order += 1
 		local b = Instance.new("TextButton")
 		b.LayoutOrder = order
@@ -87,7 +88,7 @@ local function start()
 		b.TextSize = 14
 		b.Text = text
 		b.AutoButtonColor = false
-		b.Parent = frame
+		b.Parent = parent or frame
 		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
 		local st = Instance.new("UIStroke", b)
 		st.Color = C.Line
@@ -119,6 +120,36 @@ local function start()
 	button("ไฟดับ (ต้องไปสตาร์ทเครื่องปั่นไฟ)", "powercut")
 	button("ฝนตก", "rain")
 	button("ฟ้าใส", "clear")
+	label("ผู้เล่น (สั่งตาย / ชุบ)")
+	-- ปุ่มต่อผู้เล่นในห้อง (ตัวเอง + คนอื่น) สร้างใหม่ทุกครั้งที่มีคนเข้า/ออก: ตายคนเดียว ร้านเล่นต่อ / ชุบคนที่ตาย
+	order += 1
+	local playersBox = Instance.new("Frame")
+	playersBox.LayoutOrder = order
+	playersBox.Size = UDim2.new(1, 0, 0, 0)
+	playersBox.AutomaticSize = Enum.AutomaticSize.Y
+	playersBox.BackgroundTransparency = 1
+	playersBox.Parent = frame
+	local pl = Instance.new("UIListLayout", playersBox)
+	pl.Padding = UDim.new(0, 4)
+	pl.SortOrder = Enum.SortOrder.LayoutOrder
+	local function refreshPlayers()
+		for _, c in ipairs(playersBox:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c:Destroy()
+			end
+		end
+		for _, p in ipairs(Players:GetPlayers()) do
+			local who = p.DisplayName .. (if p == player then " (ฉัน)" else "")
+			button("ตาย: " .. who, "kill:" .. p.UserId, playersBox)
+			button("ชุบ: " .. who, "revive:" .. p.UserId, playersBox)
+		end
+	end
+	refreshPlayers()
+	Players.PlayerAdded:Connect(refreshPlayers)
+	Players.PlayerRemoving:Connect(function()
+		task.defer(refreshPlayers)
+	end)
+	button("ทุกคนตาย (แพ้ทั้งร้าน)", "lose")
 	label("ผี (ลูกค้าคันถัดไป)")
 	local ok, keys = pcall(function()
 		return HttpService:JSONDecode(ReplicatedStorage:GetAttribute("AdminAnomalies") or "[]")

@@ -4,6 +4,7 @@
 -- 3) ตอนวาร์ปข้าม Place (Lobby <-> Pump Lot): แสดงหน้าจอคั่นภาพ Key Art ระดับมืออาชีพผ่าน TeleportService:SetTeleportGui
 
 local ContentProvider = game:GetService("ContentProvider")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,6 +26,7 @@ local LOBBY_PLACE_ID = 70980777393906
 local GAME_SPLASH_MIN_SECONDS = 1.2
 local INTRO_MUSIC_ID = "rbxassetid://112002298210648" -- เพลงเปิดตอนโหลดเข้าแมพปั๊ม (เจ้าของเกมอัปโหลด)
 local INTRO_MUSIC_VOLUME = 0.5
+local INTRO_FADE = 4 -- วินาทีที่เพลงเปิดค่อยๆ เบาลงหลังโหลดเสร็จ
 
 local FONT_TITLE = Font.new("rbxasset://fonts/families/Srisakdi.json", Enum.FontWeight.Bold)
 local FONT_BODY = Font.new("rbxasset://fonts/families/Sarabun.json", Enum.FontWeight.Regular)
@@ -139,7 +141,9 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	-- ส่วนหัวด้านบนซ้าย (ชื่อเกม + สถานที่)
 	local headerBox = Instance.new("Frame")
 	headerBox.Name = "HeaderBox"
-	headerBox.Position = UDim2.new(0, 48, 0, 42)
+	-- ใต้แถบปุ่มของ Roblox มุมซ้ายบน (โลโก้ เมนู แชต ไมค์ ~58px): จอนี้ IgnoreGuiInset เต็มจอ หัวข้อเดิมที่ y 42 โดนปุ่มบัง
+	local topInset = math.max(GuiService:GetGuiInset().Y, 58)
+	headerBox.Position = UDim2.new(0, 48, 0, topInset + 22)
 	headerBox.Size = UDim2.new(1, -96, 0, 110)
 	headerBox.BackgroundTransparency = 1
 	headerBox.Parent = root
@@ -442,20 +446,39 @@ task.spawn(function()
 	resetGuiOpacity()
 
 	local inLobby = isLobbyPlace()
+	local intro: Sound? = nil
 	if not inLobby then
-		-- เพลงเปิดตอนโหลดเข้าแมพปั๊ม (~40 วิ): เล่นครั้งเดียวจนจบ ไม่ตัดตอนโหลดเสร็จ
-		-- เสียงบรรยากาศในเกม (จิ้งหรีด ลม ...) ขึ้นตามปกติซ้อนไปด้วยเลย / อยู่กลุ่ม Music (ปรับได้ในหน้าตั้งค่า)
-		local intro = Instance.new("Sound")
-		intro.Name = "IntroMusic"
-		intro.SoundId = INTRO_MUSIC_ID
-		intro.Volume = INTRO_MUSIC_VOLUME
-		intro.Looped = false
-		intro:SetAttribute("SoundCategory", "Music")
-		intro.Parent = SoundService
-		intro:Play()
-		intro.Ended:Once(function()
-			intro:Destroy()
+		-- เพลงเปิดตอนโหลดเข้าแมพปั๊ม (~48 วิ): ยังโหลดไม่เสร็จ (เน็ตช้า) = เล่นวนไปเรื่อยๆ
+		-- โหลดเสร็จ = ค่อยๆ เบาลงจนเงียบ (ไม่ต้องรอจบเพลง) / จบเพลงพอดีตอนนั้นก็จบไปเลย (endIntro ด้านล่าง)
+		-- อยู่กลุ่ม Music (ปรับได้ในหน้าตั้งค่า)
+		local s = Instance.new("Sound")
+		s.Name = "IntroMusic"
+		s.SoundId = INTRO_MUSIC_ID
+		s.Volume = INTRO_MUSIC_VOLUME
+		s.Looped = true
+		s:SetAttribute("SoundCategory", "Music")
+		s.Parent = SoundService
+		s:Play()
+		intro = s
+	end
+	-- โหลดเสร็จ: เลิกวน แล้วค่อยๆ เบาลง INTRO_FADE วินาที (ระหว่างนั้นเพลงจบเองก็หยุดเลย)
+	local function endIntro()
+		local s = intro
+		if not s then
+			return
+		end
+		intro = nil
+		s.Looped = false
+		s.Ended:Once(function()
+			s:Destroy()
 		end)
+		local fade = TweenService:Create(s, TweenInfo.new(INTRO_FADE, Enum.EasingStyle.Sine), { Volume = 0 })
+		fade.Completed:Once(function()
+			if s.Parent then
+				s:Destroy()
+			end
+		end)
+		fade:Play()
 	end
 	ui.title.Text = tr("ปั๊มหลอดท้ายทุ่ง", "MIDNIGHT RURAL GAS & TIRE")
 	ui.badge.Text = if inLobby
@@ -587,6 +610,7 @@ task.spawn(function()
 		end
 	end
 
+	task.spawn(endIntro) -- แยก thread: เพลงพังอะไรก็ไม่ทำให้หน้าโหลดค้าง
 	fadeOutGui(0.55)
 end)
 

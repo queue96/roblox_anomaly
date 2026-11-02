@@ -217,6 +217,30 @@ local RADIO_VOLUME = { music = 0.35 * RADIO_GAIN, chant = 0.52 * RADIO_GAIN, sta
 local radioMusic = radioSound("RadioMusic", SOUNDS.RadioMusic, RADIO_VOLUME.music, true)
 local radioChant = radioSound("MonkChant", SOUNDS.MonkChant, RADIO_VOLUME.chant, true)
 local radioStatic = radioSound("RadioStatic", SOUNDS.RadioStatic, RADIO_VOLUME.static, false)
+-- เสียงแปลกๆ ที่สุ่มดังออกมาจากวิทยุเอง (เจ้าของเกมอัปโหลด) ทุก RADIO_FX_EVERY วินาที โอกาส RADIO_FX_CHANCE
+-- ดังแม้วิทยุปิดอยู่ (น่าขนลุก) เว้นตอนผีวิทยุสวดอยู่ / ความดัง 0.5 / ซ่าแตกเหมือนลำโพงวิทยุ
+local RADIO_FX_ID = "rbxassetid://127709670953007"
+local RADIO_FX_VOLUME = 0.5
+local RADIO_FX_EVERY = { 70, 150 }
+local RADIO_FX_CHANCE = 0.4
+local radioFx = radioSound("RadioRandomFx", RADIO_FX_ID, RADIO_FX_VOLUME, false)
+if radioFx then
+	local eq = Instance.new("EqualizerSoundEffect")
+	eq.LowGain = -12
+	eq.MidGain = 6
+	eq.HighGain = -8
+	eq.Parent = radioFx
+	task.spawn(function()
+		while true do
+			task.wait(math.random(RADIO_FX_EVERY[1], RADIO_FX_EVERY[2]))
+			local chanting = radioChant ~= nil and radioChant.IsPlaying
+			if not chanting and not radioFx.IsPlaying and math.random() < RADIO_FX_CHANCE then
+				radioFx.TimePosition = 0
+				radioFx:Play()
+			end
+		end
+	end)
+end
 if radioMusic then
 	local eq = Instance.new("EqualizerSoundEffect") -- ตัดเสียงเบสออกให้เหมือนลำโพงวิทยุสังกะสีแตกๆ
 	eq.LowGain = -20
@@ -705,6 +729,9 @@ local AMBIENT = {
 	--    ดังจากหลังแนวเขารอบทุ่ง (HILL_SPOTS) ได้ยินไกลกว่าเสียงอื่น (minDist/maxDist) ตัดเสียงแหลมให้อู้อี้เหมือนลอดเขามา
 	--    (ก่อนหน้า: 748228812 หอนยาวรำคาญ -> ProSoundEffects coyote 9113956884 / 9113952977)
 	{ name = "DogHowl", id = "rbxassetid://93714483057730", weight = 3, volume = 0.42, hill = true, minDist = 90, maxDist = 480, highGain = -14, speed = 1, fromStart = true },
+	-- เสียงเอฟเฟกต์หลอนที่เจ้าของเกมอัปโหลด (~28 วิ) สุ่มดังจากทุ่งไกลๆ ระหว่างเกม เล่นจนจบ
+	--   ความดังจริง 0.5 (volume x AMBIENT_SCALE: 0.77 x 0.65)
+	{ name = "EerieFx", id = "rbxassetid://116827997071173", weight = 2, volume = 0.5 / 0.65, fromStart = true },
 	-- 2. ลมหนาวพัดวูบผ่านยอดไม้/ใบกล้วยเสียดสีกัน (Leaves Rustle Wind Blowing Through Trees 1 & 2)
 	{ name = "WindLeaves1", id = "rbxassetid://9116258071", weight = 3, volume = 0.65, near = true, segment = 5.5, fade = true },
 	{ name = "WindLeaves2", id = "rbxassetid://9116258282", weight = 2, volume = 0.60, near = true, segment = 5.0, fade = true },
