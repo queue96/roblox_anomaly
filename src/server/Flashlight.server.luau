@@ -1,10 +1,15 @@
 -- Flashlight.server.luau
 -- Phase 4: ไฟฉายกบ (StarterPack.FrogFlashlight) หยิบขึ้นมาถือแล้วสว่างทันที (ไม่ต้องคลิกเปิด/ปิด)
+-- ถ่านไฟฉาย: player attribute "Battery" (0-1) หมดลงตอนถือไฟฉายอยู่ ชาร์จคืนช้าๆ ตอนเก็บ (เปิดค้างตลอดไม่ได้)
+--   หมด = ไฟดับเองแม้ถืออยู่ (tool attribute On = false) / ใกล้หมด HUD กะพริบไฟ (HUDController)
 
 local Players = game:GetService("Players")
 local StarterPack = game:GetService("StarterPack")
 
 local TOOL_NAME = "FrogFlashlight"
+local RunService = game:GetService("RunService")
+local DRAIN_TIME = 100 -- วินาทีที่ถ่านเต็มก้อนเปิดได้
+local RECHARGE_TIME = 140 -- วินาทีที่เก็บไว้จนถ่านกลับมาเต็ม
 
 local hooked: { [Tool]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -32,6 +37,39 @@ local function setOn(tool: Tool, on: boolean)
 	tool:SetAttribute("On", on)
 end
 
+-- ตัวชาวบ้าน (มี RootPart, ไม่มีแขน RightHand): Roblox ไม่เชื่อม Handle ให้ -> ไฟฉายร่วงลงพื้น
+-- เชื่อม Handle กับ HumanoidRootPart ไว้ที่มือซ้ายตามท่าถือไฟฉาย; แต่ละเครื่องขยับ C0 ให้ตรงกระดูกมือจริงทุกเฟรม
+-- (client/HeadTurnOthers สำหรับคนอื่น; ตัวเราเองซ่อนชิ้นนี้ ใช้ไฟฉายของ HUDController แทน)
+local GRIP_NAME = "VillagerGrip"
+local GRIP_REST = CFrame.new(-0.85, 1.25, -2.0) -- มือซ้ายในกรอบ HumanoidRootPart (ท่าถือไฟฉาย มองตรง)
+local function gripVillager(tool: Tool, char: Model?)
+	local handle = tool:FindFirstChild("Handle") :: BasePart?
+	if not handle then
+		return
+	end
+	local old = handle:FindFirstChild(GRIP_NAME)
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (char and root and char:FindFirstChild("RootPart")) then
+		if old then
+			old:Destroy()
+		end
+		return
+	end
+	for _, d in ipairs(tool:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Massless = true
+			d.CanCollide = false
+		end
+	end
+	local w = (old or Instance.new("Weld")) :: Weld
+	w.Name = GRIP_NAME
+	w.Part0 = root
+	w.Part1 = handle
+	w.C0 = GRIP_REST
+	w.C1 = CFrame.new()
+	w.Parent = handle
+end
+
 local function hook(tool: Instance)
 	if not tool:IsA("Tool") or tool.Name ~= TOOL_NAME or hooked[tool] then
 		return
@@ -46,14 +84,16 @@ local function hook(tool: Instance)
 		end
 	end
 	-- หยิบขึ้นมาถือ (อยู่ใน Character) = สว่างทันที, เก็บเข้ากระเป๋า = ปิดไฟ
-	local isEquipped = tool.Parent ~= nil and tool.Parent:IsA("Model")
-	setOn(tool, isEquipped)
-	tool.Equipped:Connect(function()
-		setOn(tool, true)
-	end)
-	tool.Unequipped:Connect(function()
-		setOn(tool, false)
-	end)
+	-- ดูจากที่อยู่ของ tool ไม่ใช่ tool.Equipped: ตัวผู้เล่นชาวบ้านไม่มีแขน RightHand ให้ Roblox จับ tool -> Equipped ไม่เกิด
+	local function update()
+		local char = tool.Parent
+		local inHand = char ~= nil and char:IsA("Model") and char:FindFirstChildOfClass("Humanoid") ~= nil
+		local p = if inHand then Players:GetPlayerFromCharacter(char) else nil
+		setOn(tool, inHand and (not p or (p:GetAttribute("Battery") or 1) > 0))
+		gripVillager(tool, if inHand then char :: Model else nil)
+	end
+	update()
+	tool:GetPropertyChangedSignal("Parent"):Connect(update)
 end
 
 local starterTool = StarterPack:FindFirstChild(TOOL_NAME)
@@ -88,3 +128,33 @@ Players.PlayerAdded:Connect(onPlayer)
 for _, p in ipairs(Players:GetPlayers()) do
 	task.spawn(onPlayer, p)
 end
+
+-- ---------------------------------------------------------------- ถ่าน
+local acc = 0
+RunService.Heartbeat:Connect(function(dt)
+	acc += dt
+	if acc < 0.2 then
+		return
+	end
+	local step = acc
+	acc = 0
+	for _, p in ipairs(Players:GetPlayers()) do
+		local b = p:GetAttribute("Battery")
+		if type(b) ~= "number" then
+			b = 1
+		end
+		local char = p.Character
+		local tool = char and char:FindFirstChild(TOOL_NAME)
+		if tool and tool:IsA("Tool") then
+			b = math.max(0, b - step / DRAIN_TIME)
+			if b <= 0 and tool:GetAttribute("On") then
+				setOn(tool, false) -- ถ่านหมด
+			end
+		else
+			b = math.min(1, b + step / RECHARGE_TIME)
+		end
+		if math.abs((p:GetAttribute("Battery") or -1) - b) > 0.001 then
+			p:SetAttribute("Battery", b)
+		end
+	end
+end)

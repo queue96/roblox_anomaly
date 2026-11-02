@@ -217,9 +217,9 @@ local function ensureSign(pad: BasePart): TextLabel
 		t.Name = "Text"
 		t.Size = UDim2.fromScale(1, 1)
 		t.BackgroundTransparency = 1
-		t.TextColor3 = Color3.fromRGB(235, 220, 200)
+		t.TextColor3 = Color3.fromRGB(236, 228, 208) -- ครีม + ฟอนต์พิมพ์ดีดเก่า ชุดเดียวกับ HUD ในเกม
 		t.TextStrokeTransparency = 0.3
-		t.Font = Enum.Font.GothamMedium
+		t.FontFace = Font.fromEnum(Enum.Font.SpecialElite)
 		t.TextScaled = true
 		t.Parent = g
 		g.Parent = pad
@@ -229,7 +229,11 @@ local function ensureSign(pad: BasePart): TextLabel
 		gui.StudsOffset = Vector3.zero
 		gui.StudsOffsetWorldSpace = Vector3.zero
 	end
-	return (gui :: BillboardGui):FindFirstChild("Text") :: TextLabel
+	local label = (gui :: BillboardGui):FindFirstChild("Text") :: TextLabel
+	-- ป้ายเก่าที่สร้างไว้ในไฟล์ place แล้ว: ปรับเป็นธีมเดียวกันด้วย
+	label.FontFace = Font.fromEnum(Enum.Font.SpecialElite)
+	label.TextColor3 = Color3.fromRGB(236, 228, 208)
+	return label
 end
 
 local function members(room: Room): { number }
@@ -579,4 +583,6 @@ task.spawn(function()
 	end
 end)
 
+-- หน้าโหลดฝั่งผู้เล่นรอค่านี้ (LoadingScreen.client): ฉาก lobby และระบบห้องพร้อมแล้ว
+ReplicatedStorage:SetAttribute("SceneReady", true)
 print(("✅ [Lobby] Server พร้อม | ปลายทาง PlaceId %d | Studio = %s"):format(GAME_PLACE_ID, tostring(IS_STUDIO)))

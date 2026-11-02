@@ -8,6 +8,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -34,6 +35,9 @@ end
 localPlayer.CharacterAdded:Connect(lockJumpOnCharacter)
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
+local HeadTurn = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HeadTurn")) :: any
+-- กลาง Handle อยู่หน้ารูกำมือเท่านี้ (ตามแนวกระบอก): ไฟฉายยาว 1.35 มือจับท้ายกระบอก หัวไฟยื่นออกไปข้างหน้า
+local FLASHLIGHT_GRIP_BACK = 0.3
 local function lang(): string
 	return LanguageModule.Normalize(localPlayer:GetAttribute("Lang") :: string?)
 end
@@ -57,7 +61,7 @@ local C = {
 	Ink = Color3.fromRGB(8, 7, 6), -- ดำอมน้ำตาล
 	Bar = Color3.fromRGB(58, 54, 46), -- แถบหัวข้อเทาหม่น
 	Cream = Color3.fromRGB(236, 228, 208), -- ตัวหนังสือครีม
-	Dim = Color3.fromRGB(165, 156, 136),
+	Dim = Color3.fromRGB(196, 188, 168), -- ตัวหนังสือรอง (เดิม 165,156,136 จางเกินบนจอมืด)
 	Blood = Color3.fromRGB(150, 18, 16),
 	BloodLit = Color3.fromRGB(205, 36, 28),
 	Ember = Color3.fromRGB(230, 120, 50),
@@ -491,6 +495,10 @@ local slotLabel = new("TextLabel", {
 	Text = "ไฟฉาย",
 	LayoutOrder = 2,
 }, flashlightSlot)
+-- ถ่านไฟฉาย (player attribute Battery จาก Flashlight.server)
+local batteryBg = new("Frame", { Size = UDim2.new(0, 34, 0, 8), BackgroundColor3 = C.Ink, BorderSizePixel = 0, LayoutOrder = 3 }, flashlightSlot)
+new("UIStroke", { Color = Color3.fromRGB(70, 64, 54), Thickness = 1 }, batteryBg)
+local batteryFill = new("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = C.Cream, BorderSizePixel = 0 }, batteryBg)
 
 local function findFlashlight(): (Tool?, boolean)
 	local char = localPlayer.Character
@@ -672,6 +680,9 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		return
 	end
 
+	-- ถ่านหมด: server ปิดไฟ (tool attribute On = false) ถือไว้ก็ไม่สว่าง
+	local battery = localPlayer:GetAttribute("Battery")
+	local lightOn = tool ~= nil and tool:GetAttribute("On") ~= false and (type(battery) ~= "number" or battery > 0)
 	if isEquipped and tool then
 		rebuildCameraFlashlightView(tool)
 		local handle = tool:FindFirstChild("Handle") :: BasePart?
@@ -686,7 +697,17 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		local camOff = if hum then hum.CameraOffset else Vector3.zero
 		local handPos = (cam.CFrame * CFrame.new(0.58 - camOff.X * 0.35, -0.46 + camOff.Y * 0.45, -1.05)).Position
+		-- ตัวผู้เล่นชาวบ้าน: ไฟฉายอยู่ในมือซ้ายของตัวละครจริง (ท่า hold_flashlight) ไม่ลอยอยู่ข้างกล้อง
+		-- แขนซ้ายชี้รูกำมือไปตามสายตาอยู่แล้ว (shared/HeadTurn) -> กระบอกไฟฉายลอดรูกำมือ จับท้ายกระบอก หัวไฟอยู่หน้ามือ
 		local handleCF = CFrame.lookAt(handPos, aimPoint)
+		if char and char:FindFirstChild("RootPart") then
+			local center, axis = HeadTurn.grip(char, "L")
+			if center and axis then
+				axis = -axis -- จับจากด้านบน: หัวไฟโผล่ทางฝั่งนิ้วก้อย (shared/HeadTurn)
+				local pos = center + axis * FLASHLIGHT_GRIP_BACK
+				handleCF = CFrame.lookAt(pos, pos + axis)
+			end
+		end
 		for _, item in ipairs(camViewParts) do
 			item.part.CFrame = handleCF * item.relCF
 		end
@@ -699,9 +720,12 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		if not camDustEmitter.Enabled then
 			camDustEmitter.Enabled = true
 		end
-		if not camSpotLight.Enabled then
-			camSpotLight.Enabled = true
-			camCloseLight.Enabled = true
+		-- ใกล้หมด (ต่ำกว่า 15%) ไฟกะพริบถี่ขึ้นเรื่อยๆ
+		local flick = type(battery) == "number" and battery < 0.15 and math.random() < (0.15 - battery) * 2.5
+		local want = lightOn and not flick
+		if camSpotLight.Enabled ~= want then
+			camSpotLight.Enabled = want
+			camCloseLight.Enabled = want
 		end
 	else
 		setCameraViewVisible(false)
@@ -731,6 +755,10 @@ local function updateFlashlightSlot()
 		slotLabel.TextColor3 = if isEquipped then C.Cream else C.Dim
 		slotKeyBadge.TextColor3 = if isEquipped then C.Cream else C.Dim
 	end
+	local b = localPlayer:GetAttribute("Battery")
+	b = if type(b) == "number" then b else 1
+	batteryFill.Size = UDim2.new(b, 0, 1, 0)
+	batteryFill.BackgroundColor3 = if b < 0.15 then C.BloodLit elseif b < 0.35 then C.Ember else C.Cream
 	updateCameraFlashlight(tool, isEquipped)
 end
 
@@ -1047,6 +1075,7 @@ end
 
 local function openMinigame(stationType: string)
 	activeMGType = stationType
+	mgFrame:SetAttribute("Station", stationType) -- VillagerAnimate: ท่าเติมน้ำมัน / เติมลม
 	mgOpenedAt = os.clock()
 	mgDone = false
 	mgHolding = false
@@ -1423,17 +1452,27 @@ local PROMPTS = {
 	OpenShopPrompt = { "OpenShop", "ShutterRope" },
 	DieselFuelPrompt = { "FillDiesel", "DieselPump" },
 	AirPumpPrompt = { "PumpAir", "AirCompressorName" },
+	StartGeneratorPrompt = { "StartGenerator", "GeneratorName" },
+	-- วิทยุ: ปุ่มเปลี่ยนเปิด/ปิดตาม attribute "RadioOn" ที่เซิร์ฟเวอร์ตั้ง (AnomalyManager)
+	TuneRadioPrompt = { "RadioOn", "RadioName", "RadioOff" },
 }
 local trackedPrompts: { [ProximityPrompt]: boolean } = {}
 local function localizePrompt(p: Instance)
 	local keys = PROMPTS[p.Name]
 	if keys and p:IsA("ProximityPrompt") then
+		if not trackedPrompts[p] and keys[3] then
+			p:GetAttributeChangedSignal("RadioOn"):Connect(function()
+				localizePrompt(p)
+			end)
+		end
 		trackedPrompts[p] = true
 		p.AutoLocalize = false
-		p.ActionText = ui(keys[1])
+		p.ActionText = ui(if keys[3] and p:GetAttribute("RadioOn") then keys[3] else keys[1])
 		p.ObjectText = ui(keys[2])
 	end
 end
+-- ปุ่มที่อยู่นอกโฟลเดอร์ที่สแกน (เครื่องปั่นไฟ วิทยุ ฯลฯ): แปลตอนปุ่มโผล่ขึ้นมา
+ProximityPromptService.PromptShown:Connect(localizePrompt)
 -- สแกนเฉพาะโฟลเดอร์ที่มีปุ่มกดจริง (InteractiveProps และ AirCompressor) แทนการกวาดทั้ง Workspace 55,000+ ชิ้น
 local interactiveProps = workspace:WaitForChild("InteractiveProps", 10)
 if interactiveProps then
@@ -1441,6 +1480,13 @@ if interactiveProps then
 		localizePrompt(d)
 	end
 	interactiveProps.DescendantAdded:Connect(localizePrompt)
+end
+local generatorRoot = workspace:FindFirstChild("Generator")
+if generatorRoot then
+	for _, d in ipairs(generatorRoot:GetDescendants()) do
+		localizePrompt(d)
+	end
+	generatorRoot.DescendantAdded:Connect(localizePrompt)
 end
 local airCompRoot = workspace:FindFirstChild("AirCompressor")
 if airCompRoot then

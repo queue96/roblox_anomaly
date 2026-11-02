@@ -65,7 +65,7 @@ local CONFIG = {
 	WalkerChanceRain = 0.5, -- (ฝนตก) เดินกางร่มมา
 	WalkSpeed = 7,
 	WalkerStartDistance = 55, -- คนเดินโผล่มาห่างตู้ปั๊มเท่านี้ (ตามถนน)
-	RiderUmbrellaChance = 0.8, -- ฝนตก คนขับรถกางร่ม
+	RiderUmbrellaChance = 0, -- ไม่ใช้แล้ว: คนขับไม่กางร่ม (มือจับแฮนด์)
 	MaxShelter = 1, -- คนหลบฝนพร้อมกันได้สูงสุด
 	ShelterGhostChance = 0.3, -- คนหลบฝนเป็นผี (ฝนหยุดแล้วจางหายไป)
 	ShelterTalkEvery = { 16, 26 }, -- คนหลบฝนชวนคุยทุกๆ (เฉพาะตอนไม่มีลูกค้า)
@@ -235,6 +235,7 @@ DeathChoice.OnServerEvent:Connect(function(player, choice: any)
 end)
 
 -- ---------------------------------------------------------------- ปุ่มกด (ProximityPrompt)
+local PROMPT_RANGE = 9 -- วัดถึงกลางชิ้นที่ติดปุ่ม (ตู้ใหญ่): ยืนหน้าตู้ = ราว 5-7
 local function setupPrompt(name: string, rootInstance: Instance, targetPart: BasePart, hold: number, action: string, object: string): ProximityPrompt
 	local existing: { ProximityPrompt } = {}
 	for _, d in ipairs(rootInstance:GetDescendants()) do
@@ -251,8 +252,12 @@ local function setupPrompt(name: string, rootInstance: Instance, targetPart: Bas
 	prompt.HoldDuration = hold
 	prompt.ActionText = action
 	prompt.ObjectText = object
-	prompt.MaxActivationDistance = 14
+	-- ต้องเดินไปถึงหน้าวัตถุ (ไม่กดจากไกล) และหันไปมองมันด้วย (PromptFacing ฝั่ง client ปิดปุ่มเมื่อไม่ได้มอง)
+	prompt.MaxActivationDistance = PROMPT_RANGE
+	-- ไม่ใช้ RequiresLineOfSight: ชิ้นของตู้เอง (กระจก หัวจ่าย) บังจุดกลางตู้ ทำให้กดไม่ได้เลย
 	prompt.RequiresLineOfSight = false
+	prompt:SetAttribute("NeedsFacing", true)
+	prompt:SetAttribute("Range", PROMPT_RANGE)
 	prompt.AutoLocalize = false
 	prompt.Enabled = false
 	return prompt
@@ -303,10 +308,10 @@ airHiss.Volume = 0.8
 airHiss.RollOffMaxDistance = 60
 airHiss.Parent = airBody or pumpBody
 
-local pumpPrompt = setupPrompt("PumpFuelPrompt", gasPump, pumpBody, 0, "Fill Up", "Gas Pump")
+local pumpPrompt = setupPrompt("PumpFuelPrompt", gasPump, pumpBody, 0, "Fill Petrol", "Petrol Pump")
 local dieselPrompt = setupPrompt("DieselFuelPrompt", dieselPump :: Model, dieselBody, 0, "Fill Diesel", "Diesel Pump")
 local airPrompt = setupPrompt("AirPumpPrompt", airCompressor or gasPump, airBody or pumpBody, 0, "Pump Air", "Air Compressor")
-local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, rejectRope, 0.4, "Close Shop!", "Shutter Rope")
+local rejectPrompt = setupPrompt("RejectCustomerPrompt", rejectRope, rejectRope, 0.4, "Close Shop", "Shutter Rope")
 local openPrompt = setupPrompt("OpenShopPrompt", rejectRope, rejectRope, 0.4, "Open Shop", "Shutter Rope") -- ก่อนเริ่มคืน
 
 -- ---------------------------------------------------------------- สถานะเกม
@@ -372,7 +377,9 @@ end
 -- ---------------------------------------------------------------- ผี (Phase 4: อยู่ใน AnomalyManager.luau)
 local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
 local Pedestrian = require(script.Parent:WaitForChild("Pedestrian"))
+local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 local Weather = require(script.Parent:WaitForChild("Weather"))
+local Power = require(script.Parent:WaitForChild("Power"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
@@ -431,6 +438,8 @@ local function groundAt(p: Vector3): number
 	return if hit then hit.Position.Y else p.Y
 end
 
+-- ล้อของรถ: แม่แบบเก่า (FrontWheel / RearWheel / SidecarWheel) และรถไทยจาก ThaiVehicleRigs (ทุกชิ้นใน Model "Wheels":
+-- Wheel_FL, Wheel_F, Wheel_RL1 ...) เดิมหาแค่ชื่อแบบเก่า รถไทย (กระบะ เก๋ง ตุ๊กตุ๊ก รถแห่ ฯลฯ) ล้อจึงไม่หมุน
 local function wheelsOf(v: Model): { BasePart }
 	local list = {}
 	for _, n in ipairs({ "FrontWheel", "RearWheel", "SidecarWheel" }) do
@@ -439,7 +448,26 @@ local function wheelsOf(v: Model): { BasePart }
 			table.insert(list, w)
 		end
 	end
+	-- หา "Wheels" ทุกชั้น: จักรยานที่คนเดินเข็นมาอยู่ใต้ตัวคน (PushedBicycle)
+	for _, group in ipairs(v:GetDescendants()) do
+		if group.Name == "Wheels" and group:IsA("Model") then
+			for _, d in ipairs(group:GetDescendants()) do
+				if d:IsA("BasePart") then
+					table.insert(list, d)
+				end
+			end
+		end
+	end
 	return list
+end
+
+-- หมุนล้อตามระยะที่รถเคลื่อนไป step (studs) รอบแกนขวางของรถ / รัศมีของล้อแต่ละวง (ล้อเล็กหมุนเร็วกว่า)
+local function spinWheels(wheels: { BasePart }, right: Vector3, step: number)
+	for _, w in ipairs(wheels) do
+		local r = math.max(w.Size.Y, w.Size.Z) / 2
+		local c = w.Position
+		w.CFrame = CFrame.new(c) * CFrame.fromAxisAngle(right, -step / math.max(r, 0.2)) * (w.CFrame - c)
+	end
 end
 
 -- เลื่อนรถไปยังจุดหมาย (หน้ารถ = -Z ของ pivot) ล้อหมุน รถเกาะพื้นดิน ชะลอตอนใกล้ถึงถ้า brake = true
@@ -470,13 +498,7 @@ local function driveTo(v: Model, target: Vector3, brake: boolean, speedOverride:
 		local nextPos = pos + dir * step
 		nextPos = Vector3.new(nextPos.X, groundAt(nextPos), nextPos.Z)
 		v:PivotTo(CFrame.lookAt(nextPos, nextPos + dir))
-		-- ล้อหมุนรอบแกนขวางของรถ
-		local right = v:GetPivot().RightVector
-		local angle = -step / 1.03
-		for _, w in ipairs(wheels) do
-			local c = w.Position
-			w.CFrame = CFrame.new(c) * CFrame.fromAxisAngle(right, angle) * (w.CFrame - c)
-		end
+		spinWheels(wheels, v:GetPivot().RightVector, step)
 	end)
 	while not done do
 		task.wait()
@@ -636,7 +658,7 @@ local function setServicePrompts(on: boolean)
 	end
 end
 
-local DECIDE_TEXT = { fuel = "⛽ เติมน้ำมันหลอด", diesel = "🛢️ เติมดีเซล", air = "🛞 เติมลม", reject = "🚧 ดึงแผงปิดร้าน!" }
+local DECIDE_TEXT = { fuel = "เติมน้ำมันหลอด", diesel = "เติมดีเซล", air = "เติมลม", reject = "ดึงแผงปิดร้าน!" }
 function CoreLoop.Decide(choice: string, who: string?): boolean
 	if decision or not currentVehicle or gameOver or not servicePromptsOpen then
 		return false
@@ -723,6 +745,8 @@ devDecision.Event:Connect(function(choice: string)
 		AnomalyBook.Reset()
 	elseif choice == "rain" or choice == "clear" then
 		Weather.Set(choice == "rain")
+	elseif choice == "powercut" then
+		Power.Cut() -- ไฟร้านดับ ต้องไปสตาร์ทเครื่องปั่นไฟ
 	elseif choice == "incense1" then
 		incense = 1 -- ทดสอบ: เหลือธูปดอกสุดท้าย
 		refreshIncense()
@@ -993,6 +1017,80 @@ local function seatDriver(m: Model): Model?
 	return drv
 end
 
+-- คนขับแบบกล่องเดิม -> ชาวบ้านแบบใหม่นั่งท่าขับตามประเภทรถ (ถ้ามีแม่แบบและท่า publish แล้ว)
+--   สะโพกวางที่ขอบล่างของ Torso คนขับเดิม (ตรงเบาะพอดี ทั้งมอไซค์ ซาเล้ง รถยนต์ ตุ๊กตุ๊ก)
+--   กระสือยังใช้คนขับเดิม (ชาวบ้านแบบใหม่เป็นผิวชิ้นเดียว ซ่อนขาไม่ได้)
+local function driverClipFor(v: Model): string
+	local n = string.lower(v.Name)
+	if string.find(n, "tuktuk") then
+		return "drive_tuktuk"
+	elseif string.find(n, "bicycle") then
+		return "ride_bicycle"
+	elseif string.find(n, "moto") or string.find(n, "bike") or string.find(n, "saleng") then
+		return "ride_moto"
+	end
+	return "drive_car"
+end
+local function humanizeDriver(v: Model)
+	local old = v:FindFirstChild("DriverNPC") :: Model?
+	if not old or old:GetAttribute("Human") or not HumanNPC.Available() then
+		return
+	end
+	local torso = old:FindFirstChild("Torso") :: BasePart?
+	if not torso then
+		return
+	end
+	local piv = v:GetPivot()
+	local rot = piv - piv.Position
+	local hip = CFrame.new((torso.CFrame * CFrame.new(0, -torso.Size.Y / 2, 0)).Position) * rot
+	local clip0 = driverClipFor(v)
+	if clip0 == "drive_car" then
+		hip = hip * CFrame.new(0, 0, -0.5) -- รถยนต์: นั่งชิดพวงมาลัยขึ้น (แขนเอื้อมถึง)
+	elseif clip0 == "ride_moto" then
+		hip = hip * CFrame.new(0, 0.12, 0.15) -- มอไซค์: นั่งบนเบาะ สูงขึ้น/ถอยหลังนิด ต้นขาไม่จมเข้าไปในตัวถัง
+	end
+	-- มือ/เท้าของคนขับเดิมวางอยู่บนแฮนด์และที่พักเท้าของรถพอดี: ใช้เป็นเป้า IK (+X ในรถ = ขวาของคนขับ)
+	local clip = driverClipFor(v)
+	local targets = {}
+	for _, part in ipairs(old:GetDescendants()) do
+		if part:IsA("BasePart") and (part.Name == "Hand" or part.Name == "LeftFoot" or part.Name == "RightFoot") then
+			local lp = piv:PointToObjectSpace(part.Position)
+			local right = lp.X > 0
+			if part.Name == "Hand" then
+				local key = if right then "handR" else "handL"
+				local hp = lp
+				if clip == "drive_car" then
+					-- รถยนต์: มือคนขับเดิม (ท่าจับแฮนด์มอไซค์) สั้นกว่าพวงมาลัย -> วางบนขอบพวงมาลัยหน้าเบาะ
+					hp = piv:PointToObjectSpace(hip.Position) + Vector3.new(if right then 0.55 else -0.3, 1.6, -1.95)
+				end
+				-- ศอกงอออกข้างและลงล่าง
+				targets[key] = { pos = piv:PointToWorldSpace(hp), pole = piv:PointToWorldSpace(hp + Vector3.new(if right then 1.2 else -1.2, -1.2, 1.0)) }
+			else
+				-- ข้างตามตำแหน่งจริง (เหมือนมือ) ไม่ใช่ชื่อชิ้น: คนขับแบบเก่าตั้งชื่อเท้ากลับข้าง ("RightFoot" อยู่ฝั่ง -X = ซ้าย)
+				-- ใช้ชื่อ = ขาขวาเอื้อมไปเท้าซ้าย ขาไขว้กันทะลุตัวรถ
+				local key = if right then "footR" else "footL"
+				local side = if right then 1 else -1
+				local fp = lp
+				local pole = Vector3.new(0, 2.5, -2.0) -- เข่าชี้ขึ้นไปข้างหน้า
+				if clip == "drive_car" then
+					-- รถยนต์: เท้าคนขับเดิม (ท่าขี่มอไซค์) ต่ำกว่าพื้นรถ ยกขึ้นและยื่นไปหน้าแป้นเหยียบ
+					fp = Vector3.new(lp.X * 0.6, piv:PointToObjectSpace(hip.Position).Y - 1.5, lp.Z - 1.3)
+				elseif clip == "ride_moto" then
+					-- มอไซค์: เท้าบนที่พักเท้าหลังบังลม ชิดตัวรถขึ้นนิด / เข่ากางออกข้าง (ไม่ชี้ตรงไปทะลุบังลมหน้า)
+					fp = Vector3.new(side * math.max(0.6, math.abs(lp.X) * 0.8), lp.Y + 0.1, lp.Z + 0.45)
+					pole = Vector3.new(side * 1.6, 1.4, -0.8)
+				end
+				targets[key] = { pos = piv:PointToWorldSpace(fp), pole = piv:PointToWorldSpace(fp + pole) }
+			end
+		end
+	end
+	-- คนขับรถยนต์ไม่ใส่หมวกทุกชนิด (งอบ/หมวกกันน็อกชนหลังคารถ)
+	HumanNPC.SeatIn(v, hip, clip, {
+		teen = string.find(string.lower(v.Name), "moto") ~= nil and math.random() < 0.6 or nil,
+		noHat = clip == "drive_car" or nil,
+	}, targets)
+end
+
 local function templateOrNil(name: string): Model?
 	local t = templates:FindFirstChild(name)
 	return if t and t:IsA("Model") then t else nil
@@ -1023,6 +1121,8 @@ local function pickKind(): string
 	return kind
 end
 
+local ENGINE_RANGE = 200 -- เสียงเครื่องยนต์รถลูกค้าได้ยินไกลเท่านี้ (studs)
+local ENGINE_LEAD = 2 -- ได้ยินเสียงเครื่องกี่วินาทีก่อนรถโผล่ที่จุดเกิด
 local function spawnCustomer(kind: string?)
 	local raining = Weather.IsRaining()
 	if not kind then
@@ -1066,9 +1166,7 @@ local function spawnCustomer(kind: string?)
 	else
 		v = pickTemplate():Clone()
 		brightenHeadlights(v :: Model)
-		if raining and math.random() < CONFIG.RiderUmbrellaChance then
-			Pedestrian.AddRiderUmbrella(v)
-		end
+		-- คนขับไม่กางร่ม: สองมือจับแฮนด์ (IK ใน humanizeDriver)
 	end
 	local length = if walking then (if k == "bicycle" then 6 else 4) else (v :: Model):GetExtentsSize().Z
 
@@ -1077,6 +1175,11 @@ local function spawnCustomer(kind: string?)
 	if ghost then
 		local anomalyKind = if k == "vehicle" then "vehicle" elseif walking then "walker" else "car"
 		anomaly = if forced then forced else AnomalyManager.RandomFor(anomalyKind, raining)
+	end
+	if not walking and anomaly ~= "Anomaly_Krasue" then
+		humanizeDriver(v :: Model)
+	end
+	if ghost then
 		if AnomalyManager.IsWorld(anomaly :: string) then
 			deferred = anomaly
 		else
@@ -1116,22 +1219,53 @@ local function spawnCustomer(kind: string?)
 	v:SetAttribute("Kind", k)
 	local start = if walking then stopPoint.Position + backDir() * CONFIG.WalkerStartDistance else spawnPoint.Position
 	start = Vector3.new(start.X, groundAt(start), start.Z)
+	-- เสียงเครื่องยนต์รถลูกค้าเดินเบาทุ้มๆ ไม่แสบหู (เล่นเฉพาะเมื่ออัปโหลดไฟล์ .wav เข้า UploadedSounds แล้ว ไม่ใช้เสียงเบิ้ลตัดสำรอง)
+	-- ได้ยินไกล ENGINE_RANGE (จุดเกิดห่างร้าน ~134 studs: ระยะเดิม 70 กว่าจะได้ยินรถก็มาถึงครึ่งทางแล้ว)
+	local engPresetName = if k == "car" then "DieselIdle" else "MotoIdle"
+	local engPreset = SoundBank.Presets[engPresetName]
+	local engReady = false
+	if not walking and engPreset then
+		local _, isCustom = SoundBank.ResolveId(engPreset)
+		engReady = isCustom
+	end
+	if engReady then
+		-- ได้ยินก่อนเห็นรถ: เสียงเครื่องค่อยๆ ดังขึ้นจากถนนไกลออกไป แล่นเข้าหาจุดเกิด ENGINE_LEAD วินาที แล้วรถค่อยโผล่
+		local away = Vector3.new(start.X - stopPoint.Position.X, 0, start.Z - stopPoint.Position.Z).Unit
+		local lead = Instance.new("Part")
+		lead.Name = "ApproachingEngine"
+		lead.Anchored = true
+		lead.CanCollide = false
+		lead.CanQuery = false
+		lead.CanTouch = false
+		lead.Transparency = 1
+		lead.Size = Vector3.one
+		lead.Position = start + away * (CONFIG.DriveSpeed * ENGINE_LEAD) + Vector3.new(0, 2, 0)
+		lead.Parent = Workspace
+		local snd = SoundBank.CreateSound(engPresetName, lead, ENGINE_RANGE)
+		if snd then
+			local vol = snd.Volume
+			snd.Volume = 0
+			snd:Play()
+			TweenService:Create(snd, TweenInfo.new(ENGINE_LEAD * 0.8), { Volume = vol }):Play()
+		end
+		TweenService:Create(lead, TweenInfo.new(ENGINE_LEAD, Enum.EasingStyle.Linear), { Position = start + Vector3.new(0, 2, 0) }):Play()
+		task.wait(ENGINE_LEAD)
+		task.delay(0.3, function()
+			lead:Destroy()
+		end)
+		if gameOver then
+			v:Destroy() -- จบเกมระหว่างรอ: ไม่ต้องให้รถโผล่
+			return
+		end
+	end
 	v:PivotTo(CFrame.lookAt(start, Vector3.new(stopPoint.Position.X, start.Y, stopPoint.Position.Z)))
 	v.Name = "Customer"
 	v.Parent = Workspace
-	-- เสียงเครื่องยนต์รถลูกค้าเดินเบาทุ้มๆ ไม่แสบหู (เล่นเฉพาะเมื่ออัปโหลดไฟล์ .wav เข้า UploadedSounds แล้ว ไม่ใช้เสียงเบิ้ลตัดสำรอง)
-	if not walking then
+	if engReady then
 		local engPart = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
-		local engPresetName = if k == "car" then "DieselIdle" else "MotoIdle"
-		local engPreset = SoundBank.Presets[engPresetName]
-		if engPart and engPreset then
-			local _, isCustom = SoundBank.ResolveId(engPreset)
-			if isCustom then
-				local engSnd = SoundBank.CreateSound(engPresetName, engPart, 70)
-				if engSnd then
-					engSnd:Play()
-				end
-			end
+		local engSnd = engPart and SoundBank.CreateSound(engPresetName, engPart, ENGINE_RANGE)
+		if engSnd then
+			engSnd:Play()
 		end
 	end
 	table.insert(queue, c)
@@ -1342,6 +1476,7 @@ local function roadVehicle(name: string): Model?
 	local v = t:Clone()
 	prepThaiVehicle(v)
 	seatDriver(v)
+	humanizeDriver(v) -- ชื่อแม่แบบยังอยู่ (เลือกท่าขับตามชื่อ) ก่อนเปลี่ยนชื่อเป็น RoadEvent
 	v.Name = "RoadEvent"
 	local start = spawnPoint.Position
 	start = Vector3.new(start.X, groundAt(start), start.Z)
@@ -1377,12 +1512,19 @@ local function followVehicle(v: Model, people: { { m: Model, offset: CFrame, dan
 		for i, pp in ipairs(people) do
 			if pp.m.Parent then
 				local ph = t * 6 + i * 1.3
-				local bob = if pp.dance then math.abs(math.sin(ph)) * 0.5 else 0
-				local sway = if pp.dance then math.sin(ph * 0.5) * 0.35 else 0
+				-- ชาวบ้านแบบใหม่เต้นด้วยท่าจริงอยู่แล้ว: ไม่ต้องเด้งตัว/หมุนตัวทั้งตัว (ลอยจากพื้น, หันไปหาคนข้างๆ)
+				local fake = pp.dance and not HumanNPC.Is(pp.m)
+				local bob = if fake then math.abs(math.sin(ph)) * 0.5 else 0
+				local sway = if fake then math.sin(ph * 0.5) * 0.35 else 0
 				local cf = piv * pp.offset
 				local y = groundAt(cf.Position)
 				pp.m:PivotTo(CFrame.new(cf.Position.X, y + bob, cf.Position.Z) * (cf - cf.Position) * CFrame.Angles(0, sway, 0))
-				Pedestrian.Pose(pp.m, if moving or pp.dance then math.sin(ph) * 0.5 else 0)
+				-- ท่าเต้นของชาวบ้านแบบใหม่เล่นเมื่อค่า ~= 0: อย่าให้ผ่าน 0 (สลับไปท่ายืนชั่วขณะ)
+				local a = if moving or pp.dance then math.sin(ph) * 0.5 else 0
+				if pp.dance and HumanNPC.Is(pp.m) then
+					a = 1
+				end
+				Pedestrian.Pose(pp.m, a)
 			end
 		end
 	end)
@@ -1421,8 +1563,12 @@ local function eventRacers()
 			local from = v:GetPivot()
 			local t0 = os.clock()
 			local dur = 1.4
+			local wheels = wheelsOf(v)
+			local lastK = 0
 			while os.clock() - t0 < dur and v.Parent do
 				local k = (os.clock() - t0) / dur
+				spinWheels(wheels, v:GetPivot().RightVector, 30 * (k - lastK))
+				lastK = k
 				local pos = from.Position + ROAD_DIR * (30 * k)
 				local lift = math.sin(math.min(k * 1.4, 1) * math.pi / 2) * math.rad(25) * (if k > 0.85 then (1 - k) / 0.15 else 1)
 				local y = groundAt(pos)
@@ -1452,11 +1598,6 @@ local function eventParty()
 	local partyTrack = if math.random() < 0.5 then "DanceMusic1_SaiYor" else "DanceMusic2_MorlamEDM"
 	local music = eventSound(root :: Instance, partyTrack, 0.50, true, 170, true)
 	local people = {}
-	-- สาวโคโยตี้ ยืนข้างรถฝั่งร้าน (ยืนเฉยๆ ไม่เต้น)
-	local coyote = Pedestrian.Build({ shirt = Color3.fromRGB(220, 60, 140), pants = Color3.fromRGB(30, 30, 35), teen = true })
-	coyote.Name = "Coyote"
-	coyote.Parent = Workspace
-	table.insert(people, { m = coyote, offset = CFrame.new(5.5, 0, -len * 0.15) * CFrame.Angles(0, math.rad(-90), 0), dance = false })
 	-- วัยรุ่น 4 คนเต้นอยู่ท้ายรถ
 	local teenColors = { Color3.fromRGB(40, 90, 160), Color3.fromRGB(200, 170, 40), Color3.fromRGB(30, 30, 30), Color3.fromRGB(160, 40, 40) }
 	-- ท่าส่ายสะโพก / ย่อต่ำ ให้เฉพาะแถวหลัง (ไม่มีใครยืนข้างหลัง) ทุกคนหันตามรถ เว้นระยะกัน
@@ -1489,7 +1630,7 @@ local function eventParty()
 	driveTo(v, stopAt, true, 14)
 	roadSay("Party_Line", "Name_PartyDriver", 3, v)
 	roadSay("Teen_Line", "Name_Teen", 2.6, people[2] and people[2].m or v)
-	roadSay("Coyote_Line", "Name_Coyote", 3, coyote)
+	roadSay("Coyote_Line", "Name_PartyDriver", 3, v) -- คนในรถทักแทน (ไม่มีคนยืนข้างรถแล้ว)
 	task.wait(6)
 	driveTo(v, exitPos(), false, 12)
 	music:Stop()
@@ -1536,8 +1677,15 @@ local function eventParade()
 	v:Destroy()
 end
 
-local function runRoadEvent(kind: string?)
-	if roadEventRunning or #queue > 0 or #shelters > 0 then
+-- force = เรียกจากแผง admin: มาเลยแม้มีลูกค้ารอคิว/คนหลบฝน (สุ่มเองปกติ: รอให้หน้าร้านว่างก่อน)
+local function runRoadEvent(kind: string?, force: boolean?)
+	if roadEventRunning then
+		if force then
+			warn("[CoreLoop] ขาจรบนถนนยังวิ่งอยู่ (" .. tostring(kind) .. " ต้องรอคันเดิมผ่านไปก่อน)")
+		end
+		return
+	end
+	if not force and (#queue > 0 or #shelters > 0) then
 		return
 	end
 	local raining = Weather.IsRaining()
@@ -1585,7 +1733,7 @@ local function anyShelter(): Shelter?
 end
 
 function devRoadEvent(kind: string)
-	task.spawn(runRoadEvent, kind)
+	task.spawn(runRoadEvent, kind, true)
 end
 
 function devSpawn(kind: string)
@@ -2070,14 +2218,21 @@ local function prayerSummonLoop()
 	local rolled: { [Player]: number } = {} -- สุ่มไปแล้วกับการพนมมือรอบไหน
 	while true do
 		task.wait(0.5)
-		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and not roadEventRunning and summoned == nil
-		if idle and os.clock() - lastSummonAt > CONFIG.PraySummonCooldown then
+		-- ไฟดับ: พนมมือแทนไฟฉาย (ตาทิพย์เห็นในมืด) ผีมาหาถี่และบ่อยกว่าปกติ ไม่ต้องรอร้านว่าง
+		local dark = not Power.IsOn()
+		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and (dark or #queue == 0) and not roadEventRunning and summoned == nil
+		local cooldown = if dark then CONFIG.PraySummonCooldown / 3 else CONFIG.PraySummonCooldown
+		local after = if dark then CONFIG.PraySummonAfter / 2 else CONFIG.PraySummonAfter
+		local chance = if dark then math.min(0.9, CONFIG.PraySummonChance * 2.5) else CONFIG.PraySummonChance
+		if idle and os.clock() - lastSummonAt > cooldown then
 			for _, p in ipairs(Prayer.Praying()) do
 				local started = Prayer.StartedAt(p)
 				local dur = Prayer.Duration(p)
-				if started and dur and dur >= CONFIG.PraySummonAfter and rolled[p] ~= started then
-					rolled[p] = started
-					if math.random() < CONFIG.PraySummonChance then
+				-- ไฟดับ: พนมมือนานขึ้นเรื่อยๆ ก็สุ่มซ้ำได้ (ไม่ใช่ครั้งเดียวต่อการพนมมือ)
+				local key = if started and dark then started + math.floor((dur or 0) / math.max(after, 1)) else started
+				if started and dur and dur >= after and rolled[p] ~= key then
+					rolled[p] = key
+					if math.random() < chance then
 						summonByPrayer(p)
 						break
 					end
@@ -2143,9 +2298,13 @@ function CoreLoop.Start()
 	Weather.Start(function()
 		return remotes:GetAttribute("ShopOpen") == true and not gameOver
 	end)
+	Power.Start(function()
+		return remotes:GetAttribute("ShopOpen") == true and not gameOver
+	end)
 	task.spawn(function()
 		while true do
 			resetGame()
+			Power.Restore() -- คืนใหม่ ไฟติด
 			waitForShopOpen()
 			task.spawn(spawnerLoop)
 			while not gameOver do

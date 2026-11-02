@@ -23,7 +23,7 @@ local SOUNDS = {
 	RadioMusic = "rbxassetid://108772936146894", -- The Old Radio (เพลงวิทยุเก่าๆ)
 	MonkChant = "rbxassetid://118042869785522", -- เสียงสวดมนต์นะโม ตัสสะ ที่นำเข้าใหม่
 	RadioStatic = "rbxassetid://9117159106", -- Old Radio Click/Tuning/Buzz
-	DogHowl = "rbxassetid://748228812", -- Dog Howling
+	DogHowl = "rbxassetid://93714483057730", -- หมาหอน (ไฟล์ที่เจ้าของเกมอัปโหลด)
 }
 
 -- ---------------------------------------------------------------- ของในฉาก
@@ -206,11 +206,14 @@ local function radioSound(name: string, id: string, volume: number, looped: bool
 	snd.Volume = volume
 	snd.Looped = looped
 	snd.RollOffMode = Enum.RollOffMode.InverseTapered
-	snd.RollOffMinDistance = 5
-	snd.RollOffMaxDistance = 35
+	-- ได้ยินไกลขึ้น (เดิม 5/35: เดินห่างร้านนิดเดียวก็เงียบ) แต่เบาลง (RADIO_GAIN)
+	snd.RollOffMinDistance = 8
+	snd.RollOffMaxDistance = 70
 	return snd
 end
-local RADIO_VOLUME = { music = 0.35, chant = 0.52, static = 0.38 }
+-- ความดังรวมของวิทยุ: ลด 30% (ทุกเสียงจากวิทยุ ทั้งค่าเริ่มต้นนี้และความดังของแต่ละสถานี SoundBank.RadioStations)
+local RADIO_GAIN = 0.7
+local RADIO_VOLUME = { music = 0.35 * RADIO_GAIN, chant = 0.52 * RADIO_GAIN, static = 0.38 * RADIO_GAIN }
 local radioMusic = radioSound("RadioMusic", SOUNDS.RadioMusic, RADIO_VOLUME.music, true)
 local radioChant = radioSound("MonkChant", SOUNDS.MonkChant, RADIO_VOLUME.chant, true)
 local radioStatic = radioSound("RadioStatic", SOUNDS.RadioStatic, RADIO_VOLUME.static, false)
@@ -249,7 +252,9 @@ local tunePrompt: ProximityPrompt? = nil
 
 local function updateRadioPromptText()
 	if tunePrompt then
-		tunePrompt.ActionText = if radioUserOn then "ปิดวิทยุ / Turn Off Radio" else "เปิดวิทยุลูกทุ่ง / Turn On Radio"
+		-- ข้อความจริงแต่ละภาษา: HUDController แปลตาม attribute "RadioOn"
+		tunePrompt.ActionText = if radioUserOn then "Turn Off Radio" else "Turn On Radio"
+		tunePrompt:SetAttribute("RadioOn", radioUserOn)
 	end
 end
 
@@ -295,7 +300,7 @@ local function tuneLukThungStation(idx: number?)
 	end
 	local resolvedId = SoundBank.ResolveId(st :: any)
 	radioMusic.SoundId = resolvedId
-	radioMusic.Volume = st.volume
+	radioMusic.Volume = st.volume * RADIO_GAIN
 	radioMusic.PlaybackSpeed = st.speed or 1
 	SoundBank.ApplyWarmEffects(radioMusic, st)
 	if not radioMusic.IsPlaying then
@@ -314,7 +319,7 @@ if radioPart then
 	if not tunePrompt then
 		tunePrompt = Instance.new("ProximityPrompt")
 		tunePrompt.Name = "TuneRadioPrompt"
-		tunePrompt.ObjectText = "วิทยุทรานซิสเตอร์"
+		tunePrompt.ObjectText = "Radio"
 		tunePrompt.KeyboardKeyCode = Enum.KeyCode.R
 		tunePrompt.HoldDuration = 0.2
 		tunePrompt.MaxActivationDistance = 8
@@ -606,6 +611,19 @@ local WALKER_RAIN_ONLY = { Anomaly_NoUmbrella = true }
 -- ชาวบ้านแบบใหม่เป็นผิวชิ้นเดียว ซ่อนแค่ขาไม่ได้ -> กระสือเกิดกับคนขับรถเท่านั้น
 local NOT_HUMAN_WALKER = { Anomaly_Krasue = true }
 
+-- ลูกค้าแบบไหนที่ผีตัวนี้เกิดได้ (ใช้ตอน admin เรียกผีเฉพาะตัว): "vehicle" | "walker"
+function AnomalyManager.KindFor(key: string): string
+	if WALKER_RAIN_ONLY[key] then
+		return "walker"
+	end
+	return "vehicle"
+end
+
+-- ผีตัวนี้ต้องฝนตก (คนเดินมาไม่กางร่ม)
+function AnomalyManager.NeedsRain(key: string): boolean
+	return WALKER_RAIN_ONLY[key] == true
+end
+
 -- สุ่มผีที่เข้ากับลูกค้าแบบนี้ (kind = "vehicle" | "walker")
 function AnomalyManager.RandomFor(kind: string, raining: boolean): string
 	local pool = {}
@@ -683,8 +701,10 @@ end
 -- ---------------------------------------------------------------- บรรยากาศทุ่ง: ระบบเสียงธรรมชาติสุ่มรอบแมพ (Field Recordings จาก ProSoundEffects)
 -- เสียงเล่นฝั่ง Server (ทุกคนได้ยินเหมือนกัน เป็นเสียง 3D จากจุดนั้นจริงๆ)
 local AMBIENT = {
-	-- 1. เสียงหมาหอนแว่วจากทุ่งนาไกลๆ (Dog Howling)
-	{ name = "DogHowl", id = "rbxassetid://748228812", weight = 3, volume = 0.85 },
+	-- 1. เสียงหมาหอนแว่วมาจากหลังเขา (ไฟล์ที่เจ้าของเกมอัปโหลด) เล่นจากต้นคลิปจนจบ ความเร็วเดิม
+	--    ดังจากหลังแนวเขารอบทุ่ง (HILL_SPOTS) ได้ยินไกลกว่าเสียงอื่น (minDist/maxDist) ตัดเสียงแหลมให้อู้อี้เหมือนลอดเขามา
+	--    (ก่อนหน้า: 748228812 หอนยาวรำคาญ -> ProSoundEffects coyote 9113956884 / 9113952977)
+	{ name = "DogHowl", id = "rbxassetid://93714483057730", weight = 3, volume = 0.42, hill = true, minDist = 90, maxDist = 480, highGain = -14, speed = 1, fromStart = true },
 	-- 2. ลมหนาวพัดวูบผ่านยอดไม้/ใบกล้วยเสียดสีกัน (Leaves Rustle Wind Blowing Through Trees 1 & 2)
 	{ name = "WindLeaves1", id = "rbxassetid://9116258071", weight = 3, volume = 0.65, near = true, segment = 5.5, fade = true },
 	{ name = "WindLeaves2", id = "rbxassetid://9116258282", weight = 2, volume = 0.60, near = true, segment = 5.0, fade = true },
@@ -708,6 +728,19 @@ local FAR_SPOTS = {
 	Vector3.new(-80, 4, -60),
 	Vector3.new(30, 4, -90), -- กลางทุ่งหลังหุ่นไล่กา
 	Vector3.new(-40, 4, 40), -- แถวต้นไทร
+}
+-- หลังแนวเขา: เขารอบทุ่งสูง ~25 studs ที่ระยะ 160-200 จากร้าน (ทิศตามถนน ตะวันออก/ตก เป็นที่ราบ ไม่ใช้)
+local HILL_SPOTS = {
+	Vector3.new(0, 4, 260),
+	Vector3.new(130, 4, 225),
+	Vector3.new(225, 4, 130),
+	Vector3.new(225, 4, -130),
+	Vector3.new(130, 4, -225),
+	Vector3.new(0, 4, -260),
+	Vector3.new(-130, 4, -225),
+	Vector3.new(-225, 4, -130),
+	Vector3.new(-225, 4, 130),
+	Vector3.new(-130, 4, 225),
 }
 local NEAR_SPOTS = {
 	Vector3.new(14, 4, 20), -- หลังร้าน
@@ -739,13 +772,13 @@ function AnomalyManager.StartAmbience()
 		snd.Volume = a.volume * AMBIENT_SCALE
 		snd.PlaybackSpeed = 1.0
 		snd.RollOffMode = Enum.RollOffMode.Linear
-		snd.RollOffMinDistance = if a.near then 12 else 65
-		snd.RollOffMaxDistance = if a.near then 80 else 300
+		snd.RollOffMinDistance = a.minDist or (if a.near then 12 else 65)
+		snd.RollOffMaxDistance = a.maxDist or (if a.near then 80 else 300)
 		local warmEq = Instance.new("EqualizerSoundEffect")
 		warmEq.Name = "WarmAmbientEQ"
 		warmEq.LowGain = 1
 		warmEq.MidGain = 0
-		warmEq.HighGain = -8 -- ตัดย่านแหลมเบาๆ ไม่ให้เสียงยืดหรืออู้อี้
+		warmEq.HighGain = a.highGain or -8 -- ตัดย่านแหลมเบาๆ ไม่ให้เสียงยืดหรืออู้อี้
 		warmEq.Parent = snd
 		snd.Parent = emitter
 		sounds[a.name] = snd
@@ -778,52 +811,48 @@ function AnomalyManager.StartAmbience()
 		return AMBIENT[1]
 	end
 
-	task.spawn(function()
-		-- ตอนเริ่มเกม: หน่วง 25 วินาทีแล้วเปิดด้วยเสียงหมาหอนแว่วจากทุ่งนาทันที
-		task.delay(25, function()
-			local dog = sounds["DogHowl"]
-			if dog then
-				emitter.Position = FAR_SPOTS[math.random(#FAR_SPOTS)]
-				dog.PlaybackSpeed = 0.98
-				dog.TimePosition = 0
-				dog.Volume = 0.85 * AMBIENT_SCALE
-				dog:Play()
+	-- เล่นเสียงหนึ่งจากจุดสุ่ม: segment = เล่นไม่เกินกี่วินาที (สุ่มช่วงกลางคลิป เว้นแต่ fromStart), fade = ค่อยๆ เข้า/ออก
+	local function playAmbient(a)
+		local snd = sounds[a.name]
+		local list = if a.hill then HILL_SPOTS elseif a.near then NEAR_SPOTS else FAR_SPOTS
+		emitter.Position = list[math.random(#list)]
+		local targetVol = a.volume * AMBIENT_SCALE
+		snd.PlaybackSpeed = (a.speed or 0.99) - 0.05 + math.random() * 0.10
+		if a.segment and not a.fromStart and snd.TimeLength > a.segment + 1 then
+			snd.TimePosition = math.random() * (snd.TimeLength - a.segment)
+		else
+			snd.TimePosition = 0
+		end
+		if a.fade then
+			snd.Volume = 0
+			snd:Play()
+			TweenService:Create(snd, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { Volume = targetVol }):Play()
+		else
+			snd.Volume = targetVol
+			snd:Play()
+		end
+		if a.segment then
+			local seg = a.segment
+			if a.fade and seg > 1.5 then
+				task.delay(seg - 1.2, function()
+					TweenService:Create(snd, TweenInfo.new(1.1, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+				end)
 			end
-		end)
+			task.delay(seg, function()
+				snd:Stop()
+			end)
+		end
+	end
 
+	task.spawn(function()
+		-- ตอนเริ่มเกม: หน่วง 25 วินาทีแล้วเปิดด้วยเสียงหมาหอนแว่วจากหลังเขา
+		task.delay(25, function()
+			playAmbient(AMBIENT[1])
+		end)
 		-- สุ่มเสียงธรรมชาติรอบทุ่งทุกๆ 45 วินาที
 		while true do
 			task.wait(45)
-			local a = pickAmbient()
-			local snd = sounds[a.name]
-			local list = if a.near then NEAR_SPOTS else FAR_SPOTS
-			emitter.Position = list[math.random(#list)]
-			local targetVol = a.volume * AMBIENT_SCALE
-			snd.PlaybackSpeed = 0.94 + math.random() * 0.10
-			if a.segment and snd.TimeLength > a.segment + 1 then
-				snd.TimePosition = math.random() * (snd.TimeLength - a.segment)
-			else
-				snd.TimePosition = 0
-			end
-			if a.fade then
-				snd.Volume = 0
-				snd:Play()
-				TweenService:Create(snd, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { Volume = targetVol }):Play()
-			else
-				snd.Volume = targetVol
-				snd:Play()
-			end
-			if a.segment then
-				local seg = a.segment
-				if a.fade and seg > 1.5 then
-					task.delay(seg - 1.2, function()
-						TweenService:Create(snd, TweenInfo.new(1.1, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
-					end)
-				end
-				task.delay(seg, function()
-					snd:Stop()
-				end)
-			end
+			playAmbient(pickAmbient())
 		end
 	end)
 	task.spawn(function()

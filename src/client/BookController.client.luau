@@ -26,11 +26,11 @@ local C = {
 	CardLocked = Color3.fromRGB(12, 11, 10),
 	Bar = Color3.fromRGB(58, 54, 46),
 	Cream = Color3.fromRGB(236, 228, 208),
-	Dim = Color3.fromRGB(150, 142, 124),
+	Dim = Color3.fromRGB(165, 156, 136),
 	Faint = Color3.fromRGB(90, 84, 72),
 	Blood = Color3.fromRGB(150, 18, 16),
 	Ember = Color3.fromRGB(230, 120, 50),
-	Line = Color3.fromRGB(80, 72, 60),
+	Line = Color3.fromRGB(70, 64, 54),
 }
 local FONT_BODY = Font.fromEnum(Enum.Font.SpecialElite)
 
@@ -67,24 +67,32 @@ local gui = new("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, localPlayer:WaitForChild("PlayerGui"))
 
--- ปุ่มสมุด (ซ่อนออกจากมุมขวาบนตามคำขอ)
+-- ปุ่มสมุด: แสดงเฉพาะใน lobby (ในเกมซ่อนไว้ตามคำขอเดิม ไม่ให้รกจอ) — ดูสมุดได้ที่ lobby ก่อนออกกะ
+local LOBBY_PLACE_ID = 70980777393906
+local function isLobby(): boolean
+	if game.PlaceId == LOBBY_PLACE_ID then
+		return true
+	end
+	return game.PlaceId == 0 and workspace:FindFirstChild("TempleLobby") ~= nil
+end
 local bookBtn = new("TextButton", {
 	Name = "BookButton",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -150, 0, 16),
-	Size = UDim2.new(0, 0, 0, 30),
+	Position = UDim2.new(1, -150, 0, 14),
+	Size = UDim2.new(0, 0, 0, 24),
 	AutomaticSize = Enum.AutomaticSize.X,
-	BackgroundColor3 = C.Ink,
-	BackgroundTransparency = 0.35,
+	BackgroundColor3 = Color3.fromRGB(16, 14, 12), -- เหมือนปุ่มตั้งค่า (SettingsController)
+	BackgroundTransparency = 0.25,
 	BorderSizePixel = 0,
 	FontFace = FONT_BODY,
-	TextSize = 17,
-	TextColor3 = C.Cream,
+	TextSize = 13,
+	TextColor3 = C.Dim,
 	AutoButtonColor = false,
-	Visible = false,
+	Visible = isLobby(),
 }, gui)
-new("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, bookBtn)
-new("UIStroke", { Color = C.Line, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bookBtn)
+new("UICorner", { CornerRadius = UDim.new(0, 2) }, bookBtn)
+new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, bookBtn)
+new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.25, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bookBtn)
 
 -- วางให้อยู่ซ้ายปุ่มตั้งค่าเสมอ (ปุ่มตั้งค่ากว้างไม่เท่ากันตามภาษา)
 task.spawn(function()
@@ -95,7 +103,7 @@ task.spawn(function()
 	end
 	local function place()
 		local right = gui.AbsoluteSize.X - sb.AbsolutePosition.X + 10
-		bookBtn.Position = UDim2.new(1, -right, 0, 16)
+		bookBtn.Position = UDim2.new(1, -right, 0, 14)
 	end
 	place()
 	sb:GetPropertyChangedSignal("AbsolutePosition"):Connect(place)
@@ -286,7 +294,8 @@ local function setOpen(open: boolean)
 		hasNew = false
 		refresh()
 	end
-	bookBtn.BackgroundColor3 = if open then C.Blood else C.Ink
+	bookBtn.BackgroundColor3 = if open then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
+	bookBtn.TextColor3 = if open then C.Cream else C.Dim
 end
 bookBtn.Activated:Connect(function()
 	setOpen(not panel.Visible)
@@ -295,10 +304,12 @@ closeBtn.Activated:Connect(function()
 	setOpen(false)
 end)
 bookBtn.MouseEnter:Connect(function()
-	bookBtn.BackgroundColor3 = C.Blood
+	bookBtn.BackgroundColor3 = Color3.fromRGB(48, 22, 20)
+	bookBtn.TextColor3 = C.Cream
 end)
 bookBtn.MouseLeave:Connect(function()
-	bookBtn.BackgroundColor3 = if panel.Visible then C.Blood else C.Ink
+	bookBtn.BackgroundColor3 = if panel.Visible then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
+	bookBtn.TextColor3 = if panel.Visible then C.Cream else C.Dim
 end)
 
 -- ---------------------------------------------------------------- แจ้งเตือนปลดล็อกใหม่
@@ -355,7 +366,7 @@ BookUnlocked.OnClientEvent:Connect(function(key: string)
 			if not hasNew or panel.Visible then
 				break
 			end
-			bookBtn.BackgroundColor3 = C.Ink
+			bookBtn.BackgroundColor3 = Color3.fromRGB(16, 14, 12)
 			task.wait(0.6)
 		end
 	end)

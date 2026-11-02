@@ -125,6 +125,60 @@ SoundBank.Presets = {
 		mid = 0,
 		high = -18, -- ตัดแหลมไม่ให้แสบหู
 	},
+	-- ================= ไฟดับ / เครื่องปั่นไฟ (Power.luau) =================
+	-- ยังใช้เสียงที่มีอยู่ปรับความเร็ว/โทนให้ใกล้เคียง เปลี่ยน id เป็นเสียงจริงได้ภายหลัง
+	PowerOffClunk = {
+		id = "rbxassetid://8109376048", -- คัตเอาต์ตัด: เสียงโลหะกระแทกทุ้มๆ
+		customKey = "PowerOffClunk",
+		volume = 0.5,
+		speed = 0.7,
+		looped = false,
+		low = 6,
+		mid = 0,
+		high = -20,
+	},
+	GeneratorPull = {
+		id = "rbxassetid://9117159106", -- ดึงเชือกสตาร์ท: กลไกหมุนครืด
+		customKey = "GeneratorPull",
+		volume = 0.55,
+		speed = 1.6,
+		looped = false,
+		low = 2,
+		mid = 2,
+		high = -14,
+	},
+	GeneratorRun = {
+		-- เครื่องปั่นไฟเดินเรียบๆ ต่อเนื่อง (Creator Store "engine_generator_loop_02")
+		-- เดิมใช้เสียงท่อมอไซค์ลดความเร็ว (74974322876141): ดังๆ เบาๆ เป็นจังหวะ ไม่เหมือนเครื่องปั่นไฟ
+		id = "rbxassetid://83031465221433",
+		customKey = "GeneratorRun",
+		volume = 0.07, -- เบาลงอีก (0.1 -> 0.07; เดิมสุด 0.32)
+		speed = 1.0,
+		looped = true,
+		low = 3,
+		mid = 0,
+		high = -10,
+	},
+	GeneratorBackfire = {
+		id = "rbxassetid://74974322876141", -- เครื่องสะดุด ปัง! (เล่นพร้อมเสียงไฟช็อตตอนกดพลาด)
+		customKey = "GeneratorBackfire",
+		volume = 0.21, -- 30% ของเดิม (0.7): ดังรวมกับไฟช็อตแล้วแสบหู
+		speed = 1.4,
+		looped = false,
+		low = 8,
+		mid = 2,
+		high = -10,
+	},
+	GeneratorShock = {
+		id = "rbxassetid://112638971195468", -- ไฟช็อตตอนกดพลาด: ประกายไฟฟ้าแตก (Creator Store "Electric sound")
+		customKey = "GeneratorShock",
+		volume = 0.12, -- ดังเกิน: เหลือ 30% (0.4 -> 0.12; แรกสุด 0.8)
+		speed = 1.0,
+		looped = false,
+		low = 0,
+		mid = 2,
+		high = 0,
+	},
 	FuelGlugLoop = {
 		id = "rbxassetid://9117641837", -- เสียงของเหลวไหลลงหลอด/ถัง
 		customKey = "FuelGlugLoop",

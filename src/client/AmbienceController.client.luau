@@ -103,7 +103,8 @@ local vignetteGui = Instance.new("ScreenGui")
 vignetteGui.Name = "AmbienceVignette"
 vignetteGui.IgnoreGuiInset = true
 vignetteGui.ResetOnSpawn = false
-vignetteGui.DisplayOrder = 0
+-- อยู่ใต้ UI ทุกชิ้น: DisplayOrder เท่ากับ PumpHUD (0) แล้วสร้างทีหลัง = ขอบมืดทับ UI ที่มุมจอทั้งหมด (เงิน ปุ่มคีย์ ไฟฉาย ตั้งค่า จางหมด)
+vignetteGui.DisplayOrder = -1
 vignetteGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
 local function createVignetteEdge(name: string, pos: UDim2, anchor: Vector2, size: UDim2, rotation: number): Frame
@@ -894,6 +895,11 @@ local function setupCharacterFootsteps(char: Model)
 			targetOffset = Vector3.new(swayX, swayY, 0)
 		end
 
+		-- ตัวผู้เล่นชาวบ้าน: กล้องอยู่ระดับตา (Humanoid attribute EyeOffset จาก VillagerAnimate)
+		local eye = hum:GetAttribute("EyeOffset")
+		if typeof(eye) == "Vector3" then
+			targetOffset += eye
+		end
 		hum.CameraOffset = hum.CameraOffset:Lerp(targetOffset, math.clamp(dt * 10, 0, 1))
 	end)
 

@@ -23,6 +23,8 @@ local playerGui = player:WaitForChild("PlayerGui")
 local KEY_ART_ID = "rbxassetid://98063047584423"
 local LOBBY_PLACE_ID = 70980777393906
 local GAME_SPLASH_MIN_SECONDS = 1.2
+local INTRO_MUSIC_ID = "rbxassetid://112002298210648" -- เพลงเปิดตอนโหลดเข้าแมพปั๊ม (เจ้าของเกมอัปโหลด)
+local INTRO_MUSIC_VOLUME = 0.5
 
 local FONT_TITLE = Font.new("rbxasset://fonts/families/Srisakdi.json", Enum.FontWeight.Bold)
 local FONT_BODY = Font.new("rbxasset://fonts/families/Sarabun.json", Enum.FontWeight.Regular)
@@ -59,24 +61,24 @@ end
 
 local TIPS = {
 	{
-		th = "💡 คำแนะนำ: กด G เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
-		en = "💡 Tip: Press G to put your hands together in prayer and reveal hidden anomalies.",
+		th = "คำแนะนำ: กด G เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
+		en = "Tip: Press G to put your hands together in prayer and reveal hidden anomalies.",
 	},
 	{
-		th = "💡 คำแนะนำ: หากพบความผิดปกติ ห้ามเติมน้ำมันเด็ดขาด ให้รีบวิ่งไปดึงเชือกปิดแผงสังกะสีหน้าร้าน",
-		en = "💡 Tip: If you spot an anomaly, NEVER refuel them — pull the rope to close the tin shutter.",
+		th = "คำแนะนำ: หากพบความผิดปกติ ห้ามเติมน้ำมันเด็ดขาด ให้รีบวิ่งไปดึงเชือกปิดแผงสังกะสีหน้าร้าน",
+		en = "Tip: If you spot an anomaly, NEVER refuel them — pull the rope to close the tin shutter.",
 	},
 	{
-		th = "💡 คำแนะนำ: ธูป 3 ดอกที่ศาลพระภูมิคือพลังชีวิตของทีม หากเผลอเติมน้ำมันให้ผี ธูปจะดับทีละดอก",
-		en = "💡 Tip: The 3 incense sticks at the spirit house are your team's lives.",
+		th = "คำแนะนำ: ธูป 3 ดอกที่ศาลพระภูมิคือพลังชีวิตของทีม หากเผลอเติมน้ำมันให้ผี ธูปจะดับทีละดอก",
+		en = "Tip: The 3 incense sticks at the spirit house are your team's lives.",
 	},
 	{
-		th = "💡 คำแนะนำ: สังเกตป้ายทะเบียน เสียงวิทยุ เงาในดงกล้วย และระดับน้ำมันในหลอดแก้วให้ดี",
-		en = "💡 Tip: Check license plates, radio static, the banana grove, and the glass fuel cylinder carefully.",
+		th = "คำแนะนำ: สังเกตป้ายทะเบียน เสียงวิทยุ เงาในดงกล้วย และระดับน้ำมันในหลอดแก้วให้ดี",
+		en = "Tip: Check license plates, radio static, the banana grove, and the glass fuel cylinder carefully.",
 	},
 	{
-		th = "💡 คำแนะนำ: เก็บเงินให้ครบ 1,500 บาทก่อนที่ธูปทั้ง 3 ดอกจะดับลงเพื่อเอาชีวิตรอดผ่านคืนนี้",
-		en = "💡 Tip: Earn 1,500 Baht before all 3 incense sticks burn out to survive the night.",
+		th = "คำแนะนำ: เก็บเงินให้ครบ 1,500 บาทก่อนที่ธูปทั้ง 3 ดอกจะดับลงเพื่อเอาชีวิตรอดผ่านคืนนี้",
+		en = "Tip: Earn 1,500 Baht before all 3 incense sticks burn out to survive the night.",
 	},
 }
 
@@ -281,7 +283,7 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	skipBtn.FontFace = FONT_BOLD
 	skipBtn.TextColor3 = C.Cream
 	skipBtn.TextSize = 17
-	skipBtn.Text = "ข้าม (Skip) ⏭"
+	skipBtn.Text = "ข้าม (Skip)"
 	skipBtn.Parent = bottomPanel
 
 	local skipStroke = Instance.new("UIStroke")
@@ -440,31 +442,40 @@ task.spawn(function()
 	resetGuiOpacity()
 
 	local inLobby = isLobbyPlace()
+	if not inLobby then
+		-- เพลงเปิดตอนโหลดเข้าแมพปั๊ม (~40 วิ): เล่นครั้งเดียวจนจบ ไม่ตัดตอนโหลดเสร็จ
+		-- เสียงบรรยากาศในเกม (จิ้งหรีด ลม ...) ขึ้นตามปกติซ้อนไปด้วยเลย / อยู่กลุ่ม Music (ปรับได้ในหน้าตั้งค่า)
+		local intro = Instance.new("Sound")
+		intro.Name = "IntroMusic"
+		intro.SoundId = INTRO_MUSIC_ID
+		intro.Volume = INTRO_MUSIC_VOLUME
+		intro.Looped = false
+		intro:SetAttribute("SoundCategory", "Music")
+		intro.Parent = SoundService
+		intro:Play()
+		intro.Ended:Once(function()
+			intro:Destroy()
+		end)
+	end
 	ui.title.Text = tr("ปั๊มหลอดท้ายทุ่ง", "MIDNIGHT RURAL GAS & TIRE")
 	ui.badge.Text = if inLobby
-		then tr("  🏯 วัดท้ายทุ่ง · LOBBY  ", "  🏯 TEMPLE LOBBY  ")
-		else tr("  ⛽ กะดึกท้ายทุ่ง · NIGHT SHIFT  ", "  ⛽ NIGHT SHIFT  ")
+		then tr("  วัดท้ายทุ่ง · LOBBY  ", "  TEMPLE LOBBY  ")
+		else tr("  กะดึกท้ายทุ่ง · NIGHT SHIFT  ", "  NIGHT SHIFT  ")
 	ui.subtitle.Text = if inLobby
 		then tr("จุดรวมตัวก่อนออกกะดึก · เลือกความยากและสมาชิกทีม", "Gather your crew and choose your difficulty")
 		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost")
 
+	-- ก่อนโหลดภาพพื้นหลัง (รอได้หลายวินาที) อย่าให้เห็นข้อความตั้งต้น "Label" / ปุ่มข้ามในแมพเล่นเกม
+	ui.statusLabel.Text = tr("กำลังโหลด...", "Loading...")
+	setProgressMode(true)
+	setProgress(0.02)
+	ui.skipBtn.Visible = false
 	pcall(function()
 		ContentProvider:PreloadAsync({ ui.bgImage })
 	end)
 
-	if inLobby then
-		-- แมพ Lobby: มีหลอด Progress Bar 0-100% + ปุ่มข้าม
-		setProgressMode(true)
-		ui.skipBtn.Text = tr("ข้าม (Skip) ⏭", "Skip ⏭")
-		setProgress(0.05, tr("กำลังเตรียมฉาก...", "Preparing scene..."))
-
-		if not game:IsLoaded() and not skipped then
-			setProgress(0.12, tr("กำลังซิงค์ฉากจากเซิร์ฟเวอร์...", "Syncing world from server..."))
-			while not game:IsLoaded() and not skipped do
-				task.wait(0.1)
-			end
-		end
-
+	-- โหลดเสียง / mesh / texture / ท่าทาง ทั้งหมดที่อยู่ในฉาก (แถบวิ่งจาก p0 ถึง p1)
+	local function preloadWorld(p0: number, p1: number)
 		local assetsToLoad = {}
 		local seenAssetIds: { [string]: boolean } = {}
 		local function addUniqueAsset(inst: Instance, assetId: string?)
@@ -483,12 +494,13 @@ task.spawn(function()
 					addUniqueAsset(inst, inst.MeshId ~= "" and inst.MeshId or inst.TextureID)
 				elseif inst:IsA("SpecialMesh") then
 					addUniqueAsset(inst, inst.MeshId ~= "" and inst.MeshId or inst.TextureId)
+				elseif inst:IsA("SurfaceAppearance") then
+					addUniqueAsset(inst, inst:GetFullName())
 				elseif inst:IsA("Animation") then
 					addUniqueAsset(inst, inst.AnimationId)
 				end
 			end
 		end
-
 		local total = math.max(1, #assetsToLoad)
 		local BATCH_SIZE = 45
 		for i = 1, #assetsToLoad, BATCH_SIZE do
@@ -497,35 +509,78 @@ task.spawn(function()
 			end
 			local batch = {}
 			local batchEnd = math.min(i + BATCH_SIZE - 1, #assetsToLoad)
-			for j = i, batchEnd do
-				table.insert(batch, assetsToLoad[j])
+			for k = i, batchEnd do
+				table.insert(batch, assetsToLoad[k])
 			end
 			pcall(function()
 				ContentProvider:PreloadAsync(batch)
 			end)
-			local frac = 0.12 + (batchEnd / total) * 0.88
 			setProgress(
-				frac,
-				tr(
-					("กำลังโหลดทรัพยากร... (%d / %d)"):format(batchEnd, total),
-					("Loading resources... (%d / %d)"):format(batchEnd, total)
-				)
+				p0 + (batchEnd / total) * (p1 - p0),
+				tr(("กำลังโหลดทรัพยากร... (%d / %d)"):format(batchEnd, total), ("Loading resources... (%d / %d)"):format(batchEnd, total))
 			)
 			task.wait(0.01)
 		end
+	end
 
-		if not skipped then
-			setProgress(1, tr("โหลดทรัพยากรเสร็จสมบูรณ์ 100%", "Resources loaded 100%"))
-			task.wait(0.15)
+	-- รอเงื่อนไข (มีเวลาสูงสุดกันค้าง)
+	local function waitFor(cond: () -> boolean, timeout: number)
+		local t0 = os.clock()
+		while not cond() and os.clock() - t0 < timeout and not skipped do
+			task.wait(0.1)
 		end
+	end
+
+	if inLobby then
+		-- แมพ Lobby: ปิดหน้าโหลดเมื่อฉากพร้อมจริง (ไม่มีปุ่มข้าม: เคยเข้าไปทั้งที่ฉากยังโหลดไม่เสร็จ)
+		setProgressMode(true)
+		ui.skipBtn.Visible = false
+		setProgress(0.05, tr("กำลังเตรียมฉาก...", "Preparing scene..."))
+		waitFor(function()
+			return game:IsLoaded()
+		end, 120)
+		setProgress(0.12, tr("กำลังซิงค์ฉากจากเซิร์ฟเวอร์...", "Syncing world from server..."))
+		waitFor(function()
+			return ReplicatedStorage:GetAttribute("SceneReady") == true
+		end, 120)
+		preloadWorld(0.15, 0.92)
+		setProgress(0.95, tr("กำลังเตรียมตัวละคร...", "Preparing your character..."))
+		waitFor(function()
+			local c = player.Character
+			return c ~= nil and c:FindFirstChild("HumanoidRootPart") ~= nil
+		end, 30)
+		setProgress(1, tr("พร้อมแล้ว", "Ready"))
+		task.wait(0.3)
 	else
-		-- แมพเล่นเกม (Pump Lot): ไม่มีหลอด Progress Bar โหลดทรัพยากร แสดงเฉพาะหน้าจอภาพค้างไว้อย่างน้อย 3 วินาที
-		setProgressMode(false)
-		ui.statusLabel.Text = tr("กำลังเข้าสู่กะดึกที่ปั๊มหลอดท้ายทุ่ง...", "Entering the midnight shift at the gas shack...")
+		-- แมพเล่นเกม: ปิดหน้าโหลดเมื่อฉากพร้อมจริงเท่านั้น (เคยเข้าไปทั้งที่ไฟร้านยังไม่ติด / โมเดลยังไม่ขึ้น)
+		--   1) game.Loaded  2) server สร้างฉาก + ระบบเกมเสร็จ (SceneReady)  3) โหลดทรัพยากรในฉาก
+		--   4) ตัวละครเกิดแล้ว  5) ไฟร้านติด (หลอดนีออนหน้าร้านเปิด)
+		setProgressMode(true)
+		ui.skipBtn.Visible = false
 		local startTime = os.clock()
-		if not game:IsLoaded() then
-			game.Loaded:Wait()
-		end
+		setProgress(0.04, tr("กำลังเข้าสู่กะดึกที่ปั๊มหลอดท้ายทุ่ง...", "Entering the midnight shift at the gas shack..."))
+		waitFor(function()
+			return game:IsLoaded()
+		end, 120)
+		setProgress(0.12, tr("กำลังเตรียมฉาก...", "Preparing the scene..."))
+		waitFor(function()
+			return ReplicatedStorage:GetAttribute("SceneReady") == true
+		end, 120)
+		preloadWorld(0.15, 0.85)
+		setProgress(0.88, tr("กำลังเตรียมตัวละคร...", "Preparing your character..."))
+		waitFor(function()
+			local c = player.Character
+			return c ~= nil and c:FindFirstChild("HumanoidRootPart") ~= nil
+		end, 30)
+		setProgress(0.94, tr("กำลังเปิดไฟร้าน...", "Turning on the shop lights..."))
+		waitFor(function()
+			local env = Workspace:FindFirstChild("MapEnvironment")
+			local road = env and env:FindFirstChild("DirtRoad")
+			local neon = road and road:FindFirstChild("NeonLightPart")
+			local light = neon and neon:FindFirstChildWhichIsA("Light", true)
+			return light ~= nil and light.Enabled
+		end, 20)
+		setProgress(1, tr("พร้อมแล้ว", "Ready"))
 		local elapsed = os.clock() - startTime
 		if elapsed < GAME_SPLASH_MIN_SECONDS then
 			task.wait(GAME_SPLASH_MIN_SECONDS - elapsed)
@@ -554,14 +609,14 @@ local function showTeleportScreen(opts: { destination: string?, subtitleTH: stri
 	local dest = (opts and opts.destination) or (if isLobbyPlace() then "game" else "lobby")
 
 	if dest == "game" then
-		ui.badge.Text = tr("  🚚 กำลังเดินทางเข้าสู่กะดึก  ", "  🚚 HEADING TO NIGHT SHIFT  ")
+		ui.badge.Text = tr("  กำลังเดินทางเข้าสู่กะดึก  ", "  HEADING TO NIGHT SHIFT  ")
 		ui.title.Text = tr("กำลังเดินทางไปปั๊มหลอดท้ายทุ่ง...", "TRAVELING TO THE GAS SHACK...")
 		ui.subtitle.Text = tr(
 			opts and opts.subtitleTH or "กำลังเตรียมเซิร์ฟเวอร์และส่งสมาชิกในห้องเข้าสู่คืนอาถรรพ์",
 			opts and opts.subtitleEN or "Reserving server and transporting your crew into the night"
 		)
 	else
-		ui.badge.Text = tr("  🏯 กำลังเดินทางกลับวัด  ", "  🏯 RETURNING TO TEMPLE LOBBY  ")
+		ui.badge.Text = tr("  กำลังเดินทางกลับวัด  ", "  RETURNING TO TEMPLE LOBBY  ")
 		ui.title.Text = tr("กำลังเดินทางกลับวัดท้ายทุ่ง (Lobby)...", "RETURNING TO TEMPLE LOBBY...")
 		ui.subtitle.Text = tr(
 			opts and opts.subtitleTH or "กำลังเชื่อมต่อกลับไปยังลานวัดท้ายทุ่ง",

@@ -30,6 +30,24 @@ return {
 		wan_hands_up = 120111047239636,
 		wan_hip_shake = 103216869960969,
 		wan_low_bounce = 89148599673738,
+		-- ท่าซ้อน (ขยับแค่แขน/ตัวบน เล่นทับท่าเดิน/ยืน, Action priority)
+		pray = 104921245691493,
+		hold_umbrella = 83559580599354,
+		hold_flashlight = 96741468634387,
+		carry_gallon = 105063801308289,
+		-- ผู้เล่น
+		jump = 96706447598577,
+		fall = 119644102585370,
+		sit = 97016491508456,
+		fuel_pump = 105824342481209,
+		pump_air = 71805771595701,
+		pull_rope = 76764261672932,
+		pull_start = 103585535082880,
+		-- คนขับ
+		drive_car = 129503151043569,
+		ride_moto = 132408927006595,
+		drive_tuktuk = 134908139865752,
+		ride_bicycle = 135362256541891,
 	}),
 	-- human_female, human_child, human_elder_male, human_elder_female: not published yet
 }

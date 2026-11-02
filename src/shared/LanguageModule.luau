@@ -86,8 +86,8 @@ LanguageModule.Dialogues = {
 	Bicycle_Order_1 = { th = "ยางแบนกลางทาง ขอเติมลมหน่อยนะ เข็นมาตั้งไกล", en = "Got a flat on the way. Could you pump it up? I pushed it all the way here." },
 	Bicycle_Order_2 = { th = "ขอเติมลมยางจักรยานหน่อย พรุ่งนี้ต้องปั่นไปโรงเรียน", en = "Can I get some air in my tire? I ride to school tomorrow." },
 	-- เติมผิดตู้
-	Wrong_NeedDiesel = { th = "เดี๋ยวๆ! รถผมใช้ดีเซลนะ ตู้นั้นมันน้ำมันหลอด!", en = "Wait! My car takes diesel, that's the petrol pump!" },
-	Wrong_NeedPetrol = { th = "นั่นมันดีเซล! รถฉันใช้เบนซินหลอดนะ", en = "That's diesel! I need petrol from the glass pump." },
+	Wrong_NeedDiesel = { th = "เดี๋ยวๆ! รถผมใช้ดีเซลนะ ตู้นั้นมันเบนซิน!", en = "Wait! My car takes diesel, that's the petrol pump!" },
+	Wrong_NeedPetrol = { th = "นั่นมันดีเซล! รถฉันใช้เบนซินนะ", en = "That's diesel! I need petrol from the petrol pump." },
 	Wrong_NeedAir = { th = "ไม่ได้มาเติมน้ำมัน มาเติมลมยางจ้ะ!", en = "I'm not here for fuel, I just need air in my tire!" },
 	Wrong_NeedFuel = { th = "ลมยางยังดีอยู่ เติมน้ำมันให้หน่อยสิ", en = "My tires are fine. I need fuel." },
 	-- ขาจรบนถนน (ไม่ได้มาใช้บริการ)
@@ -242,12 +242,12 @@ LanguageModule.UI = {
 	JumpscareChased = { th = "อย่าตามผีไป!", en = "Never follow a ghost!" },
 	NewNight = { th = "คืนใหม่เริ่มแล้ว... ระวังลูกค้าแปลกๆ", en = "A new night begins... beware of strange customers." },
 	-- ปุ่ม ProximityPrompt (Client เปลี่ยนข้อความเองตามภาษาของผู้เล่น)
-	FillUp = { th = "เติมน้ำมัน", en = "Fill Up" },
-	GasPump = { th = "ตู้ปั๊มหลอด", en = "Gas Pump" },
-	CloseShop = { th = "ปิดร้าน!", en = "Close Shop!" },
+	FillUp = { th = "เติมเบนซิน", en = "Fill Petrol" },
+	GasPump = { th = "ตู้ปั๊มเบนซิน", en = "Petrol Pump" },
+	CloseShop = { th = "ปิดร้าน", en = "Close Shop" },
 	ShutterRope = { th = "เชือกแผงสังกะสี", en = "Shutter Rope" },
 	-- ปุ่มสลับภาษา (แสดงภาษาที่ใช้อยู่)
-	LangButton = { th = "🌐 ไทย", en = "🌐 EN" },
+	LangButton = { th = "ไทย", en = "EN" },
 	-- หน้าตั้งค่า
 	Settings = { th = "ตั้งค่า", en = "Settings" },
 	Language = { th = "ภาษา", en = "Language" },
@@ -285,9 +285,15 @@ LanguageModule.UI = {
 	Reply_20 = { th = "20 บาท", en = "20 Baht" },
 	Reply_30 = { th = "30 บาท", en = "30 Baht" },
 	FillDiesel = { th = "เติมดีเซล", en = "Fill Diesel" },
-	DieselPump = { th = "ตู้ดีเซล", en = "Diesel Pump" },
+	DieselPump = { th = "ตู้ปั๊มดีเซล", en = "Diesel Pump" },
 	PumpAir = { th = "เติมลม", en = "Pump Air" },
 	AirCompressorName = { th = "ถังลม", en = "Air Compressor" },
+	-- เครื่องปั่นไฟ / วิทยุ (ชื่อจุดทุกจุด = ชื่อประเภทของ ไม่ใช่ชื่อเล่น; ปุ่ม = กริยา + ของ)
+	StartGenerator = { th = "สตาร์ทเครื่อง", en = "Start Generator" },
+	GeneratorName = { th = "เครื่องปั่นไฟ", en = "Generator" },
+	RadioOn = { th = "เปิดวิทยุ", en = "Turn On Radio" },
+	RadioOff = { th = "ปิดวิทยุ", en = "Turn Off Radio" },
+	RadioName = { th = "วิทยุ", en = "Radio" },
 	Reply_Hello = { th = "สวัสดี รับอะไรดี", en = "Hi, what can I get you?" },
 	Reply_GreetBoth = { th = "สวัสดีทั้งสองคน", en = "Evening, you two" },
 	-- เปิดร้านก่อนเริ่มคืน
@@ -303,18 +309,18 @@ LanguageModule.UI = {
 	-- จอตาย (แพ้)
 	AskRestart = { th = "เริ่มคืนใหม่ไหม?", en = "Start a new night?" },
 	Restart = { th = "เริ่มใหม่", en = "Restart" },
-	Quit = { th = "🏯 กลับ Lobby", en = "🏯 Back to Lobby" },
+	Quit = { th = "กลับ Lobby", en = "Back to Lobby" },
 	GoingToLobby = { th = "กำลังกลับวัด...", en = "Heading back to the temple..." },
 	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
 	WaitOpen = { th = "ร้านยังปิดอยู่... ไปดึงเชือกเปิดแผงสังกะสีเพื่อเริ่มคืนนี้", en = "The shop is closed... pull the shutter rope to begin the night." },
 	-- มินิเกมเติมน้ำมัน / เติมลม
-	MG_FuelTitle = { th = "⛽ สูบน้ำมันหลอด", en = "⛽ Hand-Crank Petrol" },
-	MG_DieselTitle = { th = "🛢️ สูบน้ำมันดีเซล", en = "🛢️ Hand-Crank Diesel" },
+	MG_FuelTitle = { th = "สูบเบนซิน", en = "Hand-Crank Petrol" },
+	MG_DieselTitle = { th = "สูบดีเซล", en = "Hand-Crank Diesel" },
 	MG_FuelHint = { th = "กด [Space] หรือ [คลิกซ้าย] ค้างเพื่อสูบ\nปล่อยให้ระดับน้ำมันตรงขีดสีทอง", en = "Hold [Space] or [Click] to pump\nRelease inside the gold zone" },
 	MG_FuelBtn = { th = "กดค้างเพื่อสูบ [Space]", en = "Hold to Pump [Space]" },
 	MG_FuelOverflow = { th = "ล้นโหล! สูบใหม่อีกครั้ง", en = "Overflow! Try again" },
 	MG_FuelShort = { th = "ยังไม่ถึงขีด! กดค้างต่อ", en = "Not at the mark yet!" },
-	MG_AirTitle = { th = "🛞 อัดลมยาง", en = "🛞 Inflate Tire" },
+	MG_AirTitle = { th = "อัดลมยาง", en = "Inflate Tire" },
 	MG_AirHint = { th = "กด [Space] หรือ [คลิกซ้าย] ตอนเข็มตรงขีดสีทอง", en = "Press [Space] or [Click] on the gold zone" },
 	MG_AirBtn = { th = "อัดลม! [Space]", en = "Pump Air! [Space]" },
 	MG_AirMiss = { th = "ผิดจังหวะ! รอเข็มวิ่งกลับ", en = "Missed! Wait for needle" },
@@ -324,11 +330,11 @@ LanguageModule.UI = {
 
 -- ป้ายชื่อที่ลอยตามวัตถุในฉาก (ObjectLabels.client) ชื่อสั้น สุภาพ ไม่อธิบาย
 LanguageModule.Labels = {
-	GasPump = { th = "ตู้ปั๊มน้ำมัน", en = "Gas Pump" },
-	DieselPump = { th = "ตู้ดีเซล", en = "Diesel Pump" },
+	GasPump = { th = "ตู้ปั๊มเบนซิน", en = "Petrol Pump" },
+	DieselPump = { th = "ตู้ปั๊มดีเซล", en = "Diesel Pump" },
 	Radio = { th = "วิทยุ", en = "Radio" },
 	CutoutSwitch = { th = "สะพานไฟ", en = "Breaker Switch" },
-	RejectRope = { th = "เชือกแผงปิดร้าน", en = "Shutter Rope" },
+	RejectRope = { th = "เชือกแผงสังกะสี", en = "Shutter Rope" },
 	MoneyTin = { th = "กระป๋องเก็บเงิน", en = "Money Tin" },
 	Generator = { th = "เครื่องปั่นไฟ", en = "Generator" },
 	AirCompressor = { th = "ถังลม", en = "Air Compressor" },

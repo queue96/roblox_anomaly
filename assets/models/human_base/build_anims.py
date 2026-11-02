@@ -111,16 +111,15 @@ def arms_down(P, st, swing_l=0.0, swing_r=0.0, bend_l=12.0, bend_r=12.0, out=0.0
 
 # ---------------------------------------------------------------- clips: fn(P, t (0..1 round the loop), st, s)
 def c_idle(P, t, st, s):
+    """standing still: only the upper body breathes and the head looks about. Hips and legs stay put (the player
+    sees their own legs in first person, and swaying legs looked like the feet sliding)"""
     ph = 2*math.pi*t
     br = math.sin(ph*2)                                     # two breaths per loop
-    P.rot("hips", 0, 0, 1.5*math.sin(ph)); P.lift("hips", -0.004*s*(1 + math.sin(ph)))
-    P.rot("spine", st["lean"]*0.6 + 0.8*br, 0, -1.0*math.sin(ph)); P.rot("chest", st["lean"]*0.4 + 1.2*br)
+    P.rot("spine", st["lean"]*0.6 + 0.8*br, 0, -0.6*math.sin(ph)); P.rot("chest", st["lean"]*0.4 + 1.2*br)
     P.rot("neck", 2 + 0.5*br, 4*math.sin(ph + 1.0)); P.rot("head", -2 + st["lean"]*0.5, 6*math.sin(ph + 1.0), 1.5*math.sin(ph))
     P.both("shoulder", 1.0*br)
     arms_down(P, st, swing_l=2*math.sin(ph), swing_r=2*math.sin(ph + 0.6), bend_l=10 + 2*br, bend_r=10 + 2*br)
-    P.rot("thigh.L", 2 + 1.5*math.sin(ph), 0, 2); P.rot("thigh.R", 2 - 1.5*math.sin(ph), 0, 2)
-    P.both("shin", -3 - 1.5*(1 + math.sin(ph))/2, xr=-3 - 1.5*(1 - math.sin(ph))/2)
-    P.both("foot", 1)
+    P.both("thigh", 2, 0, 2); P.both("shin", -3); P.both("foot", 1)
 
 def gait(P, t, st, s, run, short=1.0):
     """walk / run cycle; short < 1 = small steps (a long tight skirt)"""
@@ -177,7 +176,30 @@ def c_ghost_glide(P, t, st, s): ghost_body(P, t, st, s, 1.0)
 
 
 # ---------------------------------------------------------------- hands
-def hand(P, side, shape, k=1.0):
+# Hands that hold a real object, found the way a hand closes on one (grasp search, Blender): open hand -> the object (a
+# cylinder of its real radius: flashlight barrel 0.155 studs, umbrella handle 0.088) laid across the palm, pushed in
+# until it touches -> each finger's three joints curl together (1 : 1.1 : 0.8), a segment that touches freezes, the tip
+# keeps going -> thumb laid along the object. Left-side convention degrees (hand() mirrors for .R).
+# The game puts the object at GRIP_CENTER (shared/HeadTurn.luau) in the frame: wrist, X = pinky_01 -> index_01 knuckle
+# (the object's axis), Y = towards middle_01, Z = X x Y. Change the angles and that centre together.
+GRIPS = {
+    "grip_flashlight": {
+        "index_01": (-34, 0, 0), "index_02": (-37.4, 0, 0), "index_03": (-27.2, 0, 0),
+        "middle_01": (-36, 0, 0), "middle_02": (-39.6, 0, 0), "middle_03": (-28.8, 0, 0),
+        "ring_01": (-34, 0, 0), "ring_02": (-37.4, 0, 0), "ring_03": (-27.2, 0, 0),
+        "pinky_01": (-34, 0, 0), "pinky_02": (-37.4, 0, 0), "pinky_03": (-27.2, 0, 0),
+        "thumb_01": (30, 0, 0), "thumb_02": (0, 0, 0), "thumb_03": (0, 0, 0),
+    },
+    "grip_umbrella": {
+        "index_01": (-48, 0, 0), "index_02": (-52.8, 0, 0), "index_03": (-38.4, 0, 0),
+        "middle_01": (-48, 0, 0), "middle_02": (-52.8, 0, 0), "middle_03": (-38.4, 0, 0),
+        "ring_01": (-48, 0, 0), "ring_02": (-52.8, 0, 0), "ring_03": (-38.4, 0, 0),
+        "pinky_01": (-48, 0, 0), "pinky_02": (-52.8, 0, 0), "pinky_03": (-38.4, 0, 0),
+        "thumb_01": (30, 0, 0), "thumb_02": (0, 0, 0), "thumb_03": (0, 0, 0),
+    },
+}
+
+def hand(P, side, shape, k=1.0, th=1.0):
     """finger poses (left-side convention): relax, fist, rock (index + pinky up), point, jeeb (Thai dance:
     thumb and index tips together, the other fingers fanned and bent back), wong (flat, fingers bent back)"""
     sd = "." + side
@@ -201,6 +223,12 @@ def hand(P, side, shape, k=1.0):
     elif shape == "wong":
         for f in ("index", "middle", "ring", "pinky"): fing(f, 10, 0, 0)
         P.rot("thumb_01" + sd, -15*k, 0, -10*k); P.rot("thumb_02" + sd, -10*k)
+    elif shape in GRIPS:    # holding a real object: angles from the grasp search (see GRIPS)
+        for name, (x, y, z) in GRIPS[shape].items():
+            P.rot(name + sd, x*k, y*k, z*k)
+    elif shape == "wai":    # palms together: fingers straight and closed, thumbs up along the index, tips touching
+        for f in ("index", "middle", "ring", "pinky"): fing(f, 0, 0, 0)
+        P.rot("thumb_01" + sd, 0, 0, 30*k); P.rot("thumb_02" + sd, -20*k); P.rot("thumb_03" + sd, -10*k)  # thumb_search sweep with PRAY_ARM
     else:   # relax
         for f in ("index", "middle", "ring", "pinky"): fing(f, -14, -18, -14)
         P.rot("thumb_01" + sd, -8); P.rot("thumb_02" + sd, -10)
@@ -212,6 +240,7 @@ RAISE_MAX = 70
 def arm(P, side, raise_, fwd, bend, wrist=0.0, twist=0.0, dev=0.0):
     """one arm, degrees: raise_ (+ up from the A-pose rest), fwd (+ forward), elbow bend (+ bent), wrist (+ bent back)"""
     raise_ = min(raise_, P.raise_max)
+    if side == "R": twist = -twist                      # twist (y) is mirrored like z: the same numbers give a mirrored pose
     P.rot("upper_arm." + side, raise_, twist, -fwd); P.rot("forearm." + side, 0, 0, -bend); P.rot("hand." + side, wrist, 0, dev)
 
 def legs_bounce(P, depth, side_shift=0.0, e=1.0):
@@ -306,6 +335,159 @@ def c_wan_hands_up(P, t, st, s):
     up = min(RAISE_MAX*min(1.0, 0.7 + e*0.4), P.raise_max)
     P.rot("upper_arm.L", up, 0, -24 - 12*wave*e); P.rot("upper_arm.R", up, 0, -24 + 12*wave*e)   # a bit forward: clear of the armpit fold
 
+# ---------------------------------------------------------------- player clips (the villager as the player's character)
+def c_jump(P, t, st, s):
+    """take-off / in the air: knees pulled up a little, arms up and out, a small bob so the loop isn't frozen"""
+    k = 0.5 + 0.5*math.sin(2*math.pi*t)
+    P.both("thigh", 28 + 6*k, 0, 3); P.both("shin", -40 - 8*k); P.both("foot", 12)
+    P.rot("spine", 4); P.rot("chest", 2); P.rot("head", -4)
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=35 + 6*k, fwd=20, bend=30, wrist=5); hand(P, sd, "relax")
+
+def c_fall(P, t, st, s):
+    """falling: arms out for balance and waving a little, legs loose, one knee more bent than the other"""
+    ph = 2*math.pi*t
+    P.rot("thigh.L", 14 + 6*math.sin(ph), 0, 5); P.rot("thigh.R", 6 - 6*math.sin(ph), 0, 5)
+    P.rot("shin.L", -26); P.rot("shin.R", -14); P.both("foot", 6)
+    P.rot("spine", -3); P.rot("chest", -2); P.rot("head", -6)
+    for sd, sg in (("L", 1), ("R", -1)):
+        arm(P, sd, raise_=55 + 8*math.sin(ph*2 + sg), fwd=5, bend=25, wrist=-10); hand(P, sd, "wong")
+
+def c_sit(P, t, st, s):
+    """sitting (vehicle seats, benches): thighs level, shins down, hands resting on the thighs, breathing"""
+    br = math.sin(2*math.pi*t*2)
+    P.both("thigh", 88, 0, 4); P.both("shin", -88); P.both("foot", 2)
+    P.rot("spine", 4 + st["lean"]*0.6 + 0.8*br); P.rot("chest", 2 + 1.0*br); P.rot("head", -2, 4*math.sin(2*math.pi*t))
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=-28, fwd=42, bend=48, wrist=-8); hand(P, sd, "relax")
+
+# pray, hold_umbrella and carry_gallon move the upper body / one arm only: Roblox plays them over walk / idle (Action priority),
+# the bones they leave at rest are not keyed, so the legs (and the left arm) keep walking
+UPPER_ONLY = {"pray", "hold_umbrella", "carry_gallon", "hold_flashlight", "fuel_pump", "pull_rope"}
+# bones keyed even at rest: the wai's straight fingers would otherwise drop out and idle/walk would curl them
+_FINGERS = [f"{f}_{j}.{s}" for f in ("index", "middle", "ring", "pinky", "thumb") for j in ("01", "02", "03") for s in "LR"]
+KEEP_TRACKS = {"pray": _FINGERS,
+               # the hand holding the object: every finger joint and the wrist, so walk/idle can't bend them into it
+               "hold_flashlight": [n for n in _FINGERS if n.endswith(".L")] + ["hand.L"],
+               "hold_umbrella": [n for n in _FINGERS if n.endswith(".R")] + ["hand.R"]}
+
+# wai_search grid: wrists and middle fingertips on the centreline, palm plane facing sideways -> palms flat together
+# (the old raise -20 / bend 126 / wrist 14 / twist 4 met only at the fingertips: a triangle)
+# (twist 6 left a V gap between the fingers in Roblox; twist 10 = palms pressed tight together, the look the user picked.
+#  The checker reports ~4.5 cm hand-hand overlap: fleshy palms pressed together, not visible through each other)
+PRAY_ARM = dict(raise_=-30, fwd=54, bend=105, wrist=42, twist=10)
+
+def c_pray(P, t, st, s):
+    """พนมมือ (wai): palms together in front of the chest, fingertips up, head a little bowed, slow breath"""
+    br = math.sin(2*math.pi*t*2)
+    P.rot("spine", 3 + st["lean"]*0.5 + 0.6*br); P.rot("chest", 2 + 0.8*br)
+    P.rot("neck", 6); P.rot("head", 10 + 1.5*br)
+    for sd in ("L", "R"):
+        arm(P, sd, **dict(PRAY_ARM, fwd=PRAY_ARM["fwd"] + 0.6*br))
+        hand(P, sd, "wai")
+
+def c_carry_gallon(P, t, st, s):
+    """carrying a fuel gallon in the left hand: arm hanging straight down a little out from the side (the weight),
+    fist round the handle, no swing - the gallon is fixed to this hand position in the game"""
+    arm(P, "L", raise_=-22, fwd=4, bend=6, wrist=0)
+    hand(P, "L", "fist")
+    P.rot("shoulder.L", -3)
+
+def c_hold_flashlight(P, t, st, s):
+    """flashlight in the LEFT hand (the umbrella goes in the right): forearm forward at chest height, beam ahead,
+    a slow sweep. Praying puts it away: hands must be empty for a wai"""
+    sweep = 4*math.sin(2*math.pi*t)
+    arm(P, "L", raise_=12, fwd=64 + sweep, bend=38, wrist=-4)
+    hand(P, "L", "grip_flashlight")   # fingers closed on the barrel (game: shared/HeadTurn.grip places it)
+
+# ---------------------------------------------------------------- the player's jobs at the pump
+def c_fuel_pump(P, t, st, s):
+    """เติมน้ำมัน: right hand holds the nozzle forward and down into the tank, squeezing; left hand on the hip"""
+    sq = 0.5 + 0.5*math.sin(2*math.pi*t*2)
+    arm(P, "R", raise_=-12, fwd=48, bend=38 + 4*sq, wrist=-12); hand(P, "R", "fist")
+    arm(P, "L", raise_=-26, fwd=-6, bend=70, wrist=10); hand(P, "L", "relax")
+    P.rot("spine", 8); P.rot("chest", 3); P.rot("head", 10)
+
+def c_pump_air(P, t, st, s):
+    """เติมลม: squatting by the wheel, right hand pressing the air chuck onto the valve, left hand on the knee"""
+    depth = 70 + 4*math.sin(2*math.pi*t)
+    legs_bounce(P, depth); P.lift("hips", -hip_drop(depth, s))
+    P.rot("spine", 24); P.rot("chest", 6); P.rot("head", 12)
+    arm(P, "R", raise_=-28, fwd=62, bend=22, wrist=-10); hand(P, "R", "fist")
+    arm(P, "L", raise_=-30, fwd=40, bend=40, wrist=0); hand(P, "L", "relax")
+
+def c_pull_rope(P, t, st, s):
+    """ดึงเชือกแผงหน้าร้าน: both hands up on the rope, pulling down hand over hand"""
+    for sd, o in (("L", 0.0), ("R", 0.5)):
+        u = (t + o) % 1.0
+        down = sm(0.0, 0.55, u)*(1 - sm(0.6, 1.0, u))             # pull down, then reach up again
+        arm(P, sd, raise_=62 - 50*down, fwd=24 + 20*down, bend=18 + 62*down, wrist=0); hand(P, sd, "fist")
+    P.rot("spine", -2 + 4*math.sin(2*math.pi*t*2)); P.rot("head", -10)
+
+def c_pull_start(P, t, st, s):
+    """กระตุกเชือกสตาร์ทเครื่องปั่นไฟ: bent over the generator, left hand braced on it, right arm yanks the cord
+    up and back fast, then lets it run back in slowly"""
+    yank = sm(0.0, 0.18, t)*(1 - sm(0.35, 1.0, t))
+    legs_bounce(P, 26); P.lift("hips", -hip_drop(26, s))
+    P.rot("spine", 26 - 8*yank, -14*yank); P.rot("chest", 6, -8*yank); P.rot("head", 10)
+    arm(P, "R", raise_=-30 + 62*yank, fwd=58 - 70*yank, bend=20 + 55*yank, wrist=0); hand(P, "R", "fist")
+    arm(P, "L", raise_=-30, fwd=55, bend=24, wrist=-20); hand(P, "L", "wong")
+
+# ---------------------------------------------------------------- driving (one per kind of vehicle in the game)
+def seated(P, thigh=88, shin=-88, spread=4, lean=4):
+    P.both("thigh", thigh, 0, spread); P.both("shin", shin); P.both("foot", 4)
+    P.rot("hips", 0); P.rot("spine", lean); P.rot("chest", 2)
+
+def c_drive_car(P, t, st, s):
+    """car / pickup / sedan / sound truck: seated, both hands on the wheel, turning it a little, eyes on the road"""
+    ph = 2*math.pi*t; steer = 6*math.sin(ph)
+    seated(P, lean=2 + st["lean"]*0.5)
+    P.rot("head", -2, 5*math.sin(ph + 0.8))
+    arm(P, "L", raise_=4 + steer*0.6, fwd=58, bend=52, wrist=-4); arm(P, "R", raise_=4 - steer*0.6, fwd=58, bend=52, wrist=-4)
+    hand(P, "L", "fist", 0.8); hand(P, "R", "fist", 0.8)
+
+def c_ride_moto(P, t, st, s):
+    """motorbike / saleng: astride the seat, knees out round the tank, leaning forward, hands on the handlebar grips"""
+    ph = 2*math.pi*t
+    seated(P, thigh=62, shin=-78, spread=18, lean=12 + st["lean"]*0.5)
+    P.rot("neck", -6); P.rot("head", -6, 4*math.sin(ph))
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=16, fwd=50, bend=28 + 2*math.sin(ph), wrist=-8); hand(P, sd, "fist", 0.8)
+
+def c_ride_bicycle(P, t, st, s):
+    """bicycle: real pedalling - each foot goes round the crank circle (half a turn apart), the hip and knee angles
+    solved from this character's own thigh / shin lengths (two-bone IK in the side plane); leaning on the handlebar"""
+    b = P.rig.data.bones; L1 = b["thigh.L"].length; L2 = b["shin.L"].length; L = L1 + L2
+    cf, cd, r = 0.24*L, 0.70*L, 0.19*L                       # crank centre forward of / below the hip joint, crank length
+    P.rot("spine", 14 + st["lean"]*0.5); P.rot("chest", 3); P.rot("neck", -6); P.rot("head", -6)
+    for sd, o in (("L", 0.0), ("R", math.pi)):
+        a = 2*math.pi*t + o
+        f, d = cf + r*math.cos(a), cd + r*math.sin(a)        # foot: forward, down from the hip
+        D = min(math.hypot(f, d), L*0.999)
+        bend = math.pi - math.acos(max(-1.0, min(1.0, (L1*L1 + L2*L2 - D*D)/(2*L1*L2))))
+        thigh = math.atan2(f, d) + math.acos(max(-1.0, min(1.0, (L1*L1 + D*D - L2*L2)/(2*L1*D))))
+        P.rot("thigh." + sd, math.degrees(thigh), 0, 4)
+        P.rot("shin." + sd, -math.degrees(bend))
+        P.rot("foot." + sd, -(math.degrees(thigh - bend)) + 8*math.cos(a))     # sole kept on the pedal
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=12, fwd=48, bend=24, wrist=-8); hand(P, sd, "fist", 0.8)
+
+def c_drive_tuktuk(P, t, st, s):
+    """tuk-tuk: upright on the bench, knees together in front, hands on the handlebar close to the body"""
+    ph = 2*math.pi*t
+    seated(P, thigh=84, shin=-80, spread=6, lean=3)
+    P.rot("head", -2, 5*math.sin(ph + 0.5))
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=8, fwd=52, bend=46 + 2*math.sin(ph), wrist=-6); hand(P, sd, "fist", 0.8)
+
+def c_hold_umbrella(P, t, st, s):
+    """holding an umbrella up: right elbow bent, forearm forward, fist round the shaft in front of the right chest"""
+    br = math.sin(2*math.pi*t*2)
+    # umb_pose sweep: forearm level and turned in, so the handle in the fist stands upright (the shaft goes straight
+    # up through the hand and clears the head); bend 100 had the forearm pointing up and the handle leaning back 60 deg
+    arm(P, "R", raise_=-30, fwd=10 + 1.5*br, bend=60, wrist=0, twist=-30, dev=0)
+    hand(P, "R", "grip_umbrella")   # fingers closed on the handle (game: Pedestrian HUMAN_RIGHT_HAND)
+
 def hip_drop(depth, s):
     """how far the hips go down when legs_bounce bends the knees by `depth` deg (feet stay on the ground)"""
     a, b_ = math.radians(depth*0.55), math.radians(depth*0.45)
@@ -384,6 +566,22 @@ CLIPS = {   # name: (fn, frames for the adult man)
     "wan_hip_shake": (c_wan_hip_shake, 120),
     "wan_low_bounce": (c_wan_low_bounce, 120),
     "ghost_dance": (c_ghost_dance, 120),
+    # the villager as the player's character
+    "jump": (c_jump, 20),
+    "fall": (c_fall, 30),
+    "sit": (c_sit, 60),
+    "pray": (c_pray, 90),
+    "hold_umbrella": (c_hold_umbrella, 60),
+    "carry_gallon": (c_carry_gallon, 30),
+    "hold_flashlight": (c_hold_flashlight, 120),
+    "fuel_pump": (c_fuel_pump, 60),
+    "pump_air": (c_pump_air, 60),
+    "pull_rope": (c_pull_rope, 45),
+    "pull_start": (c_pull_start, 40),
+    "drive_car": (c_drive_car, 120),
+    "ride_moto": (c_ride_moto, 90),
+    "ride_bicycle": (c_ride_bicycle, 30),
+    "drive_tuktuk": (c_drive_tuktuk, 90),
 }
 FIXED_TEMPO = {"idle", "ramwong", "wan_rock", "wan_bounce", "wan_point", "wan_cool", "wan_hands_up", "wan_hip_shake",
                "wan_low_bounce", "ghost_dance"}
@@ -449,7 +647,8 @@ def _clothes():
 
 def split_skin(char):
     """The Body cut into pieces by which outfits cover them (build_clothes.hidden_faces): "Body" = skin no outfit
-    hides, Skin_00, Skin_01, ... = skin hidden under the outfits listed for it in the returned map. Roblox drops
+    hides, "BodyHead" = the head (never hidden, but hidden on the player's own screen in first person),
+    Skin_00, Skin_01, ... = skin hidden under the outfits listed for it in the returned map. Roblox drops
     the pieces the chosen outfit covers, so a thin shirt never has skin coming through it.
     The pieces keep the whole body's normals (no shading seam where they meet). Returns (pieces, {piece: outfits})."""
     import json, bmesh
@@ -457,17 +656,34 @@ def split_skin(char):
     faces = json.load(open(os.path.join(M, NAMES[char], NAMES[char] + "_clothes.json")))["outfits"]
     hid = {o: set(fs) for o, fs in _clothes()["hidden_faces"](me, faces).items()}
     groups = {}
+    # the head (faces held mostly by the head bone, nose and ears included) is its own piece "BodyHead": in first
+    # person the player's own head is hidden on their screen (no nose in front of the camera), others still see it
+    gi = body.vertex_groups["head"].index if "head" in body.vertex_groups else -1
+    def head_w(vi):
+        return next((g.weight for g in me.vertices[vi].groups if g.group == gi), 0.0)
     for p in me.polygons:
-        groups.setdefault(tuple(o for o in faces if p.index in hid[o]), []).append(p.index)
+        k = tuple(o for o in faces if p.index in hid[o])
+        if not k and gi >= 0 and sum(head_w(v) for v in p.vertices)/len(p.vertices) > 0.5:
+            k = ("__head__",)
+        groups.setdefault(k, []).append(p.index)
     def key(co, c): return (round(co.x, 5), round(co.y, 5), round(co.z, 5), round(c.x, 5), round(c.y, 5), round(c.z, 5))
     nrm = {}
     for p in me.polygons:
         for li in p.loop_indices: nrm[key(me.vertices[me.loops[li].vertex_index].co, p.center)] = me.corner_normals[li].vector.copy()
     body.name = "Body_whole"
     pieces, hides = [], {}
+    head = groups.pop(("__head__",), None)
     order = sorted(groups.items(), key=lambda kv: (len(kv[0]) > 0, -len(kv[1])))
-    for n, (outfits, fs) in enumerate(order):
-        name = "Body" if not outfits else f"Skin_{n - 1:02d}"
+    if head:
+        order.insert(1, (("__head__",), head))
+    n_skin = 0
+    for outfits, fs in order:
+        if outfits == ("__head__",):
+            name, outfits = "BodyHead", ()
+        elif not outfits:
+            name = "Body"
+        else:
+            name = f"Skin_{n_skin:02d}"; n_skin += 1
         ob = body.copy(); ob.data = me.copy(); ob.name = name; ob.data.name = name
         for c in body.users_collection: c.objects.link(ob)
         bm = bmesh.new(); bm.from_mesh(ob.data); keep = set(fs)
@@ -550,7 +766,7 @@ def export_clip_data(char, path, step=2):
                 tracks.setdefault(pb.name, []).append([round(q.x, 4), round(q.y, 4), round(q.z, 4), round(q.w, 4),
                                                        round(t.x, 4), round(t.y, 4), round(t.z, 4)])
         moving = {n: k for n, k in tracks.items() if any(abs(a - b) > 1e-4 for r in k for a, b in zip(r, k[0])) or
-                  any(abs(v) > 1e-4 for v in k[0][:3] + k[0][4:])}
+                  any(abs(v) > 1e-4 for v in k[0][:3] + k[0][4:]) or n in KEEP_TRACKS.get(clip, ())}
         out["clips"][clip] = {"length": (f1 - f0)/FPS, "times": [round((f - f0)/FPS, 4) for f in frames], "tracks": moving}
     rig.animation_data.action = keep
     json.dump(out, open(path, "w"), separators=(",", ":"))

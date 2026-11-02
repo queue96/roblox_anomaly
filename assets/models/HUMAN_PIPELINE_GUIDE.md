@@ -113,6 +113,7 @@ build_variants.py   สร้างตัว + rig + รูปร่าง (ด�
 - **ชุดใหม่:** เพิ่มใน `OUTFITS` (ลิสต์ของชิ้นผ้า) และ `CHAR_OUTFITS`
   - สีและรายละเอียดของ shell (กระดุม กระเป๋า คอวี ตะเข็บ ลายพราง ฯลฯ) อยู่ใน `FABRIC` และ `paint_shell`
   - ลายผ้าที่วนซ้ำได้ (tile) ใช้ `@pattern` ไฟล์จะอยู่ใน `clothes_tex/`
+  - shell แต่ละชิ้นเป็น object และ texture ของตัวเอง (`Cloth_<ชุด>` = ชิ้นแรก, `Cloth_<ชุด>_<ชิ้น>`) พื้นที่ว่างของภาพเติมด้วยสีของชิ้นนั้นเอง (`fill_all`) เพราะ Roblox ย่อภาพ ถ้าเสื้อกับกางเกงอยู่ภาพเดียวกัน สีเสื้อจะซึมเข้ากางเกง (เคยเห็นจุดแดงข้างกางเกงดำ)
 - **การเลือก faces ของ shell:**
   - เลือกตามส่วนของตัว (`torso` / `arm` / `leg` / `foot`) และตำแหน่งตามกระดูก
     - แขน 1 = ศอก, 2 = ข้อมือ; ขา 1 = เข่า, 2 = ข้อเท้า; ลำตัว `tz` 0 = สะโพก, 1 = เอว, 2 = อก, 3 = คอ
@@ -153,6 +154,8 @@ build_variants.py   สร้างตัว + rig + รูปร่าง (ด�
   - ใส่ `Animator` ใต้ `AnimationController` แล้วย้ายเข้า `HumanTemplates`
   - ผมไม่มี texture (importer ไม่สร้าง SurfaceAppearance ให้): ต้องตั้ง `Color` ของ `Hair_*` เอง (ผมดำ 36, 34, 32) ไม่อย่างนั้นจะเป็นสีเทา
   - ชิ้น `Skin_*` ต้องอยู่ครบ (`HumanNPC` ลบชิ้นที่ชุดปิดเองตาม `HumanSkinParts`)
+  - ชิ้น `BodyHead` = หัว (แยกตอน export) ผู้เล่นซ่อนหัวตัวเองบนจอตัวเอง (มุมบุคคลที่หนึ่งไม่เห็นจมูก) คนอื่นเห็นปกติ
+- **ตัวผู้เล่น:** `server/PlayerVillager.server.luau` สร้าง `StarterCharacter` จากแม่แบบตอนเซิร์ฟเวอร์เริ่ม (HumanoidRootPart ใหม่ระดับสะโพก, เชื่อมทุกชิ้น), ท่าทางใน `src/character/Animate.client.luau` (StarterCharacterScripts), คนขับรถนั่งด้วย `HumanNPC.SeatIn` + IKControl จับแฮนด์/วางเท้า
 
 ---
 

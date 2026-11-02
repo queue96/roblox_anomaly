@@ -51,6 +51,12 @@ local DEFAULT_FX = { focus = "head", tint = Color3.fromRGB(120, 0, 0), sounds = 
 
 -- ---------------------------------------------------------------- เสียง
 local JUMPSCARE_BOOST = 1.65 -- ผีหลอกเด่นกว่าเสียงพื้นหลัง แต่ไม่ดังระเบิดหู (กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
+-- ทุกเสียงตอนผีหลอกยาวไม่เกินนี้ แล้วค่อยๆ เบาลงจนหยุด: คลิปจริงยาว 4-30 วินาที (Sting 4.6, Scream 4.1, Sting2 8.1,
+-- Bells 9.2 ...) เดิมปล่อยเล่นถึง 8 วินาที ร้องนานจนรำคาญ ตกใจแค่แวบเดียวพอ
+local MAX_LEN = 1.8
+local FADE = 0.4
+-- ยกเว้น: เสียงตกใจหลัก (Sting 4.6 วิ) ไม่แสบหู เล่นจนจบคลิป
+local PLAY_FULL = { Sting = true }
 local sfxGroup = SoundService:FindFirstChild("SFX")
 local function play(key: string, volume: number, length: number?)
 	local s = Instance.new("Sound")
@@ -67,7 +73,21 @@ local function play(key: string, volume: number, length: number?)
 	end
 	s.Parent = SoundService
 	s:Play()
-	local life = length or 8
+	if PLAY_FULL[key] then
+		s.Ended:Once(function()
+			s:Destroy()
+		end)
+		task.delay(10, function() -- โหลดไม่ขึ้น (Ended ไม่มา): ลบทิ้งกันค้าง
+			if s.Parent then
+				s:Destroy()
+			end
+		end)
+		return
+	end
+	local life = math.min(length or MAX_LEN, MAX_LEN)
+	task.delay(math.max(0, life - FADE), function()
+		TweenService:Create(s, TweenInfo.new(FADE, Enum.EasingStyle.Quad), { Volume = 0 }):Play()
+	end)
 	task.delay(life, function()
 		s:Stop()
 		s:Destroy()

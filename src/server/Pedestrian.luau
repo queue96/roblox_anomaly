@@ -64,7 +64,8 @@ local function umbrellaTemplate(): Model?
 end
 
 -- canopy = ตำแหน่งกลางร่ม, grip = ตำแหน่งมือที่จับ (CFrame ในโลก)
-function Pedestrian.AddUmbrella(model: Model, canopy: Vector3, grip: Vector3, color: Color3?): Model
+-- exact = ด้ามชี้ตรงไปทาง canopy เลย (ด้ามลอดรูกำมือพอดี) / ไม่ใส่ = ปรับให้ตั้งเกือบตรง
+function Pedestrian.AddUmbrella(model: Model, canopy: Vector3, grip: Vector3, color: Color3?, exact: boolean?): Model
 	local tmpl = umbrellaTemplate()
 	if tmpl then
 		local u = tmpl:Clone()
@@ -80,7 +81,7 @@ function Pedestrian.AddUmbrella(model: Model, canopy: Vector3, grip: Vector3, co
 		end
 		u:ScaleTo(UMBRELLA_SCALE)
 		-- ด้ามชี้ไปทางผ้าร่ม แต่ให้ตั้งเกือบตรง (ร่มเอียงนิดเดียว ดูเป็นธรรมชาติ)
-		local up = ((canopy - grip).Unit + Vector3.new(0, 2, 0)).Unit
+		local up = if exact then (canopy - grip).Unit else ((canopy - grip).Unit + Vector3.new(0, 2, 0)).Unit
 		u:PivotTo(CFrame.lookAt(grip, grip + up) * CFrame.Angles(DEG(-90), 0, 0))
 		local c = color or UMBRELLA_COLORS[math.random(#UMBRELLA_COLORS)]
 		local fabric = u:FindFirstChild("Umbrella_Canopy", true)
@@ -131,9 +132,14 @@ local anims: { [Model]: Anim } = setmetatable({}, { __mode = "k" }) :: any
 
 -- ชาวบ้านแบบใหม่ (HumanNPC: ตัวละครจาก Blender สุ่มชุด/ผม มีท่าเดิน/ยืน/เต้น) ถ้ามีแม่แบบใน ServerStorage.HumanTemplates
 --   ไม่มีแม่แบบ -> ใช้คนแบบกล่องเดิมด้านล่าง
--- มือในท่ายืน (idle) เทียบ pivot ที่พื้นใต้เท้า (+X = ขวาของตัว, -Z = หน้า)
-local HUMAN_LEFT_HAND = Vector3.new(-1.15, 2.95, -0.1)
-local HUMAN_RIGHT_HAND = Vector3.new(1.15, 2.95, -0.1)
+-- มือในท่าถือของ (carry_gallon มือซ้าย, hold_umbrella มือขวา) เทียบ pivot ที่พื้นใต้เท้า (+X = ขวาของตัว, -Z = หน้า)
+-- ค่าจาก build_anims.py (ตำแหน่งกระดูกมือในท่านั้น)
+local HUMAN_LEFT_HAND = Vector3.new(-1.41, 2.97, -0.25)
+-- มือขวา = จุดกลางด้ามร่มในกำมือ และแนวด้าม (ท่า hold_umbrella มือ grip_umbrella: แบมือ วางด้ามบนฝ่ามือ แล้วงอนิ้วจนแตะด้าม)
+-- วัดใน Studio ด้วย shared/HeadTurn.grip -> ด้ามร่มต้องวางตรงจุดนี้ ตามแนวนี้พอดี นิ้วจึงกำรอบด้าม ไม่ทะลุ
+-- (เดิมใช้ตำแหน่งกระดูกมือ = ข้อมือ ด้ามร่มจึงแทงทะลุมือ) เปลี่ยนท่า/มือใน build_anims.py แล้วต้องวัดใหม่
+local HUMAN_RIGHT_HAND = Vector3.new(1.19, 3.99, -1.5)
+local HUMAN_UMBRELLA_UP = Vector3.new(-0.159, 0.984, -0.083)
 local function buildHuman(opts: { [string]: any }): Model
 	local m = HumanNPC.Build(opts)
 	if opts.gallon then
@@ -144,7 +150,14 @@ local function buildHuman(opts: { [string]: any }): Model
 	end
 	if opts.umbrella then
 		local h = HUMAN_RIGHT_HAND
-		Pedestrian.AddUmbrella(m, Vector3.new(0.3, 7.6, -0.4), h, opts.umbrellaColor)
+		Pedestrian.AddUmbrella(m, h + HUMAN_UMBRELLA_UP * 3.2, h, opts.umbrellaColor, true) -- ด้ามลอดกำมือ หลังคาร่มเหนือหัว
+	end
+	-- แขนที่ถือของไม่แกว่งตามท่าเดิน (ท่าซ้อน): ของจึงอยู่ในมือตลอด
+	if opts.gallon then
+		HumanNPC.Hold(m, "carry_gallon", true)
+	end
+	if opts.umbrella then
+		HumanNPC.Hold(m, "hold_umbrella", true)
 	end
 	return m
 end

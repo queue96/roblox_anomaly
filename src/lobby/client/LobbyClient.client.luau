@@ -63,6 +63,35 @@ loop("LobbyCrickets", "rbxassetid://9112764023", 0.35)
 loop("LobbyCricketsFar", "rbxassetid://9112764040", 0.2)
 loop("LobbyEerieAir", "rbxassetid://9114244841", 0.32)
 
+-- เพลงพื้นหลังใน Lobby (เจ้าของเกมอัปโหลด 2 เพลง): สุ่มเพลงแรก แล้วสลับกันเล่นไปเรื่อยๆ จบเพลงก็ต่อเพลงถัดไป
+-- อยู่กลุ่ม Music (ปรับได้ในหน้าตั้งค่า) ดังพอให้เสียงจิ้งหรีด/ลมยังได้ยิน
+local LOBBY_MUSIC = { "rbxassetid://104311340770672", "rbxassetid://130247096894596" }
+local LOBBY_MUSIC_VOLUME = 0.175 -- ลดครึ่งหนึ่ง (เดิม 0.35)
+do
+	local music = Instance.new("Sound")
+	music.Name = "LobbyMusic"
+	music.Volume = LOBBY_MUSIC_VOLUME
+	music.Looped = false
+	music:SetAttribute("SoundCategory", "Music")
+	music.Parent = SoundService
+	local idx = math.random(#LOBBY_MUSIC)
+	local function playNext()
+		music.SoundId = LOBBY_MUSIC[idx]
+		idx = idx % #LOBBY_MUSIC + 1
+		-- เปลี่ยน SoundId แล้วต้องรอโหลดก่อนค่อย Play (เรียก Play ทันทีใน Ended = เงียบ ไม่ขึ้นเพลงถัดไป)
+		task.spawn(function()
+			local t0 = os.clock()
+			while not music.IsLoaded and os.clock() - t0 < 10 do
+				task.wait(0.1)
+			end
+			music.TimePosition = 0
+			music:Play()
+		end)
+	end
+	music.Ended:Connect(playNext)
+	playNext()
+end
+
 -- หลอดไฟ/เทียนกะพริบ: ปกติสว่างนิ่ง แล้วสะดุดวูบเป็นพักๆ (สุ่มจังหวะแยกกันทุกดวง)
 local function flicker(part: Instance)
 	local light = part:FindFirstChildOfClass("PointLight")
@@ -242,9 +271,11 @@ local C = {
 	Ink = Color3.fromRGB(8, 7, 6),
 	Bar = Color3.fromRGB(58, 54, 46),
 	Cream = Color3.fromRGB(236, 228, 208),
-	Dim = Color3.fromRGB(150, 142, 124),
+	Dim = Color3.fromRGB(165, 156, 136),
 	Blood = Color3.fromRGB(150, 18, 16),
-	Line = Color3.fromRGB(80, 72, 60),
+	BloodLit = Color3.fromRGB(205, 36, 28),
+	Panel = Color3.fromRGB(22, 20, 17),
+	Line = Color3.fromRGB(70, 64, 54),
 	Paper = Color3.fromRGB(226, 218, 196),
 }
 local FONT_BODY = Font.fromEnum(Enum.Font.SpecialElite)
@@ -274,15 +305,16 @@ local function panelFrame(name: string, width: number, props: { [string]: any })
 		Name = name,
 		Size = UDim2.new(0, width, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = C.Ink,
-		BackgroundTransparency = 0.12,
+		BackgroundColor3 = C.Panel,
+		BackgroundTransparency = 0.15,
 		BorderSizePixel = 0,
 		Visible = false,
 	}, gui)
 	for k, v in pairs(props) do
 		(p :: any)[k] = v
 	end
-	new("UIStroke", { Color = C.Line, Thickness = 1 }, p)
+	new("UICorner", { CornerRadius = UDim.new(0, 4) }, p)
+	new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.2 }, p)
 	new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, p)
 	new("UIPadding", { PaddingBottom = UDim.new(0, 14) }, p)
 	return p
@@ -355,7 +387,7 @@ local function closeButton(head: Instance, onClick: () -> ())
 	end
 	x.MouseEnter:Connect(function()
 		for _, l in ipairs(lines) do
-			l.BackgroundColor3 = Color3.fromRGB(220, 60, 50)
+			l.BackgroundColor3 = C.BloodLit
 		end
 	end)
 	x.MouseLeave:Connect(function()
@@ -538,11 +570,11 @@ local function drawStatus()
 	elseif s.fullCountdown then
 		timeL.Text = tr("เต็มแล้ว · ไปเกมใน", "Full · teleporting in")
 		timeV.Text = tr(("%d"):format(s.fullCountdown), ("%d"):format(s.fullCountdown))
-		timeV.TextColor3 = Color3.fromRGB(220, 60, 50)
+		timeV.TextColor3 = C.BloodLit
 	else
 		timeL.Text = tr("เริ่มเกมอัตโนมัติใน", "Auto-start in")
 		timeV.Text = tr(("%d วิ"):format(s.countdown), ("%ds"):format(s.countdown))
-		timeV.TextColor3 = if s.countdown <= 10 then Color3.fromRGB(220, 60, 50) else C.Cream
+		timeV.TextColor3 = if s.countdown <= 10 then C.BloodLit else C.Cream
 	end
 	leaveHint.Text = if s.isHost
 		then tr("กดเริ่มได้ทุกเมื่อ · ออกจากห้องด้วยปุ่มด้านล่าง", "Start anytime · use the button below to leave")
@@ -574,37 +606,38 @@ task.spawn(function()
 		if setup.Visible then
 			local left = math.max(0, math.ceil(setupDeadline - os.clock()))
 			setupTimer.Text = tr(("ปิดใน %d วิ"):format(left), ("Closes in %ds"):format(left))
-			setupTimer.TextColor3 = if left <= 10 then Color3.fromRGB(220, 60, 50) else C.Dim
+			setupTimer.TextColor3 = if left <= 10 then C.BloodLit else C.Dim
 		end
 	end
 end)
 
 -- ---------------------------------------------------------------- คำอธิบายปุ่ม (ขวาล่าง แบบป้ายกระดาษเหมือน HUD ในเกม)
-local hints = new("Frame", { Name = "KeyHints", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -30, 1, -40), Size = UDim2.new(0, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.XY, BackgroundTransparency = 1 }, gui)
-new("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, hints)
+local hints = new("Frame", { Name = "KeyHints", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -54), Size = UDim2.new(0, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.XY, BackgroundTransparency = 1 }, gui)
+new("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, hints)
+-- ป้ายปุ่มคีย์แบบเดียวกับ HUD ในเกม (ป้ายดำเล็ก ตัวครีม คำอธิบายสีหม่น)
 local function keyHint(order: number): (TextLabel, TextLabel)
-	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, 0, 0, 28), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, hints)
-	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, holder)
+	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, 0, 0, 20), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, hints)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, holder)
 	local badge = new("TextLabel", {
-		BackgroundColor3 = C.Paper,
-		Size = UDim2.new(0, 0, 0, 26),
-		AutomaticSize = Enum.AutomaticSize.X,
-		FontFace = FONT_BODY,
-		TextColor3 = C.Ink,
-		TextSize = 16,
-		Rotation = math.random(-3, 3),
-		LayoutOrder = 1,
-	}, holder)
-	new("UICorner", { CornerRadius = UDim.new(0, 3) }, badge)
-	new("UIPadding", { PaddingLeft = UDim.new(0, 7), PaddingRight = UDim.new(0, 7) }, badge)
-	new("UIStroke", { Color = Color3.fromRGB(90, 80, 62), Thickness = 1 }, badge)
-	local label = new("TextLabel", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(0, 0, 0, 26),
+		BackgroundColor3 = C.Panel,
+		BackgroundTransparency = 0.15,
+		Size = UDim2.new(0, 0, 0, 20),
 		AutomaticSize = Enum.AutomaticSize.X,
 		FontFace = FONT_BODY,
 		TextColor3 = C.Cream,
-		TextSize = 17,
+		TextSize = 12,
+		LayoutOrder = 1,
+	}, holder)
+	new("UICorner", { CornerRadius = UDim.new(0, 2) }, badge)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }, badge)
+	new("UIStroke", { Color = Color3.fromRGB(75, 68, 56), Thickness = 1, Transparency = 0.2 }, badge)
+	local label = new("TextLabel", {
+		BackgroundTransparency = 1,
+		Size = UDim2.new(0, 0, 0, 20),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Dim,
+		TextSize = 13,
 		LayoutOrder = 0, -- คำอธิบายอยู่ซ้าย ป้ายคีย์อยู่ขวา
 	}, holder)
 	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.35 }, label)

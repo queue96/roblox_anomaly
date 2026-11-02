@@ -119,8 +119,8 @@ task.spawn(function()
 
 	while true do
 		task.wait(math.random(25, 55))
-		-- กะพริบเบาๆ 1-2 ครั้ง นานๆ ที ไม่ให้ถี่จนลายตา
-		for _ = 1, math.random(1, 2) do
+		-- กะพริบเบาๆ 1-2 ครั้ง นานๆ ที ไม่ให้ถี่จนลายตา (ไฟดับอยู่ = ไม่กะพริบ ไม่งั้นไฟจะกลับมาติดเอง)
+		for _ = 1, if game:GetService("ReplicatedStorage"):GetAttribute("PowerOn") == false then 0 else math.random(1, 2) do
 			flickerLight.Enabled = true
 			flickerLight.Brightness = 0.35
 			neonPart.Color = Color3.fromRGB(90, 85, 70)
@@ -137,5 +137,7 @@ end)
 --    รายละเอียดอยู่ใน CoreLoop.luau (ModuleScript ในโฟลเดอร์เดียวกัน)
 local CoreLoop = require(script.Parent:WaitForChild("CoreLoop"))
 CoreLoop.Start()
+-- หน้าโหลดฝั่งผู้เล่นรอค่านี้: ฉาก ไฟร้าน และระบบเกมพร้อมแล้ว (LoadingScreen.client)
+game:GetService("ReplicatedStorage"):SetAttribute("SceneReady", true)
 
 print("✅ [Server] ปั๊มหลอดท้ายทุ่ง: โหลดฉาก + ไฟนีออนกะพริบ + Core Loop (รถลูกค้า เงินโควตา ธูป 3 ดอก) + พนมมือ เรียบร้อย!")

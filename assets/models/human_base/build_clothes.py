@@ -784,12 +784,42 @@ def paint_shell(b, ras, faces, char, outfit):
             lg = front & (np.abs(x - 0.07*s) < 0.012*s) & (np.abs(z - zc - 0.02*s) < 0.003*s)
             c = mix(c, (0.95, 0.95, 0.95), lg)
         col[m] = c[m]; hgt[m] = h[m]; rgh[m] = fab.get("rough", 0.8)
-    col, _ = dilate(col, mask); hgt, _ = dilate(hgt, mask); rgh, _ = dilate(rgh, mask)
-    # texel density: from the body's own UV (roughly 1 px ~ 1 mm on the trunk at 1024)
-    nrm = normal_from_height(hgt, 1100.0, 1100.0)
-    base = os.path.join(char_dir(char), f"{NAMES[char]}_{outfit}")
-    save_png(col, base + "_Color.png", False); save_png(nrm, base + "_Normal.png", True); save_png(rgh, base + "_Roughness.png", True)
-    return base
+    # one texture per piece (shell_tex_base), the rest of the image filled with that piece's own colours: Roblox
+    # shrinks / mipmaps textures, and with shirt and trousers in one image the red shirt bled onto black trousers
+    # where their UV islands sit side by side
+    for k, sp in enumerate(specs):
+        mk = pk == k
+        if not mk.any(): continue
+        c_, full = dilate(col, mk); h_, _ = dilate(hgt, mk); r_, _ = dilate(rgh, mk)
+        c_ = fill_all(c_, full); h_ = fill_all(h_, full); r_ = fill_all(r_, full)
+        # texel density: from the body's own UV (roughly 1 px ~ 1 mm on the trunk at 1024)
+        nrm = normal_from_height(h_, 1100.0, 1100.0)
+        base = shell_tex_base(char, outfit, k, sp[1])
+        save_png(c_, base + "_Color.png", False); save_png(nrm, base + "_Normal.png", True); save_png(r_, base + "_Roughness.png", True)
+
+def shell_tex_base(char, outfit, k, piece):
+    """texture files of shell piece k of an outfit: the first keeps the outfit's name, the others add the piece"""
+    return os.path.join(char_dir(char), f"{NAMES[char]}_{outfit}" + ("" if k == 0 else "_" + piece))
+
+def fill_all(a, m):
+    """every texel outside m gets the average of the nearest texels inside (pull-push over a 2x pyramid)"""
+    if m.all() or not m.any(): return a
+    h, w = m.shape
+    if h < 2 or w < 2:
+        return np.where(m[..., None] if a.ndim == 3 else m, a, a[m].mean(0))
+    mw = m.astype(np.float64)[:h//2*2, :w//2*2].reshape(h//2, 2, w//2, 2)
+    ac = a[:h//2*2, :w//2*2]
+    if a.ndim == 3:
+        ac = ac.reshape(h//2, 2, w//2, 2, a.shape[2]); num = (ac*mw[..., None]).sum((1, 3)); den = mw.sum((1, 3))
+        a2 = np.where(den[..., None] > 0, num/np.maximum(den, 1e-9)[..., None], 0.0)
+    else:
+        ac = ac.reshape(h//2, 2, w//2, 2); num = (ac*mw).sum((1, 3)); den = mw.sum((1, 3))
+        a2 = np.where(den > 0, num/np.maximum(den, 1e-9), 0.0)
+    a2 = fill_all(a2, den > 0)
+    up = np.repeat(np.repeat(a2, 2, 0), 2, 1)
+    if up.shape[0] < h: up = np.concatenate([up, up[-1:]], 0)
+    if up.shape[1] < w: up = np.concatenate([up, up[:, -1:]], 1)
+    return np.where(m[..., None] if a.ndim == 3 else m, a, up)
 
 # ---------------------------------------------------------------- geometry builders
 class Mesh:
@@ -1305,16 +1335,19 @@ def add_clothes(char, outfits=None):
     for oi, name in enumerate(outfits or CHAR_OUTFITS[char]):
         objs = []
         shell = Mesh(); shell_specs = [sp for sp in OUTFITS[name] if sp[0] == "shell"]
+        parts = []
         for sp in shell_specs:
-            part = build_shell(b, sp, faces["outfits"][name][sp[1]])
+            part = build_shell(b, sp, faces["outfits"][name][sp[1]]); parts.append((sp, part))
             off = len(shell.v)
             shell.v += part.v; shell.w += part.w; shell.uv += part.uv; shell.src += part.src; shell.f += [[i + off for i in f] for f in part.f]
         # what a skirt / sash has to go over: shirt and trousers on the trunk and legs (not the sleeves held out to the side)
         ok = [sv >= 0 and b.reg[sv] in ("torso", "leg.L", "leg.R") for sv in shell.src]
         under = ([tuple(v) for v in shell.v], [f for f in shell.f if all(ok[i] for i in f)])
-        if shell.f:
-            mat = tex_material(f"Cloth_{char}_{name}", os.path.join(char_dir(char), f"{NAMES[char]}_{name}"))
-            objs.append(shell.to_object(f"Cloth_{name}", rig, mat, fix_normals=False))
+        for k, (sp, part) in enumerate(parts):      # one object per piece, each with its own texture (see paint_shell)
+            if not part.f: continue
+            suffix = "" if k == 0 else "_" + sp[1]
+            mat = tex_material(f"Cloth_{char}_{name}{suffix}", shell_tex_base(char, name, k, sp[1]))
+            objs.append(part.to_object(f"Cloth_{name}{suffix}", rig, mat, fix_normals=False))
         for sp in OUTFITS[name]:
             kind = sp[0]
             if kind == "shell": continue

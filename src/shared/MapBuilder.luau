@@ -515,7 +515,7 @@ function MapBuilder.CreateFlashlightTool()
 
 	local tool = Instance.new("Tool")
 	tool.Name = "FrogFlashlight"
-	tool.ToolTip = "🔦 ไฟฉายกบส่องผี (Frog Flashlight)"
+	tool.ToolTip = "ไฟฉายกบส่องผี (Frog Flashlight)"
 	tool.RequiresHandle = true
 
 	local handle = createPart(
@@ -716,7 +716,7 @@ function MapBuilder.Build()
 	-- หลักกิโลเมตรเก่าๆ ริมทาง
 	local kmPost = createPart("KilometerMilestone", Vector3.new(1.4, 3.2, 1.4), CFrame.new(-22, 1.6, -1.5), Color3.fromRGB(215, 210, 198), Enum.Material.Concrete, dirtRoadModel)
 	createPart("KilometerTop", Vector3.new(1.4, 0.8, 1.4), CFrame.new(-22, 3.6, -1.5), Color3.fromRGB(185, 45, 45), Enum.Material.Concrete, dirtRoadModel)
-	addLabel(kmPost, "🛣️ หลักกิโลเมตรที่ 4 (ถนนดินลูกรัง)", Color3.fromRGB(230, 185, 130))
+	addLabel(kmPost, "หลักกิโลเมตรที่ 4 (ถนนดินลูกรัง)", Color3.fromRGB(230, 185, 130))
 
 	-- เสาไฟไม้หน้าร้าน + โคมไฟนีออนกะพริบ
 	createPart("WoodenPole", Vector3.new(1.1, 17, 1.1), CFrame.new(-15, 8.5, -0.5), Color3.fromRGB(72, 50, 34), Enum.Material.Wood, dirtRoadModel)
@@ -830,7 +830,7 @@ function MapBuilder.Build()
 		createPart("HutPillar", Vector3.new(0.6, 7.5, 0.6), CFrame.new(hutFloor.Position + offset + Vector3.new(0, 2, 0)), Color3.fromRGB(58, 42, 28), Enum.Material.Wood, hutModel)
 	end
 	createPart("HutRoof", Vector3.new(11.5, 0.4, 9.5), CFrame.new(-28, 7.8, -58) * CFrame.Angles(math.rad(10), 0, 0), Color3.fromRGB(95, 82, 68), Enum.Material.CorrodedMetal, hutModel)
-	addLabel(hutFloor, "🛖 เถียงนาร้างกลางทุ่ง (จุดผีกระสือ)", Color3.fromRGB(255, 145, 90))
+	addLabel(hutFloor, "เถียงนาร้างกลางทุ่ง (จุดผีกระสือ)", Color3.fromRGB(255, 145, 90))
 
 	-- =====================================================
 	-- 3. โซนเพิงสังกะสีไม้ไผ่แบบละเอียด (ShackStructure)
@@ -904,7 +904,7 @@ function MapBuilder.Build()
 	signText.TextColor3 = Color3.fromRGB(255, 205, 70)
 	signText.Font = Enum.Font.GothamBold
 	signText.TextScaled = true
-	signText.Text = "⛽ ปั๊มหลอดท้ายทุ่ง - RURAL GAS & TIRE"
+	signText.Text = "ปั๊มหลอดท้ายทุ่ง - RURAL GAS & TIRE"
 	signText.Parent = signGui
 
 	-- โต๊ะไม้เก่ามีขาโต๊ะ 4 ขา + แคร่ไม้ไผ่นั่งพักในเพิง
@@ -982,12 +982,12 @@ function MapBuilder.Build()
 	createPart("PumpCap", Vector3.new(0.5, 1.9, 1.9), CFrame.new(-6, 7.8, 2.5) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(165, 45, 35), Enum.Material.CorrodedMetal, gasPumpModel, Enum.PartType.Cylinder)
 	createPart("HandCrank", Vector3.new(0.3, 1.4, 0.3), CFrame.new(-4.7, 3.2, 2.5) * CFrame.Angles(math.rad(35), 0, 0), Color3.fromRGB(40, 40, 42), Enum.Material.Metal, gasPumpModel)
 	gasPumpModel.PrimaryPart = pumpBase
-	addLabel(glassTube, "⛽ GasPump (ปั๊มน้ำมันหลอดแก้ว)", Color3.fromRGB(255, 175, 50))
+	addLabel(glassTube, "GasPump (ปั๊มน้ำมันหลอดแก้ว)", Color3.fromRGB(255, 175, 50))
 
 	local pumpPrompt = Instance.new("ProximityPrompt")
 	pumpPrompt.Name = "PumpFuelPrompt"
-	pumpPrompt.ObjectText = "ปั๊มหลอดแก้ว / Fuel Pump"
-	pumpPrompt.ActionText = "หมุนปั๊มเติมน้ำมัน (+100฿)"
+	pumpPrompt.ObjectText = "Petrol Pump" -- ข้อความจริงตั้งใน CoreLoop / แปลใน HUDController
+	pumpPrompt.ActionText = "Fill Petrol"
 	pumpPrompt.HoldDuration = 2.5
 	pumpPrompt.MaxActivationDistance = 10
 	pumpPrompt.Parent = pumpBase
@@ -1009,7 +1009,7 @@ function MapBuilder.Build()
 	createPart("WheelL", Vector3.new(0.4, 1.3, 1.3), CFrame.new(5.5, 0.9, 3.6) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(28, 28, 30), Enum.Material.Rubber, airCompModel, Enum.PartType.Cylinder)
 	createPart("WheelR", Vector3.new(0.4, 1.3, 1.3), CFrame.new(5.5, 0.9, 1.4) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(28, 28, 30), Enum.Material.Rubber, airCompModel, Enum.PartType.Cylinder)
 	airCompModel.PrimaryPart = airTank
-	addLabel(airTank, "🔧 AirCompressor (ถังปั๊มลมปะยาง)", Color3.fromRGB(255, 175, 50))
+	addLabel(airTank, "AirCompressor (ถังปั๊มลมปะยาง)", Color3.fromRGB(255, 175, 50))
 
 	-- 5.3 แผ่นสังกะสีปิดหน้าร้าน (ShutterDoor) & เชือกดึง (RejectRope)
 	local shutterDoor = createPart(
@@ -1031,12 +1031,12 @@ function MapBuilder.Build()
 		Enum.Material.Fabric,
 		interactive
 	)
-	addLabel(rejectRope, "🚧 RejectRope (ดึงแผงสังกะสีปิดร้าน!)", Color3.fromRGB(255, 80, 95))
+	addLabel(rejectRope, "RejectRope (ดึงแผงสังกะสีปิดร้าน!)", Color3.fromRGB(255, 80, 95))
 
 	local rejectPrompt = Instance.new("ProximityPrompt")
 	rejectPrompt.Name = "RejectCustomerPrompt"
-	rejectPrompt.ObjectText = "แผงสังกะสีหน้าร้าน / Shop Shutter"
-	rejectPrompt.ActionText = "ดึงแผงปิดร้าน! (ปฏิเสธผี)"
+	rejectPrompt.ObjectText = "Shutter Rope"
+	rejectPrompt.ActionText = "Close Shop"
 	rejectPrompt.HoldDuration = 0.5
 	rejectPrompt.MaxActivationDistance = 10
 	rejectPrompt.Parent = rejectRope
@@ -1061,19 +1061,19 @@ function MapBuilder.Build()
 
 			local anyPart = radioClone.PrimaryPart or radioClone:FindFirstChildWhichIsA("BasePart", true)
 			if anyPart then
-				addLabel(anyPart, "📻 Radio (วิทยุทรานซิสเตอร์)", Color3.fromRGB(140, 220, 255))
+				addLabel(anyPart, "Radio (วิทยุทรานซิสเตอร์)", Color3.fromRGB(140, 220, 255))
 			end
 		elseif radioClone:IsA("BasePart") then
 			local maxHoriz = math.max(radioClone.Size.X, radioClone.Size.Z, 0.1)
 			local scaleRatio = 2.2 / maxHoriz
 			radioClone.Size = radioClone.Size * scaleRatio
 			radioClone.CFrame = CFrame.new(4, 3.82 + (radioClone.Size.Y / 2), 13)
-			addLabel(radioClone, "📻 Radio (วิทยุทรานซิสเตอร์)", Color3.fromRGB(140, 220, 255))
+			addLabel(radioClone, "Radio (วิทยุทรานซิสเตอร์)", Color3.fromRGB(140, 220, 255))
 		end
 	else
 		local radioPart = createPart("Radio", Vector3.new(2.1, 1.3, 0.9), CFrame.new(4, 4.45, 13), Color3.fromRGB(42, 44, 48), Enum.Material.Metal, interactive)
 		createPart("RadioAntenna", Vector3.new(0.12, 2.2, 0.12), CFrame.new(4.8, 5.6, 13) * CFrame.Angles(0, 0, math.rad(-20)), Color3.fromRGB(190, 195, 200), Enum.Material.Metal, interactive)
-		addLabel(radioPart, "📻 Radio (วิทยุทรานซิสเตอร์)", Color3.fromRGB(140, 220, 255))
+		addLabel(radioPart, "Radio (วิทยุทรานซิสเตอร์)", Color3.fromRGB(140, 220, 255))
 	end
 
 	local moneyTin = createPart(
@@ -1085,11 +1085,11 @@ function MapBuilder.Build()
 		interactive,
 		Enum.PartType.Cylinder
 	)
-	addLabel(moneyTin, "💰 MoneyTin (กระป๋องคุกกี้ใส่เงิน 500฿)", Color3.fromRGB(235, 255, 100))
+	addLabel(moneyTin, "MoneyTin (กระป๋องคุกกี้ใส่เงิน 500฿)", Color3.fromRGB(235, 255, 100))
 
 	-- 5.5 สวิตช์คัตเอาต์ไฟในเพิง (CutoutSwitch - Prop Hook #3)
 	local cutout = createPart("CutoutSwitch", Vector3.new(0.5, 1.8, 1.2), CFrame.new(-14.6, 5.5, 18), Color3.fromRGB(210, 140, 45), Enum.Material.Metal, interactive)
-	addLabel(cutout, "⚡ CutoutSwitch (คัตเอาต์สับดับไฟ)", Color3.fromRGB(255, 220, 90))
+	addLabel(cutout, "CutoutSwitch (คัตเอาต์สับดับไฟ)", Color3.fromRGB(255, 220, 90))
 
 	-- 5.6 เครื่องปั่นไฟหลังดงกล้วย (Generator)
 	local genModel = Instance.new("Model")
@@ -1098,7 +1098,7 @@ function MapBuilder.Build()
 	local genPart = createPart("GeneratorBody", Vector3.new(3.8, 2.8, 2.6), CFrame.new(20, 1.8, 30), Color3.fromRGB(145, 48, 42), Enum.Material.CorrodedMetal, genModel)
 	createPart("ExhaustPipe", Vector3.new(0.5, 1.8, 0.5), CFrame.new(21.2, 3.6, 30), Color3.fromRGB(45, 45, 48), Enum.Material.CorrodedMetal, genModel)
 	genModel.PrimaryPart = genPart
-	addLabel(genPart, "⚡ Generator (เครื่องปั่นไฟหลังดงกล้วย)", Color3.fromRGB(255, 180, 70))
+	addLabel(genPart, "Generator (เครื่องปั่นไฟหลังดงกล้วย)", Color3.fromRGB(255, 180, 70))
 
 	-- =====================================================
 	-- 6. ศาลพระภูมิไม้สักเก่าท้ายทุ่ง (ปั้นใหม่ละเอียดขลังๆ เข้ากับธีมหลอนชนบทไทย + ธูป 3 ดอก)
@@ -1177,7 +1177,7 @@ function MapBuilder.Build()
 
 	-- 6.7 กระถางธูปทองเหลือง + ธูป 3 ดอก (ระบบชีวิตของทีม 3 ดอก)
 	createPart("IncensePot", Vector3.new(0.65, 0.9, 0.9), CFrame.new(sx, 5.85, sz - 1.55) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(165, 130, 55), Enum.Material.Metal, spiritHouse, Enum.PartType.Cylinder)
-	addLabel(shrineHouse, "⛩️ SpiritHouse (ศาลพระภูมิไม้เก่า - ธูป 3 ดอก)", Color3.fromRGB(255, 110, 120))
+	addLabel(shrineHouse, "SpiritHouse (ศาลพระภูมิไม้เก่า - ธูป 3 ดอก)", Color3.fromRGB(255, 110, 120))
 
 	for i = 1, 3 do
 		local incX = sx - 0.5 + ((i - 1) * 0.5)
@@ -1222,7 +1222,7 @@ function MapBuilder.Build()
 
 			local anyPart = scClone.PrimaryPart or scClone:FindFirstChildWhichIsA("BasePart", true)
 			if anyPart then
-				addLabel(anyPart, "👻 Scarecrow (หุ่นไล่กากลางนา)", Color3.fromRGB(255, 150, 100))
+				addLabel(anyPart, "Scarecrow (หุ่นไล่กากลางนา)", Color3.fromRGB(255, 150, 100))
 			end
 		elseif scClone:IsA("BasePart") then
 			if scClone.Size.Y > 0.1 then
@@ -1230,7 +1230,7 @@ function MapBuilder.Build()
 				scClone.Size = scClone.Size * ratio
 			end
 			scClone.CFrame = CFrame.new(8, 0.25 + (scClone.Size.Y / 2), -38)
-			addLabel(scClone, "👻 Scarecrow (หุ่นไล่กากลางนา)", Color3.fromRGB(255, 150, 100))
+			addLabel(scClone, "Scarecrow (หุ่นไล่กากลางนา)", Color3.fromRGB(255, 150, 100))
 		end
 	else
 		local scarecrowModel = Instance.new("Model")
@@ -1242,7 +1242,7 @@ function MapBuilder.Build()
 		createPart("ScarecrowHead", Vector3.new(1.3, 1.3, 1.3), CFrame.new(8, 6.8, -38), Color3.fromRGB(185, 160, 110), Enum.Material.Fabric, scarecrowModel, Enum.PartType.Ball)
 		createPart("StrawHat", Vector3.new(2.8, 0.4, 2.8), CFrame.new(8, 7.45, -38), Color3.fromRGB(170, 140, 75), Enum.Material.Grass, scarecrowModel)
 		scarecrowModel.PrimaryPart = scTorso
-		addLabel(scTorso, "👻 Scarecrow (หุ่นไล่กากลางนา)", Color3.fromRGB(255, 150, 100))
+		addLabel(scTorso, "Scarecrow (หุ่นไล่กากลางนา)", Color3.fromRGB(255, 150, 100))
 	end
 
 	-- 7.2 ผีตานีชุดไทยสีเขียวซ่อนหลังดงกล้วย (PhiTaniGhost)
@@ -1256,18 +1256,18 @@ function MapBuilder.Build()
 	taniHead.Transparency = 0.75
 	taniHair.Transparency = 0.75
 	taniModel.PrimaryPart = taniTorso
-	addLabel(taniTorso, "👻 PhiTaniGhost (ผีตานีหลังดงกล้วย)", Color3.fromRGB(110, 255, 150))
+	addLabel(taniTorso, "PhiTaniGhost (ผีตานีหลังดงกล้วย)", Color3.fromRGB(110, 255, 150))
 
 	-- Prop Hook #1: กระจกเงาบานเก่าพร้อมกรอบไม้ในเพิง
 	createPart("MirrorFrame", Vector3.new(0.4, 4.4, 3.2), CFrame.new(14.8, 6.5, 18), Color3.fromRGB(68, 46, 30), Enum.Material.Wood, anomalyProps)
 	local oldMirror = createPart("OldMirror", Vector3.new(0.25, 3.8, 2.6), CFrame.new(14.65, 6.5, 18), Color3.fromRGB(170, 210, 220), Enum.Material.Glass, anomalyProps)
 	oldMirror.Reflectance = 0.65
-	addLabel(oldMirror, "🪞 OldMirror (กระจกเงาข้างฝา - Hook #1)", Color3.fromRGB(170, 230, 255))
+	addLabel(oldMirror, "OldMirror (กระจกเงาข้างฝา - Hook #1)", Color3.fromRGB(170, 230, 255))
 
 	-- Prop Hook #2: รูปตาเจ้าของอู่ & ปฏิทินรายวัน
 	local ownerPhoto = createPart("OwnerPhoto", Vector3.new(2.8, 3.4, 0.3), CFrame.new(-6, 7, 27.1), Color3.fromRGB(185, 180, 170), Enum.Material.SmoothPlastic, anomalyProps)
 	createPart("WallCalendar", Vector3.new(2.0, 2.6, 0.25), CFrame.new(-2, 6.8, 27.1), Color3.fromRGB(220, 65, 55), Enum.Material.SmoothPlastic, anomalyProps)
-	addLabel(ownerPhoto, "🖼️ OwnerPhoto & ปฏิทิน (Hook #2)", Color3.fromRGB(220, 220, 220))
+	addLabel(ownerPhoto, "OwnerPhoto & ปฏิทิน (Hook #2)", Color3.fromRGB(220, 220, 220))
 
 	-- Prop Hook #4: ถังแช่น้ำแข็งสีน้ำเงินพร้อมฝาปิดมุมเพิง
 	local iceBoxModel = Instance.new("Model")
@@ -1276,7 +1276,7 @@ function MapBuilder.Build()
 	local iceBoxPart = createPart("IceBoxBody", Vector3.new(4.2, 3.0, 2.8), CFrame.new(11, 2.2, 24), Color3.fromRGB(42, 110, 190), Enum.Material.SmoothPlastic, iceBoxModel)
 	createPart("IceBoxLid", Vector3.new(4.4, 0.4, 3.0), CFrame.new(11, 3.9, 24), Color3.fromRGB(235, 240, 245), Enum.Material.SmoothPlastic, iceBoxModel)
 	iceBoxModel.PrimaryPart = iceBoxPart
-	addLabel(iceBoxPart, "🧊 IceBox (ถังแช่น้ำแข็ง - Hook #4)", Color3.fromRGB(130, 200, 255))
+	addLabel(iceBoxPart, "IceBox (ถังแช่น้ำแข็ง - Hook #4)", Color3.fromRGB(130, 200, 255))
 
 	-- Prop Hook #5: ห้องน้ำสังกะสีท้ายดงกล้วย + โอ่งมังกรใส่น้ำ
 	local outhouseModel = Instance.new("Model")
@@ -1287,7 +1287,7 @@ function MapBuilder.Build()
 	-- โอ่งมังกรหน้าห้องน้ำ
 	createPart("DragonWaterJar", Vector3.new(2.8, 2.6, 2.6), CFrame.new(24.2, 1.6, 35.5), Color3.fromRGB(125, 65, 38), Enum.Material.Slate, outhouseModel, Enum.PartType.Ball)
 	outhouseModel.PrimaryPart = outhousePart
-	addLabel(outhousePart, "🚪 TinOuthouse & โอ่งน้ำ (Hook #5)", Color3.fromRGB(210, 185, 160))
+	addLabel(outhousePart, "TinOuthouse & โอ่งน้ำ (Hook #5)", Color3.fromRGB(210, 185, 160))
 
 	-- =====================================================
 	-- 8. จุดรถวิ่ง 3 จุดบนถนนดิน (VehicleWaypoints)
@@ -1299,7 +1299,7 @@ function MapBuilder.Build()
 	local wpStop = createPart("StopPoint", Vector3.new(3.5, 0.6, 3.5), CFrame.new(-2, 0.8, -5), Color3.fromRGB(255, 215, 60), Enum.Material.Neon, waypoints)
 	wpStop.Transparency = 0.65
 	wpStop.CanCollide = false
-	addLabel(wpStop, "🟡 StopPoint (จุดรถจอดเติมน้ำมัน)", Color3.fromRGB(255, 225, 80))
+	addLabel(wpStop, "StopPoint (จุดรถจอดเติมน้ำมัน)", Color3.fromRGB(255, 225, 80))
 
 	local wpExit = createPart("ExitPoint", Vector3.new(3.5, 0.6, 3.5), CFrame.new(65, 0.8, -8), Color3.fromRGB(255, 80, 90), Enum.Material.Neon, waypoints)
 	wpExit.Transparency = 0.65
@@ -1499,7 +1499,7 @@ function MapBuilder.PlantBananaTrees()
 		for i, bData in ipairs(bananaCoords) do
 			local tree = buildDetailedBananaTree(bananaModel, bData.pos, bData.scale, i)
 			if i == 1 and tree.PrimaryPart then
-				addLabel(tree.PrimaryPart, "🍌 ดงกล้วยตานี (BananaGrove)", Color3.fromRGB(110, 235, 120))
+				addLabel(tree.PrimaryPart, "ดงกล้วยตานี (BananaGrove)", Color3.fromRGB(110, 235, 120))
 			end
 		end
 	end
@@ -1576,7 +1576,7 @@ function MapBuilder.AddSacredBanyanZone()
 		treeModel
 	)
 	treeModel.PrimaryPart = mainTrunk
-	addLabel(mainTrunk, "🌳 ต้นไทรใหญ่พันผ้าสามสี (Anomaly: ผ้าสีเลือด / เงาคนแอบ)", Color3.fromRGB(255, 195, 95))
+	addLabel(mainTrunk, "ต้นไทรใหญ่พันผ้าสามสี (Anomaly: ผ้าสีเลือด / เงาคนแอบ)", Color3.fromRGB(255, 195, 95))
 
 	-- ลำต้นรองที่บิดพันกันให้ดูเป็นต้นไทรอายุร้อยปี
 	for idx, tOff in ipairs({
@@ -1810,7 +1810,7 @@ function MapBuilder.AddSacredBanyanZone()
 		benchModel,
 		Enum.PartType.Cylinder
 	)
-	addLabel(tableTop, "🪑 ม้าหินอ่อนเก่าใต้ต้นไทร", Color3.fromRGB(190, 215, 185))
+	addLabel(tableTop, "ม้าหินอ่อนเก่าใต้ต้นไทร", Color3.fromRGB(190, 215, 185))
 
 	-- เก้าอี้ม้าหินอ่อนโค้ง 3 ตัวรอบโต๊ะ (ตัวหนึ่งเอียงทรุดลงในดิน)
 	for idx, sData in ipairs({
@@ -1860,7 +1860,7 @@ function MapBuilder.AddSacredBanyanZone()
 		p.Transparency = 0.35 -- ให้เห็นเป็นเงาตะคุ่มๆ ในโหมดจัดฉาก (เวลาเริ่มเกมจริงสามารถสั่งซ่อน/เปิดได้)
 	end
 	shadowModel.PrimaryPart = shadowHead
-	addLabel(shadowHead, "👤 BanyanShadowAnomaly (เงาคนแอบหลังต้นไทร)", Color3.fromRGB(215, 110, 255))
+	addLabel(shadowHead, "BanyanShadowAnomaly (เงาคนแอบหลังต้นไทร)", Color3.fromRGB(215, 110, 255))
 
 	print("🌳 [MapBuilder] สร้างโซนด้านขวา: ต้นไทรใหญ่พันผ้าสามสี + ม้าหินอ่อนเก่า + ตุ๊กตาม้าลาย/นางรำ + เงาคนหลังต้นไม้ เรียบร้อย!")
 end
