@@ -94,8 +94,52 @@ SoundBank.CustomUploadedIds = {
 
 -- ตารางใส่ rbxassetid:// ของไฟล์เสียงพากย์บทสนทนาทั้ง 151 ไฟล์ใน assets/sounds/dialogues/<Key>.wav
 -- (รองรับทั้งคีย์ตรง เช่น "Greet_Uncle" และคีย์แยกเพศอัตโนมัติ เช่น "AskPrice_M" / "AskPrice_F" / "PlayerHello_M" / "PlayerHello_F")
+-- เก็บสถิติเสียงพากย์ที่เกมเล่นจริง (เฉพาะใน Studio): print "VOICE|..." ลง Output / log ไว้นับว่าบทไหนได้ใช้จริง
+local VOICE_LOG = game:GetService("RunService"):IsStudio()
+
+SoundBank.DubbedVoiceVolume = 1.6 -- ความดังเสียงพากย์คนจริง (ไฟล์ TTS เดิม 0.58) เบา/ดังไปปรับตรงนี้
+
 SoundBank.DialogueUploadedIds = {
 	-- ตัวอย่าง: Greet_Uncle = "rbxassetid://...", AskPrice_M = "rbxassetid://...", PlayerHello_F = "rbxassetid://..."
+
+	-- คัตซีนเปิดเกม (พากย์อีสานจริง assets/sounds/dialogues/*.mp3)
+	-- (Intro_Brother_1-3 อัปโหลดใหม่รอบ 2026-11-04 แทนอันเก่า 101512046595571 / 71101982068825 / 118704825470823)
+	Intro_Brother_1 = "rbxassetid://113642193083137",
+	Intro_Brother_2 = "rbxassetid://90728172974668",
+	Intro_Brother_3 = "rbxassetid://113949562141083",
+	Intro_Player_1_M = "rbxassetid://130203952113077",
+	Intro_Player_2_M = "rbxassetid://103870537479640",
+
+	-- ลูกค้าทักทาย / คุยระหว่างรอ (ตามโปรไฟล์ลูกค้า ไม่แยกเพศ)
+	Greet_Uncle = "rbxassetid://135889952784672",
+	Greet_Aunt = "rbxassetid://135684387590380",
+	Greet_Student = "rbxassetid://89982569853810",
+	Greet_Farmer = "rbxassetid://124747645986293",
+	Normal_Uncle = "rbxassetid://140569712863000",
+	Normal_Aunt = "rbxassetid://118268650812731",
+	Normal_Student = "rbxassetid://107405527295991",
+	Normal_Farmer = "rbxassetid://90304011725352",
+
+	-- สั่งน้ำมัน ตามประเภทยานพาหนะ
+	Walker_Order_1 = "rbxassetid://104488474180267",
+	Walker_Order_2 = "rbxassetid://106758192539257",
+	Walker_Order_3 = "rbxassetid://73303762715875",
+	Walker_Order_4 = "rbxassetid://116836694647618",
+	Car_Order_1 = "rbxassetid://116893915864843",
+	Car_Order_2 = "rbxassetid://138787121928225",
+	Car_Order_3 = "rbxassetid://126135755891811",
+	TukTuk_Order_1 = "rbxassetid://127881304792192",
+	TukTuk_Order_2 = "rbxassetid://121497903379847",
+	Bicycle_Order_1 = "rbxassetid://99921307413540",
+	Bicycle_Order_2 = "rbxassetid://123603068735237",
+
+	-- จ่ายเงิน (แยกเสียงชาย/หญิงตามลูกค้า)
+	Pay_1_M = "rbxassetid://89727972519219",
+	Pay_1_F = "rbxassetid://103715596216799",
+	Pay_2_M = "rbxassetid://98285445493290",
+	Pay_2_F = "rbxassetid://79980471421044",
+	Pay_3_M = "rbxassetid://138230893125902",
+	Pay_3_F = "rbxassetid://122927726611288",
 }
 
 -- ---------------------------------------------------------------- 2. พรีเซ็ตเสียงพร้อมใช้ทันที (Warm Non-Piercing EQ: HighGain ติดลบทุกอันเพื่อไม่ให้แสบหู)
@@ -641,7 +685,7 @@ SoundBank.MonkChantsNormal = {
 		id = "rbxassetid://1845929179",
 		customKey = "Chant4_NamoTassa_Normal",
 		fallbackCustomKey = "Chant4_NamoTassa",
-		volume = 0.50,
+		volume = 1.4, -- เดิม 0.50 เบาไป (ผู้ใช้ขอดังขึ้น 2026-11-03) อยู่กลุ่ม Music ที่คูณ 0.35 อีกที
 		speed = 1.0,
 		low = 1,
 		mid = 2,
@@ -649,26 +693,12 @@ SoundBank.MonkChantsNormal = {
 	},
 }
 
--- 2) โหมดสวดรัวเร็วตอนเจอผี! (MonkChantsScared): เสียงเดิมแต่สวดรัวเร็วขึ้น 25% ลนลาน กลัวผี!
-SoundBank.MonkChantsScared = {
-	{
-		name = "Chant4_NamoTassa_Scared",
-		titleTH = "บทสวดนะโม ตัสสะ 3 จบ (เจอผี - สวดเร็ว!)",
-		id = "rbxassetid://1845929179",
-		customKey = "Chant4_NamoTassa_Scared",
-		fallbackCustomKey = "Chant4_NamoTassa",
-		volume = 0.58,
-		speed = 1.25, -- สปีดรัวเร็วขึ้น 25% เมื่อเปิดตาทิพย์แล้วเจอผี!
-		low = 2,
-		mid = 3,
-		high = -8,
-	},
-}
-SoundBank.MonkChants = SoundBank.MonkChantsScared
+-- (โหมดสวดเร็วตอนเจอผี MonkChantsScared เอาออกแล้ว ผู้ใช้สั่ง 2026-11-03: สวดปกติทุกครั้ง ไม่ให้ฟังดูตลก)
+SoundBank.MonkChants = SoundBank.MonkChantsNormal
 
--- คืนค่า Preset บทสวดตามสถานะว่าเจอผีหรือไม่ (isGhostPresent)
-function SoundBank.GetChantPreset(index: number?, isGhostPresent: boolean?): any
-	local list = if isGhostPresent then SoundBank.MonkChantsScared else SoundBank.MonkChantsNormal
+-- คืนค่า Preset บทสวด (สวดปกติเสมอ isGhostPresent ไม่มีผลแล้ว เก็บพารามิเตอร์ไว้ให้โค้ดเดิมเรียกได้)
+function SoundBank.GetChantPreset(index: number?, _isGhostPresent: boolean?): any
+	local list = SoundBank.MonkChantsNormal
 	local idx = ((index or 1) - 1) % #list + 1
 	return list[idx], idx
 end
@@ -953,6 +983,9 @@ function SoundBank.PlayReaction(category: string, gender: string?, parent: Insta
 	}
 	local list = map[category] or map.Startle
 	local presetName = list[math.random(#list)]
+	if VOICE_LOG then
+		print("VOICE|React_" .. category .. "|" .. presetName .. "|react")
+	end
 	local preset = SoundBank.Presets[presetName]
 	if not preset then
 		return nil
@@ -1015,6 +1048,43 @@ local function resolveVoiceProfileName(speakerInfo: any, dialogueKey: string): s
 	return "Boonmee"
 end
 
+-- คิวเสียงพากย์: เล่นทีละประโยค ประโยคใหม่รอให้ประโยคก่อนพูดจบก่อน (ไฟล์พากย์คนจริงยาวกว่าเวลาซับ เลยเคยพูดทับกัน)
+local VOICE_QUEUE_MAX_WAIT = 6 -- รอคิวนานเกินนี้ (วินาที) ทิ้งประโยคนั้นไปเลย ไม่ให้เสียงช้ากว่าเหตุการณ์มากเกิน
+local VOICE_GAP = 0.15 -- เว้นจังหวะหายใจระหว่างประโยค
+local voiceQueue: { { play: () -> Sound?, maxLen: number, t: number } } = {}
+local voiceQueueRunning = false
+local playVoiceFile -- ประกาศไว้ก่อน ตัวจริงอยู่ท้ายไฟล์
+
+local function runVoiceQueue()
+	voiceQueueRunning = true
+	while #voiceQueue > 0 do
+		local item = table.remove(voiceQueue, 1)
+		if os.clock() - item.t <= VOICE_QUEUE_MAX_WAIT then
+			local snd = item.play()
+			if snd then
+				local t0 = os.clock()
+				-- รอจนไฟล์โหลดและเล่นจบ (หรือถูกลบ / ครบเวลาสูงสุดของไฟล์นั้น / โหลดไม่ขึ้นใน 3 วิ เช่นไม่มีสิทธิ์ใช้ไฟล์)
+				while
+					snd.Parent
+					and (snd.IsPlaying or (not snd.IsLoaded and os.clock() - t0 < 3))
+					and os.clock() - t0 < item.maxLen
+				do
+					task.wait(0.05)
+				end
+				task.wait(VOICE_GAP)
+			end
+		end
+	end
+	voiceQueueRunning = false
+end
+
+local function enqueueVoice(play: () -> Sound?, maxLen: number)
+	table.insert(voiceQueue, { play = play, maxLen = maxLen, t = os.clock() })
+	if not voiceQueueRunning then
+		task.spawn(runVoiceQueue)
+	end
+end
+
 -- เล่นเสียงพากย์บทสนทนาให้ตรงกับคีย์ประโยค + ตำแหน่ง 3D ของผู้พูด:
 --   - ถ้าเป็นเสียงของ Player: ดังที่ตัว Player เอง และให้ได้ยินเฉพาะเจ้าตัวเท่านั้น (คนอื่นไม่ได้ยินเสียงพากย์ของเรา)
 --   - ถ้าเป็นเสียงของลูกค้า / คนหลบฝน / ขาจร: ดังแบบ 3D ที่ตัวลูกค้า (headPart) คนนั้นจริงๆ!
@@ -1056,29 +1126,20 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 	local genderKey = dialogueKey .. "_" .. gender
 
 	-- 1. เช็กว่ามีไฟล์เสียงพากย์เฉพาะประโยคนี้ใน DialogueUploadedIds หรือในโฟลเดอร์ ReplicatedStorage.UploadedSounds หรือยัง
-	local uploadedId = SoundBank.DialogueUploadedIds[genderKey]
-		or SoundBank.DialogueUploadedIds[dialogueKey]
+	-- เสียงพากย์คนจริง (ใส่ id ใน DialogueUploadedIds) ดังกว่า / ความเร็วเดิม / เล่นจนจบไฟล์ ต่างจากไฟล์ TTS เดิมใน UploadedSounds
+	local dubbedId = SoundBank.DialogueUploadedIds[genderKey] or SoundBank.DialogueUploadedIds[dialogueKey]
+	local uploadedId = dubbedId
 		or findInUploadedFolder(genderKey)
 		or findInUploadedFolder(dialogueKey)
+	if VOICE_LOG then
+		-- VOICE|คีย์ที่เกมเรียก|ไฟล์ที่ต้องพากย์ (คีย์_M/_F)|dub = มีเสียงพากย์จริงแล้ว / tts = เสียง AI เดิม / none = ไม่มีเสียง
+		print("VOICE|" .. dialogueKey .. "|" .. genderKey .. "|" .. (if dubbedId then "dub" elseif uploadedId then "tts" else "none"))
+	end
 	if type(uploadedId) == "string" and uploadedId ~= "" and targetParent then
-		local snd = Instance.new("Sound")
-		snd.Name = "Dialogue_" .. genderKey
-		snd.SoundId = uploadedId
-		-- เสียงกระซิบไร้ตัวตน (ศาลไม่คุ้มครอง / สวดเรียกผี) เบาเหลือ 30% ของเสียงพากย์ปกติ
-		local whisper = type(speakerInfo) == "table" and speakerInfo.ghost == "WhisperSpeaker"
-		snd.Volume = if whisper then 0.58 * 0.3 else 0.58
-		snd.PlaybackSpeed = prof.uploadedSpeed or 1.04 -- ชดเชยสปีดให้ไฟล์ที่อัปโหลดไว้แล้วพูดกระชับ ไม่ยืด โดยไม่ต้องอัปโหลดใหม่!
-		snd.RollOffMode = Enum.RollOffMode.InverseTapered
-		snd.RollOffMinDistance = 7
-		snd.RollOffMaxDistance = 60
-		SoundBank.ApplyWarmEffects(snd, { low = prof.low or 2, mid = prof.mid or 2, high = prof.high or -6 })
-		snd.Parent = targetParent
-		snd:Play()
-		task.delay(6.5, function()
-			if snd and snd.Parent then
-				snd:Destroy()
-			end
-		end)
+		-- เข้าคิว: ประโยคก่อนหน้ายังพูดไม่จบ ให้รอจบก่อนค่อยพูด (ไม่ให้เสียงทับกัน)
+		enqueueVoice(function()
+			return playVoiceFile(genderKey, uploadedId, dubbedId ~= nil, speakerInfo, prof, targetParent)
+		end, if dubbedId then 20 else 6.5)
 		return
 	end
 
@@ -1092,6 +1153,38 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 			SoundBank.PlayReaction("Cold", gender, targetParent)
 		end
 	end
+end
+
+-- สร้างและเล่นไฟล์เสียงพากย์ 1 ประโยค (เรียกจากคิวเสียง)
+function playVoiceFile(genderKey: string, uploadedId: string, isDubbed: boolean, speakerInfo: any, prof: any, targetParent: Instance): Sound?
+	if targetParent ~= SoundService and not targetParent:IsDescendantOf(workspace) then
+		return nil -- คนพูดหายไปจากฉากระหว่างรอคิวแล้ว
+	end
+	local snd = Instance.new("Sound")
+	snd.Name = "Dialogue_" .. genderKey
+	snd.SoundId = uploadedId
+	-- เสียงกระซิบไร้ตัวตน (ศาลไม่คุ้มครอง / สวดเรียกผี) เบาเหลือ 30% ของเสียงพากย์ปกติ
+	local whisper = type(speakerInfo) == "table" and speakerInfo.ghost == "WhisperSpeaker"
+	local baseVolume = if isDubbed then SoundBank.DubbedVoiceVolume else 0.58
+	snd.Volume = if whisper then baseVolume * 0.3 else baseVolume
+	snd.PlaybackSpeed = if isDubbed then 1 else (prof.uploadedSpeed or 1.04) -- ชดเชยสปีดให้ไฟล์ที่อัปโหลดไว้แล้วพูดกระชับ ไม่ยืด โดยไม่ต้องอัปโหลดใหม่!
+	snd.RollOffMode = Enum.RollOffMode.InverseTapered
+	snd.RollOffMinDistance = if isDubbed then 16 else 7 -- กล้องคัตซีนอยู่ห่างหัวคนพูด ~10-15 studs
+	snd.RollOffMaxDistance = 60
+	SoundBank.ApplyWarmEffects(snd, { low = prof.low or 2, mid = prof.mid or 2, high = prof.high or -6 })
+	snd.Parent = targetParent
+	snd:Play()
+	if isDubbed then
+		snd.Ended:Once(function()
+			snd:Destroy()
+		end)
+	end
+	task.delay(if isDubbed then 20 else 6.5, function()
+		if snd and snd.Parent then
+			snd:Destroy()
+		end
+	end)
+	return snd
 end
 
 return SoundBank
