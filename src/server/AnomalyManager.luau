@@ -527,61 +527,7 @@ AnomalyManager.Anomalies = {
 		end,
 		reset = radioNormal,
 	},
-	-- 8. ผีตานียืนอยู่หลังกอกล้วย (ปกติมองไม่เห็น)
-	Anomaly_Tani = {
-		apply = function(_v)
-			if tani then
-				for _, d in ipairs(tani:GetDescendants()) do
-					if d:IsA("BasePart") then
-						veil(d, GHOST_TAG, "Transparency", TANI_SHOWN, TANI_HIDDEN, 3) -- ค่อยๆ ปรากฏ
-					end
-				end
-			end
-		end,
-		reset = function()
-			if tani then
-				unveil(tani)
-				setTransparency(tani, TANI_HIDDEN)
-			end
-		end,
-	},
-	-- 9. หุ่นไล่กาย้ายมายืนใกล้ร้าน หันหน้ามาทางผู้เล่น ตาแดงเรืองขึ้น
-	Anomaly_Scarecrow = {
-		apply = function(_v)
-			if not (scarecrow and scarecrowPivot and gasPump) then
-				return
-			end
-			if anomalyProps:FindFirstChild("ScarecrowApparition") then
-				return
-			end
-			local from = scarecrowPivot.Position
-			local pump = (gasPump :: Model):GetPivot().Position
-			local p = from:Lerp(pump, 0.55)
-			p = Vector3.new(p.X, groundAt(p) + (from.Y - groundAt(from)), p.Z)
-			-- ร่างผีของหุ่นไล่กา (Clone) ยืนใกล้ร้าน ส่วนตัวจริงกลางทุ่งหายไปตอนพนมมือ
-			local ghost = apparition(scarecrow, "ScarecrowApparition") :: Model
-			-- หน้าของหุ่นไล่กาอยู่ฝั่ง -LookVector ของ pivot (ลูกตาอยู่ฝั่งนั้น) จึงหมุนกลับ 180° ให้หน้ามองร้าน
-			ghost:PivotTo(CFrame.lookAt(p, Vector3.new(pump.X, p.Y, pump.Z)) * CFrame.Angles(0, math.pi, 0))
-			for _, d in ipairs(ghost:GetDescendants()) do
-				if d:IsA("BasePart") and string.find(d.Name, "Eye") then
-					d.Color = Color3.fromRGB(255, 20, 20)
-				end
-			end
-			ghost.Parent = anomalyProps
-			ghostOnly(ghost)
-			normalOnly(scarecrow)
-		end,
-		reset = function()
-			local ghost = anomalyProps:FindFirstChild("ScarecrowApparition")
-			if ghost then
-				ghost:Destroy()
-			end
-			if scarecrow and scarecrowPivot then
-				unveil(scarecrow)
-				scarecrow:PivotTo(scarecrowPivot)
-			end
-		end,
-	},
+	-- (ผีตานีหลังกอกล้วย / หุ่นไล่กาย้ายมาใกล้ร้าน ย้ายไปเป็น "ผีฉาก" ด้านล่าง: ไม่นับเป็นผีของลูกค้า 2026-11-03)
 	-- 10. น้ำมันในหลอดแก้วกลายเป็นเลือด
 	Anomaly_BloodFuel = {
 		apply = function(_v)
@@ -628,6 +574,117 @@ AnomalyManager.Anomalies = {
 		end,
 	},
 } :: { [string]: Anomaly }
+
+-- ---------------------------------------------------------------- ผีฉาก (ไม่เกี่ยวกับลูกค้า / งานในร้าน)
+-- โผล่นานๆ ครั้ง (CoreLoop.sceneryLoop) ให้เห็นเฉยๆ ทุกคนเห็นได้โดยไม่ต้องพนมมือ ปกติซ่อนไว้ ไม่ค้างในฉาก
+--   Tani      ผีตานียืนหลังกอกล้วย (AnomalyProps.PhiTaniGhost)
+--   Scarecrow หุ่นไล่กาย้ายมายืนใกล้ร้าน หันมาทางร้าน ตาแดง (ร่างแยก ScarecrowApparition ตัวจริงกลางทุ่งอยู่ที่เดิม)
+--   Shadow    เงาดำตาแดงยืนหลังต้นไทร (AnomalyProps.BanyanShadowAnomaly)
+-- โมเดลที่โผล่ติด tag "SceneryGhost" + attribute SceneryKind / ShowId: client/SceneryGhostWatch เล่นเสียงตอนเห็น
+-- และมองค้างนานเกิน = ผีพุ่งใส่หน้าคนที่มองคนเดียว
+local SCENERY_TAG = "SceneryGhost"
+local banyanShadow = anomalyProps:FindFirstChild("BanyanShadowAnomaly") :: Model?
+local SHADOW_SHOWN = 0.35
+local sceneryShown: { [string]: Instance } = {}
+local showCount = 0
+
+local function fadeParts(root: Instance, t: number, time: number)
+	for _, d in ipairs(selfAndDescendants(root)) do
+		if d:IsA("BasePart") then
+			if time > 0 then
+				TweenService:Create(d, TweenInfo.new(time), { Transparency = t }):Play()
+			else
+				d.Transparency = t
+			end
+			d.CanQuery = t < 1
+		end
+	end
+end
+
+-- ซ่อนผีฉากทั้งหมดตอนเริ่ม (เดิมโมเดลค้างโผล่อยู่ในฉาก)
+local function hideAllScenery()
+	if tani then
+		unveil(tani)
+		fadeParts(tani, 1, 0)
+	end
+	if banyanShadow then
+		unveil(banyanShadow)
+		fadeParts(banyanShadow, 1, 0)
+	end
+	local ghost = anomalyProps:FindFirstChild("ScarecrowApparition")
+	if ghost then
+		ghost:Destroy()
+	end
+	for _, m in pairs(sceneryShown) do
+		CollectionService:RemoveTag(m, SCENERY_TAG)
+	end
+	table.clear(sceneryShown)
+end
+
+AnomalyManager.SceneryKinds = { "Tani", "Scarecrow", "Shadow" }
+
+function AnomalyManager.ShowScenery(kind: string): Instance?
+	if sceneryShown[kind] then
+		return sceneryShown[kind]
+	end
+	local m: Instance? = nil
+	if kind == "Tani" and tani then
+		unveil(tani)
+		fadeParts(tani, TANI_SHOWN, 3)
+		m = tani
+	elseif kind == "Shadow" and banyanShadow then
+		unveil(banyanShadow)
+		fadeParts(banyanShadow, SHADOW_SHOWN, 3)
+		m = banyanShadow
+	elseif kind == "Scarecrow" and scarecrow and scarecrowPivot and gasPump then
+		local from = scarecrowPivot.Position
+		local pump = (gasPump :: Model):GetPivot().Position
+		local p = from:Lerp(pump, 0.55)
+		p = Vector3.new(p.X, groundAt(p) + (from.Y - groundAt(from)), p.Z)
+		local ghost = apparition(scarecrow, "ScarecrowApparition") :: Model
+		-- หน้าของหุ่นไล่กาอยู่ฝั่ง -LookVector ของ pivot จึงหมุนกลับ 180° ให้หน้ามองร้าน
+		ghost:PivotTo(CFrame.lookAt(p, Vector3.new(pump.X, p.Y, pump.Z)) * CFrame.Angles(0, math.pi, 0))
+		for _, d in ipairs(ghost:GetDescendants()) do
+			if d:IsA("BasePart") and string.find(d.Name, "Eye") then
+				d.Color = Color3.fromRGB(255, 20, 20)
+			end
+		end
+		fadeParts(ghost, 1, 0)
+		ghost.Parent = anomalyProps
+		for _, d in ipairs(selfAndDescendants(ghost)) do
+			if d:IsA("BasePart") then
+				TweenService:Create(d, TweenInfo.new(2), { Transparency = 0 }):Play()
+				d.CanQuery = true
+			end
+		end
+		m = ghost
+	end
+	if m then
+		showCount += 1
+		m:SetAttribute("SceneryKind", kind)
+		m:SetAttribute("ShowId", showCount)
+		CollectionService:AddTag(m, SCENERY_TAG)
+		sceneryShown[kind] = m
+	end
+	return m
+end
+
+function AnomalyManager.HideScenery(kind: string)
+	local m = sceneryShown[kind]
+	sceneryShown[kind] = nil
+	if not m then
+		return
+	end
+	CollectionService:RemoveTag(m, SCENERY_TAG)
+	if m.Name == "ScarecrowApparition" then
+		fadeParts(m, 1, 1.5)
+		task.delay(1.6, function()
+			m:Destroy()
+		end)
+	else
+		fadeParts(m, 1, 1.5)
+	end
+end
 
 -- ผีที่ใช้ได้เฉพาะกับรถ (ต้องมีคนซ้อน / ป้ายทะเบียน / ล้อ) หรือเฉพาะคนเดินตอนฝนตก
 local VEHICLE_ONLY = { Anomaly_Headless = true, Anomaly_Cemetery = true, Anomaly_WheelHair = true }
@@ -922,6 +979,7 @@ end
 
 function AnomalyManager.Init()
 	AnomalyManager.ResetAnomalies()
+	hideAllScenery()
 	radioNormal()
 	AnomalyManager.StartAmbience()
 end

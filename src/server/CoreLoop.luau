@@ -101,7 +101,9 @@ local CONFIG = {
 	PraySummonCooldown = 60, -- เรียกผีได้ครั้งเดียวในช่วงนี้ (ทั้งร้าน)
 	PraySummonDuration = { 15, 22 }, -- ผีที่สวดเรียกมาอยู่นานเท่านี้
 	PraySummonGhostNext = 0.5, -- โอกาสที่ลูกค้าคนถัดไป "ตามมา" เป็นผีแน่นอน
-	PraySummonKeys = { "Anomaly_Tani", "Anomaly_Scarecrow", "Anomaly_MonkRadio" },
+	PraySummonKeys = { "Anomaly_MonkRadio" },
+	SceneryEvery = { 150, 300 }, -- ผีฉาก (ตานี / หุ่นไล่กา / เงาหลังต้นไทร) โผล่ทุกๆ กี่วินาที (สุ่ม) นานๆ ครั้ง
+	SceneryStay = { 25, 40 }, -- โผล่ค้างให้เห็นกี่วินาที
 
 	-- น้ำมันในตู้ (2026-11-03): เติม 1 ครั้งใช้เท่านี้ของหลอด หมดแล้วต้องเอาแกลลอนในร้านไปตักจากถังหลังร้านมาเท
 	FuelPerFill = 0.25, -- หลอดเต็ม = เติมได้ 4 ครั้ง
@@ -518,7 +520,6 @@ local ANOMALY_VOICE: { [string]: string } = {
 	Anomaly_Headless = "M", -- "ผม"
 	Anomaly_NeckTwist = "M",
 	Anomaly_MonkRadio = "M",
-	Anomaly_Scarecrow = "M",
 }
 -- คนแวะหลบฝน (ชื่อไม่ซ้ำกับลูกค้าประจำ จะได้ไม่สับสนตอนคุยกัน)
 local SHELTER_CHARACTERS = {
@@ -970,8 +971,8 @@ end
 
 -- จุดมือในท่าถือ เทียบ HumanoidRootPart (สะโพก 3.08 เหนือพื้น) — ค่าจาก server/Pedestrian (HUMAN_LEFT_HAND / HUMAN_RIGHT_HAND)
 local HELD_REST: { [string]: CFrame } = {
-	FuelCan = CFrame.new(1.41, 2.97 - 3.08 - 0.79, -0.25), -- ท่า carry_gallon_r มือขวาห้อยข้างตัว (หูแกลลอนในกำมือ)
-	ThaiDessert = CFrame.new(0.9, 3.4 - 3.08, -1.2), -- ท่า hold_tray_r มือขวาแบหงายหน้าท้อง ใบตองขนมบนฝ่ามือ
+	FuelCan = CFrame.new(-1.41, 2.97 - 3.08 - 0.79, -0.25), -- ท่า carry_gallon_l มือซ้ายห้อยข้างตัว (หูแกลลอนในกำมือ)
+	ThaiDessert = CFrame.new(-0.9, 3.4 - 3.08, -1.2), -- ท่า hold_tray_l มือซ้ายแบหงายหน้าท้อง ใบตองขนมบนฝ่ามือ
 }
 
 local function makeTool(name: string, build: (Instance, CFrame) -> Part, grip: CFrame, scale: number?): Tool
@@ -1016,7 +1017,10 @@ local function makeTool(name: string, build: (Instance, CFrame) -> Part, grip: C
 		w.Name = "VillagerGrip"
 		w.Part0 = root
 		w.Part1 = handle
-		w.C0 = rest
+		-- มือที่ถือของ = มืออีกข้างจากไฟฉาย (ตั้งค่า FlashHand ค่าเริ่มต้นขวา -> ของอยู่มือซ้าย = HELD_REST)
+		local pl = Players:GetPlayerFromCharacter(char)
+		local itemRight = pl ~= nil and pl:GetAttribute("FlashHand") == "L"
+		w.C0 = if itemRight then CFrame.new(-rest.X, rest.Y, rest.Z) * rest.Rotation else rest
 		w.C1 = CFrame.new()
 		w.Parent = handle
 	end)
@@ -1445,6 +1449,15 @@ devDecision.Event:Connect(function(choice: string)
 		AnomalyBook.Survived(string.sub(choice, 6)) -- ทดสอบปลดล็อกสมุด
 	elseif choice == "bookreset" then
 		AnomalyBook.Reset()
+	elseif string.sub(choice, 1, 8) == "scenery:" then
+		-- ทดสอบผีฉาก: "scenery:Tani" / "scenery:Scarecrow" / "scenery:Shadow" / "scenery:hide"
+		local k = string.sub(choice, 9)
+		for _, kk in ipairs(AnomalyManager.SceneryKinds) do
+			AnomalyManager.HideScenery(kk)
+		end
+		if k ~= "hide" then
+			AnomalyManager.ShowScenery(k)
+		end
 	elseif choice == "rain" or choice == "clear" then
 		Weather.Set(choice == "rain")
 	elseif choice == "powercut" then
@@ -1944,7 +1957,8 @@ local function spawnCustomer(kind: string?)
 			AnomalyManager.Apply(anomaly :: string, v)
 		end
 	end
-	local useAnomalyLine = ghost and math.random() < 0.6
+	-- ผีพูดเหมือนคนปกติทุกประโยค ไม่มีคำใบ้ (ผู้ใช้ 2026-11-03: ให้รู้ว่าเป็นผีจากการเห็นตัวเองเท่านั้น)
+	local useAnomalyLine = false
 	local who = pickCharacter(if useAnomalyLine then ANOMALY_VOICE[anomaly :: string] else nil)
 	local order = who.order
 	if k == "walker" then
@@ -2064,7 +2078,6 @@ local shelters: { Shelter } = {}
 local customerTalking = false -- ลูกค้าที่ตู้กำลังคุยอยู่ (คนหลบฝนรอจังหวะ)
 
 local SHELTER_TALK = { "ShelterTalk_1", "ShelterTalk_2", "ShelterTalk_3", "ShelterTalk_4", "ShelterTalk_5" }
-local SHELTER_GHOST_TALK = { "ShelterGhostTalk_1", "ShelterGhostTalk_2", "ShelterGhostTalk_3" }
 
 local function freeSpot(): number?
 	for i = 1, #CONFIG.ShelterSpots do
@@ -2144,7 +2157,7 @@ local function spawnShelter()
 			task.wait(0.5)
 		end
 		for _ = 1, 20 do
-			if not v.Parent or shelterSay(sh, if ghost then "ShelterGhost_Ask" else "Shelter_Ask", 3.5) then
+			if not v.Parent or shelterSay(sh, "Shelter_Ask", 3.5) then
 				break
 			end
 			task.wait(1)
@@ -2153,7 +2166,7 @@ local function spawnShelter()
 		local nextTalk = os.clock() + CONFIG.ShelterTalkEvery[1] + math.random() * (CONFIG.ShelterTalkEvery[2] - CONFIG.ShelterTalkEvery[1])
 		while v.Parent and Weather.IsRaining() and not gameOver do
 			if os.clock() > nextTalk then
-				if shelterSay(sh, pick(if ghost then SHELTER_GHOST_TALK else SHELTER_TALK), 4) then
+				if shelterSay(sh, pick(SHELTER_TALK), 4) then
 					nextTalk = os.clock() + CONFIG.ShelterTalkEvery[1] + math.random() * (CONFIG.ShelterTalkEvery[2] - CONFIG.ShelterTalkEvery[1])
 				else
 					nextTalk = os.clock() + 3
@@ -2172,7 +2185,7 @@ local function spawnShelter()
 			task.wait(0.5)
 		end
 		for _ = 1, 40 do -- รอจังหวะที่ไม่มีใครคุย (สูงสุด ~40 วิ)
-			if shelterSay(sh, if ghost then "ShelterGhost_Leave" else "Shelter_Leave", 3.2) then
+			if shelterSay(sh, "Shelter_Leave", 3.2) then
 				break
 			end
 			task.wait(1)
@@ -2600,10 +2613,10 @@ local function waitDecisionImpatient(c: Customer, speaker, annoyed: number, prom
 		local waited = os.clock() - promptsAt -- นับจากตอนปุ่มเปิด (รวมช่วงถามราคา)
 		if annoyed < 1 and waited > CONFIG.ImpatientAfter[1] and not prayingNear then
 			annoyed = 1
-			say(if c.ghost then "Ghost_Wait" else pick({ "Impatient_1", "Impatient_2" }), speaker)
+			say(pick({ "Impatient_1", "Impatient_2" }), speaker)
 		elseif annoyed < 2 and waited > CONFIG.ImpatientAfter[2] and not prayingNear then
 			annoyed = 2
-			say(if c.ghost then "Ghost_Wait2" else "Impatient_3", speaker)
+			say("Impatient_3", speaker)
 		end
 		task.wait(0.1)
 	end
@@ -2704,7 +2717,7 @@ local function serveCustomer(c: Customer)
 
 		local raining = Weather.IsRaining()
 		if raining and math.random() < 0.5 then
-			say(if ghost then "Ghost_RainTalk" else pick({ "RainTalk_1", "RainTalk_2", "RainTalk_3" }), speaker, nil, 2.6)
+			say(pick({ "RainTalk_1", "RainTalk_2", "RainTalk_3" }), speaker, nil, 2.6)
 		end
 
 		if not present or gameOver or decision then return end
@@ -2712,16 +2725,9 @@ local function serveCustomer(c: Customer)
 		local sh = anyShelter()
 		if sh and math.random() < 0.7 then
 			local shSpeaker = { name = sh.who.name, voice = sh.who.voice, ghost = sh.ghost }
-			if sh.ghost and not ghost then
-				say("ShelterGhost_ToCustomer", shSpeaker, nil, 2.8, getHead(sh.v))
-				say("Chat_WhoTalking", speaker, nil, 2.8)
-			elseif ghost and raining then
-				say("Shelter_NoticeDry", shSpeaker, nil, 3, getHead(sh.v))
-				say("Ghost_DryReply", speaker, nil, 2.6)
-			else
-				say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6, getHead(sh.v))
-				say(if ghost then "Ghost_ShortReply" else pick({ "Chat_Reply_1", "Chat_Reply_2" }), speaker, nil, 2.4)
-			end
+			-- (ผี/คนปกติคุยเหมือนกัน: ไม่ใบ้ด้วยข้อความ)
+			say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6, getHead(sh.v))
+			say(pick({ "Chat_Reply_1", "Chat_Reply_2" }), speaker, nil, 2.4)
 		end
 
 		if not present or gameOver or decision then return end
@@ -2732,7 +2738,7 @@ local function serveCustomer(c: Customer)
 		-- คิวคันหลังแซวให้รีบ
 		local nextInLine = queue[2]
 		if nextInLine and nextInLine.queuedSince and os.clock() - nextInLine.queuedSince > 6 and math.random() < 0.4 then
-			say(if nextInLine.ghost then "Queue_ChimeGhost" else "Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
+			say("Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
 		end
 	end)
 
@@ -2796,7 +2802,7 @@ local function serveCustomer(c: Customer)
 		end
 		if ghost then
 			-- เติมให้ผี: ธูปดับ 1 ดอก + หักเงิน + ผีหลอก
-			say("Ghost_Pay", speaker, { amount = price }, 1.5)
+			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price }, 1.5)
 			incense -= 1
 			money = math.max(0, money - CONFIG.GhostFuelPenalty)
 			refreshIncense()
@@ -2888,7 +2894,7 @@ local function serveCustomer(c: Customer)
 					knockDown(p, CONFIG.KnockdownTime)
 				end)
 			end
-			say(if #outside > 0 then "Ghost_Chased" else "Ghost_Rejected", speaker)
+			say(if #outside > 0 then "Ghost_Chased" else pick({ "Rejected_1", "Rejected_2" }), speaker)
 			task.delay(if #outside > 0 then GHOST_VANISH_AFTER else 1.6, function()
 				if v.Parent then
 					for _, d in ipairs(v:GetDescendants()) do
@@ -2908,7 +2914,7 @@ local function serveCustomer(c: Customer)
 		end
 		broadcastHUD()
 	elseif not leaveEarly then
-		say(if ghost then "Ghost_NoOne" else pick({ "NoOne_1", "NoOne_2" }), speaker)
+		say(pick({ "NoOne_1", "NoOne_2" }), speaker)
 		print("⌛ ไม่มีใครตัดสินใจ ลูกค้าขับออกไปเอง")
 	end
 	present = false
@@ -3019,6 +3025,35 @@ local function summonByPrayer(p: Player)
 			summoned = nil
 		end
 	end)
+end
+
+-- ผีฉาก: ไม่เกี่ยวกับลูกค้า โผล่ให้เห็นเฉยๆ นานๆ ครั้งตอนร้านเปิด (AnomalyManager.ShowScenery)
+-- เสียงตอนเห็น / มองค้างนาน = ผีพุ่งใส่หน้าคนที่มอง อยู่ที่ client/SceneryGhostWatch
+local sceneryNow: string? = nil
+local function showSceneryGhost(kind: string?)
+	local list = AnomalyManager.SceneryKinds
+	local k = kind or list[math.random(#list)]
+	if sceneryNow then
+		AnomalyManager.HideScenery(sceneryNow)
+	end
+	if AnomalyManager.ShowScenery(k) then
+		sceneryNow = k
+		print("👁️ ผีฉากโผล่: " .. k)
+		task.delay(rand(CONFIG.SceneryStay), function()
+			if sceneryNow == k then
+				AnomalyManager.HideScenery(k)
+				sceneryNow = nil
+			end
+		end)
+	end
+end
+local function sceneryLoop()
+	while true do
+		task.wait(rand(CONFIG.SceneryEvery))
+		if remotes:GetAttribute("ShopOpen") == true and not gameOver and not sceneryNow then
+			showSceneryGhost()
+		end
+	end
 end
 
 local function prayerSummonLoop()
@@ -3285,6 +3320,7 @@ function CoreLoop.Start()
 	end
 	AnomalyManager.Init()
 	task.spawn(prayerSummonLoop)
+	task.spawn(sceneryLoop)
 	Weather.Start(function()
 		return remotes:GetAttribute("ShopOpen") == true and not gameOver
 	end)

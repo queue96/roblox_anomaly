@@ -273,6 +273,9 @@ LanguageModule.UI = {
 	ShowHUD = { th = "แสดงเงิน / ธูป / ปุ่ม", en = "Show money / incense / keys" },
 	ShowLabels = { th = "แสดงป้ายชื่อวัตถุ", en = "Show object labels" },
 	On = { th = "เปิด", en = "On" },
+	FlashHand = { th = "มือถือไฟฉาย", en = "Flashlight hand" },
+	HandRight = { th = "ขวา", en = "Right" },
+	HandLeft = { th = "ซ้าย", en = "Left" },
 	Off = { th = "ปิด", en = "Off" },
 	Close = { th = "ปิด", en = "Close" },
 	-- กล่องคำพูด + แถบปุ่มคีย์ล่างจอ
@@ -447,8 +450,6 @@ LanguageModule.BookOrder = {
 	"Anomaly_CreepySmile",
 	"Anomaly_Krasue",
 	"Anomaly_MonkRadio",
-	"Anomaly_Tani",
-	"Anomaly_Scarecrow",
 	"Anomaly_BloodFuel",
 	"Anomaly_NoUmbrella",
 }

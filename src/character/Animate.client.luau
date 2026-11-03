@@ -53,7 +53,7 @@ end
 for _, n in ipairs({ "idle", "walk", "fall", "sit", "ride_moto", "pull_rope" }) do
 	track(n, Enum.AnimationPriority.Core)
 end
-for _, n in ipairs({ "hold_flashlight", "pray" }) do
+for _, n in ipairs({ "pray" }) do
 	track(n, Enum.AnimationPriority.Action)
 end
 
@@ -111,6 +111,7 @@ end)
 
 -- ---------------------------------------------------------------- ท่าซ้อน
 local overlayOn: { [string]: boolean } = {}
+local holdingFlashlight = false
 local function setOverlay(name: string, on: boolean)
 	if (overlayOn[name] or false) == on then
 		return
@@ -221,7 +222,7 @@ RunService:BindToRenderStep("VillagerBodyYaw", Enum.RenderPriority.Camera.Value 
 	headYaw = math.clamp(wrapAngle(camYaw - target), -HEAD_LIMIT, HEAD_LIMIT)
 	headPitch = math.clamp(camPitch, math.rad(-65), math.rad(70))
 	-- แขนไฟฉายชี้ตามสายตา: ค่อยๆ เข้า/ออกตามท่าถือไฟฉาย
-	local wantAim = if overlayOn.hold_flashlight then 1 else 0
+	local wantAim = if holdingFlashlight then 1 else 0
 	armAim += (wantAim - armAim) * math.min(1, dt * 8)
 	if not headRemote then
 		local remotes = ReplicatedStorage:FindFirstChild("Remotes")
@@ -238,8 +239,18 @@ RunService:BindToRenderStep("VillagerBodyYaw", Enum.RenderPriority.Camera.Value 
 	end
 end)
 -- หลังท่าทางคำนวณเสร็จ (ก่อนฟิสิกส์/วาด): หมุนลำตัว คอ หัว แขน
-RunService.PreSimulation:Connect(function()
-	headBefore, headAfter = HeadTurn.apply(char, headYaw, headPitch, armAim)
+-- ต่อจาก client/HumanEmotesRunner (ท่าถือของ/ไฟฉายจากข้อมูล) ผ่าน shared/PoseHooks: แขนไฟฉายชี้ตามสายตาทับท่าถือ
+local PoseHooks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PoseHooks")) :: any
+local unhook = PoseHooks.After(function()
+	if char.Parent then
+		headBefore, headAfter = HeadTurn.apply(char, headYaw, headPitch, armAim)
+	end
+end)
+script.Destroying:Connect(unhook)
+char.AncestryChanged:Connect(function()
+	if not char.Parent then
+		unhook()
+	end
 end)
 -- ตำแหน่งตา (CameraOffset ในกรอบของตัว) ให้ตามหัวที่หัน/เอนจริง: ตาติดอยู่กับหัว ไม่ค้างอยู่ที่เดิม
 -- (ไม่งั้นหันข้างแล้วกล้องค้างหน้าอก เห็นไหล่ตัวเอง / ก้มแล้วตัวเอนเข้ามาทับกล้อง)
@@ -341,7 +352,8 @@ RunService.Heartbeat:Connect(function(dt)
 	-- ล้มตาย: ยกเลิกท่าถือ/พนมมือทั้งหมดด้วย (downed ด้านบน)
 	-- พนมมือ = มือว่าง ไม่ถืออะไร
 	setOverlay("pray", praying and not downed)
-	setOverlay("hold_flashlight", flashlight and not praying and not downed)
+	-- ไฟฉายมือขวา: ท่ากำเล่นจากข้อมูล (client/HumanEmotesRunner hold_flashlight_r) ไม่ใช้ Animation อัปโหลดมือซ้ายแล้ว
+	holdingFlashlight = flashlight and not praying and not downed
 	-- ของในมือขวา (client/HeldItems วางของตรงมือ): ท่าเล่นจากข้อมูลใน client/HumanEmotesRunner
 	--   ขนมตาลบนใบตอง = แบมือหงาย (hold_tray_r), แกลลอน = หิ้วข้างตัว (carry_gallon_r) / ไฟฉายมือซ้ายพร้อมกันได้
 end)

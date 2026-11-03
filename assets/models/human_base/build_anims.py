@@ -414,6 +414,30 @@ def c_hold_tray_r(P, t, st, s):
     hand(P, "R", "wai")      # fingers straight and together: a flat palm
     P.rot("shoulder.R", -2)
 
+def c_carry_gallon_l(P, t, st, s):
+    """the jerry can in the LEFT hand (the player: the flashlight moved to the right hand, 2026-11-03). Played in game
+    from data (src/shared/HumanClipData.luau, left arm bones only) over walk / idle"""
+    arm(P, "L", raise_=-22, fwd=4, bend=6, wrist=0)
+    hand(P, "L", "fist")
+    P.rot("shoulder.L", -3)
+
+def c_hold_tray_l(P, t, st, s):
+    """hold_tray_r mirrored: the sweets on the open LEFT palm (palm up). The explicit forearm / hand rolls are written
+    for the left side, so their y (roll) flips sign; z is the same number on both sides (Poser mirrors .R)"""
+    br = math.sin(2*math.pi*t)
+    arm(P, "L", raise_=-24, fwd=22 + 1.0*br, bend=82, wrist=-8, twist=0)
+    P.rot("forearm.L", 0, -TRAY_ROLL, -82)
+    P.rot("hand.L", -8, -40, 0)
+    hand(P, "L", "wai")
+    P.rot("shoulder.L", -2)
+
+def c_hold_flashlight_r(P, t, st, s):
+    """the flashlight in the RIGHT hand (the player, 2026-11-03): the same pose as hold_flashlight mirrored.
+    Played in game from data (right arm bones); shared/HeadTurn aims the arm at where the player looks"""
+    sweep = 4*math.sin(2*math.pi*t)
+    arm(P, "R", raise_=12, fwd=64 + sweep, bend=38, wrist=-4)
+    hand(P, "R", "grip_flashlight")
+
 def c_hold_flashlight(P, t, st, s):
     """flashlight in the LEFT hand (the umbrella goes in the right): forearm forward at chest height, beam ahead,
     a slow sweep. Praying puts it away: hands must be empty for a wai"""
@@ -689,6 +713,9 @@ CLIPS = {   # name: (fn, frames for the adult man)
     "dead_lying": (c_dead_lying, 8),
     "carry_gallon_r": (c_carry_gallon_r, 30),
     "hold_tray_r": (c_hold_tray_r, 60),
+    "carry_gallon_l": (c_carry_gallon_l, 30),
+    "hold_tray_l": (c_hold_tray_l, 60),
+    "hold_flashlight_r": (c_hold_flashlight_r, 120),
 }
 FIXED_TEMPO = {"idle", "ramwong", "wan_rock", "wan_bounce", "wan_point", "wan_cool", "wan_hands_up", "wan_hip_shake",
                "wan_low_bounce", "ghost_dance"}

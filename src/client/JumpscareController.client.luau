@@ -44,6 +44,10 @@ local FX = {
 	-- ผีตานี / หุ่นไล่กา: ตัวจริงเป็น MeshPart ที่ ViewportFrame วาดไม่ขึ้น ใช้หน้าหลอนของลูกค้าแทน (เสียง/สีจอยังเป็นของตัวเอง)
 	Anomaly_Tani = { focus = "head", tint = Color3.fromRGB(20, 80, 30), sounds = { { "Crying", 0.8 }, { "Scream", 1, 0.3 } } },
 	Anomaly_Scarecrow = { focus = "head", tint = Color3.fromRGB(90, 40, 0), sounds = { { "Crows", 1, 0, 3 }, { "Sting", 1, 0.05 } } },
+	-- ผีฉาก (client/SceneryGhostWatch: มองค้างนาน = พุ่งใส่หน้าคนที่มองคนเดียว)
+	Scenery_Tani = { focus = "tani", tint = Color3.fromRGB(20, 80, 30), sounds = { { "Sting", 1 }, { "Scream", 1, 0.1 } } },
+	Scenery_Scarecrow = { focus = "scarecrow", tint = Color3.fromRGB(90, 40, 0), sounds = { { "Sting", 1 }, { "Crows", 0.8, 0.05, 2 } } },
+	Scenery_Shadow = { focus = "shadow", tint = Color3.fromRGB(10, 0, 0), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.08 } } },
 	Anomaly_BloodFuel = { focus = "head", tint = Color3.fromRGB(150, 0, 0), sounds = { { "Glug", 1 }, { "Sting", 1, 0.15 } }, extra = "blood" },
 	Anomaly_NoUmbrella = { focus = "head", tint = Color3.fromRGB(200, 210, 255), sounds = { { "Thunder", 1 }, { "Sting", 1, 0.05 } }, extra = "lightning" },
 }
@@ -195,8 +199,21 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 			end
 		end
 		focusPart = c:FindFirstChild("TaniHead", true) :: BasePart?
-	elseif focus == "scarecrow" and anomalyProps and anomalyProps:FindFirstChild("Scarecrow") then
-		local c = addClone(anomalyProps.Scarecrow)
+	elseif focus == "shadow" and anomalyProps and anomalyProps:FindFirstChild("BanyanShadowAnomaly") then
+		local c = addClone(anomalyProps.BanyanShadowAnomaly)
+		for _, d in ipairs(c:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Transparency = if string.find(d.Name, "Eye") then 0 else 0.05
+			end
+		end
+		focusPart = c:FindFirstChild("ShadowHead", true) :: BasePart?
+	elseif focus == "scarecrow" and anomalyProps and (anomalyProps:FindFirstChild("ScarecrowApparition") or anomalyProps:FindFirstChild("Scarecrow")) then
+		local c = addClone(anomalyProps:FindFirstChild("ScarecrowApparition") or anomalyProps.Scarecrow)
+		for _, d in ipairs(c:GetDescendants()) do
+			if d:IsA("BasePart") and d.Transparency > 0 and d.Transparency < 1 then
+				d.Transparency = 0
+			end
+		end
 		-- ชิ้นล่องหน (กล่องป้ายเดิม) ทำให้กรอบเพี้ยน เอาออก
 		for _, d in ipairs(c:GetDescendants()) do
 			if d:IsA("BasePart") and d.Transparency >= 1 then
@@ -300,7 +317,7 @@ end
 
 -- ---------------------------------------------------------------- เล่นผีหลอก
 local busy = false
-TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?)
+local function runScare(key: string?, source: Instance?)
 	if busy then
 		return
 	end
@@ -314,7 +331,7 @@ TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?)
 
 	local model, focus = ghostModel(key, fx.focus, source)
 	-- ผีทั้งตัวสีทึบ (หุ่นไล่กา/ตานี) ต้องสว่างกว่าหน้าคนนิดหน่อย ไม่งั้นจมหายในจอมืด
-	vp.Ambient = if fx.focus == "scarecrow" or fx.focus == "tani" then Color3.fromRGB(175, 165, 160) else Color3.fromRGB(120, 110, 110)
+	vp.Ambient = if fx.focus == "scarecrow" or fx.focus == "tani" or fx.focus == "shadow" then Color3.fromRGB(175, 165, 160) else Color3.fromRGB(120, 110, 110)
 	local function clearViewport()
 		for _, ch in ipairs(vp:GetChildren()) do
 			if ch ~= vpCam then
@@ -354,7 +371,7 @@ TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?)
 		local front = focus.CFrame.LookVector
 		local size = math.max(focus.Size.X, focus.Size.Y, focus.Size.Z)
 		-- ผีทั้งตัว (หุ่นไล่กา / ผีตานี): จัดเฟรมจากกรอบทั้งตัว เล็งช่วงหัว (บน 1/3) หน้า = ทิศหน้าของโมเดล
-		if model and (fx.focus == "scarecrow" or fx.focus == "tani") then
+		if model and (fx.focus == "scarecrow" or fx.focus == "tani" or fx.focus == "shadow") then
 			local bcf, bsize = model:GetBoundingBox()
 			target = bcf.Position + Vector3.new(0, bsize.Y * 0.32, 0)
 			local inner = model:FindFirstChildWhichIsA("Model") or model -- ตัวผีจริงอยู่ข้างในโมเดลห่อ
@@ -433,4 +450,11 @@ TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?)
 	clearViewport()
 	drips:ClearAllChildren()
 	busy = false
+end
+TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?)
+	runScare(key, source)
 end)
+-- ผีหลอกเฉพาะเครื่องนี้ (ผีฉาก: client/SceneryGhostWatch) ไม่ผ่านเซิร์ฟเวอร์ คนอื่นไม่เห็น
+_G.LocalJumpscare = function(key: string, source: Instance?)
+	task.spawn(runScare, key, source)
+end

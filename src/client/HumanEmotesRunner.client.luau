@@ -17,9 +17,15 @@ local PoseHooks = require(Shared:WaitForChild("PoseHooks")) :: any
 local TAG = "HumanEmote"
 local FADE_IN, FADE_OUT = 0.25, 0.3
 local WALK_CLIP_SPEED = 4.3 -- ท่าเดินความเร็ว 1 = เดิน 4.3 studs/วิ (server/HumanNPC)
--- ถือของ (Tool ในตัวละคร) -> ท่าแขนจาก HumanClipData ทับท่าเดิน/ยืน (ไฟฉายยังอยู่มือซ้าย)
---   แกลลอน: มือขวาหิ้วข้างตัว / ขนมตาลบนใบตอง: มือขวาแบหงายหน้าท้อง
-local HOLD_CLIPS: { [string]: string } = { FuelCan = "carry_gallon_r", ThaiDessert = "hold_tray_r" }
+-- ถือของ (Tool ในตัวละคร) -> ท่าแขนจาก HumanClipData ทับท่าเดิน/ยืน (สลับมือ 2026-11-03)
+--   ไฟฉาย: มือขวา (shared/HeadTurn ชี้แขนตามสายตาต่อ) / แกลลอน: มือซ้ายหิ้วข้างตัว / ขนมตาลบนใบตอง: มือซ้ายแบหงาย
+--   มือไหนถืออะไร: shared/HeadTurn.Sides (ผู้เล่นเลือกมือถือไฟฉายในตั้งค่า ค่าเริ่มต้นขวา ของอื่นอยู่มืออีกข้าง)
+local HeadTurn = require(Shared:WaitForChild("HeadTurn")) :: any
+local HOLD_CLIPS: { [string]: { L: string, R: string, flash: boolean? } } = {
+	FuelCan = { L = "carry_gallon_l", R = "carry_gallon_r" },
+	ThaiDessert = { L = "hold_tray_l", R = "hold_tray_r" },
+	FrogFlashlight = { L = "hold_flashlight", R = "hold_flashlight_r", flash = true },
+}
 
 -- ---------------------------------------------------------------- ข้อมูลท่า -> CFrame (แปลงครั้งเดียวต่อท่า)
 type Clip = { length: number, once: boolean, times: { number }, tracks: { [string]: { CFrame } } }
@@ -179,9 +185,13 @@ RunService.PreSimulation:Connect(function(dt)
 			end
 		end
 		-- 3) ท่าถือของ (เฉพาะกระดูกแขนในคลิป)
-		for toolName, clipName in pairs(HOLD_CLIPS) do
+		local flashSide, itemSide = HeadTurn.Sides(m)
+		for toolName, pair in pairs(HOLD_CLIPS) do
 			local tool = m:FindFirstChild(toolName)
-			local want = if tool and tool:IsA("Tool") and emoteW < 0.5 then 1 else 0
+			for _, sd in ipairs({ "L", "R" }) do
+			local clipName = pair[sd]
+			local mine = sd == (if pair.flash then flashSide else itemSide)
+			local want = if mine and tool and tool:IsA("Tool") and emoteW < 0.5 then 1 else 0
 			local w = st.holdW[clipName] or 0
 			w += (want - w) * math.min(1, dt * 8)
 			if w < 0.002 then
@@ -198,6 +208,7 @@ RunService.PreSimulation:Connect(function(dt)
 						poses[b] = from:Lerp(sample(hc, keys, ht), w)
 					end
 				end
+			end
 			end
 		end
 		for b, cf in pairs(poses) do

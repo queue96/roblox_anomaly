@@ -271,12 +271,18 @@ local function playOrUpdateMyChant(scaredMode: boolean, forceNewIndex: boolean?)
 	end
 end
 
--- เจอผีระหว่างพนมมือ (ผีโผล่มาตอนสวดอยู่ หรือตาทิพย์เปิดแล้วเห็นผี): เสียงสวดคงเดิม ไม่เปลี่ยนเป็นสวดเร็ว
+-- (เดิม) เจอผีระหว่างพนมมือ: เสียงสวดคงเดิม ไม่เปลี่ยนเป็นสวดเร็ว
 -- แต่เล่นเสียงตกใจ GHOST_SIGHT_ID หนึ่งครั้งต่อการเจอผีหนึ่งรอบ (ผีหายไปแล้วโผล่ใหม่ = เล่นอีก)
 local GHOST_SIGHT_ID = "rbxassetid://123314010660698"
 local GHOST_SIGHT_VOLUME = 0.5
 local ghostStung = false
+-- ปิดแล้ว (2026-11-03): ผีที่มากับลูกค้า (เติมน้ำมัน / เติมลม / งานอื่นๆ) ไม่มีเสียงเฉลยตอนเจอ ให้ผู้เล่นสังเกตเอง
+-- เสียงตอนเจอผีมีเฉพาะผีฉาก (client/SceneryGhostWatch)
+local STING_FOR_EVENT_GHOSTS = false
 local function onGhostCheck()
+	if not STING_FOR_EVENT_GHOSTS then
+		return
+	end
 	local ghostNow = isGhostDetectedNow()
 	if not ghostNow then
 		ghostStung = false

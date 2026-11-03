@@ -3,7 +3,7 @@
 -- ตัวชาวบ้านมองตามมุมกล้อง โดยไม่หมุนทั้งตัว
 --   ซ้าย/ขวา (yaw, ไม่เกิน LIMIT): คอ + หัวหัน ตัวอยู่กับที่
 --   ก้ม/เงย (pitch): ลำตัว (spine + chest) เอนตามส่วนหนึ่ง คอ + หัวรับส่วนที่เหลือ
---   ถือไฟฉาย (aim 0..1): แขนซ้ายทั้งแขน (upper_arm.L) ชี้ไปทางที่มอง -> ไฟฉายในมือส่องไปข้างหน้าตามสายตา
+--   ถือไฟฉาย (aim 0..1): แขนที่ถือไฟฉาย (M.Sides: ผู้เล่นเลือกได้ ค่าเริ่มต้นขวา) ชี้ไปทางที่มอง -> ไฟฉายส่องตามสายตา
 --   ตัวผู้เล่นเอง: character/Animate (คืนตำแหน่ง/ทิศของกระดูกหัวก่อน-หลังหมุน ใช้เลื่อนกล้องตามหัว)
 --   ตัวผู้เล่นคนอื่น: client/HeadTurnOthers (มุมจาก attribute "HeadYaw"/"HeadPitch" ของตัวละคร ที่เซิร์ฟเวอร์ตั้งให้)
 -- เรียกทุกเฟรมหลังท่าทางคำนวณเสร็จ (RunService.PreSimulation): Animator เขียน Bone.Transform ใหม่ทุกเฟรม
@@ -23,15 +23,31 @@ local PITCH = { spine = 0.1, chest = 0.15, neck = 0.15, head = 0.25 }
 --   1) หัวไหล่: แขนท่อนบนชี้ไปที่ข้อศอกนั้น
 --   2) แขนท่อนล่าง: ชี้เฉียงเข้าหาลำตัว FORE_ACROSS ลาดลง FORE_DROP แล้วบิดรอบแกนแขน (คว่ำมือ) ให้ฝั่งฝ่ามือชี้ลง
 --   3) ข้อมือ: ปรับนิดเดียวให้แนวกำมือ (โคนนิ้วชี้ -> โคนนิ้วก้อย = ทิศหัวไฟ) ชี้ไปทางที่มอง
-local ARM = "upper_arm.L"
-local HAND_L = "hand.L"
-local FORE_L = "forearm.L"
-local KNUCKLE_INDEX, KNUCKLE_PINKY = "index_01.L", "pinky_01.L"
+-- มือที่ถือไฟฉาย: ผู้เล่นเลือกในหน้าตั้งค่า (attribute FlashHand ของ Player "R"/"L" ค่าเริ่มต้นขวา) ของอื่น (แกลลอน/ขนม) อยู่มืออีกข้าง
+-- ตัวที่ไม่ใช่ผู้เล่น (NPC) = ไฟฉายมือซ้ายแบบเดิม
+local Players = game:GetService("Players")
+function M.Sides(char: Model): (string, string)
+	local pl = Players:GetPlayerFromCharacter(char)
+	if not pl then
+		return "L", "R"
+	end
+	local f = if pl:GetAttribute("FlashHand") == "L" then "L" else "R"
+	return f, if f == "L" then "R" else "L"
+end
 local AIM_DROP = math.rad(-4) -- หัวไฟเงยขึ้นนิด
 local FORE_DROP = math.rad(10) -- แขนท่อนล่างลาดลงนิด
 local FORE_ACROSS = math.rad(60) -- แขนท่อนล่างเฉียงเข้าหาลำตัว (0 = ชี้หน้า, 90 = พาดขวางหน้าอก)
-local HAND_POS = Vector3.new(-0.4, 2.05, -1.45) -- ข้อมือซ้ายในกรอบ HumanoidRootPart ตอนมองตรง (หน้าอก ไม่บังกลางจอ)
-local ORDER = { "spine", "chest", "neck", "head", ARM, FORE_L, HAND_L } -- พ่อก่อนลูก
+local HAND_POS = Vector3.new(-0.4, 2.05, -1.45) -- ข้อมือซ้ายในกรอบ HumanoidRootPart ตอนมองตรง (มือขวา: x กลับด้าน)
+local BODY = { "spine", "chest", "neck", "head" }
+-- กระดูกแขนของแต่ละข้าง (คืนท่าฐานทั้งสองข้างทุกเฟรม: สลับมือแล้วแขนข้างเดิมไม่ค้างท่าชี้)
+local ARM_BONES = { "upper_arm.L", "forearm.L", "hand.L", "upper_arm.R", "forearm.R", "hand.R" }
+local WATCH: { [string]: boolean } = {}
+for _, n in ipairs(ARM_BONES) do
+	WATCH[n] = true
+end
+for _, n in ipairs({ "index_01.L", "pinky_01.L", "index_01.R", "pinky_01.R" }) do
+	WATCH[n] = true
+end
 
 type State = { bones: { [string]: Bone }, written: { [Bone]: CFrame }, base: { [Bone]: CFrame } }
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
@@ -43,17 +59,7 @@ local function stateOf(char: Model): State?
 	end
 	local found: { [string]: Bone } = {}
 	for _, d in ipairs(char:GetDescendants()) do
-		if
-			d:IsA("Bone")
-			and (
-				PITCH[d.Name]
-				or d.Name == ARM
-				or d.Name == HAND_L
-				or d.Name == FORE_L
-				or d.Name == KNUCKLE_INDEX
-				or d.Name == KNUCKLE_PINKY
-			)
-		then
+		if d:IsA("Bone") and (PITCH[d.Name] or WATCH[d.Name]) then
 			found[d.Name] = d
 		end
 	end
@@ -74,8 +80,17 @@ function M.apply(char: Model, yaw: number, pitch: number?, aim: number?): (CFram
 	end
 	local p = pitch or 0
 	local a = aim or 0
-	-- 1) คืนทุกกระดูกเป็นท่าจาก Animator (ฐาน)
-	for _, name in ipairs(ORDER) do
+	local side = M.Sides(char)
+	local ARM, FORE_L, HAND_L = "upper_arm." .. side, "forearm." .. side, "hand." .. side
+	local KNUCKLE_INDEX, KNUCKLE_PINKY = "index_01." .. side, "pinky_01." .. side
+	local mirror = if side == "R" then -1 else 1 -- มือขวา: กลับซ้าย-ขวา (ตำแหน่งมือ ทิศแขนท่อนล่าง)
+	local ORDER = { "spine", "chest", "neck", "head", ARM, FORE_L, HAND_L } -- พ่อก่อนลูก
+	-- 1) คืนทุกกระดูกเป็นท่าจาก Animator (ฐาน) — ลำตัว + แขนทั้งสองข้าง
+	local restore = table.clone(BODY)
+	for _, n in ipairs(ARM_BONES) do
+		table.insert(restore, n)
+	end
+	for _, name in ipairs(restore) do
 		local b = st.bones[name]
 		if b then
 			local cur = b.Transform
@@ -118,7 +133,7 @@ function M.apply(char: Model, yaw: number, pitch: number?, aim: number?): (CFram
 				continue
 			end
 			-- ทิศแขนท่อนล่างที่ต้องการ: เฉียงเข้าหาลำตัว (มือซ้าย: ไปทางขวา) ลาดลงนิด เงย/ก้มตามสายตา
-			local across = CFrame.fromAxisAngle(up, -FORE_ACROSS):VectorToWorldSpace(forward)
+			local across = CFrame.fromAxisAngle(up, -FORE_ACROSS * mirror):VectorToWorldSpace(forward)
 			local foreWant = CFrame.fromAxisAngle(rightLook, p - FORE_DROP):VectorToWorldSpace(across).Unit
 			local fore = st.bones[FORE_L]
 			if not fore then
@@ -130,7 +145,8 @@ function M.apply(char: Model, yaw: number, pitch: number?, aim: number?): (CFram
 				local el = fore.TransformedWorldCFrame.Position
 				local lf = (hand.TransformedWorldCFrame.Position - el).Magnitude
 				local view = CFrame.fromAxisAngle(rightLook, p) * CFrame.fromAxisAngle(up, yaw)
-				local target = sh + view:VectorToWorldSpace(rcf:PointToWorldSpace(HAND_POS) - sh)
+				local hp = Vector3.new(HAND_POS.X * mirror, HAND_POS.Y, HAND_POS.Z)
+				local target = sh + view:VectorToWorldSpace(rcf:PointToWorldSpace(hp) - sh)
 				local elbow = target - foreWant * lf
 				local d, want = el - sh, elbow - sh
 				if d.Magnitude < 1e-4 or want.Magnitude < 1e-4 then
@@ -142,7 +158,7 @@ function M.apply(char: Model, yaw: number, pitch: number?, aim: number?): (CFram
 				local el = b.TransformedWorldCFrame.Position
 				local wrist = hand.TransformedWorldCFrame.Position
 				local d = wrist - el
-				local c = M.grip(char, "L")
+				local c = M.grip(char, side, "flashlight")
 				if not c or d.Magnitude < 1e-4 then
 					continue
 				end
@@ -187,17 +203,20 @@ end
 -- ของในมือ (มือท่า grip_flashlight / grip_umbrella ใน build_anims.py): จุดกลางของ และแนวของ ในโลก
 -- มือท่านั้นหามาจากการ "แบมือ -> วางของบนฝ่ามือ -> งอนิ้วจนแตะของ" ใน Blender ตำแหน่งของจึงต้องตรงกับตอนนั้น:
 --   กรอบมือ = ข้อมือ (hand), X = โคนนิ้วก้อย -> โคนนิ้วชี้ (แนวของ), Y = ไปทางโคนนิ้วกลาง (ตั้งฉาก X), Z = X x Y
---   จุดกลางของ = ข้อมือ + X*cx + Y*cy + Z*cz (studs) ค่าจากการค้นหา (L = ไฟฉาย รัศมี 0.155, R = ร่ม รัศมี 0.088)
+--   จุดกลางของ = ข้อมือ + X*cx + Y*cy + Z*cz (studs) ค่าจากการค้นหา (ไฟฉาย รัศมี 0.155 / ร่ม-กำมือ รัศมี 0.088)
+--   มือขวาเป็นเงาของมือซ้าย: Z (= X x Y) กลับทิศ -> cz กลับเครื่องหมาย
 --   ใช้ตำแหน่งกระดูกอย่างเดียว ไม่พึ่งแกนของกระดูก (Roblox วางแกนกระดูกต่างจาก Blender ได้)
-local GRIP_CENTER = { L = Vector3.new(0, 0.2011, -0.2118), R = Vector3.new(0, 0.2011, 0.1418) }
-function M.grip(char: Model, side: string): (Vector3?, Vector3?)
+-- kind: "flashlight" | "fist" (ร่ม / หูแกลลอน) ไม่ระบุ = แบบเดิม (ซ้าย = ไฟฉาย, ขวา = ร่ม)
+local GRIP_Z = { flashlight = 0.2118, fist = 0.1418 }
+function M.grip(char: Model, side: string, kind: string?): (Vector3?, Vector3?)
 	local function pos(n: string): Vector3?
 		local x = char:FindFirstChild(n .. "." .. side, true)
 		return if x and x:IsA("Bone") then x.TransformedWorldCFrame.Position else nil
 	end
 	local o, kf, kb, mid = pos("hand"), pos("index_01"), pos("pinky_01"), pos("middle_01")
-	local g = GRIP_CENTER[side]
-	if not (o and kf and kb and mid and g) then
+	local k = kind or (if side == "L" then "flashlight" else "fist")
+	local g = Vector3.new(0, 0.2011, (GRIP_Z[k] or GRIP_Z.fist) * (if side == "L" then -1 else 1))
+	if not (o and kf and kb and mid) then
 		return nil, nil
 	end
 	local x = kf - kb

@@ -302,6 +302,26 @@ local function toggle(order: number, name: string, labelKey: string)
 end
 toggle(4, "ShowHUD", "ShowHUD")
 
+-- มือถือไฟฉาย: [ซ้าย] [ขวา] (ค่าเริ่มต้นขวา) แกลลอน/ขนมย้ายไปมืออีกข้างเอง
+do
+	local r = row(5, "FlashHand")
+	local leftBtn = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -96, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
+	local rightBtn = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
+	leftBtn.Activated:Connect(function()
+		set("FlashHand", "L")
+	end)
+	rightBtn.Activated:Connect(function()
+		set("FlashHand", "R")
+	end)
+	table.insert(refreshers, function()
+		leftBtn.Text = ui("HandLeft")
+		rightBtn.Text = ui("HandRight")
+		local left = localPlayer:GetAttribute("FlashHand") == "L"
+		leftBtn.BackgroundColor3 = if left then C.Blood else C.Ink
+		rightBtn.BackgroundColor3 = if left then C.Ink else C.Blood
+	end)
+end
+
 -- ปุ่มปิด ✕ มุมขวาบนของหัวหน้าต่าง (Modal = ปลดล็อกเมาส์ตอนเปิดหน้าตั้งค่า)
 local closeBtn = new("TextButton", {
 	Name = "Close",
@@ -347,7 +367,7 @@ local function refresh()
 	end
 end
 refresh()
-for _, a in ipairs({ "Lang", "ShowHUD", "ShowLabels" }) do
+for _, a in ipairs({ "Lang", "ShowHUD", "ShowLabels", "FlashHand" }) do
 	localPlayer:GetAttributeChangedSignal(a):Connect(refresh)
 end
 

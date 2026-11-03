@@ -65,7 +65,10 @@ local function gripVillager(tool: Tool, char: Model?)
 	w.Name = GRIP_NAME
 	w.Part0 = root
 	w.Part1 = handle
-	w.C0 = GRIP_REST
+	-- มือที่ถือ: ผู้เล่นเลือกในตั้งค่า (FlashHand ค่าเริ่มต้นขวา) มือขวา = ตำแหน่งกลับซ้าย-ขวา (client ขยับตามกระดูกจริงอยู่ดี)
+	local pl = game:GetService("Players"):GetPlayerFromCharacter(char)
+	local right = not (pl and pl:GetAttribute("FlashHand") == "L")
+	w.C0 = if right then CFrame.new(-GRIP_REST.X, GRIP_REST.Y, GRIP_REST.Z) * GRIP_REST.Rotation else GRIP_REST
 	w.C1 = CFrame.new()
 	w.Parent = handle
 end

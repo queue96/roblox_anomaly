@@ -6,8 +6,15 @@ local PoseHooks = {}
 
 local hooks: { (number) -> () } = {}
 
-function PoseHooks.After(fn: (number) -> ())
+-- คืนฟังก์ชันยกเลิก (สคริปต์ในตัวละครที่ถูกลบตอนเกิดใหม่ต้องเรียก ไม่งั้นค้างทำงานกับตัวเก่า)
+function PoseHooks.After(fn: (number) -> ()): () -> ()
 	table.insert(hooks, fn)
+	return function()
+		local i = table.find(hooks, fn)
+		if i then
+			table.remove(hooks, i)
+		end
+	end
 end
 
 -- เรียกโดย HumanEmotesRunner ทุกเฟรม หลังเขียนท่าครบทุกตัว

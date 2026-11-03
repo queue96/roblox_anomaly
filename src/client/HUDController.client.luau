@@ -699,11 +699,11 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		local camOff = if hum then hum.CameraOffset else Vector3.zero
 		local handPos = (cam.CFrame * CFrame.new(0.58 - camOff.X * 0.35, -0.46 + camOff.Y * 0.45, -1.05)).Position
-		-- ตัวผู้เล่นชาวบ้าน: ไฟฉายอยู่ในมือซ้ายของตัวละครจริง (ท่า hold_flashlight) ไม่ลอยอยู่ข้างกล้อง
-		-- แขนซ้ายชี้รูกำมือไปตามสายตาอยู่แล้ว (shared/HeadTurn) -> กระบอกไฟฉายลอดรูกำมือ จับท้ายกระบอก หัวไฟอยู่หน้ามือ
+		-- ตัวผู้เล่นชาวบ้าน: ไฟฉายอยู่ในมือของตัวละครจริง (มือที่เลือกในตั้งค่า ค่าเริ่มต้นขวา) ไม่ลอยอยู่ข้างกล้อง
+		-- แขนที่ถือชี้รูกำมือไปตามสายตาอยู่แล้ว (shared/HeadTurn) -> กระบอกไฟฉายลอดรูกำมือ จับท้ายกระบอก หัวไฟอยู่หน้ามือ
 		local handleCF = CFrame.lookAt(handPos, aimPoint)
 		if char and char:FindFirstChild("RootPart") then
-			local center, axis = HeadTurn.grip(char, "L")
+			local center, axis = HeadTurn.grip(char, (HeadTurn.Sides(char)), "flashlight")
 			if center and axis then
 				axis = -axis -- จับจากด้านบน: หัวไฟโผล่ทางฝั่งนิ้วก้อย (shared/HeadTurn)
 				local pos = center + axis * FLASHLIGHT_GRIP_BACK
@@ -1455,7 +1455,7 @@ TriggerJumpscare.OnClientEvent:Connect(function(_anomalyKey: string?, _source: I
 	flash.BackgroundTransparency = 0.1
 	TweenService:Create(flash, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
 	-- reason "chased" = วิ่งตามผีที่ไล่ไปแล้ว (ไม่ได้เติมน้ำมันให้)
-	showBanner(if reason == "chased" then "JumpscareChased" else "Jumpscare", true, 3)
+	-- (ไม่มีแบนเนอร์บอกว่าเป็นผี: ผู้เล่นรู้เองจากตัวผีที่พุ่งเข้าหน้า — ผู้ใช้ 2026-11-03)
 	local cam = workspace.CurrentCamera
 	if cam then
 		task.spawn(function()

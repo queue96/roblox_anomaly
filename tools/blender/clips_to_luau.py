@@ -29,9 +29,13 @@ OUT = os.path.join(ROOT, "src", "shared", "HumanClipData.luau")
 EMOTES = ["laugh", "cheer", "startle", "sad", "angry", "hurt_lying", "dead_lying"]
 ONCE = {"startle"}
 RIGHT_ARM = ["shoulder.R", "upper_arm.R", "forearm.R", "hand.R"] + [f"{f}_0{i}.R" for f in ("index", "middle", "ring", "pinky", "thumb") for i in (1, 2, 3)]
+LEFT_ARM = [n.replace(".R", ".L") for n in RIGHT_ARM]
 SUBSETS = {"walk": ["hips", "thigh.L", "shin.L", "foot.L", "toe.L", "thigh.R", "shin.R", "foot.R", "toe.R"],
            "carry_gallon_r": RIGHT_ARM,   # held jerry can, right hand (client/HumanEmotesRunner HOLD_CLIPS)
-           "hold_tray_r": RIGHT_ARM}      # sweets on a leaf on the open right palm
+           "hold_tray_r": RIGHT_ARM,      # sweets on a leaf on the open right palm
+           # 2026-11-03 the player swapped hands: flashlight right, jerry can / sweets left
+           "carry_gallon_l": LEFT_ARM, "hold_tray_l": LEFT_ARM, "hold_flashlight_r": RIGHT_ARM,
+           "hold_flashlight": LEFT_ARM}   # the player chose the left hand for the flashlight (settings)
 
 
 def qmat(x, y, z, w):

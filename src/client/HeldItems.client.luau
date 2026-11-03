@@ -3,9 +3,9 @@
 -- ของในมือ (Tool จาก server/CoreLoop: แกลลอน FuelCan / ขนมตาลบนใบตอง ThaiDessert) อยู่ในมือตัวละครจริงทุกคน รวมตัวเราเอง
 --   server เชื่อม Handle กับ HumanoidRootPart ด้วย Weld "VillagerGrip" ไว้ที่ตำแหน่งมือคร่าวๆ
 --   เครื่องนี้เลื่อน C0 ทุกเฟรมให้ของตรงกำมือของกระดูกจริง (ท่าซ้อนจาก character/Animate):
---     FuelCan     ท่า carry_gallon_r มือขวาห้อยข้างตัว หูแกลลอนอยู่ในกำมือ ตัวแกลลอนห้อยลง
---     ThaiDessert ท่า hold_tray_r    มือขวาแบหงาย ใบตองขนมวางราบบนฝ่ามือ หันตามตัว
---   ไฟฉายอยู่มือซ้าย ถือพร้อมของในมือขวาได้ (ItemSlots / HUDController ย้าย Tool เข้าตัวเอง ไม่ใช้ EquipTool)
+--     FuelCan     ท่า carry_gallon_l มือซ้ายห้อยข้างตัว หูแกลลอนอยู่ในกำมือ ตัวแกลลอนห้อยลง
+--     ThaiDessert ท่า hold_tray_l    มือซ้ายแบหงาย ใบตองขนมวางราบบนฝ่ามือ หันตามตัว
+--   ไฟฉายอยู่มือขวา ถือพร้อมของในมือซ้ายได้ (สลับมือ 2026-11-03) (ItemSlots / HUDController ย้าย Tool เข้าตัวเอง ไม่ใช้ EquipTool)
 --   (ไฟฉายมีระบบของตัวเอง: HUDController / HeadTurnOthers)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,12 +13,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HeadTurn = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HeadTurn")) :: any
 local PoseHooks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PoseHooks")) :: any
 
-type Hold = { side: string, offset: CFrame, upright: boolean, palm: boolean? }
+type Hold = { offset: CFrame, upright: boolean, palm: boolean? }
 local HOLD: { [string]: Hold } = {
 	-- จุดอ้างอิงของแกลลอน = กลางตัว, กลางคานหูหิ้วอยู่ที่ (0, 0.79, 0.15) -> เลื่อนตัวแกลลอนลงจากกำมือ
-	FuelCan = { side = "R", offset = CFrame.new(0, -0.79, -0.15), upright = false },
+	FuelCan = { offset = CFrame.new(0, -0.79, -0.15), upright = false },
 	-- ขนมตาลบนใบตอง: จุดอ้างอิง = กลางใต้ใบ -> วางราบบนฝ่ามือที่แบหงาย (ยกเหนือกลางฝ่ามือ 0.17: ใบตองโมเดลนำเข้าไม่จมนิ้ว)
-	ThaiDessert = { side = "R", offset = CFrame.new(0, 0.17, 0), upright = true, palm = true },
+	ThaiDessert = { offset = CFrame.new(0, 0.17, 0), upright = true, palm = true },
 }
 
 -- กลางฝ่ามือ (มือแบ): ระหว่างข้อมือกับโคนนิ้วกลาง
@@ -40,12 +40,13 @@ local function place(char: Model, root: BasePart, tool: Tool, hold: Hold)
 	if not (weld and weld:IsA("Weld")) then
 		return
 	end
+	local _, side = HeadTurn.Sides(char) -- มืออีกข้างจากไฟฉาย (ตั้งค่า: มือถือไฟฉาย)
 	local center, axis
 	if hold.palm then
-		center = palmCenter(char, hold.side)
+		center = palmCenter(char, side)
 		axis = Vector3.yAxis
 	else
-		center, axis = HeadTurn.grip(char, hold.side)
+		center, axis = HeadTurn.grip(char, side, "fist")
 	end
 	if not (center and axis) then
 		return

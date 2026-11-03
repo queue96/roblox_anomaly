@@ -5,6 +5,7 @@
 --   SfxVolume   0..1          เสียงเอฟเฟกต์ (หมาหอน จิ้งหรีด ฯลฯ)
 --   ShowHUD     boolean       แสดงเงิน / ธูป / ป้ายปุ่มคีย์ (คำพูดลูกค้าและแถบประกาศแสดงเสมอ)
 --   ShowLabels  boolean       แสดงป้ายชื่อตามวัตถุในฉาก (ZoneLabel)
+--   FlashHand   "R" | "L"     มือที่ถือไฟฉาย (ค่าเริ่มต้นขวา) แกลลอน/ขนมอยู่มืออีกข้าง (shared/HeadTurn.Sides)
 -- Client เปลี่ยนค่าผ่าน Remotes.SetSetting:FireServer(name, value) (หน้าตั้งค่าใน SettingsController)
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -52,6 +53,12 @@ local SETTINGS: { [string]: { default: any, check: (any) -> any } } = {
 	SfxVolume = { default = 0.8, check = volume },
 	ShowHUD = { default = true, check = bool },
 	ShowLabels = { default = true, check = bool },
+	FlashHand = {
+		default = "R",
+		check = function(v)
+			return if v == "R" or v == "L" then v else nil
+		end,
+	},
 }
 
 local function keyFor(player: Player): string
