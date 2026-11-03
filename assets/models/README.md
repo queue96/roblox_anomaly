@@ -208,7 +208,7 @@ rig = HumanRig 52 กระดูกเดิม (ยาวขึ้นแต่
 
 **ยังเหลือ:** ยังไม่ได้นำเข้า Roblox Studio · ยังไม่มีกระดูกกราม (ตอนกรีดร้องปากไม่อ้ากว้างขึ้น)
 
-## ผีกระหัง `Krahang` (ยังทำไม่เสร็จ: ยังไม่ได้นำเข้า Studio)
+## ผีกระหัง `Krahang` (ยังไม่ได้นำเข้า Studio)
 
 สคริปต์ `tools/blender/krahang.py` (Blender headless ผ่าน `run_headless.ps1`) สร้างตัวจาก `human_base/human_base_thin.blend` (rig + weight + joint limits เดิม) แล้วเซฟเป็น `krahang.blend`
 ภาพ: `previews/Krahang.png` (3/4 ท่าบิน), `_front`, `_side`, `_rest` (ท่า A-pose), `_face`, `_anims` (มุม 3/4) + `_anims_front`, `_anims_side` (แถวบนลงล่าง = FlapFly, Glide, LandOnRoof, PeekOverEdge, แถวละ 5 จังหวะ)

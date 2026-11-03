@@ -1,0 +1,35 @@
+ghost_headless             rest          ok       0/1   frames  worst    0.0  {}
+ghost_headless             pillion_hug   skin    41/41  frames  worst    7.0  {'torso out': 7, 'leg.R out': 1}
+ghost_headless             pillion_hug   cloth   41/41  frames  worst    6.4  {'ghost_headless_sin in torso': 6.4, 'ghost_headless_sin in leg.R': 4.3, 'ghost_headless_sin in shin.L': 2.1, 'ghost_headless_sin in shin.R': 2.1}
+ghost_mirror               rest          hair     1/1   frames  worst    3.1  {'hair under cloth': 3.1, 'hair in torso': 1.9}
+ghost_mirror               pillion_hug   skin    41/41  frames  worst    7.0  {'torso out': 7, 'leg.R out': 1}
+ghost_mirror               pillion_hug   hair    41/41  frames  worst    2.9  {'hair under cloth': 2.9, 'hair in torso': 1.6, 'hair in arm.R': 1.5, 'hair in uarm.R': 1.3}
+ghost_mirror               pillion_hug   cloth   41/41  frames  worst    6.4  {'ghost_thai_sin in torso': 6.4, 'ghost_thai_sin in leg.R': 4.3, 'ghost_thai_sin in shin.L': 2.1, 'ghost_thai_sin in shin.R': 2.1}
+ghost_mirror               pillion_look  skin    61/61  frames  worst    7.0  {'torso out': 7, 'leg.R out': 1}
+ghost_mirror               pillion_look  hair    61/61  frames  worst    4.0  {'hair under cloth': 4.0, 'hair in arm.R': 2.1, 'hair in torso': 1.6, 'hair in arm.L': 1.1}
+ghost_mirror               pillion_look  cloth   61/61  frames  worst    6.4  {'ghost_thai_sin in torso': 6.4, 'ghost_thai_sin in leg.R': 4.3, 'ghost_thai_sin in shin.L': 2.1, 'ghost_thai_sin in shin.R': 2.1}
+ghost_tani                 rest          hair     1/1   frames  worst    2.2  {'hair in torso': 2.2, 'hair under cloth': 1.9}
+ghost_tani                 ghost_idle    hair    39/39  frames  worst    3.2  {'hair under cloth': 3.2, 'hair in uarm.L': 2.3, 'hair in uarm.R': 1.9, 'hair in torso': 1.8}
+ghost_tani                 tani_peek     hair    48/48  frames  worst    3.1  {'hair in torso': 3.1, 'hair under cloth': 3.1, 'hair in arm.R': 1.8, 'hair in uarm.L': 0.9}
+ghost_tani                 tani_peek     skin    16/48  frames  worst    1.0  {'torso out': 1, 'leg.R out': 1}
+ghost_tani                 tani_peek     cloth   13/48  frames  worst    1.4  {'ghost_tani in torso': 1.4}
+ghost_funeral_man          rest          ok       0/1   frames  worst    0.0  {}
+ghost_funeral_man          coffin_walk   cloth   21/21  frames  worst    1.3  {'ghost_white_m in uarm.L': 1.3, 'ghost_white_m in arm.R': 1.2, 'ghost_white_m_trousers in thigh.R': 1.0, 'ghost_white_m_trousers in thigh.L': 1.0}
+ghost_funeral_man          ghost_glide   cloth   17/25  frames  worst    2.3  {'ghost_white_m in uarm.L': 2.3, 'ghost_white_m in uarm.R': 2.3}
+ghost_funeral_woman        rest          ok       0/1   frames  worst    0.0  {}
+ghost_funeral_woman        coffin_walk   skin    17/20  frames  worst    3.0  {'leg.L out': 3, 'leg.R out': 2}
+ghost_funeral_woman        coffin_walk   cloth   20/20  frames  worst    1.0  {'ghost_white_f in arm.R': 1.0}
+ghost_funeral_woman        ghost_glide   cloth   23/23  frames  worst   20.0  {'ghost_white_fxghost_white_f_sabai at uarm.R': 20, 'ghost_white_f_sabai in uarm.R': 1.3}
+ghost_funeral_woman        ghost_glide   skin    12/23  frames  worst    2.0  {'leg.L out': 2, 'leg.R out': 1}
+ghost_funeral_elder_woman  rest          ok       0/1   frames  worst    0.0  {}
+ghost_funeral_elder_woman  coffin_walk   skin    26/29  frames  worst    3.0  {'leg.R out': 3, 'leg.L out': 2}
+ghost_funeral_elder_woman  coffin_walk   cloth   29/29  frames  worst    1.1  {'ghost_white_f in arm.R': 1.1}
+ghost_funeral_elder_woman  ghost_glide   cloth   34/34  frames  worst   66.0  {'ghost_white_fxghost_white_f_sabai at uarm.R': 66, 'ghost_white_f_sabai in uarm.R': 1.6, 'ghost_white_f_sabai in arm.R': 1.2}
+ghost_funeral_elder_woman  ghost_glide   skin     5/34  frames  worst    1.0  {'leg.L out': 1, 'leg.R out': 1}
+ghost_funeral_elder_man    rest          ok       0/1   frames  worst    0.0  {}
+ghost_funeral_elder_man    coffin_walk   cloth   28/28  frames  worst    1.2  {'ghost_white_m in arm.R': 1.2}
+ghost_funeral_elder_man    ghost_glide   ok       0/33  frames  worst    0.0  {}
+ghost_dancer               rest          ok       0/1   frames  worst    0.0  {}
+ghost_dancer               dancer_dance  skin    50/121 frames  worst    1.0  {'leg.L out': 1, 'leg.R out': 1}
+ghost_dancer               dancer_dance  cloth   17/121 frames  worst    8.0  {'ghost_dancerxghost_dancer_sabai at uarm.R': 8}
+ghost_dancer               dancer_idle   ok       0/48  frames  worst    0.0  {}

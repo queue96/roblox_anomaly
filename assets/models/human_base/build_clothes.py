@@ -4,7 +4,10 @@
 #   exec(open(r"...\human_base\build_clothes.py", encoding="utf-8").read())
 #   clothes_all()          # per character: pick the faces, paint textures, then build and save every outfit in all its .blend files
 #   add_clothes("female")  # current scene: Cloth_<outfit>* objects bound to the rig (needs <name>_clothes.json from clothes_all)
+#   add_outfits("female", ["ghost_tani"])   # new outfits only: faces added to the json, textures painted, built into every
+#                                           # .blend of the character; the outfits already there are left exactly as they are
 #   preview_all()          # renders clothes_previews/<char>.png (rows = outfits; front, 3-4, side, back)
+#   preview_ghosts()       # clothes_previews/ghost_<char>.png: the ghost_* outfits only, on the SkinGhost skin
 #
 # Three ways to make a piece:
 #   shell   faces of the body pushed out along their normals (shirts, trousers, chong kraben, chest wrap, boots).
@@ -13,6 +16,8 @@
 #   tube    a skirt fitted around hips and legs: per height, the convex outline of the body + clearance, hanging straight down
 #           (pha sin, sarong, waist sash, gold belt). Weights from the nearest skin, eased towards the hips lower down.
 #   strip   a cloth band laid along a path over the body (sabai, scarf, sash tails, shoulder cloth, gold chains).
+#   sweep   a stiff tapered lens / horn along a path (belt buckle)
+#   crown / flowers   the dancer's chada crown (lathe round the head, covering it to the nape) and the flowers at her temples
 # Patterned cloth (plaid, ikat, stripes, straw, gold) uses shared tiling textures in clothes_tex/: u (and v for 'metric' patterns)
 # is in metres / TILE so the weave keeps its size on any body.
 import bpy, bmesh, math, os, glob, json
@@ -205,6 +210,12 @@ def bottom(length, top_tz=1.05, loose=0.007, flare=0.0, puff=0.0, wide=0.0):
         return o
     return test, off
 
+def chest_wrap(lo=1.80, hi=2.40):
+    """ผ้าแถบ: a band round the chest only (under a sabai)"""
+    off = lambda r, tz, ap, lp, room=0: 0.004
+    off.no_room = True                    # no armpit / opening room: it would bulge out under the sabai
+    return lambda r, tz, ap, lp: torso(r) and lo <= tz < hi, off
+
 def boots(top_lp=1.55):
     return (lambda r, tz, ap, lp: (leg(r) and lp >= top_lp) or foot(r),
             lambda r, tz, ap, lp, room=0: 0.006 + 0.008*sst(top_lp + 0.25, top_lp, lp)*leg(r) + 0.010*math.exp(-((lp - 2.0)/0.25)**2))   # roomy ankle
@@ -216,10 +227,10 @@ def _side(b, sx, y, z): return b.surf((sx*2, y, z), (-sx, 0, 0), True)[0]
 def _top(b, x, y): return b.surf((x, y, 3), (0, 0, -1), True)[0]
 def _lerp(a, b, t): return a + (b - a)*t
 
-def path_sabai(b):
-    """over the left shoulder, across the chest, under the right arm, round the back; then a tail down the back"""
+def path_sabai(b, side_tz=2.15):
+    """over the left shoulder, across the chest, under the right arm (at side_tz), round the back; then a tail down the back"""
     sh = b.J["shoulder.L"]; x_sh = sh[0][0]*0.5 + sh[1][0]*0.5
-    zc = b.z(2.15)
+    zc = b.z(side_tz)
     pts = [_top(b, x_sh, 0.0)]
     zt = pts[0].z
     for t in np.linspace(0.12, 1.0, 7):          # front diagonal
@@ -264,6 +275,70 @@ def path_chains(b):
         bk = [_back(b, _lerp(x, -sx*0.06*b.s, t), _lerp(top_p.z - 0.02*b.s, b.z(1.0), t)) for t in np.linspace(1.0, 0.05, 9)] + [top_p]
         out += [f, bk]
     return out
+
+def path_epaulets(b):
+    """ทองต้นแขน on the shoulders: a short gold crescent over each shoulder, from the back of it onto the front"""
+    out = []
+    for sd, sx in (("L", 1), ("R", -1)):
+        sh = b.J["shoulder." + sd]
+        for f in (0.90, 0.82, 0.74, 0.66):                   # out on the shoulder, as far as the shoulder top reaches
+            x = sh[0][0]*(1 - f) + sh[1][0]*f; top_p = _top(b, x, 0.0)
+            if top_p is not None: break
+        pts = [_back(b, x, top_p.z - 0.05*b.s), top_p]
+        pts += [_front(b, x - sx*0.02*b.s*t, top_p.z - 0.10*b.s*t) for t in (0.4, 0.8, 1.0)]
+        out.append(pts)
+    return out
+
+def path_collar(b):
+    """กรองคอ: a gold band round the base of the neck, lying on the shoulders and the top of the chest and back"""
+    nj = b.J["neck"][0]; nv = b.co[b.reg == "neck"]
+    rn = float(np.percentile(np.hypot(nv[:, 0] - nj[0], nv[:, 1] - nj[1]), 90)) + 0.035*b.s     # just outside the neck
+    out = []
+    for a in np.linspace(0, 2*math.pi, 41):
+        x, y = nj[0] + math.sin(a)*rn, nj[1] - math.cos(a)*rn*0.95
+        hit = _top(b, x, y)                                       # straight down onto the shoulders / chest / back
+        if hit is None or hit.z < nj[2] - 0.09*b.s:              # in front the ray can miss the chest: go in from the front
+            d = Vector((math.sin(a), -math.cos(a), 0.0)); o = Vector((nj[0], nj[1], nj[2] - 0.05*b.s))
+            hit = b.surf(o + d*0.3*b.s, -d, True)[0]
+        if hit is not None: out.append(hit)
+    return [out]
+
+def path_sabai_low(b):
+    """path_sabai going round the right side below the armpit (over a blouse with sleeves: clear of the sleeve)"""
+    return path_sabai(b, side_tz=1.85)
+
+def path_sabai_long(b):
+    """สไบห้อยยาว: path_sabai, its tail hanging free behind the hips down to the floor"""
+    loop, tail = path_sabai(b, side_tz=1.85)          # down to the right side of the waist, clear of the armpit and sleeve
+    sh = b.J["shoulder.L"]; x_sh = sh[0][0]*0.5 + sh[1][0]*0.5
+    hips = b.co[(b.reg == "torso") & (b.tz < 0.6)]
+    yb = float(hips[:, 1].max()) + 0.045*b.s                      # behind the seat
+    zw = b.z(1.0)
+    pw = next((q for q in (_back(b, x_sh + 0.01 - dx*b.s, zw) for dx in (0.0, 0.03, 0.06)) if q is not None), None)
+    tail = tail[2:-2] + ([pw + Vector((0, 0.02*b.s, 0))] if pw is not None else [])        # starts below the shoulder top
+    tail += [Vector((x_sh*0.9, yb, z)) for z in np.linspace(b.z(0.3), b.foot_z + 0.02*b.s, 6)]
+    return [loop, tail]
+
+def _horn(pts, r0, r1, flat, n0, w):
+    n = len(pts); return dict(pts=pts, radii=[r0 + (r1 - r0)*(i/(n - 1))**0.8 for i in range(n)], flat=flat, n0=n0, w=w)
+
+def path_pendant(b):
+    """ทับทรวง: a big gold pendant on the chest below the collar (a flat lens, longer than wide)"""
+    s = b.s; zc = b.z(2.45)
+    c = _front(b, 0.0, zc, True) or _front(b, 0.0, zc, False)
+    pts = [c + Vector((0, 0.004*s*(abs(t))**2, t*s)) for t in np.linspace(0.055, -0.055, 9)]
+    hn = _horn(pts, 0, 0, 0.20, Vector((0, -1, 0)), {"chest": 1.0})
+    hn["radii"] = [0.042*s*math.sin(math.pi*(0.06 + 0.88*i/8))**0.6 for i in range(9)]
+    return [hn]
+
+def path_buckle(b):
+    """ปั้นเหน่ง: a big oval buckle on the front of the belt (a flat lens across, thick in the middle)"""
+    s = b.s; z = b.z(1.32)
+    c = _front(b, 0.0, z, True) or _front(b, 0.0, z, False)
+    pts = [c + Vector((x*s, 0.004*s*(abs(x)/0.05)**2, 0)) for x in np.linspace(-0.05, 0.05, 9)]
+    hn = _horn(pts, 0, 0, 0.22, Vector((0, -1, 0)), {"hips": 0.5, "spine": 0.5})
+    hn["radii"] = [0.034*s*math.sin(math.pi*(0.06 + 0.88*i/8))**0.6 for i in range(9)]
+    return [hn]
 
 # footwear: villagers wear flip-flops (sandal), teens and the better dressed sneakers (shoe), field work boots
 OUTFITS = {
@@ -332,16 +407,49 @@ OUTFITS = {
                    ("sandal", "sandals", "sandal_red")],
     "mohom_child": [("shell", "shirt", *top(1.2, hem=0.95), "indigo"), ("shell", "shorts", *bottom(0.85, top_tz=0.95, flare=0.014), "indigo_dark"),
                     ("sandal", "sandals", "sandal_blue")],
+    # ---- ghosts (GHOST_MODELS.md): pale, dull cloth with dirt, old blood and torn holes, ragged skirt hems, barefoot
+    "ghost_thai": [("shell", "wrap", *chest_wrap(), "ghost_cream_wrap"),          # ผีในกระจก (11): สไบครีม + ซิ่นแดงขอบทอง
+                   ("tube", "sin", 1.30, ("lp", 1.92), "ghost_sin_red", dict(clear=0.024, ragged=0.05)),
+                   ("strip", "sabai", path_sabai, 0.13, "ghost_sabai_cream", dict(clear=0.020, over=True, cols=4))],
+    "ghost_headless": [("shell", "wrap", *chest_wrap(), "ghost_cream_wrap_blood"),  # ผีไร้หัว (1): ชุดเดียวกัน + เลือดไหลจากคอ
+                       ("tube", "sin", 1.30, ("lp", 1.92), "ghost_sin_red", dict(clear=0.024, ragged=0.05)),
+                       ("strip", "sabai", path_sabai, 0.13, "ghost_sabai_cream_blood", dict(clear=0.020, span=True, over=True, cols=4))],
+    "ghost_tani": [("shell", "wrap", *chest_wrap(), "ghost_green_wrap"),           # นางตานี (17): สไบเขียว + ซิ่นเขียว
+                   ("tube", "sin", 1.30, ("lp", 1.98), "ghost_sin_green", dict(clear=0.024, ragged=0.06)),
+                   ("strip", "sabai", path_sabai, 0.13, "ghost_sabai_green", dict(clear=0.020, over=True, cols=4))],
+    "ghost_white_f": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "ghost_white_blouse"),   # ขบวนแห่ศพ (29): ชุดขาวชีพราหมณ์
+                      ("tube", "sin", 1.30, ("lp", 1.98), "ghost_sin_white", dict(clear=0.024, ragged=0.06)),
+                      ("strip", "sabai", path_sabai_low, 0.13, "ghost_sabai_white", dict(clear=0.020, over=True, cols=4))],
+    "ghost_white_m": [("shell", "shirt", *top(1.97, hem=0.40, loose=0.006, hang=0.010), "ghost_white_shirt"),     # ขบวนแห่ศพ (29): เสื้อขาวแขนยาว + กางเกงขาว
+                      ("shell", "trousers", *bottom(1.97, top_tz=0.40, loose=0.010, wide=0.020, flare=0.010), "ghost_white_trousers")],
+    # ผีนางรำ (ref: art_refs/body/ghost_dancer_ref.jpg): ชฎา + ดอกไม้ทัดหู + อุบะ, เสื้อผ้ายกแขนสั้นขลิบทอง, กรองคอทอง,
+    # สไบแดงพาดบ่าซ้ายห้อยยาวถึงพื้นด้านหลัง, ผ้านุ่งยกยาวถึงข้อเท้ามีชายพกจีบด้านหน้า, เข็มขัดทองหัวใหญ่ (ปั้นเหน่ง), กำไล, ทองต้นแขน
+    "ghost_dancer": [("shell", "blouse", *top(0.62, hem=0.95, loose=0.005, hang=0.004), "ghost_brocade_top"),
+                     ("tube", "sin", 1.30, ("lp", 1.95), "ghost_brocade_sin", dict(clear=0.026, span=True, ragged=0.012)),
+                     ("tube", "belt", 1.22, ("tz", 1.42), "ghost_dancer_gold", dict(clear=0.040, band=True)),
+                     ("sweep", "buckle", path_buckle, "ghost_dancer_gold", dict(over=True, clear=0.006)),
+                     ("strip", "collar", path_collar, 0.040, "ghost_dancer_gold", dict(clear=0.012, thick=0.004, over=True)),
+                     ("strip", "sabai", path_sabai_long, 0.12, "ghost_sabai_red", dict(clear=0.032, over=True, tail_hang=True, cols=5, narrow_ends=True)),
+                     ("sweep", "pendant", path_pendant, "ghost_dancer_gold", dict(over=True, clear=0.006)),
+                     ("ring", "bracelets", "hand", 0.0, "ghost_dancer_gold", dict(tr=0.009, room=0.007)),
+                     ("ring", "armlets", "upper_arm", 0.72, "ghost_dancer_gold", dict(tr=0.006, room=0.008)),
+                     ("ring", "cuffs", "forearm", 0.72, "ghost_dancer_gold", dict(tr=0.008, room=0.006)),     # wide gold cuffs: three
+                     ("ring", "cuffs2", "forearm", 0.82, "ghost_dancer_gold", dict(tr=0.008, room=0.004)),    # rings stacked up the wrist
+                     ("crown", "crown", "ghost_dancer_gold", dict(slim=True)),
+                     ("flowers", "flowers", "ghost_flower", {})],
 }
 CHAR_OUTFITS = {
-    "male": ["mohom", "farmer", "sarong", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo"],
-    "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid"],
+    "male": ["mohom", "farmer", "sarong", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m"],
+    "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid",
+               "ghost_thai", "ghost_headless", "ghost_tani", "ghost_white_f", "ghost_dancer"],
     "child": ["chong_gold", "mohom_child"],
-    "elder_male": ["mohom", "sarong", "farmer"],
-    "elder_female": ["blouse_sin", "sabai", "indigo_scarf"],
+    "elder_male": ["mohom", "sarong", "farmer", "ghost_white_m"],
+    "elder_female": ["blouse_sin", "sabai", "indigo_scarf", "ghost_white_f"],
 }
-# elders wear their colours a little faded
-CHAR_FABRIC = {("elder_female", "jade_blouse"): "cream_blouse"}
+GHOST_OUTFITS = [o for o in OUTFITS if o.startswith("ghost_")]
+# elders wear their colours a little faded (the ghosts' white gone yellow)
+CHAR_FABRIC = {("elder_female", "jade_blouse"): "cream_blouse",
+               ("elder_male", "ghost_white_shirt"): "ghost_yellowed_shirt", ("elder_female", "ghost_white_blouse"): "ghost_yellowed_blouse"}
 
 # ---------------------------------------------------------------- fabrics painted in body-UV space (shell pieces)
 FABRIC = {
@@ -375,6 +483,18 @@ FABRIC = {
     "pink_dots":     dict(c=(0.80, 0.56, 0.63), weave=0.6, dots=(0.55, 0.34, 0.42), folds=1.8),
     "green_plaid":   dict(c=(0.16, 0.34, 0.24), weave=0.8, buttons="mohom", collar=True, folds=0.8,
                           plaid=[(0.30, (0.13, 0.30, 0.21)), (0.10, (0.88, 0.90, 0.86)), (0.25, (0.30, 0.52, 0.38)), (0.10, (0.88, 0.90, 0.86)), (0.25, (0.06, 0.14, 0.10))]),
+    # ghosts: `ghost` = how far gone the cloth is (see ghost_shell): pale / dirt / blood / holes, neck = blood run down from a cut neck
+    "ghost_cream_wrap":       dict(c=(0.80, 0.74, 0.60), weave=0.6, folds=0.6, rough=0.85, ghost=dict(pale=0.30, dirt=1.0, blood=0.5, holes=0.6)),
+    "ghost_cream_wrap_blood": dict(c=(0.80, 0.74, 0.60), weave=0.6, folds=0.6, rough=0.85, ghost=dict(pale=0.30, dirt=1.0, blood=0.6, holes=0.6, neck=True)),
+    "ghost_green_wrap":       dict(c=(0.12, 0.30, 0.17), weave=0.6, folds=0.6, rough=0.85, ghost=dict(pale=0.35, dirt=1.0, blood=0.3, holes=0.6)),
+    "ghost_white_blouse":     dict(c=(0.86, 0.86, 0.82), weave=0.6, buttons="blouse", folds=0.5, ghost=dict(pale=0.2, dirt=1.0, blood=0.35, holes=0.8)),
+    "ghost_yellowed_blouse":  dict(c=(0.82, 0.78, 0.64), weave=0.6, buttons="blouse", folds=0.5, ghost=dict(pale=0.2, dirt=1.2, blood=0.35, holes=0.9)),
+    "ghost_white_shirt":      dict(c=(0.86, 0.86, 0.83), weave=0.7, buttons="blouse", folds=0.6, ghost=dict(pale=0.2, dirt=1.0, blood=0.35, holes=0.8)),
+    "ghost_yellowed_shirt":   dict(c=(0.82, 0.78, 0.65), weave=0.7, buttons="blouse", folds=0.6, ghost=dict(pale=0.2, dirt=1.2, blood=0.35, holes=0.9)),
+    "ghost_white_trousers":   dict(c=(0.84, 0.84, 0.80), weave=0.7, folds=1.6, ghost=dict(pale=0.2, dirt=1.6, blood=0.25, holes=0.8)),
+    # green brocade body, red yoke over the shoulders and red sleeves (ref: art_refs/body/ghost_dancer_ref_colors.png)
+    "ghost_brocade_top":      dict(c=(0.07, 0.27, 0.15), yoke=(0.55, 0.06, 0.08), weave=0.5, rough=0.6, brocade=True, folds=0.3,
+                                   ghost=dict(pale=0.22, dirt=0.30, blood=0.0, holes=0.0, fray=0.0, gold_edges=True)),
 }
 
 # ---------------------------------------------------------------- noise
@@ -568,6 +688,137 @@ def _gold(X, Y):            # gold belt / chains / bangles: hammered with a squa
     c = np.ones(X.shape + (3,))*np.array((0.86, 0.64, 0.22))
     c = mix(c, (0.60, 0.40, 0.10), (np.abs(m - 0.42) < 0.05))
     return c, 0.3, 0.0003*sstep(0.45, 0.30, m)
+
+# --- ghost cloth: the pattern washed out, then dirt, water marks, old blood and frayed edges on top.
+# Noise is periodic across the tile (u), so the cloth still tiles; `span` patterns don't tile (u = 0..1 along the
+# whole strip, see build_strip) and may place things along it (blood from the neck at the shoulder end).
+BLOOD = (0.30, 0.025, 0.03); BLOOD_OLD = (0.20, 0.06, 0.04); DIRT = (0.30, 0.24, 0.16)
+def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0, fray=1.0):
+    """kind "skirt": Y 0 = hem (dirt, fraying and mud rise from it); "band": Y 0..1 across a strip (both edges fray)"""
+    u = X/TILE; Q = 6
+    n = lambda k, s_, o=3: fbm(u*k, Y*k*(1.0 if kind == "skirt" else 0.35), oct=o, seed=s_, period=k)
+    g = c.mean(-1, keepdims=True)
+    c = (c*(1 - 0.38*pale) + g*0.38*pale)*(1 - 0.20*pale) + 0.035*pale      # pale and dull
+    c = c*(0.88 + 0.14*n(Q, seed))[..., None]                             # uneven fading
+    edge = Y if kind == "skirt" else np.minimum(Y, 1 - Y)
+    low = sstep(0.45, 0.0, Y) if kind == "skirt" else sstep(0.4, 0.0, edge)*0.5
+    d = n(Q, seed + 1)
+    c = mix(c, DIRT, dirt*(0.30*sstep(0.56, 0.80, d) + 0.6*low*sstep(0.30, 0.65, d)))
+    c = mix(c, np.array(DIRT)*0.45, dirt*low**2*0.7)                      # mud caked at the hem
+    tide = np.abs(n(Q//2, seed + 2, 2) - 0.5) < 0.012                      # dried water marks
+    c = mix(c, c*0.72, tide*0.6)
+    bl = n(4, seed + 3)
+    spot = sstep(0.70, 0.74, bl)*blood
+    c = mix(c, BLOOD_OLD, spot*0.85); c = mix(c, np.array(BLOOD_OLD)*0.6, spot*sstep(0.80, 0.74, bl)*0.6)   # darker rims
+    fr = edge < (0.035 + 0.04*n(24, seed + 4, 2))*fray                    # frayed, torn edge
+    threads = (np.sin(X*2*math.pi/0.003) > 0.3) & (edge < 0.06)
+    c = mix(c, np.array(DIRT)*0.35, fr*0.9); c = mix(c, c*0.6, threads*0.4)
+    r = np.full(X.shape, rough) + 0.1*low - 0.35*spot
+    h = -0.0003*fr - 0.0001*tide
+    return c, np.clip(r, 0.2, 1.0), h
+
+def neck_blood(c, r, X, Y):
+    """span strips (sabai) of the headless ghost: blood soaked in at the shoulder ends, fading out in blotches"""
+    u = X/TILE
+    k = np.exp(-u/0.22) + np.exp(-(1 - u)/0.10)                            # both ends of the loop sit on the shoulder
+    blot = fbm(u*14, Y*3, oct=3, seed=61); run = fbm(Y*10, u*3, oct=2, seed=63)
+    wet = np.clip(k*(0.65 + 0.9*(blot - 0.5) + 0.5*(run - 0.5)) - 0.30, 0, 1)
+    c = mix(c, BLOOD_OLD, sstep(0.02, 0.15, wet)*0.88); c = mix(c, BLOOD, sstep(0.25, 0.55, wet)*0.7)
+    return c, r - 0.4*sstep(0.25, 0.55, wet)
+
+def _ghost_sin(base, hem, line, seed, dirt=1.0, blood=0.4, stripe=None):
+    def fn(X, Y):
+        c = np.ones(X.shape + (3,))*np.array(base)
+        if stripe: c = mix(c, stripe, (np.sin(Y*2*math.pi*70) > 0.55)*0.7)
+        c = mix(c, hem, Y < 0.15)                                            # hem band (ตีนซิ่น)
+        P = TILE/10; zz = np.abs(((X/P) % 1) - 0.5)*0.06
+        c = mix(c, line, (np.abs(Y - 0.13 + zz) < 0.006) | (np.abs(Y - 0.03 - zz) < 0.006) | (np.abs(Y - 0.16) < 0.004))
+        c = mix(c, line, (Y > 0.965) & (Y < 0.985))                          # thin line at the waist
+        c = c*(0.92 + 0.08*weave(X, Y*0.75))[..., None]
+        c, r, h = ghost_cloth(c, X, Y, seed, "skirt", dirt, blood, 0.75)
+        return c, r, h - 0.00025*vfolds(X)
+    return fn
+def _ghost_sabai(base, border, line, seed, blood=0.4, neck=False, lattice=True):
+    def fn(X, Y):
+        c = np.ones(X.shape + (3,))*np.array(base)
+        P = TILE/10; u = (X % P)/P - 0.5; v = Y*4 % 1 - 0.5
+        if lattice: c = mix(c, line, (np.abs(np.abs(u) + np.abs(v) - 0.32) < 0.05)*(Y > 0.14)*(Y < 0.86)*0.5)
+        c = mix(c, border, (Y < 0.10) | (Y > 0.90))
+        c = mix(c, line, (np.abs(Y - 0.12) < 0.008) | (np.abs(Y - 0.88) < 0.008))
+        c, r, h = ghost_cloth(c, X, Y, seed, "band", 0.8, blood, 0.65)
+        if neck: c, r = neck_blood(c, r, X, Y)
+        return c, r, h
+    return fn
+GOLD_DULL = (0.62, 0.48, 0.20)
+pattern("ghost_sin_red", "norm")(_ghost_sin((0.50, 0.07, 0.08), GOLD_DULL, (0.80, 0.62, 0.26), 70, stripe=(0.40, 0.05, 0.06)))   # ซิ่นแดงขอบทอง
+pattern("ghost_sabai_cream", "norm")(_ghost_sabai((0.84, 0.78, 0.62), GOLD_DULL, (0.70, 0.55, 0.25), 71))       # สไบครีมขอบทอง
+pattern("ghost_sabai_cream_blood", "norm")(_ghost_sabai((0.84, 0.78, 0.62), GOLD_DULL, (0.70, 0.55, 0.25), 72, blood=0.6, neck=True))
+pattern("ghost_sin_green", "norm")(_ghost_sin((0.11, 0.30, 0.17), (0.06, 0.18, 0.10), (0.45, 0.55, 0.25), 73, stripe=(0.08, 0.24, 0.13)))  # นางตานี
+pattern("ghost_sabai_green", "norm")(_ghost_sabai((0.20, 0.42, 0.24), (0.08, 0.22, 0.12), (0.50, 0.58, 0.28), 74))
+pattern("ghost_sin_white", "norm")(_ghost_sin((0.86, 0.86, 0.82), (0.80, 0.80, 0.76), (0.70, 0.70, 0.66), 75, dirt=1.0, blood=0.25))  # ชุดขาว
+pattern("ghost_sabai_white", "norm")(_ghost_sabai((0.88, 0.88, 0.84), (0.82, 0.82, 0.78), (0.74, 0.74, 0.70), 76, blood=0.25, lattice=False))
+
+def brocade(u, v, gold, base):
+    """ผ้ายก motif on (u, v) in cell units: a diamond with a four-petal flower, a dot between, gold on the base"""
+    cu = u % 1.0 - 0.5; cvv = v % 1.0 - 0.5
+    d = np.abs(cu) + np.abs(cvv)
+    petal = (np.hypot(np.abs(cu) - 0.13, cvv) < 0.08) | (np.hypot(cu, np.abs(cvv) - 0.13) < 0.08)
+    m = (np.abs(d - 0.40) < 0.045) | (d < 0.06) | petal
+    m |= np.hypot(np.abs(cu) - 0.5, np.abs(cvv) - 0.5) < 0.07                          # dot on the corners
+    c = np.ones(u.shape + (3,))*np.array(base)
+    return mix(c, gold, m*0.9), m
+
+GOLD_OLD = (0.58, 0.45, 0.22)
+@pattern("ghost_dancer_gold", "metric", metal=True)
+def _ghost_dancer_gold(X, Y):     # tarnished gold of the crown, collar, belt and bangles: engraved scrolls, red glass, dust in the grooves
+    u = X/TILE; P = TILE/12
+    c = np.ones(X.shape + (3,))*np.array(GOLD_OLD)
+    orn, scroll = brocade(X/(P*0.5), Y/(P*0.5), (0.80, 0.66, 0.34), (0.40, 0.30, 0.15))      # small flower-and-diamond ornament
+    c = mix(c, orn, 0.85)
+    gx = (X % P)/P - 0.5; gy = (Y % P)/P - 0.5; gem = np.hypot(gx, gy) < 0.08
+    c = mix(c, (0.40, 0.05, 0.06), gem)
+    lost = gem*(fbm(np.floor(X/P)*0.7, np.floor(Y/P)*0.7, oct=1, seed=95) > 0.66)        # glass fallen out
+    c = mix(c, (0.10, 0.08, 0.05), lost)
+    tar = fbm(u*6, Y/TILE*6, oct=3, seed=96, period=6)
+    c = mix(c, (0.22, 0.19, 0.13), sstep(0.60, 0.78, tar)*0.6)                          # dull, dusty patches
+    c = (c*0.8 + c.mean(-1, keepdims=True)*0.2)*0.95                                    # muted, not shiny
+    r = 0.50 + 0.25*sstep(0.6, 0.78, tar) + 0.2*gem
+    return c, r, -0.0003*scroll + 0.0004*gem*~lost - 0.0004*lost
+
+@pattern("ghost_brocade_sin", "norm")
+def _ghost_brocade_sin(X, Y):     # ผ้านุ่งยก (span: u 0..1 round the waist, 0 = front): maroon brocade, gold hem, pleated front panel
+    u = X/TILE
+    c, m = brocade(u*30, Y*28, GOLD_OLD, (0.62, 0.13, 0.32))            # pink-red (ผ้ายกสีชมพูบานเย็น)
+    c = mix(c, GOLD_OLD, (Y < 0.07)*0.75); c = mix(c, (0.20, 0.05, 0.05), (np.abs(Y - 0.075) < 0.006))
+    c = mix(c, GOLD_OLD, (Y > 0.965)*0.7)
+    fd = np.minimum(u, 1 - u)                                                       # distance round from the front
+    panel = fd < 0.055
+    pleat = np.sin(fd/0.0105*2*math.pi)                                             # ชายพก: folded pleats down the front
+    pc, _ = brocade(u*60, Y*40, GOLD_OLD, (0.70, 0.20, 0.38))
+    c = np.where(panel[..., None], pc*(0.82 + 0.18*pleat)[..., None], c)
+    c = mix(c, GOLD_OLD, np.abs(fd - 0.055) < 0.004)
+    c = c*(0.92 + 0.08*weave(X, Y*0.75))[..., None]
+    c, r, h = ghost_cloth(c, X, Y, 79, "skirt", 0.45, 0.08, 0.7, pale=0.45)
+    return c, r, h + 0.0005*pleat*panel - 0.0002*m
+@pattern("ghost_sabai_red", "norm")
+def _ghost_sabai_red(X, Y):       # สไบนางรำ: plain red silk, a thin gold edge, soft folds (kept clean: only a little dust)
+    c = np.ones(X.shape + (3,))*np.array((0.52, 0.06, 0.09))           # red like the sleeves
+    c = mix(c, GOLD_OLD, (Y < 0.045) | (Y > 0.955))
+    c = c*(0.95 + 0.05*weave(X, Y*0.75))[..., None]
+    g = c.mean(-1, keepdims=True); c = c*0.85 + g*0.15                  # a little faded
+    c = c*(0.94 + 0.06*fbm(X/TILE*4, Y*2, oct=2, seed=81, period=4))[..., None]
+    fold = np.sin(Y*2*math.pi*2.0 + 0.5*np.sin(X/TILE*2*math.pi*2))              # soft folds along the sash
+    c = c*(0.90 + 0.10*fold)[..., None]
+    return c, 0.55, 0.0010*fold
+@pattern("ghost_flower", "norm")
+def _ghost_flower(X, Y):          # ดอกไม้ทัดหู / อุบะ: wilted red petals, dark centres, a little green
+    u = X/TILE
+    c = np.ones(X.shape + (3,))*np.array((0.50, 0.05, 0.08))
+    c = c*(0.75 + 0.4*fbm(u*12, Y*6, oct=3, seed=110, period=12))[..., None]
+    c = mix(c, (0.28, 0.03, 0.05), Y < 0.30)                                 # rose bud: deeper red
+    c = mix(c, (0.84, 0.82, 0.74), (Y > 0.55)*(Y < 0.72))                     # white jasmine buds of the tassels
+    c = mix(c, (0.22, 0.30, 0.14), Y > 0.88)
+    return c, 0.7, 0.0
 
 def vfolds(X):
     """soft vertical drape folds (periodic over the tile)"""
@@ -783,7 +1034,22 @@ def paint_shell(b, ras, faces, char, outfit):
         if fab.get("logo"):
             lg = front & (np.abs(x - 0.07*s) < 0.012*s) & (np.abs(z - zc - 0.02*s) < 0.003*s)
             c = mix(c, (0.95, 0.95, 0.95), lg)
-        col[m] = c[m]; hgt[m] = h[m]; rgh[m] = fab.get("rough", 0.8)
+        if fab.get("brocade"):      # ผ้ายก: the gold motif laid out in world space (x on front / back, y on the sides)
+            P_ = 0.026*s; uu = np.where(np.abs(Nn[..., 1]) >= np.abs(Nn[..., 0]), x, y + 0.37*s)
+            c, bm_ = brocade(uu/P_, z/P_, GOLD_OLD, np.array(fab["c"]))
+            if fab.get("yoke"):     # red yoke round the shoulders and down the sleeves, dotted with gold
+                zy = b.z(2.62) - 0.03*s*np.cos(np.arctan2(x, -y)*2)
+                yk = (freg != "torso") | (z > zy)
+                cy_ = np.ones((N, N, 3))*np.array(fab["yoke"])
+                dots = np.hypot((uu/(0.6*P_)) % 1 - 0.5, (z/(0.6*P_)) % 1 - 0.5) < 0.16
+                cy_ = mix(cy_, GOLD_OLD, dots*0.85)
+                c = np.where(yk[..., None], cy_, c)
+                c = mix(c, GOLD_OLD, (freg == "torso")*(np.abs(z - zy) < 0.005*s)); bm_ = bm_ | (yk & dots)
+            h = h - 0.0002*bm_
+        r = np.full((N, N), fab.get("rough", 0.8))
+        if fab.get("ghost"):
+            c, h, r = ghost_shell(b, ras, freg, m, c, h, r, fab["ghost"], k)
+        col[m] = c[m]; hgt[m] = h[m]; rgh[m] = r[m]
     # one texture per piece (shell_tex_base), the rest of the image filled with that piece's own colours: Roblox
     # shrinks / mipmaps textures, and with shirt and trousers in one image the red shirt bled onto black trousers
     # where their UV islands sit side by side
@@ -796,6 +1062,64 @@ def paint_shell(b, ras, faces, char, outfit):
         nrm = normal_from_height(h_, 1100.0, 1100.0)
         base = shell_tex_base(char, outfit, k, sp[1])
         save_png(c_, base + "_Color.png", False); save_png(nrm, base + "_Normal.png", True); save_png(r_, base + "_Roughness.png", True)
+
+def ghost_shell(b, ras, freg, m, c, h, r, g, k):
+    """ghost look of a shell piece (texels m), in world space: washed out, dirt rising from the ground, water marks,
+    old blood, torn holes, frayed dark hems / cuffs / top edge; g["neck"]: blood run down from a cut neck over
+    the top of the piece, front and back"""
+    P, Nn, F = ras; s = b.s; x, y, z = P[..., 0], P[..., 1], P[..., 2]
+    gr = c.mean(-1, keepdims=True); pale = g.get("pale", 0.3)
+    c = (c*(1 - pale) + gr*pale)*0.84 + 0.03
+    c = c*(0.88 + 0.14*fbm(x*7, y*7, z*7, seed=80 + k))[..., None]
+    low = sstep(b.foot_z + 0.75*s, b.foot_z + 0.05*s, z)                    # dirt splashed up from the ground
+    d = fbm(x*14, y*14, z*14, seed=81 + k)
+    dirt = g.get("dirt", 1.0)*(0.28*sstep(0.56, 0.80, d) + 0.6*low*sstep(0.35, 0.65, d))
+    c = mix(c, DIRT, dirt); r = r + 0.1*dirt
+    tide = np.abs(fbm(x*5, y*5, z*5, oct=2, seed=82 + k) - 0.5) < 0.010
+    c = mix(c, c*0.72, tide*0.6)
+    bl = fbm(x*7, y*7, z*7, seed=83 + k)
+    spot = sstep(0.70, 0.74, bl)*g.get("blood", 0.4)
+    c = mix(c, BLOOD_OLD, spot*0.85); c = mix(c, np.array(BLOOD_OLD)*0.6, spot*sstep(0.80, 0.74, bl)*0.6); r = r - 0.35*spot
+    # how close each texel is to the piece's open edges: top / bottom of it on the trunk, end of sleeve / trouser leg
+    edge = np.full((N, N), 9.0)
+    tr = m & (freg == "torso")
+    if tr.any():
+        zt = z[tr]; legs = (m & np.char.startswith(freg.astype(str), "leg")).any()     # trousers: the bottom of the trunk part is the crotch, not a hem
+        edge = np.minimum(edge, np.where(tr, np.minimum(9.0 if legs else z - zt.min(), zt.max() - z)/s, 9.0))
+    for sd in "LR":
+        for reg, chain in ((f"arm.{sd}", ("upper_arm", "forearm", "hand")), (f"leg.{sd}", ("thigh", "shin", "foot"))):
+            lm = m & (freg == reg)
+            if not lm.any(): continue
+            J = [b.J[f"{n_}.{sd}"][0] for n_ in chain] + [b.J[f"{chain[2]}.{sd}"][1]]
+            t = np.zeros((N, N)); t[lm] = Body.chain_param(P[lm], J)
+            seg = np.linalg.norm(J[1] - J[0])/s                                  # ~0.27 m per unit of the limb parameter
+            edge = np.minimum(edge, np.where(lm, (t[lm].max() - t)*seg, 9.0))
+    fr = (edge < 0.010 + 0.016*fbm(x*90, y*90, z*90, oct=2, seed=84 + k))*(g.get("fray", 1.0) > 0)
+    c = mix(c, np.array(DIRT)*0.5, sstep(0.05, 0.0, edge)*0.5)              # grime along the hems
+    c = mix(c, np.array(DIRT)*0.3, fr*0.85); h = h - 0.0004*fr
+    # torn holes: a few patches, ragged outline, dark inside, light threads at the rim
+    patch = sstep(0.64, 0.70, fbm(x*5, y*5, z*5, oct=2, seed=85 + k))*g.get("holes", 0.6)
+    hn = fbm(x*60, y*60, z*40, oct=3, seed=86 + k)
+    hole = (hn > 0.76 - 0.06*patch)*(patch > 0.3)
+    rim = (hn > 0.71 - 0.06*patch)*(patch > 0.3)*~hole
+    c = mix(c, (0.05, 0.04, 0.04), hole); c = mix(c, (0.70, 0.66, 0.56), rim*0.55); h = h - 0.0005*hole
+    if g.get("gold_edges"):     # gold trim along the neckline, the cuffs and the hem (worn: dusty, broken in places)
+        tr_ = (edge < 0.016)*(fbm(x*40, y*40, z*40, oct=2, seed=92) < 0.75)
+        c = mix(c, np.array(GOLD_OLD)*0.9, tr_*0.9); h = h + 0.0003*tr_
+    if g.get("neck"):           # blood run down from the neck: soaked in under the top edge, a few runs below, a drop at each end
+        top = m & (freg == "torso"); zt = z[top].max() if top.any() else b.J["neck"][0][2]
+        near = sstep(0.13*s, 0.06*s, np.abs(x))
+        cols = fbm(x/s*30 + 0.6*fbm(z/s*9, x/s*2, oct=2, seed=91), np.zeros_like(x), oct=2, seed=87)    # runs wander a little
+        L = (0.03 + 0.10*fbm(x/s*11, np.zeros_like(x), oct=2, seed=88))*s
+        run = zt - z
+        stream = sstep(0.60, 0.65, cols)*sstep(L, L - 0.03*s, run)*near           # thinning out towards the end
+        drop = sstep(0.62, 0.66, cols)*(np.abs(run - L) < 0.008*s)*near
+        soak = (run < (0.006 + 0.03*fbm(x*25, y*25, oct=3, seed=89))*s)*sstep(0.11*s, 0.04*s, np.abs(x))
+        wet = np.clip(stream + drop + soak, 0, 1)*m
+        tone = fbm(x*40, y*40, z*40, oct=2, seed=90)
+        c = mix(c, BLOOD_OLD, wet*0.9); c = mix(c, BLOOD, wet*sstep(0.4, 0.7, tone)*0.7)
+        r = r - 0.4*wet; h = h + 0.0002*wet
+    return c, h, np.clip(r, 0.2, 1.0)
 
 def shell_tex_base(char, outfit, k, piece):
     """texture files of shell piece k of an outfit: the first keeps the outfit's name, the others add the piece"""
@@ -882,7 +1206,7 @@ def build_shell(b, spec, faces):
         front = nxt
     def out_v(vi):
         if vi not in vmap:
-            room = ROOM*(1 - sst(EDGE_RINGS - 1, EDGE_RINGS, ring.get(vi, 99)))
+            room = 0.0 if getattr(off, "no_room", False) else ROOM*(1 - sst(EDGE_RINGS - 1, EDGE_RINGS, ring.get(vi, 99)))
             o = off(b.reg[vi], b.tz[vi], b.ap[vi], b.lp[vi], room=room)*s
             nx, _, nz = b.nrm[vi]                           # shells only reach the arm as sleeves
             inward = -(nx if b.co[vi][0] > 0 else -nx) - nz
@@ -972,6 +1296,10 @@ def build_tube(b, spec, under=None):
         rr = np.concatenate([r[-4:-1], r, r[1:4]])
         r = np.maximum(r, np.convolve(rr, np.ones(5)/5, 'same')[3:-3]); r[-1] = r[0]    # smoothing never cuts into the body
         R[i] = r; prev = r
+    if kw.get("seated"):   # sitting: the seat and the backs of the thighs swell out behind
+        dn_ = (z0 - zs)/max(z0 - z1, 1e-6)
+        R += 0.070*s*sstep(0.05, 0.40, dn_)[:, None]*np.maximum(0.0, -np.cos(th))[None, :]**0.7
+        R += 0.025*s*sstep(0.05, 0.40, dn_)[:, None]                           # and round the lap
     if not band:   # a little extra room low at the back, where the back leg's calf and heel swing in a stride
         dn_ = (z0 - zs)/max(z0 - z1, 1e-6)
         R += 0.016*s*(dn_**2)[:, None]*np.maximum(0.0, -np.cos(th))[None, :]
@@ -983,10 +1311,19 @@ def build_tube(b, spec, under=None):
         p = np.stack([np.sin(th)*R[i], -np.cos(th)*R[i]], 1)
         arc[i, 1:] = np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))
     hips_w = {"hips": 1.0}
+    lift = np.zeros(seg + 1)
+    if kw.get("ragged") and rows > 2:      # torn hem: the last row in uneven teeth, mostly torn up, a few rags hanging lower
+        rs = np.random.RandomState(len(name)*7 + 3); room_up = (zs[-2] - zs[-1])*0.8
+        t_ = rs.rand(seg)**1.5*np.where(np.arange(seg) % 2, 1.0, 0.35)
+        lift[:seg] = np.minimum(kw["ragged"]*s*t_, room_up)
+        hang = rs.rand(seg) < 0.12
+        lift[:seg][hang] = -np.minimum(0.4*kw["ragged"]*s, zs[-1] - b.foot_z - 0.012)
+        lift[seg] = lift[0]
     for i, zz in enumerate(zs):
         dn = (z0 - zz)/max(z0 - z1, 1e-6)
         for j in range(seg + 1):
-            p = Vector((math.sin(th[j])*R[i, j], cy - math.cos(th[j])*R[i, j], zz))
+            zj = zz + (lift[j] if i == rows - 1 else 0.0)
+            p = Vector((math.sin(th[j])*R[i, j], cy - math.cos(th[j])*R[i, j], zj))
             _, vi, _ = b.kd.find(p); w = vweights(b, vi)
             if band: ww = w
             else:
@@ -998,13 +1335,17 @@ def build_tube(b, spec, under=None):
                 ks = 0.85*sst(0.40, 1.0, dn)                        # share of that leg given to the shin
                 skirt = {"hips": 1 - k, "thigh.L": k*wl*(1 - ks), "thigh.R": k*(1 - wl)*(1 - ks),
                          "shin.L": k*wl*ks, "shin.R": k*(1 - wl)*ks}
+                if kw.get("seated"):    # sitting: the front of the skirt goes with the thighs right from the waist (the lap)
+                    fr = max(0.0, math.cos(th[j])); ks = 0.95*sst(0.0, 0.18 + 0.17*(1 - fr), dn)   # the back too: it goes under the thighs
+                    if ks > k:
+                        skirt = {"hips": 1 - ks, "thigh.L": ks*wl, "thigh.R": ks*(1 - wl)}
                 e = sst(0.0, 0.25, dn)                              # waist: like the skin under it
                 ww = {g: w.get(g, 0)*(1 - e) + skirt.get(g, 0)*e for g in set(w) | set(skirt)}
             ids[i, j] = msh.vert(p, ww)
-            pin = Vector((math.sin(th[j])*(R[i, j] - 0.004*s), cy - math.cos(th[j])*(R[i, j] - 0.004*s), zz))
+            pin = Vector((math.sin(th[j])*(R[i, j] - 0.004*s), cy - math.cos(th[j])*(R[i, j] - 0.004*s), zj))
             idi[i, j] = msh.vert(pin, ww)
     def uvof(i, j):
-        u = arc[i, j]/TILE
+        u = arc[i, j]/arc[i, -1] if kw.get("span") else arc[i, j]/TILE   # span: 0..1 round (front at 0), the pattern doesn't tile
         v = (z0 - zs[i])/TILE if mode == "metric" else (zs[i] - z1)/max(z0 - z1, 1e-6)
         return (u, -v if mode == "metric" else v)
     for i in range(rows - 1):
@@ -1041,39 +1382,77 @@ def resample(pts, step):
         out = [out[0]] + [(out[i - 1] + out[i]*2 + out[i + 1])/4 for i in range(1, len(out) - 1)] + [out[-1]]
     return out
 
-def build_strip(b, spec):
+def outermost(tree, o, d, reach):
+    """the last surface a ray from o along d crosses within reach (the outside of the top layer)"""
+    far, t0 = None, 0.0
+    for _ in range(8):
+        h = tree.ray_cast(o + d*(t0 + 1e-4), d, reach - t0)
+        if h[0] is None: break
+        t0 = (h[0] - o).dot(d); far = h[0]
+    return far
+
+def build_strip(b, spec, under=None):
     _, name, path_fn, width, pat, kw = spec
     s = b.s; w = width*s; clear = kw.get("clear", 0.01)*s; thick = kw.get("thick", 0.003)*s
     msh = Mesh()
+    ubvh = BVHTree.FromPolygons(*under) if kw.get("over") and under is not None and len(under[1]) else None
+    def push(p, c):
+        p, n = b.push(p, c)
+        if ubvh is not None:          # over=True: lie over every piece built before it (shirt, skirt, sabai ...)
+            far = outermost(ubvh, p - n*0.05, n, 0.15)
+            if far is not None and (p - far).dot(n) < c: p = far + n*c
+            loc, nrm, _, _ = ubvh.find_nearest(p)
+            if loc is not None:
+                side = (p - loc).dot(nrm)
+                if side < c: p = p + nrm*(c - side)
+        return p, n
     for path in path_fn(b):
         pts = resample(path, 0.015*s)
         if len(pts) < 2: continue
         L, ring = 0.0, []
         prev_a = None
+        Lt = sum((pts[i] - pts[i - 1]).length for i in range(1, len(pts))); Lc = 0.0
         for i, p in enumerate(pts):
+            if i: Lc += (pts[i] - pts[i - 1]).length
+            if kw.get("narrow_ends"):      # narrower where it goes over the shoulder (both ends of the loop): lies flat, no fin
+                fe = min(Lc, Lt - Lc)/max(Lt, 1e-6); w = width*s*(0.45 + 0.55*sst(0.0, 0.12, fe))
+                clear = kw.get("clear", 0.01)*s*(0.45 + 0.55*sst(0.0, 0.12, fe))           # and close to the shoulder
             t = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
-            p, n = b.push(p, clear + thick)
+            p, n = push(p, clear + thick)
             a = t.cross(n).normalized()
             if prev_a is not None and a.dot(prev_a) < 0: a = -a
             prev_a = a
             if i: L += (pts[i] - pts[i - 1]).length
             row = []
-            for k, f in enumerate((-0.5, 0.5)):
-                e, en = b.push(p + a*w*f, clear + thick)
+            for f in np.linspace(-0.5, 0.5, kw.get("cols", 2)):     # cols > 2: vertices across a wide band, so it lies over steps
+                e, en = push(p + a*w*f, clear + thick)
                 _, vi, _ = b.kd.find(e); wt = vweights(b, vi)
+                if kw.get("tail_hang") and e.z < b.z(1.2):     # the long tail hangs free from the hips, clear of the legs
+                    kh = sst(b.z(1.2), b.z(0.5), e.z)
+                    wt = {g_: x_*(1 - kh) for g_, x_ in wt.items() if not g_.startswith(("thigh", "shin", "foot"))}
+                    wt["hips"] = wt.get("hips", 0.0) + kh
+                    tot_ = sum(wt.values()); wt = {g_: x_/tot_ for g_, x_ in wt.items()}
                 row.append((msh.vert(e, wt), msh.vert(e - en*thick, wt)))
             ring.append((row, L))
+        span = TILE/max(L, 1e-6) if kw.get("span") else 1.0      # span: u 0..1 over the whole strip (pattern doesn't tile)
+        ring = [(row, LL*span) for row, LL in ring]
         for i in range(len(ring) - 1):
             (r0, L0), (r1, L1) = ring[i], ring[i + 1]
             u0, u1 = L0/TILE, L1/TILE
-            (a0o, a0i), (b0o, b0i) = r0; (a1o, a1i), (b1o, b1i) = r1
-            msh.face([a0o, b0o, b1o, a1o], [(u0, 0), (u0, 1), (u1, 1), (u1, 0)])
-            msh.face([a1i, b1i, b0i, a0i], [(u1, 0), (u1, 1), (u0, 1), (u0, 0)])
+            nc = len(r0)
+            for k in range(nc - 1):
+                va, vb = k/(nc - 1), (k + 1)/(nc - 1)
+                (a0o, a0i), (b0o, b0i) = r0[k], r0[k + 1]; (a1o, a1i), (b1o, b1i) = r1[k], r1[k + 1]
+                msh.face([a0o, b0o, b1o, a1o], [(u0, va), (u0, vb), (u1, vb), (u1, va)])
+                msh.face([a1i, b1i, b0i, a0i], [(u1, va), (u1, vb), (u0, vb), (u0, va)])
+            (a0o, a0i), (a1o, a1i) = r0[0], r1[0]; (b0o, b0i), (b1o, b1i) = r0[-1], r1[-1]
             msh.face([a0i, a0o, a1o, a1i], [(u0, 0), (u0, 0.02), (u1, 0.02), (u1, 0)])
             msh.face([b1i, b1o, b0o, b0i], [(u1, 1), (u1, 0.98), (u0, 0.98), (u0, 1)])
         for (row, LL), flip in ((ring[0], False), (ring[-1], True)):
-            (ao, ai), (bo, bi) = row; u = LL/TILE
-            q = [ao, ai, bi, bo]; msh.face(q[::-1] if flip else q, [(u, 0)]*4)
+            u = LL/TILE
+            for k in range(len(row) - 1):
+                (ao, ai), (bo, bi) = row[k], row[k + 1]
+                q = [ao, ai, bi, bo]; msh.face(q[::-1] if flip else q, [(u, 0)]*4)
     return msh
 
 def build_ring(b, spec):
@@ -1081,7 +1460,7 @@ def build_ring(b, spec):
     _, name, joint, t, pat, kw = spec
     s = b.s; msh = Mesh()
     for sd in "LR":
-        h, tl = b.J[f"{joint}.{sd}"]; ax = Vector(tl - h).normalized(); c = Vector(h) + ax*0.0
+        h, tl = b.J[f"{joint}.{sd}"]; ax = Vector(tl - h).normalized(); c = Vector(h) + Vector(tl - h)*t
         if joint == "foot": c = Vector(h) + Vector((0, 0, 0.012*s)); ax = Vector((0, 0, 1))
         u = ax.orthogonal().normalized(); v = ax.cross(u)
         # radius: skin distance round the joint + a little
@@ -1090,7 +1469,7 @@ def build_ring(b, spec):
             a = 2*math.pi*k/12; d = u*math.cos(a) + v*math.sin(a)
             hit = b.bvh.ray_cast(c + d*0.2, -d, 0.2)[0]
             if hit: rad = max(rad, (hit - c).length)
-        rad += 0.004*s; tr = 0.0035*s
+        rad += (0.004 + kw.get("room", 0.0))*s; tr = kw.get("tr", 0.0035)*s
         _, vi, _ = b.kd.find(c); wt = vweights(b, vi)
         idx = [[msh.vert(c + (u*math.cos(a) + v*math.sin(a))*(rad + tr*math.cos(bb)) + ax*tr*math.sin(bb), wt)
                 for bb in np.linspace(0, 2*math.pi, 7)[:-1]] for a in np.linspace(0, 2*math.pi, 17)[:-1]]
@@ -1277,7 +1656,162 @@ def build_helmet(b, spec):
             msh.face([v(a1, c1, False), v(a0, c0, False), v(a0, c0, True), v(a1, c1, True)], [uv(a1, c1), uv(a0, c0), uv(a0, c0), uv(a1, c1)])
     return msh
 
-# ---------------------------------------------------------------- materials
+def build_sweep(b, spec, under=None):
+    """stiff tapered lenses / horns: an elliptic section (`flat` = thickness / width, thin across n0) along each path;
+    kw over: the whole piece moved out along n0 until it clears the skin and every piece built before it"""
+    _, name, path_fn, pat, kw = spec
+    msh = Mesh(); sides = 10
+    tree = BVHTree.FromPolygons(*under) if kw.get("over") and under is not None and len(under[1]) else None
+    for hn in path_fn(b):
+        pts = [Vector(p) for p in hn["pts"]]; n = len(pts); rings = []; L = 0.0
+        if kw.get("over"):
+            d = -hn["n0"].normalized() if hn["n0"].dot(Vector((0, -1, 0))) < 0 else hn["n0"].normalized()
+            back = max(r*hn["flat"] for r in hn["radii"]) + kw.get("clear", 0.006)*b.s
+            need = -1e9
+            for i_, p in enumerate(pts):
+                t_ = (pts[min(i_ + 1, n - 1)] - pts[max(i_ - 1, 0)]).normalized(); sd_ = t_.cross(d).normalized()
+                for q in (p, p + sd_*hn["radii"][i_], p - sd_*hn["radii"][i_]):      # across the whole width
+                    for tr in ([b.bvh] + ([tree] if tree else [])):
+                        far = outermost(tr, q - d*0.25, d, 0.5)
+                        if far is not None: need = max(need, (far - q).dot(d) + back)
+            if need > 0: pts = [p + d*need for p in pts]
+        for i, p in enumerate(pts):
+            t = (pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized()
+            nn = (hn["n0"] - t*hn["n0"].dot(t)).normalized(); side = t.cross(nn)
+            if i: L += (pts[i] - pts[i - 1]).length
+            r = hn["radii"][i]
+            rings.append(([msh.vert(p + side*r*math.cos(a) + nn*r*hn["flat"]*math.sin(a), hn["w"])
+                           for a in np.linspace(0, 2*math.pi, sides + 1)[:-1]], L))
+        for i in range(n - 1):
+            (r0, L0), (r1, L1) = rings[i], rings[i + 1]
+            for k in range(sides):
+                k2 = (k + 1) % sides
+                msh.face([r0[k], r0[k2], r1[k2], r1[k]], [(L0/TILE, k/sides*0.1), (L0/TILE, (k + 1)/sides*0.1), (L1/TILE, (k + 1)/sides*0.1), (L1/TILE, k/sides*0.1)])
+        c0 = msh.vert(pts[0] - (pts[1] - pts[0]).normalized()*0.002, hn["w"])
+        for k in range(sides): msh.face([rings[0][0][(k + 1) % sides], rings[0][0][k], c0], [(0, 0)]*3)
+    return msh
+
+def _chada():
+    """ชฎา profile (scale of the band ellipse, height x s above the band): band, a short dome, seven stepped rings
+    getting smaller, then a thin spike"""
+    pr = [(1.00, 0.0), (0.99, 0.010), (0.97, 0.024), (0.94, 0.036), (0.88, 0.060), (0.76, 0.090)]     # tapering from the bottom
+    for i in range(7):
+        h = 0.100 + i*0.020; k = 0.62*(1 - i/7.5)
+        pr += [(k, h), (k + 0.08, h + 0.004), (k + 0.08, h + 0.009), (k*0.88, h + 0.014)]
+    pr += [(0.07, 0.245), (0.045, 0.28), (0.022, 0.32), (0.008, 0.35), (0.0, 0.37)]
+    return pr
+CHADA = _chada()
+def crown_frame(b):
+    """head frame for the crown: centre, up / forward / left, band ellipse radii, height of the band (x s from the
+    centre) and the head + hair points to keep inside"""
+    s = b.s; hb = b.rig.data.bones["head"]; rw = b.rig.matrix_world
+    U = (rw @ hb.tail_local - rw @ hb.head_local).normalized()
+    F = Vector((0, -1, 0)); F = (F - U*F.dot(U)).normalized(); L = U.cross(F)
+    pts = [Vector(p) for p in b.co[b.reg == "head"]]
+    for o in bpy.data.objects:
+        if o.name.startswith("Hair_") and not o.hide_render:
+            pts += [o.matrix_world @ v.co for v in o.data.vertices]
+    P = np.array([tuple(p) for p in pts]); hv = b.co[b.reg == "head"]
+    C = Vector(((hv.min(0) + hv.max(0))/2).tolist())
+    f_, l_, u_ = (P - np.array(C)) @ np.array(F), (P - np.array(C)) @ np.array(L), (P - np.array(C)) @ np.array(U)
+    top = float(((hv - np.array(C)) @ np.array(U)).max()); base = top - 0.068*s       # band high on the forehead
+    band = (u_ > base - 0.01*s) & (u_ < base + 0.03*s)
+    rF = float(np.abs(f_[band]).max()) + 0.004*s; rL = float(np.abs(l_[band]).max()) + 0.004*s
+    return dict(U=U, F=F, L=L, C=C, f=f_, l=l_, u=u_, base=base, rF=rF, rL=rL)
+
+def build_crown(b, spec):
+    """ชฎา: a band low on the forehead, tiers of rings stepping in to a tall spike; at the back and sides the band comes
+    down over the skull to the nape, so no hair shows. Every ring stays outside the head and the hair shown in the file."""
+    s = b.s; msh = Mesh(); W = {"head": 1.0}; k_ = crown_frame(b)
+    U, F, L, C, f_, l_, u_, base, rF, rL = (k_[n] for n in ("U", "F", "L", "C", "f", "l", "u", "base", "rF", "rL"))
+    def need(h, a):          # scale of the band ellipse that holds the head / hair at height h (x s above the band), azimuth a
+        m = (np.abs(u_ - (base + h*s)) < 0.012*s)
+        if not m.any(): return 0.0
+        return float(np.sqrt((f_[m]/rF)**2 + (l_[m]/rL)**2).max()) + 0.025     # hugging the head
+    drop = lambda a: 0.06*(1 - math.cos(a))/2                # how far the band comes down: 0 at the forehead, 6 cm at the nape
+    seg = 36; rows_o, rows_i, rows_pt = [], [], []
+    for kk, hh in CHADA:
+        ro, ri, rp = [], [], []
+        for j in range(seg + 1):
+            a = 2*math.pi*j/seg
+            h2 = hh - drop(a)*(1 - sst(0.0, 0.08, hh))
+            k2 = max(kk, need(h2, a)) if kk > 0 else 0.0
+            d = F*math.cos(a)*rF + L*math.sin(a)*rL
+            p = C + U*(base + h2*s) + d*k2
+            ro.append(msh.vert(p, W)); ri.append(msh.vert(p - (d.normalized()*0.004*s if k2 > 0 else U*0.004*s), W)); rp.append(tuple(p))
+        rows_o.append(ro); rows_i.append(ri); rows_pt.append(rp)
+    def uvp(i, j): return (2*math.pi*j/seg*(rF + rL)/2/TILE, -CHADA[i][1]*s/TILE)
+    for i in range(len(CHADA) - 1):
+        for j in range(seg):
+            msh.face([rows_o[i][j], rows_o[i][j + 1], rows_o[i + 1][j + 1], rows_o[i + 1][j]], [uvp(i, j), uvp(i, j + 1), uvp(i + 1, j + 1), uvp(i + 1, j)])
+            msh.face([rows_i[i][j], rows_i[i + 1][j], rows_i[i + 1][j + 1], rows_i[i][j + 1]], [uvp(i, j), uvp(i + 1, j), uvp(i + 1, j + 1), uvp(i, j + 1)])
+    for j in range(seg):                # bottom rim of the band
+        msh.face([rows_o[0][j + 1], rows_o[0][j], rows_i[0][j], rows_i[0][j + 1]], [uvp(0, j + 1), uvp(0, j), uvp(0, j), uvp(0, j + 1)])
+    # กระจัง: a ring of pointed gold leaves standing up round the top of the band, leaning out a little
+    ib = 2; nl = 24
+    for j in range(nl):
+        a0, a1 = 2*math.pi*(j + 0.1)/nl, 2*math.pi*(j + 0.9)/nl; am = (a0 + a1)/2
+        def ring_pt(a, row=ib):
+            jj = a/(2*math.pi)*seg; j0 = int(jj) % seg; f = jj - int(jj)
+            return Vector(rows_pt[row][j0]).lerp(Vector(rows_pt[row][(j0 + 1) % seg]), f)
+        p0, p1 = ring_pt(a0), ring_pt(a1); pm = ring_pt(am)
+        out = (pm - (C + U*U.dot(pm - C))).normalized()
+        tip = pm + U*0.030*s + out*0.008*s; th_ = out*0.0025*s
+        v = [msh.vert(q, W) for q in (p0 + th_, p1 + th_, tip + th_, p0 - th_, p1 - th_, tip - th_)]
+        msh.face([v[0], v[1], v[2]], [(0, 0), (0.05, 0), (0.025, 0.1)]); msh.face([v[5], v[4], v[3]], [(0.025, 0.1), (0.05, 0), (0, 0)])
+        msh.face([v[3], v[0], v[2], v[5]], [(0, 0)]*4); msh.face([v[1], v[4], v[5], v[2]], [(0, 0)]*4)
+    return msh
+
+def _ball(msh, c, r, w, seg=8, rings=5, v0=0.0, v1=1.0, flat=None):
+    """sphere; flat = (axis, factor) or a list of them: squashed along each axis (a petal, a long bud)"""
+    flat = [flat] if flat and not isinstance(flat, list) else (flat or [])
+    ids = []
+    for i in range(rings + 1):
+        th = math.pi*i/rings; row = []
+        for j in range(seg + 1):
+            ph = 2*math.pi*j/seg
+            d = Vector((math.sin(th)*math.cos(ph), math.sin(th)*math.sin(ph), math.cos(th)))
+            for ax_, fc_ in flat: d = d - ax_*d.dot(ax_)*(1 - fc_)
+            row.append(msh.vert(c + d*r, w))
+        ids.append(row)
+    for i in range(rings):
+        for j in range(seg):
+            uv = lambda ii, jj: (jj/seg*0.1, v0 + (v1 - v0)*(1 - ii/rings))
+            msh.face([ids[i][j], ids[i + 1][j], ids[i + 1][j + 1], ids[i][j + 1]], [uv(i, j), uv(i + 1, j), uv(i + 1, j + 1), uv(i, j + 1)])
+
+def build_flowers(b, spec):
+    """ดอกไม้ทัดหู + อุบะ: a cluster of red flowers on each temple, on the crown's band, and three short strings of
+    flower buds hanging beside the ear, kept off the head and the crown"""
+    s = b.s; msh = Mesh(); W = {"head": 1.0}; k_ = crown_frame(b)
+    U, F, L, C, rF, rL, base = (k_[n] for n in ("U", "F", "L", "C", "rF", "rL", "base"))
+    head = BVHTree.FromPolygons([tuple(p) for p in b.co], [list(p.vertices) for p in b.ob.data.polygons])
+    rnd = np.random.RandomState(5)
+    for sx in (1, -1):
+        a = sx*math.radians(72); d = (F*math.cos(a)*rF + L*math.sin(a)*rL)
+        c0 = C + U*(base - 0.005*s) + d*1.12 + d.normalized()*0.012*s
+        out_ = d.normalized(); t1 = out_.cross(U).normalized(); t2 = out_.cross(t1)
+        roses = [(Vector(), 0.017*s)] if sx < 0 else [(t1*0.010*s + t2*0.008*s, 0.011*s), (-t1*0.011*s + t2*0.004*s, 0.010*s), (t2*-0.011*s, 0.009*s)]
+        for off, R_ in roses:               # ดอกกุหลาบ: a tight bud in the middle, three rings of petals opening outwards
+            cc = c0 + off + out_*0.006*s
+            _ball(msh, cc + out_*0.10*R_, R_*0.30, W, seg=6, rings=4, v0=0.14, v1=0.30)
+            for n_, rad, tilt, sz in ((5, 0.30, 0.25, 0.42), (7, 0.62, 0.55, 0.50), (9, 0.92, 0.85, 0.55)):
+                for j in range(n_):
+                    a_ = 2*math.pi*(j + 0.5*(n_ % 2))/n_ + rnd.uniform(-0.15, 0.15)
+                    rd = t1*math.cos(a_) + t2*math.sin(a_)
+                    ax_ = (out_*(1 - tilt) + rd*tilt).normalized()
+                    _ball(msh, cc + rd*rad*R_ - out_*0.18*R_*rad, R_*sz, W, seg=6, rings=4, v0=0.16, v1=0.52, flat=(ax_, 0.28))
+        for t in range(3):          # อุบะ: strings of small long buds, white and red, hanging beside the ear
+            st = c0 + t1*(t - 1)*0.010*s - U*0.014*s
+            for k in range(5):
+                p = st - U*(0.014*k)*s
+                loc = head.find_nearest(p)[0]
+                if loc is not None and (p - loc).length < 0.022*s: p = loc + (p - loc).normalized()*0.022*s
+                white = (k + t) % 2 == 0
+                _ball(msh, p, 0.0068*s, W, seg=6, rings=4, v0=0.56 if white else 0.20, v1=0.70 if white else 0.50,
+                      flat=[(out_, 0.55), (t1, 0.55)])
+    return msh
+
+# ---------------------------------------------------------------- materials# ---------------------------------------------------------------- materials
 def tex_material(name, base, metal=False):
     m = bpy.data.materials.get(name)
     if m: return m
@@ -1321,9 +1855,15 @@ def fix_armpit_weights(body, b):
         b.armw[vi] = sum(x/tot for g, x in top if g.startswith("upper_arm")); fixed += 1
     return fixed
 
-def add_clothes(char, outfits=None):
-    """build every outfit of `char` on the Body in the current scene; first outfit shown, the rest hidden"""
-    clear_clothes()
+def add_clothes(char, outfits=None, keep_others=False):
+    """build every outfit of `char` (or just `outfits`) on the Body in the current scene; the character's first outfit
+    shown, the rest hidden. keep_others: only the listed outfits are rebuilt, the other Cloth_ objects stay as they are"""
+    if keep_others:
+        for o in list(bpy.data.objects):
+            if any(o.name == f"Cloth_{n}" or o.name.startswith(f"Cloth_{n}_") for n in outfits):
+                me = o.data; bpy.data.objects.remove(o, do_unlink=True); bpy.data.meshes.remove(me)
+    else:
+        clear_clothes()
     body = bpy.data.objects["Body"]; rig = bpy.data.objects["HumanRig"]
     poses = [tuple(pb.rotation_euler) for pb in rig.pose.bones]
     for pb in rig.pose.bones: pb.rotation_euler = (0, 0, 0)
@@ -1343,25 +1883,38 @@ def add_clothes(char, outfits=None):
         # what a skirt / sash has to go over: shirt and trousers on the trunk and legs (not the sleeves held out to the side)
         ok = [sv >= 0 and b.reg[sv] in ("torso", "leg.L", "leg.R") for sv in shell.src]
         under = ([tuple(v) for v in shell.v], [f for f in shell.f if all(ok[i] for i in f)])
+        under_all = ([tuple(v) for v in shell.v], shell.f)                     # strips laid over everything (sleeves too)
         for k, (sp, part) in enumerate(parts):      # one object per piece, each with its own texture (see paint_shell)
             if not part.f: continue
             suffix = "" if k == 0 else "_" + sp[1]
             mat = tex_material(f"Cloth_{char}_{name}{suffix}", shell_tex_base(char, name, k, sp[1]))
             objs.append(part.to_object(f"Cloth_{name}{suffix}", rig, mat, fix_normals=False))
+        def outside(msh):     # faces of a built piece that face away from the skin (not a skirt's / strip's inner wall)
+            keep = []
+            for f in msh.f:
+                P_ = [msh.v[i] for i in f]; c = sum(P_, Vector())/len(P_)
+                n = (P_[1] - P_[0]).cross(P_[2] - P_[0])
+                loc = b.bvh.find_nearest(c)[0]
+                if loc is not None and n.length > 1e-12 and (c - loc).dot(n) > 0: keep.append(f)
+            return keep
         for sp in OUTFITS[name]:
             kind = sp[0]
             if kind == "shell": continue
-            pat = sp[4] if kind in ("tube", "strip", "ring") else sp[2]          # hat / helmet / shoe: (kind, name, pattern)
-            msh = build_tube(b, sp, under) if kind == "tube" else \
-                  {"strip": build_strip, "ring": build_ring, "hat": build_hat, "helmet": build_helmet, "shoe": build_shoe, "sandal": build_sandal}[kind](b, sp)
+            pat = sp[4] if kind in ("tube", "strip", "ring") else sp[3] if kind == "sweep" else sp[2]   # hat / helmet / shoe / crown: (kind, name, pattern)
+            msh = build_tube(b, sp, under) if kind == "tube" else build_strip(b, sp, under_all) if kind == "strip" else \
+                  build_sweep(b, sp, under_all) if kind == "sweep" else                   {"ring": build_ring, "hat": build_hat, "helmet": build_helmet, "shoe": build_shoe, "sandal": build_sandal,
+                   "crown": build_crown, "flowers": build_flowers}[kind](b, sp)
             mat = tex_material(f"Cloth_{pat}", os.path.join(TEX, pat), PATTERNS[pat][2])
+            if kind in ("tube", "strip", "sweep"):
+                base_ = len(under_all[0])
+                under_all = (under_all[0] + [tuple(v) for v in msh.v], under_all[1] + [[base_ + i for i in f] for f in outside(msh)])
             ob = msh.to_object(f"Cloth_{name}_{sp[1]}", rig, mat)
-            if kind in ("hat", "helmet"):
+            if kind in ("hat", "helmet", "crown", "flowers"):
                 for vg in list(ob.vertex_groups): ob.vertex_groups.remove(vg)
                 g = ob.vertex_groups.new(name="head"); g.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')
             objs.append(ob)
         for ob in objs:
-            ob.hide_render = oi > 0; ob.hide_set(oi > 0)
+            hide = name != CHAR_OUTFITS[char][0]; ob.hide_render = hide; ob.hide_set(hide)
         made[name] = objs
     for pb, r in zip(rig.pose.bones, poses): pb.rotation_euler = r
     print(char, {k: sum(len(o.data.polygons) for o in v) for k, v in made.items()})
@@ -1384,13 +1937,67 @@ def clothes_char(char, save=True):
         for f in blend_files(char):
             bpy.ops.wm.open_mainfile(filepath=f); add_clothes(char); bpy.ops.wm.save_mainfile()
 
+def limit_cloth_weights(objs, n=4):
+    """Roblox skins with at most 4 bones per vertex (skirt / panel weights can mix 5)"""
+    for ob in objs:
+        names = {g.index: g for g in ob.vertex_groups}
+        for v in ob.data.vertices:
+            gs = sorted(((g.group, g.weight) for g in v.groups if g.weight > 0), key=lambda t: -t[1])
+            if len(gs) <= n and abs(sum(w for _, w in gs) - 1) < 1e-4: continue
+            keep = gs[:n]; tot = sum(w for _, w in keep) or 1.0
+            for gi, _ in gs[n:]: names[gi].remove([v.index])
+            for gi, w in keep: names[gi].add([v.index], w/tot, 'REPLACE')
+
+def fix_image_paths():
+    """images whose file isn't there (an absolute path into another copy of the repo) pointed at this M"""
+    for im in bpy.data.images:
+        fp = os.path.normpath(bpy.path.abspath(im.filepath)) if im.filepath else ""
+        if not fp or os.path.exists(fp): continue
+        key = "\\assets\\models\\"
+        k = fp.replace("/", "\\").lower().rfind(key)
+        if k >= 0:
+            new = os.path.join(M, fp[k + len(key):])
+            if os.path.exists(new): im.filepath = new; im.reload()
+
+def add_outfits(char, outfits, save=True):
+    """add outfits to a character without touching the ones it has: their faces go into <name>_clothes.json next to
+    the stored ones (kept as they are), only their textures are painted, and in every .blend of the character only
+    their Cloth_ objects are (re)built. Texture paths are saved relative, so the files work from any checkout."""
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(char), NAMES[char] + ".blend"))
+    body = bpy.data.objects["Body"]; rig = bpy.data.objects["HumanRig"]
+    for pb in rig.pose.bones: pb.rotation_euler = (0, 0, 0)
+    bpy.context.view_layer.update()
+    b = Body(body, rig); faces = pick_faces(b, char)
+    jf = os.path.join(char_dir(char), NAMES[char] + "_clothes.json"); old = json.load(open(jf))
+    if old["polys"] != len(body.data.polygons): raise RuntimeError(f"{char}: clothes file is for {old['polys']} faces")
+    out = {k: (faces[k] if k in outfits else old["outfits"][k]) for k in CHAR_OUTFITS[char] if k in outfits or k in old["outfits"]}
+    json.dump(dict(polys=old["polys"], outfits=out), open(jf, "w"))
+    uv = np.zeros((len(body.data.loops), 2)); body.data.uv_layers.active.data.foreach_get("uv", uv.ravel())
+    ras = raster_body(b, uv)
+    for name in outfits:
+        if any(sp[0] == "shell" for sp in OUTFITS[name]): paint_shell(b, ras, faces[name], char, name)
+    if not save: return
+    bpy.context.preferences.filepaths.save_version = 0
+    for f in blend_files(char):
+        bpy.ops.wm.open_mainfile(filepath=f); fix_image_paths()
+        made = add_clothes(char, outfits, keep_others=True)
+        limit_cloth_weights([o for v in made.values() for o in v])
+        bpy.ops.file.make_paths_relative(); bpy.ops.wm.save_mainfile()
+
 def clothes_all(save=True):
     make_patterns()
     for c in DIRS.values(): clothes_char(c, save)
 
 # ---------------------------------------------------------------- preview: rows = outfits, columns front / 3-4 / side / back
-def preview(char, out):
+def preview(char, out, outfits=None, skin=None, hair=None):
+    """outfits: rows to render (default all of the character); skin: Body material for the shot (e.g. "SkinGhost");
+    hair: the Hair_<style> to show instead of the one shown in the file"""
     sc = bpy.context.scene; body = bpy.data.objects["Body"]; rig = bpy.data.objects["HumanRig"]
+    keep_mat = body.data.materials[0]
+    if skin and skin in bpy.data.materials: body.data.materials[0] = bpy.data.materials[skin]
+    keep_hair = {o: o.hide_render for o in bpy.data.objects if o.name.startswith("Hair_")}
+    if hair and ("Hair_" + hair) in bpy.data.objects:
+        for o in keep_hair: o.hide_render = o.name != "Hair_" + hair
     b = Body(body, rig); s = b.s
     for eng in ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"):
         try: sc.render.engine = eng; break
@@ -1411,7 +2018,7 @@ def preview(char, out):
     hair = [o for o in bpy.data.objects if o.name.startswith("Hair_")]
     shown = [o for o in hair if not o.hide_render]
     rows = []
-    for name in CHAR_OUTFITS[char]:
+    for name in outfits or CHAR_OUTFITS[char]:
         for o in bpy.data.objects:
             if o.name.startswith("Cloth_"):
                 vis = o.name == f"Cloth_{name}" or o.name.startswith(f"Cloth_{name}_")
@@ -1428,6 +2035,18 @@ def preview(char, out):
     img = bpy.data.images.new("_sheet", sheet.shape[1], sheet.shape[0]); img.pixels.foreach_set(sheet.ravel())
     img.filepath_raw = out; img.file_format = 'PNG'; img.save(); bpy.data.images.remove(img)
     for o in temps: bpy.data.objects.remove(o, do_unlink=True)
+    body.data.materials[0] = keep_mat
+    for o, h in keep_hair.items(): o.hide_render = h
+
+GHOST_HAIR = {"female": "ghost_long", "elder_female": "ghost_long_white"}
+def preview_ghosts(out_dir=os.path.join(M, "clothes_previews")):
+    """clothes_previews/ghost_<char>.png: only the ghost outfits, on the SkinGhost skin with ghost hair"""
+    for c in DIRS.values():
+        rows = [o for o in CHAR_OUTFITS[c] if o in GHOST_OUTFITS]
+        if not rows: continue
+        bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(c), NAMES[c] + ".blend"))
+        if not any(o.name.startswith("Cloth_") for o in bpy.data.objects): add_clothes(c)
+        preview(c, os.path.join(out_dir, "ghost_" + NAMES[c] + ".png"), rows, "SkinGhost", GHOST_HAIR.get(c))
 
 def preview_all(chars=None, out_dir=os.path.join(M, "clothes_previews")):
     os.makedirs(out_dir, exist_ok=True)
@@ -1444,3 +2063,4 @@ if __name__ == "__main__":
         make_patterns()
         for c in chars or DIRS.values(): clothes_char(c)
     if "--preview" in argv: preview_all(chars)
+    if "--preview-ghosts" in argv: preview_ghosts()
