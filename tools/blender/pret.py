@@ -326,28 +326,31 @@ def build_hair(body, rig):
     b = H["Build"](h, ["HairBlack"])
     rnd = random.Random(13)
     sym, noise = H["sym"], H["noise"]
-    wild = lambda th, ph: max(0.008, 0.016 + 0.014 * noise.noise(h.dir(th, ph) * 6.0))
-    front = lambda th: math.exp(-(math.degrees(math.atan2(math.sin(th), math.cos(th))) / 55.0) ** 2)   # หน้าโล่ง เห็นตาโปนกับลิ้น
-    base = sym([(0, -0.10), (60, -0.12), (100, -0.15), (180, -0.17)])
-    b.shell(H["GHOST_AZ"], True, H["POLE"], H["GHOST_LINE"], wild, hem=lambda th: base(th) + (0.6 - base(th)) * front(th),
-            flare=lambda th: sym([(0, 0.02), (90, 0.05), (180, 0.04)])(th) * (1 - front(th)),
-            tip=0.016, rows=8, drop_rows=5, clear=0.010, jitter=0.07, jitter_f=11.0)
-    n = 0
-    while n < 30:                                           # ปอยผมพันกัน ชี้ออกแล้วตกลง (ไม่ยาวเกินต้นคอ)
+    # ผมบางมาก: ไม่มีแผ่นคลุมหัว มีแต่เส้นผมเรียวห่างๆ ร่วงเป็นหย่อม เห็นหนังหัวคล้ำ เส้นยาวห้อยถึงต้นคอ
+    bald = lambda d: noise.noise(d * 2.6 + Vector((3.1, 0.7, 1.9)))
+    n, tries = 0, 0
+    while n < 95 and tries < 4000:
+        tries += 1
         th = rnd.uniform(-math.pi, math.pi)
-        ph = rnd.uniform(R(-10), R(70))
-        if abs(th) < R(65) and ph < R(45):
+        ph = rnd.uniform(R(-25), R(85))
+        if abs(th) < R(70) and ph < R(48):
             continue                                        # ไม่บังหน้า (ตาโปนกับลิ้นต้องเห็นชัด)
         d = h.dir(th, ph)
-        root = h.on(th, ph, 0.010)
-        w = d + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.3)))
-        w.z -= 0.2
-        w.normalize()
-        L = rnd.uniform(0.04, 0.08) * s
-        droop = Vector((0, 0, -rnd.uniform(0.3, 0.8)))
-        mid = root + w * L * 0.55
-        end = mid + (w + droop).normalized() * L * 0.55
-        b.tube([root, mid, h.push(end, 0.01)], [0.015 * s, 0.010 * s, 0.0], sides=5)
+        if bald(d) > 0.18:
+            continue                                        # หย่อมผมร่วง
+        root = h.on(th, ph, 0.0005)
+        L = (rnd.uniform(0.10, 0.20) if ph < R(40) else rnd.uniform(0.05, 0.14)) * s
+        out = d.copy()
+        wob = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.3, 0.3))) * 0.35
+        pts, p_ = [root], root.copy()
+        K = 6
+        for k in range(1, K + 1):
+            f = k / K
+            dirv = (out * (1.0 - 0.8 * f) + Vector((0, 0.15, -1.0)) * (0.25 + 1.0 * f) + wob * (0.5 + f)).normalized()
+            p_ = h.push(p_ + dirv * (L / K), 0.004)
+            pts.append(p_.copy())
+        r0 = rnd.uniform(0.0022, 0.0034) * s
+        b.tube(pts, [r0 * (1 - 0.85 * (k / K)) if k < K else 0.0 for k in range(K + 1)], sides=4)
         n += 1
     ob = b.finish("Hair", rig)
     # ผมช่วงล่างตามคอ ช่วงบนตามหัว: ก้ม เงย เอียงหัวแล้วปลายผมไม่จิ้มเข้าคอ/บ่า
@@ -866,7 +869,7 @@ def mix(c, col, w):
 
 
 def paint_body(P, N, rig, fm, hd):
-    """ผิวเปรต: เทาซีดอมเหลืองแบบศพแห้ง (ซีดกว่ากระหัง) ด่างคล้ำ ผิวแห้งแตกระแหงลึก เส้นเลือดม่วงดำ
+    """ผิวเปรต: คล้ำน้ำตาลเทาแบบศพตากแดด (โทนเดียวกับกระหัง) ด่างคล้ำ ผิวแห้งแตกระแหงลึก เส้นเลือดม่วงดำ
     ลำตัวใช้เกณฑ์ตำแหน่งของกระหัง (แปลงกลับเป็นพิกัดคนด้วย torso_q) แต่ร่องซี่โครงลึกและมืดกว่า"""
     n = len(P)
     X, Y, Z = P[:, 0], P[:, 1], P[:, 2]
@@ -877,25 +880,25 @@ def paint_body(P, N, rig, fm, hd):
     mid = fbm(P, (9, 9, 9), 3, 2)
     fine = vnoise(P, (60, 60, 60), 3)
     c = np.empty((n, 3), np.float32)
-    c[:] = np.array([150, 140, 118], np.float32) / 255
-    c = mix(c, (118, 112, 94), sstep(0.45, 0.75, big))
-    c = mix(c, (168, 158, 134), sstep(0.55, 0.80, mid) * 0.45)
-    c = mix(c, (96, 92, 70), sstep(0.62, 0.8, fbm(P, (5, 5, 5), 2, 7)) * 0.45)      # ด่างอมเขียวเน่า
-    c = mix(c, (60, 52, 42), sstep(0.9, 0.2, Z) * 0.55 + sstep(0.6, 0.85, mid) * 0.25)  # มือเท้าคล้ำดินโคลน
+    c[:] = np.array([78, 64, 50], np.float32) / 255
+    c = mix(c, (58, 50, 40), sstep(0.45, 0.75, big))
+    c = mix(c, (98, 84, 66), sstep(0.55, 0.80, mid) * 0.45)
+    c = mix(c, (56, 58, 40), sstep(0.62, 0.8, fbm(P, (5, 5, 5), 2, 7)) * 0.45)      # ด่างอมเขียวเน่า
+    c = mix(c, (32, 26, 21), sstep(0.9, 0.2, Z) * 0.55 + sstep(0.6, 0.85, mid) * 0.25)  # มือเท้าคล้ำดินโคลน
     rough = 0.78 + 0.12 * mid
     H = (fine - 0.5) * 0.25 + (mid - 0.5) * 0.4
     C = hd.C
     dh = np.linalg.norm(P - np.asarray(C, np.float32), axis=1)
     onface = sstep(0.13 * s, 0.09 * s, dh) * (Y < C.y - 0.02 * s)
     cr = lines(P, (48, 48, 48), 0.025, 11) * (1 - 0.6 * onface)
-    c = mix(c, (40, 34, 28), cr * 0.75)
+    c = mix(c, (20, 16, 13), cr * 0.75)
     H -= cr * 0.7
     cr2 = lines(P, (140, 140, 140), 0.04, 12) * (1 - 0.6 * onface)
-    c = mix(c, (70, 62, 50), cr2 * 0.4)
+    c = mix(c, (38, 31, 25), cr2 * 0.4)
     H -= cr2 * 0.3
     limb = np.clip(sstep(0.17, 0.30, np.abs(QX)) + sstep(1.4, 0.9, Z / u), 0, 1)
     vein = lines(P, (6, 6, 2.5), 0.03, 21) * limb
-    c = mix(c, (70, 62, 84), vein * 0.6)
+    c = mix(c, (46, 36, 54), vein * 0.6)
     H += vein * 0.9
     # ซี่โครง: ลาดลงด้านข้าง ร่องลึกดำ · ซี่โครงด้านหลัง · กระดูกอก · ขอบชายโครง · ท้องตอบ สะดือ · สันเชิงกราน
     ribz = 1.10
@@ -903,51 +906,51 @@ def paint_body(P, N, rig, fm, hd):
     ph = (QZ + 0.55 * np.abs(QX) - ribz) / 0.031
     rib = (0.5 + 0.5 * np.cos(2 * np.pi * ph)) ** 3
     gap = (1 - rib) * reg * sstep(0.006, 0.03, np.abs(QX))
-    c = mix(c, (44, 38, 32), gap * 0.95)
-    c = mix(c, (196, 186, 160), rib * reg * 0.55)
+    c = mix(c, (16, 12, 10), gap * 0.95)
+    c = mix(c, (120, 104, 82), rib * reg * 0.55)
     H += (rib * 2.0 - 1.0) * reg
     back = QY > 0.03
     regb = sstep(ribz, ribz + 0.04, QZ) * sstep(1.40, 1.30, QZ) * sstep(0.2, 0.04, np.abs(QX)) * back
     phb = (QZ - 0.25 * np.abs(QX) - ribz) / 0.031
     ribb = (0.5 + 0.5 * np.cos(2 * np.pi * phb)) ** 3
-    c = mix(c, (52, 46, 38), (1 - ribb) * regb * 0.6)
+    c = mix(c, (24, 19, 16), (1 - ribb) * regb * 0.6)
     H += (ribb * 1.2 - 0.6) * regb
     stern = np.exp(-(QX / 0.010) ** 2) * sstep(1.18, 1.24, QZ) * sstep(1.42, 1.36, QZ) * (QY < 0)
     H += stern * 0.7
-    c = mix(c, (186, 176, 150), stern * 0.4)
+    c = mix(c, (112, 96, 76), stern * 0.4)
     belly = sstep(1.12, 1.07, QZ) * sstep(0.92, 0.98, QZ) * sstep(0.0, -0.05, QY)
-    c = mix(c, (58, 52, 42), belly * 0.6 * sstep(0.16, 0.0, np.abs(QX)))
+    c = mix(c, (28, 22, 18), belly * 0.6 * sstep(0.16, 0.0, np.abs(QX)))
     H -= belly * 0.6
     arch = np.exp(-((QZ - (ribz + 0.02 + 0.55 * np.abs(QX))) / 0.012) ** 2) * sstep(0.16, 0.05, np.abs(QX)) * (QY < 0)
-    c = mix(c, (50, 44, 36), arch * 0.6)
+    c = mix(c, (24, 19, 15), arch * 0.6)
     H -= arch * 0.5
     navel = np.exp(-((QX / 0.007) ** 2 + ((QZ - 1.0) / 0.009) ** 2)) * (QY < 0)
     c = mix(c, (30, 24, 20), navel)
     H -= navel * 1.5
     hip = np.exp(-((QZ - (0.98 - 0.25 * np.abs(QX))) / 0.012) ** 2) * sstep(0.06, 0.12, np.abs(QX)) * sstep(0.17, 0.13, np.abs(QX)) * (QY < 0.02)
     H += hip * 0.5
-    c = mix(c, (176, 166, 140), hip * 0.3)
+    c = mix(c, (106, 92, 72), hip * 0.3)
     # ไหปลาร้า แอ่งเหนือไหปลาร้า เอ็นคอ กระดูกสันหลัง สะบัก
     for sx in (1, -1):
         d, t = seg_dist2(QX, QZ, (0.025 * sx, 1.425), (0.165 * sx, 1.448))
         cl = np.exp(-(d / 0.008) ** 2) * (QY < 0.02)
         H += cl * 1.3
-        c = mix(c, (196, 186, 160), cl * 0.5)
+        c = mix(c, (120, 104, 82), cl * 0.5)
         hol = np.exp(-(((QX - 0.09 * sx) / 0.04) ** 2 + ((QZ - 1.468) / 0.012) ** 2)) * (QY < 0.0)
         H -= hol * 1.2
-        c = mix(c, (50, 44, 36), hol * 0.7)
+        c = mix(c, (24, 19, 15), hol * 0.7)
         d, t = seg_dist2(X, Z, (0.045 * sx * s, fm["chin"] - 0.01 * s), (0.016 * sx * TORSO_K["kx"], torso_z(1.44)))
         cord = np.exp(-(d / (0.008 * u)) ** 2) * (Y < 0.03 * u)
         H += cord * 1.0
-        c = mix(c, (176, 166, 140), cord * 0.35)
+        c = mix(c, (106, 92, 72), cord * 0.35)
     vert = np.exp(-(QX / 0.009) ** 2) * (0.5 + 0.5 * np.cos(2 * np.pi * (QZ - 1.0) / 0.028)) * sstep(0.95, 1.0, QZ) * sstep(1.50, 1.44, QZ) * back
     H += vert * 1.0
-    c = mix(c, (186, 176, 150), vert * 0.4)
+    c = mix(c, (112, 96, 76), vert * 0.4)
     for sx in (1, -1):
         bl = ell(QX, QZ, 0.085 * sx, 1.33, 0.05, 0.075)
         edge = np.exp(-((bl - 1) / 0.12) ** 2) * back
         H += edge * 0.7 - (bl < 1) * back * 0.15
-        c = mix(c, (52, 46, 38), edge * 0.35)
+        c = mix(c, (24, 19, 16), edge * 0.35)
     # เข่า ศอก ข้อมือ ข้อเท้า: ปุ่มกระดูกซีด หนังย่นรอบๆ · ข้อนิ้วปูด เล็บยาวเหลืองสกปรก
     bs = rig.data.bones
     for side in ("L", "R"):
@@ -955,9 +958,9 @@ def paint_body(P, N, rig, fm, hd):
             q = np.asarray(bs[j].head_local, np.float32)
             d = np.linalg.norm(P - q, axis=1)
             k = sstep(rad, 0.0, d)
-            c = mix(c, (186, 176, 150), k * 0.35)
+            c = mix(c, (112, 96, 76), k * 0.35)
             wr = lines(P, (40, 40, 40), 0.05, 31) * k
-            c = mix(c, (60, 52, 42), wr * 0.6)
+            c = mix(c, (32, 26, 21), wr * 0.6)
             H += wr * 0.8
         for f in ("index", "middle", "ring", "pinky", "thumb"):
             tip = np.asarray(bs[f"{f}_03.{side}"].tail_local, np.float32)
@@ -971,18 +974,18 @@ def paint_body(P, N, rig, fm, hd):
                 q = np.asarray(bs[f"{f}_{kk}.{side}"].head_local, np.float32)
                 dk = np.linalg.norm(P - q, axis=1)
                 kn = sstep(0.02, 0.0, dk)
-                c = mix(c, (70, 62, 50), kn * 0.5)
+                c = mix(c, (38, 31, 25), kn * 0.5)
                 H += kn * 0.5
         toe = np.asarray(bs["toe." + side].tail_local, np.float32)
         dt = np.linalg.norm(P - toe, axis=1)
-        c = mix(c, (92, 80, 48), sstep(0.06, 0.02, dt) * 0.7)
+        c = mix(c, (70, 58, 34), sstep(0.06, 0.02, dt) * 0.7)
     sole = sstep(0.03, 0.006, Z)
-    c = mix(c, (40, 34, 28), sole * 0.8)
+    c = mix(c, (20, 16, 13), sole * 0.8)
     # ---- หน้า: เบ้าตาลึกดำรอบลูกตาโปน ขอบตาแดงช้ำ แก้มตอบ ปากอ้ากลมดำ (ลิ้นออกมา) ฟันห่าง
     head = dh < 0.16 * s
     E, MZ = fm["eye"], fm["mouth"]
     scalp = head & ((Z > E + 0.075 * s) | ((Y > C.y + 0.02 * s) & (Z > MZ)))
-    c = mix(c, (44, 40, 36), scalp * 0.85)
+    c = mix(c, (48, 38, 30), scalp * 0.85)
     fr = head & (Y < C.y - 0.02 * s) & (np.abs(X) < 0.085 * s)
     ax = np.abs(X)
     w = fr.astype(np.float32)
@@ -993,26 +996,26 @@ def paint_body(P, N, rig, fm, hd):
     rim = np.exp(-((ell(ax, Z, ex, E, 0.017 * s, 0.017 * s) - 1) / 0.12) ** 2) * w
     c = mix(c, (110, 30, 28), rim * 0.7)
     under = sstep(1.0, 0.0, ell(ax, Z, ex + 0.004 * s, E - 0.022 * s, 0.022 * s, 0.009 * s)) * w
-    c = mix(c, (40, 30, 30), under * 0.6)
+    c = mix(c, (26, 18, 16), under * 0.6)
     H -= under * 0.5
     bd, bt = seg_dist2(ax, Z, (0.01 * s, E + 0.02 * s), (0.056 * s, E + 0.028 * s))
     brow = sstep(0.006 * s, 0.003 * s, bd) * w
-    c = mix(c, (40, 36, 32), brow * 0.8)
+    c = mix(c, (16, 13, 11), brow * 0.8)
     H += brow * 1.2
     for k in range(4):
         zz = E + (0.040 + 0.010 * k) * s + 0.004 * s * np.sin(X * 90 / s + k)
         g = np.exp(-((Z - zz) / (0.0013 * s)) ** 2) * sstep(0.05 * s, 0.02 * s, ax) * w
-        c = mix(c, (70, 62, 50), g * 0.6)
+        c = mix(c, (38, 31, 25), g * 0.6)
         H -= g * 0.9
     nos = (ell(ax, Z, 0.0085 * s, fm["base"] + 0.002 * s, 0.0045 * s, 0.003 * s) < 1) & fr
     c = mix(c, (16, 10, 10), nos * 1.0)
     H -= nos * 1.0
     d, t = seg_dist2(ax, Z, (0.015 * s, fm["base"] + 0.003 * s), (0.034 * s, MZ - 0.006 * s))
     nl = np.exp(-(d / (0.0035 * s)) ** 2) * w * np.sin(np.pi * np.clip(t * 0.9 + 0.1, 0, 1))
-    c = mix(c, (50, 40, 34), nl * 0.7)
+    c = mix(c, (24, 18, 15), nl * 0.7)
     H -= nl * 1.4
     ch = sstep(1.0, 0.0, ell(ax, Z, 0.052 * s, MZ + 0.014 * s, 0.022 * s, 0.03 * s)) * w
-    c = mix(c, (58, 50, 42), ch * 0.7)
+    c = mix(c, (30, 24, 19), ch * 0.7)
     H -= ch * 0.8
     mx, mz = 0.024 * s, 0.017 * s
     mo = ell(X, Z, 0, MZ, mx, mz)
@@ -1030,14 +1033,14 @@ def paint_body(P, N, rig, fm, hd):
     c = mix(c, (150, 132, 84), teeth * 1.0)
     H = np.where(teeth, -0.4, H)
     tv = lines(P, (70, 70, 70), 0.05, 61) * sstep(0.05 * s, 0.07 * s, ax) * head * sstep(E - 0.02 * s, E + 0.02 * s, Z) * (Y < C.y + 0.03 * s)
-    c = mix(c, (80, 60, 90), tv * 0.8)
+    c = mix(c, (52, 38, 60), tv * 0.8)
     H += tv * 0.6
     c, rough, H = wounds(P, N, rig, fm, hd, c, rough, H)
     return c, np.clip(rough, 0.05, 1.0), H
 
 
 # ---------------------------------------------------------------- บาดแผล (วาดในพิกัด 3 มิติ = ต่อเนื่องข้ามรอยตัด UV ไม่มีแผลขาดครึ่ง)
-FLESH, FLESH_HI, CRUST, DRIP, BRUISE = (120, 16, 18), (176, 52, 46), (46, 12, 10), (72, 16, 14), (84, 58, 70)
+FLESH, FLESH_HI, CRUST, DRIP, BRUISE = (120, 16, 18), (176, 52, 46), (40, 10, 8), (66, 14, 12), (44, 28, 30)
 
 
 def wound_paint(c, rough, H, core, crust, halo, drip, scab=None):
