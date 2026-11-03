@@ -289,8 +289,9 @@ def w_hair(p):
     az = math.atan2(p.x, -p.y)
     side = "L" if az >= 0 else "R"
     wb = float(sm(math.pi / 2, math.pi, abs(az)))
-    wh = float(sm(-0.04, 0.03, p.z))     # รากผมติดหัว
-    u = float(sm(-0.06, 0.55 * HAIR_ZB, p.z))   # ช่วงล่างเป็นของกระดูกข้อ 2 (ผสมยาวๆ ไม่หักเป็นมุม)
+    # ผมเป็นเปลือกครอบหัว: เหนือคางติดหัว 100% (ไม่งั้นแกว่งแล้วหนังหัวโผล่/ผมทะลุหน้า) แกว่งได้แค่ช่วงที่ห้อยใต้คาง
+    wh = float(sm(HAIR_P - 0.05, HAIR_P + 0.03, p.z))
+    u = float(sm(HAIR_P - 0.02, 0.25 * HAIR_P + 0.75 * HAIR_ZB, p.z))   # ช่วงล่างเป็นของกระดูกข้อ 2 (ผสมยาวๆ ไม่หักเป็นมุม)
     d = {"Head": wh}
     for c, wc in ((side, 1 - wb), ("B", wb)):
         if wc > 0:
@@ -330,6 +331,8 @@ HAIR_HEM = [(0, -0.20), (40, -0.22), (90, -0.25), (180, -0.28)]   # ปลาย
 HAIR_LINE = [(0, 42), (10, 34), (25, 22), (45, 12), (70, 6), (100, 6), (180, -20)]   # แนวผม (องศา: มุมรอบหัว -> มุมเงย) ลงมาคลุมมุมหน้าผาก
 HAIR_GAP = (0, 22)                        # build_hair.GHOST_GAP: แหวกกลางให้เห็นหน้าทั้งหน้า (เดิมแหวกหน้าตาซ้าย)
 ORG_D = Vector()                            # เลื่อนอวัยวะ + กระดูกอวัยวะไปใต้ตอคอใหม่ (ตั้งใน build_human)
+HAIR_P = -0.10                              # จุดหมุนกระดูกผม (ระดับคาง หน่วยก่อน rescale)
+HAIR_AMP = 0.5                              # ตัวคูณมุมแกว่งผมในทุกท่า (ผมสั้นประบ่า แกว่งน้อยกว่าผมยาวเดิม)
 HAIR_ZB = -0.40                             # ปลายผมล่างสุด (ตั้งใน build_human) ใช้แบ่งน้ำหนักกระดูกผมข้อ 1/2
 
 
@@ -610,14 +613,14 @@ def build_human():
 
     # ---- กระดูก: Head จากกระดูก head ของ HumanRig, ผมจากขนาดผมจริง
     hb = rig.data.bones["head"]
-    mid = [p for p in hp if abs(p.z) < 0.04]
+    mid = [p for p in hp if abs(p.z - HAIR_P) < 0.03]
     sx, by = max(abs(p.x) for p in mid), max(p.y for p in mid)
     nb_ = {"Head": (T(rig.matrix_world @ hb.head_local), T(rig.matrix_world @ hb.tail_local))}
     for nm, sg in (("L", 1), ("R", -1)):
-        nb_[f"Hair_{nm}1"] = (Vector((sg * sx, 0, 0)), Vector((sg * sx * 1.08, 0.005, 0.45 * HAIR_ZB)))
-        nb_[f"Hair_{nm}2"] = (nb_[f"Hair_{nm}1"][1], Vector((sg * sx * 1.2, 0.01, HAIR_ZB)))
-    nb_["Hair_B1"] = (Vector((0, by, 0)), Vector((0, by * 1.08, 0.45 * HAIR_ZB)))
-    nb_["Hair_B2"] = (nb_["Hair_B1"][1], Vector((0, by * 1.2, HAIR_ZB)))
+        nb_[f"Hair_{nm}1"] = (Vector((sg * sx, 0, HAIR_P)), Vector((sg * sx * 1.03, 0.005, (HAIR_P + HAIR_ZB) / 2)))
+        nb_[f"Hair_{nm}2"] = (nb_[f"Hair_{nm}1"][1], Vector((sg * sx * 1.06, 0.01, HAIR_ZB)))
+    nb_["Hair_B1"] = (Vector((0, by, HAIR_P)), Vector((0, by * 1.03, (HAIR_P + HAIR_ZB) / 2)))
+    nb_["Hair_B2"] = (nb_["Hair_B1"][1], Vector((0, by * 1.06, HAIR_ZB)))
     BONES = [(nm, tuple(nb_[nm][0]), tuple(nb_[nm][1]), par) if nm in nb_ else (nm, hd, tl, par) for nm, hd, tl, par in BONES]
     SEG = {b[0]: (Vector(b[1]), Vector(b[2])) for b in BONES}
     log(f"  hair (ghost ประบ่า): {len(hair_ob.data.polygons)} faces, bottom z {HAIR_ZB:.3f}, organs moved {tuple(round(c, 3) for c in ORG_D)}")
@@ -969,6 +972,9 @@ def make_anims(arm):
     names = [b[0] for b in BONES]
     hair = [n for n in names if n.startswith("Hair")]
 
+    def hkey(hn, f, rx=0.0, ry=0.0):
+        key(hn, f, rx=rx * HAIR_AMP, ry=ry * HAIR_AMP)
+
     # ---- Float: ลอยขึ้นลงช้าๆ หัวโยก ผมกับไส้แกว่งตามแบบหน่วง (วนซ้ำ 60 เฟรม = 2 วินาที)
     set_action(arm, "Float")
     P = 60
@@ -980,14 +986,14 @@ def make_anims(arm):
         for hn in hair:
             lvl = int(hn[-1])
             sg = 1 if "_L" in hn else -1 if "_R" in hn else 0
-            key(hn, 1 + f, rx=(4 if lvl == 1 else 6) * math.sin(w * f - 1.4 - 0.6 * (lvl - 1)),
+            hkey(hn, 1 + f, rx=(4 if lvl == 1 else 6) * math.sin(w * f - 1.4 - 0.6 * (lvl - 1)),
                 ry=-0.6 * roll + 2.5 * sg * math.sin(w * f - 0.9 - 0.5 * lvl))
         key("Windpipe", 1 + f, rx=4 * math.sin(w * f - 1.0), ry=3 * math.sin(w * f - 0.5))
         ph = f % 30
         beat = math.exp(-((ph - 3) ** 2) / 3) + 0.6 * math.exp(-((ph - 8) ** 2) / 3)
-        key("Heart", 1 + f, rx=5 * beat, loc=(0, -0.004 * beat, 0))
+        key("Heart", 1 + f, rx=1.9 * math.sin(w * f - 1.7) - 2.5 * beat, loc=(0, -0.004 * beat, 0))   # แกว่งไปกับก้อนไส้ (Gut1)     # ปลายหัวใจเต้นไปหน้า ไม่ตีเข้าก้อนไส้ข้างหลัง
         for k in range(1, 8):
-            A = 2 + 1.2 * k
+            A = 1.2 + 0.7 * k             # ไส้แกว่งน้อยลง ไม่พับทะลุกันเอง/ทะลุปอด
             key(f"Gut{k}", 1 + f, rx=A * math.sin(w * f - 1.2 - 0.5 * k), ry=0.7 * A * math.sin(w * f + 0.8 - 0.55 * k))
     CLIPS["Float"] = P + 1
 
@@ -997,16 +1003,15 @@ def make_anims(arm):
         key("Head", f, rx=rx, loc=loc)
     for f, a1, a2 in ((1, 0, 0), (9, -12, -14), (15, 40, 30), (23, 22, 28), (31, -6, -10), (41, 0, 0)):
         for hn in hair:
-            key(hn, f, rx=a1 if hn.endswith("1") else a2)
+            hkey(hn, f, rx=a1 if hn.endswith("1") else a2)
     for f, a in ((1, 0), (9, -10), (15, 18), (23, 24), (31, -8), (41, 0)):
         key("Windpipe", f, rx=a)
-    for f, a in ((1, 0), (15, 8), (23, 12), (31, -5), (41, 0)):
-        key("Heart", f, rx=a)
-    for f, a in ((1, 0), (9, -8), (15, 16), (23, 26), (31, -10), (41, 0)):
-        key("Gut1", f, rx=a)
+    for f in (1, 41):   # หัวใจ + ก้อนไส้ไม่หมุนแยกจากหลอดลม (หมุนคนละจุดหมุนแล้วหัวใจจมเข้าก้อนไส้) ทั้งก้อนแกว่งตาม Windpipe
+        key("Heart", f)
+        key("Gut1", f)
     for k in range(2, 8):
         d = bone_dir(f"Gut{k}")
-        for f, a, st in ((1, 0, 0), (9, -6, 0), (15, 10 + 2 * k, 0.008), (23, 12 + 3 * k, 0.010), (31, -8 - k, 0.002), (37, 3, 0), (41, 0, 0)):
+        for f, a, st in ((1, 0, 0), (9, -4, 0), (15, 6 + 1.2 * k, 0.008), (23, 7 + 1.8 * k, 0.010), (31, -5 - 0.6 * k, 0.002), (37, 2, 0), (41, 0, 0)):
             key(f"Gut{k}", f, rx=a, loc=tuple(d * st))
     CLIPS["Lunge"] = 41
 
@@ -1017,26 +1022,28 @@ def make_anims(arm):
         loc = loc or (0, -0.06, -0.05)
         key("Head", f, rx=a, loc=loc)
         for hn in hair:
-            key(hn, f, rx=-(0.55 if hn.endswith("1") else 0.25) * a)
+            hkey(hn, f, rx=-(0.55 if hn.endswith("1") else 0.25) * a)
         key("Windpipe", f, rx=-0.7 * a)
         key("Gut1", f, rx=-0.15 * a)
+        key("Heart", f, rx=-0.15 * a)
     CLIPS["Sniff"] = 49
 
     # ---- HairWhip: สะบัดหน้าซ้ายขวาแรงๆ ผมเหวี่ยงตามช้ากว่าหัว
     set_action(arm, "HairWhip")
     for f, a in ((1, 0), (7, -22), (13, 34), (20, -8), (31, 0)):
         key("Head", f, rz=a)
-        key("Windpipe", f, rz=-0.4 * a)
+        key("Windpipe", f, rz=-0.15 * a)    # อวัยวะหมุนตามหัวเกือบทั้งหมด ผมไม่กวาดเข้าปอด
     for f, a in ((1, 0), (7, 14), (13, -26), (19, 12), (26, -4), (31, 0)):
         for hn in hair:
             if hn.endswith("1"):
-                key(hn, f, ry=a)
+                hkey(hn, f, ry=0.6 * a)
     for f, a in ((1, 0), (9, 18), (15, -32), (21, 16), (28, -5), (31, 0)):
         for hn in hair:
             if hn.endswith("2"):
-                key(hn, f, ry=a)
-    for f, a in ((1, 0), (10, 8), (17, -12), (25, 5), (31, 0)):
+                hkey(hn, f, ry=0.6 * a)
+    for f, a in ((1, 0), (10, 4), (17, -5), (25, 2), (31, 0)):   # ลำไส้ใหญ่ไม่เหวี่ยงเข้าปอด
         key("Gut1", f, ry=a)
+        key("Heart", f, ry=a)
     CLIPS["HairWhip"] = 31
 
 
