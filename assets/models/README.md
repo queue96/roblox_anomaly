@@ -214,3 +214,15 @@ texture ชุดเดียว `Krasue_Color/_Normal/_Roughness/_Metalness.png
 - `Krasue_Anims.json` = ค่าทุกเฟรมของทุกท่า (quaternion + location ของแต่ละกระดูก ใน local space ของ Blender) ไว้ทำตัวแปลงแบบ `clips_to_luau.py` ถ้าจะเล่นท่าเองผ่าน Bone.Transform โดยไม่อัปโหลด
 - `GlowPulse` เป็น VFX ในเกม (ปรับความสว่างของ Krasue_Organs) ไม่มีในไฟล์
 - Roblox animation ไม่รองรับ scale ของกระดูก หัวใจเต้นจึงทำด้วยการหมุน/เลื่อนเล็กน้อย
+
+### งานค้าง: เปลี่ยนหัว/ผมกระสือไปใช้ของ human model (ยังไม่ได้ทำ)
+คำสั่งผู้ใช้: ส่วนไหนเอา model คนมาปรับได้ให้ใช้ของเดิม — ตอนนี้หัว ผม ตา ใน `krasue.py` ยังปั้นเองทั้งหมด ต้องเปลี่ยนเป็น:
+1. เปิด `human_female/human_female.blend`, exec `human_base/build_skin.py` และ `build_hair.py` ใน namespace แยก
+2. `unwrap(body, rig)` ได้ `meta` → ลบ faces ของ Body ที่ weight `head`+`neck` < 0.5 (เหลือหัว คอ จมูก หู) ก่อนสร้างผม ผมจะได้ตกตรงไม่พาดบ่า
+3. ผม: ตั้ง `GHOST_GAP = (0, ~32)` (แหวกกลางให้เห็นหน้า แทนแหวกตาซ้าย) แล้ว `add_hair("female", ["ghost_long"])` → ใส่ UV ทรงกระบอกลงช่อง `hair` ของ atlas และผูกน้ำหนักใหม่ด้วย `w_hair`
+4. หน้า: เพิ่ม `FACES["krasue"] = dict(ghost=True, open=1.25, brow=-1.2, mouth_open=2.4, teeth=True, tears=True, blood_tears=True)` แล้ว `paint_head(meta, "female", True, "krasue")` → ครึ่งบนของ `Krasue_Color` (UV หัวของ human ใช้ได้เลย v 0.505–0.995) + `normal_from_height` (array ของ build_skin เป็นแถว v จากล่างขึ้นบน ต้อง flipud) แล้ววาดทับ: ตาแดง เลือดรอบปากไหลลงคางถึงคอ คอล่างชุ่มเลือด (พิกัด Canvas: X = มุม*RF, Y = ความสูงตามแกนหัว, ใช้ `meta["mouth_h"]`, `chin_h`, `eye_h`, `h0`)
+5. ย้าย atlas ช่องอื่นลงครึ่งล่าง: lung/heart/hair/eye แถว 512, gut/trachea/flesh/vessel/colon/fang แถว 768
+6. ชิ้น `Krasue` = หัว+คอ ของ human (world coords ลบ `Frame.C` ให้ origin = กลางหัว), ปิดตอคอด้วย boundary loop ล่างสุด → ขอบขาด + เนื้อแดง (ช่อง `flesh`)
+7. ตา `Krasue_Eyes` = เลนส์ทรงรีแบนวางบนผิวตรงตำแหน่งตา (raycast จาก Canvas → 3D), เขี้ยววางตรงมุมปากแบบเดียวกัน
+8. กระดูก `Head` เอาตำแหน่งจากกระดูก `head` ของ HumanRig; ย้ายอวัยวะ + กระดูกอวัยวะตามจุดกลางตอคอที่วัดได้ แล้ว rescale ทั้งตัวให้สูง 3 studs เหมือนเดิม
+อวัยวะ rig และท่าทั้ง 4 ใน `krasue.py` ใช้ต่อได้เลย
