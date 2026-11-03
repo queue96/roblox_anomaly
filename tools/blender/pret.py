@@ -1,27 +1,38 @@
-# เปรต (Pret) ผีตัวสูงผอมเท่าต้นตาล — ตัวละครมี rig + 3 ท่า สำหรับนำเข้า Roblox — Blender headless
+# เปรต (Pret) ผีตัวสูงผอมเท่าต้นตาล ขายาวมาก ลิ้นยาวห้อยถึงท้อง — ตัวละครมี rig + 3 ท่า สำหรับนำเข้า Roblox — Blender headless
 # รัน (PowerShell):
 #   powershell -ExecutionPolicy Bypass -File tools\blender\run_headless.ps1 -Script tools\blender\pret.py -Out C:\tmp\pret.txt -TimeoutSec 2400
-#   ตั้ง $env:PRET_STAGE = "shape" ก่อนรัน = ปั้นรูปทรงแล้ว render ภาพสีเทาเร็วๆ อย่างเดียว (ไม่ bake ไม่ rig ไม่ export)
-# ผลลัพธ์: assets/models/Pret.fbx (mesh + rig ท่ายืนตั้งต้น) + Pret_Idle.fbx / Pret_TallSlowWalk.fbx / Pret_Shriek.fbx (ท่าละไฟล์)
-#          Pret_Color/_Normal/_Roughness/_Metalness.png (atlas 1024 ใช้ร่วมกันทุกชิ้น), assets/models/pret.blend
-#          previews/Pret_front.png, Pret_side.png, Pret.png (3/4), Pret_scale.png, Pret_walk.png, Pret_shriek.png, Pret_rest.png
-# วิธีปั้น: กายวิภาคเป็น metaball (กระดูก ซี่โครง ข้อปูด เบ้าตาเป็นลูกบอลลบ) → mesh ละเอียด (HI) → decimate เหลือ ~15k tris (LO)
-#          ลายผิว (ผิวแห้งแตกระแหง เงาในร่องซี่โครง เบ้าตาดำ เล็บ) เป็น node procedural แล้ว bake จาก HI ลง LO ด้วย Cycles
-# หน่วยเมตร (1 stud = 0.28 m) สูง 3.92 m = 14 studs · หน้าตัวละครหันไป -Y, ซ้ายของตัวละคร = +X, origin = พื้นใต้กลางเท้า
-import bpy, bmesh, math, os, sys, time, traceback
+#   $env:PRET_STAGE = "shape" = ยืดตัว + ผ้า + ลิ้น แล้ว render ภาพเร็วๆ อย่างเดียว (ไม่ paint ไม่ทำท่า ไม่ export)
+#   $env:PRET_STAGE = "check" = ทำทุกอย่างจนถึงตรวจการทะลุทุกเฟรม แล้วหยุด (ไม่ export ไม่ render)
+# ต้นแบบ: ตัวชายผอม assets/models/human_base/human_base_thin.blend (HumanRig 52 กระดูก + weight + joint limits + UV เดิม) แบบเดียวกับกระหัง
+#   ยืดตามกระดูก (ขา x3 ลำตัว x1.6 คอ x2.4 นิ้ว x2.6) ให้สูง 4.0 ม. = 14 studs สะโพกอยู่ ~60% ของความสูง (ขาเด่นสุด)
+#   subdivide 1 ระดับ แล้วดัดผิวให้เป็นหนังหุ้มกระดูก: ซี่โครงบาน ท้องตอบ แขนขาคอดกลางท่อน เข่า/ศอก/ข้อเท้าปูดเป็นปุ่มนูนใต้หนัง
+#   ลายผิว (ร่องซี่โครง ไหปลาร้า กระดูกสันหลัง ผิวแห้งแตก เส้นเลือด เล็บ หน้า) วาดลง texture ด้วย numpy ในพิกัด 3 มิติ (วิธีเดียวกับกระหัง)
+# ชิ้น: Body, Eyes (ลูกตาโปน), Tongue (ลิ้นยาว กระดูก Tongue1-6 ห้อยตามแรงโน้มถ่วงทุกเฟรม), Hair (ผมยุ่งสั้นแค่ต้นคอ),
+#       Cloth (ผ้านุ่งจงกระเบน: ผ้าพันสะโพกสั้นถึงเป้า + ขากางเกง 2 ข้างแยกตามต้นขาแต่ละข้าง ปมที่สะโพกซ้าย ชายผ้า 2 ชาย)
+# rig = HumanRig เดิม + Tongue1..Tongue6 (ลูกของ head) · weight ไม่เกิน 4 กระดูกต่อจุด
+# ท่า (30 fps): Idle (121 เฟรม วนลูป), TallSlowWalk (97 วนลูป), Shriek (91 ครั้งเดียว) · ตรวจการทะลุทุกเฟรมทุกท่า (check_clips)
+# texture ชุดเดียว 1024 ใช้ร่วมทุกชิ้น (atlas)
+# ผลลัพธ์: assets/models/Pret.fbx + Pret_Idle.fbx / Pret_TallSlowWalk.fbx / Pret_Shriek.fbx (rig + ท่า)
+#          Pret_Color/_Normal/_Roughness/_Metalness.png, assets/models/pret.blend
+#          previews/Pret.png (3/4), Pret_front.png, Pret_side.png, Pret_rest.png, Pret_face.png, Pret_scale.png,
+#          Pret_clips_front.png / Pret_clips_side.png (แถว = ท่า, 6 จังหวะต่อท่า)
+import bpy, bmesh, math, os, sys, random, time, traceback
 import numpy as np
-from mathutils import Vector, Matrix, Quaternion
+from mathutils import Vector, Matrix
+from mathutils.bvhtree import BVHTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-ROOT = os.path.join(REPO, "assets", "models")
-PREV = os.path.join(ROOT, "previews")
+M = os.path.join(REPO, "assets", "models")
+HB = os.path.join(M, "human_base")
+PREV = os.path.join(M, "previews")
 NAME = "Pret"
-STUD = 0.28
-HEIGHT = 14 * STUD          # สูงรวมผม 14 studs
+BAKE = 2048               # bake / paint size; saved textures are averaged down to TEX
 TEX = 1024
+STUDS_PER_M = 3.5         # เหมือนตัวมนุษย์และกระหัง (ชาย 1.80 ม. = 6.3 studs)
+HEIGHT = 4.0              # = 14 studs
 STAGE = os.environ.get("PRET_STAGE", "full")
-FPS = 30
+R = math.radians
 LOG = []
 T0 = time.time()
 
@@ -32,396 +43,252 @@ def log(*a):
     print(s)
 
 
-def v3(x, y, z):
-    return Vector((x, y, z))
+def load_ns(fn):
+    ns = {"__name__": "lib_" + os.path.basename(fn)}
+    exec(compile(open(os.path.join(HB, fn), encoding="utf-8").read(), fn, "exec"), ns)
+    return ns
 
 
-def lin(c):
-    """สี sRGB 0-255 -> linear (ค่าที่ bake ลงภาพ sRGB แล้วได้สีนี้ตรงๆ)"""
-    def f(u):
-        u /= 255.0
-        return u / 12.92 if u <= 0.04045 else ((u + 0.055) / 1.055) ** 2.4
-    return tuple(f(x) for x in c)
+HAIR = load_ns("build_hair.py")
+AN = load_ns("build_anims.py")
 
 
-def smoothstep(e0, e1, x):
-    t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
+def sstep(a, b, x):
+    t = np.clip((x - a) / (b - a), 0.0, 1.0)
     return t * t * (3 - 2 * t)
 
 
-def sstep(e0, e1, x):
-    t = min(max((x - e0) / (e1 - e0), 0.0), 1.0)
+def sm(a, b, x):
+    t = min(max((x - a) / (b - a), 0.0), 1.0)
     return t * t * (3 - 2 * t)
 
 
-# ================================================================ 1. กายวิภาค (metaball)
-# Blender metaball: field = stiffness * (1 - d²/R²)³ รวมทุกชิ้น ผิวอยู่ที่ field = threshold
-# ลูกเดี่ยวผิวอยู่ที่ d = R * K_MB จึงกำหนดรัศมีที่อยากเห็นจริง (r) แล้วตั้ง R = r / K_MB
-K_MB = math.sqrt(1.0 - (0.6 / 2.0) ** (1.0 / 3.0))
-J = {}      # จุดข้อต่อ (ใช้วางกระดูก) — ถูกคูณ scale รวมทีหลัง
-DIRS = {}   # ทิศ (ไม่คูณ scale)
-TIPS = []   # ปลายเล็บมือ/เท้า (mask สีเล็บ)
+# ================================================================ 1. ตัวคนผอม -> เปรต
+def open_base():
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(HB, "human_base_thin.blend"))
+    for o in list(bpy.data.objects):
+        if o.name not in ("Body", "HumanRig"):
+            bpy.data.objects.remove(o, do_unlink=True)
+    for a in list(bpy.data.actions):
+        bpy.data.actions.remove(a)
+    for c in list(bpy.data.collections):
+        if not c.objects:
+            bpy.data.collections.remove(c)
+    rig = bpy.data.objects["HumanRig"]
+    body = bpy.data.objects["Body"]
+    if rig.animation_data:
+        rig.animation_data_clear()
+    for p in rig.pose.bones:
+        p.rotation_euler = (0, 0, 0)
+        p.location = (0, 0, 0)
+    bpy.context.view_layer.update()
+    return rig, body
 
 
-class Meta:
-    def __init__(self, name, res):
-        self.mb = bpy.data.metaballs.new(name)
-        self.mb.resolution = res
-        self.mb.render_resolution = res
-        self.mb.threshold = 0.6
-        self.ob = bpy.data.objects.new(name, self.mb)
-        bpy.context.scene.collection.objects.link(self.ob)
-        self.count = 0
-        self.th = 1.0   # ตัวคูณความหนาของส่วนที่กำลังปั้น
-
-    def _el(self, typ, p, r, neg):
-        e = self.mb.elements.new(type=typ)
-        e.co = Vector(p)
-        e.radius = r * self.th / K_MB
-        e.stiffness = 2.0
-        e.use_negative = neg
-        self.count += 1
-        return e
-
-    def ball(self, p, r, neg=False):
-        return self._el("BALL", p, r, neg)
-
-    def cap(self, a, b, r, neg=False):
-        a, b = Vector(a), Vector(b)
-        e = self._el("CAPSULE", (a + b) / 2, r, neg)
-        d = b - a
-        e.size_x = max(d.length / 2, 1e-4)
-        if d.length > 1e-6:
-            e.rotation = Vector((1, 0, 0)).rotation_difference(d.normalized())
-        return e
-
-    def chain(self, pts, r0, r1=None):
-        r1 = r0 if r1 is None else r1
-        for i in range(len(pts) - 1):
-            t = i / max(1, len(pts) - 2)
-            self.cap(pts[i], pts[i + 1], r0 + (r1 - r0) * t)
-
-    def ell(self, p, sx, sy, sz, rot=None, neg=False):
-        m = max(sx, sy, sz)
-        e = self._el("ELLIPSOID", p, m, neg)
-        e.size_x, e.size_y, e.size_z = sx / m, sy / m, sz / m
-        if rot is not None:
-            e.rotation = rot
-        return e
+# (ตัวคูณความยาวตามกระดูก, ตัวคูณความหนาขวางกระดูก) เทียบกับตัวคนผอมสูง 1.80 ม. ก่อนย่อ/ขยายรวมให้สูง HEIGHT
+FACT = {"hips": (1.55, 1.45), "spine": (1.6, 1.22), "chest": (1.6, 1.28), "neck": (2.4, 1.15), "head": (1.4, 1.4),
+        "shoulder": (1.5, 1.25), "upper_arm": (3.3, 1.05), "forearm": (3.3, 0.95), "hand": (2.2, 1.35),
+        "thigh": (3.0, 1.0), "shin": (2.9, 0.92), "foot": (1.6, 1.45), "toe": (1.6, 1.45)}
+FINGER, THUMB = (2.6, 1.15), (2.2, 1.15)
+TORSO_K = {}   # ตัวแปลงพิกัดลำตัวของเปรตกลับเป็นพิกัดตัวคน (ใช้ตำแหน่งซี่โครง/ท้อง/ไหปลาร้าชุดเดียวกับกระหัง)
 
 
-# ---- ซี่โครง: หน้าตัดวงรีที่ความสูง z (ครึ่งกว้าง a, ครึ่งลึก b, กลางที่ y = RC_Y)
-RZ0, RZ1, RC_Y = 2.42, 3.12, 0.02
+def factor(name):
+    base = name.split(".")[0]
+    if base.startswith(("index", "middle", "ring", "pinky")):
+        return FINGER
+    if base.startswith("thumb"):
+        return THUMB
+    return FACT.get(base, (1.0, 1.0))
 
 
-def rib_a(z):
-    t = (z - RZ0) / (RZ1 - RZ0)
-    return 0.185 - 0.17 * (t - 0.42) ** 2
+def body_weights(ob, names):
+    """น้ำหนัก (จำนวนจุด x จำนวนกระดูก) จาก vertex groups"""
+    gi = {g.index: g.name for g in ob.vertex_groups}
+    col = {n: i for i, n in enumerate(names)}
+    W = np.zeros((len(ob.data.vertices), len(names)))
+    for v in ob.data.vertices:
+        for g in v.groups:
+            n = gi.get(g.group)
+            if n in col:
+                W[v.index, col[n]] = g.weight
+    return W
 
 
-def rib_b(z):
-    t = min(max((z - RZ0) / (RZ1 - RZ0), 0.0), 1.0)
-    return 0.112 + 0.022 * math.sin(math.pi * t)
+def stretch(rig, body):
+    """ยืดตามกระดูก: แต่ละกระดูกมี matrix (ยาว L เท่าตามแกน ขวาง T เท่า) จุดบนผิว = ผลรวมถ่วงน้ำหนักของทุกกระดูก
+    ทิศกระดูกไม่เปลี่ยน (roll / joint limits / ท่าของคนใช้ได้เหมือนเดิม) หัวกระดูกลูกตามไปกับ matrix ของพ่อ"""
+    bones = rig.data.bones
+    names = [b.name for b in bones]
+    oh = {b.name: Vector(b.head_local) for b in bones}
+    ot = {b.name: Vector(b.tail_local) for b in bones}
+    A, nh, nt = {}, {}, {}
+
+    def walk(b):
+        L, T = factor(b.name)
+        Rb = b.matrix_local.to_3x3()
+        A[b.name] = Rb @ Matrix.Diagonal((T, L, T)) @ Rb.transposed()
+        p = b.parent
+        nh[b.name] = oh[b.name] if p is None else nh[p.name] + A[p.name] @ (oh[b.name] - oh[p.name])
+        nt[b.name] = nh[b.name] + A[b.name] @ (ot[b.name] - oh[b.name])
+        for c in b.children:
+            walk(c)
+    for b in bones:
+        if b.parent is None:
+            walk(b)
+    me = body.data
+    P = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", P)
+    P = P.reshape(-1, 3)
+    W = body_weights(body, names)
+    out = P * np.clip(1 - W.sum(1), 0, 1)[:, None]
+    for i, n in enumerate(names):
+        w = W[:, i]
+        if not (w > 0).any():
+            continue
+        Am = np.array(A[n])
+        out += w[:, None] * (np.array(nh[n]) + (P - np.array(oh[n])) @ Am.T)
+    z0 = out[:, 2].min()
+    u = HEIGHT / (out[:, 2].max() - z0)
+    off = np.array((0.0, 0.0, z0))
+    out = (out - off) * u
+    me.vertices.foreach_set("co", out.ravel())
+    me.update()
+    bpy.context.view_layer.objects.active = rig
+    rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    for eb in rig.data.edit_bones:
+        eb.head = (nh[eb.name] - Vector(off)) * u
+        eb.tail = (nt[eb.name] - Vector(off)) * u
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update()
+    hz = rig.data.bones["thigh.L"].head_local.z
+    nz = rig.data.bones["neck"].head_local.z
+    TORSO_K.update(z0=rig.data.bones["hips"].head_local.z, kz=(nz - rig.data.bones["hips"].head_local.z) / (1.45 - 0.88),
+                   kx=1.27 * u, ky=1.22 * u, u=u)
+    log(f"stretch: uniform x{u:.3f}; hip joints {hz:.2f} m = {hz / HEIGHT * 100:.0f}% of height, neck base {nz:.2f} m")
 
 
-HEAD_C = v3(0.0, -0.06, 3.64)               # กลางหัว
-CRANIUM = (HEAD_C + v3(0, 0.025, 0.06), (0.112, 0.13, 0.12))  # กะโหลก (กลาง, ครึ่งแกน)
-EYE_R = 0.025
+def torso_q(P):
+    """พิกัดลำตัวเปรต -> พิกัดตัวคนเทียบเท่า (เกณฑ์ตำแหน่งซี่โครง/ท้องของกระหังใช้ได้ตรงๆ)"""
+    k = TORSO_K
+    return P[:, 0] / k["kx"], P[:, 1] / k["ky"], 0.88 + (P[:, 2] - k["z0"]) / k["kz"]
 
 
-def build_body(M):
-    H = HEAD_C
-    # ---------------- ขา
-    for s, side in ((1, "Left"), (-1, "Right")):
-        x = s * 0.15
-        hip, knee, ank = v3(x, 0.0, 1.86), v3(x, 0.0, 0.98), v3(x, 0.0, 0.10)
-        J[side + "Hip"], J[side + "Knee"], J[side + "Ankle"] = hip, knee, ank
-        M.cap(hip + v3(s * 0.01, 0, 0), knee + v3(0, 0, 0.05), 0.034)            # กระดูกต้นขา
-        M.cap(hip + v3(s * 0.005, 0.0, -0.06), hip + v3(0, 0.005, -0.42), 0.05)   # เนื้อต้นขาที่เหลือ
-        M.cap(hip + v3(0, 0.01, -0.40), knee + v3(0, 0.012, 0.16), 0.036)
-        M.ball(hip + v3(s * 0.052, 0.005, 0.03), 0.04)                            # ปุ่มสะโพก
-        M.ball(knee + v3(0, -0.04, 0.0), 0.038)                                   # สะบ้า
-        M.ball(knee + v3(s * 0.03, 0.0, -0.01), 0.041)
-        M.ball(knee + v3(-s * 0.028, 0.0, -0.01), 0.039)
-        M.ball(knee + v3(0, 0.018, -0.055), 0.038)                                # หัวกระดูกหน้าแข้ง
-        M.cap(knee + v3(0, 0, -0.06), ank + v3(0, 0, 0.04), 0.028)               # กระดูกหน้าแข้ง
-        M.cap(knee + v3(0, -0.022, -0.08), ank + v3(0, -0.012, 0.09), 0.017)      # สันหน้าแข้ง
-        M.cap(knee + v3(0, 0.03, -0.12), knee + v3(0, 0.024, -0.48), 0.034)       # น่องลีบ
-        M.ball(ank + v3(s * 0.031, 0.0, 0.0), 0.023)                              # ตาตุ่ม
-        M.ball(ank + v3(-s * 0.029, 0.005, 0.01), 0.023)
-        M.cap(ank, ank + v3(0, 0.05, -0.05), 0.032)
-        M.ball(v3(x, 0.055, 0.045), 0.044)                                         # ส้นเท้า
-        M.ell(v3(x + s * 0.004, -0.07, 0.045), 0.048, 0.10, 0.026)                 # หลังเท้า
-        ball_c = None
-        for o in (-2, -1, 0, 1, 2):                                                # o=-2 = นิ้วโป้ง (ด้านใน)
-            base = v3(x + s * o * 0.015, -0.02, 0.072)
-            mt = v3(x + s * o * 0.023, -0.17, 0.03)
-            tip = mt + v3(s * o * 0.006, -0.10 + abs(o) * 0.013, -0.012)
-            r = 0.017 if o == -2 else 0.012
-            M.cap(base, mt, 0.014)
-            M.ball(mt, r + 0.002)
-            M.cap(mt, tip, r)
-            claw = tip + v3(0, -0.022, -0.007)
-            M.cap(tip, claw, 0.006)
-            TIPS.append((claw, 0.026))
-            if o == 0:
-                ball_c = mt
-        J[side + "Ball"] = v3(x, ball_c.y, 0.035)
-        J[side + "ToeTip"] = v3(x, -0.30, 0.03)
-
-    # ---------------- เชิงกราน + ท้องแฟบ
-    M.ell(v3(0, 0.015, 1.96), 0.165, 0.10, 0.11)
-    for s in (1, -1):
-        M.ball(v3(s * 0.15, -0.005, 2.06), 0.044)          # สันกระดูกเชิงกราน
-        M.ball(v3(s * 0.115, -0.07, 2.02), 0.025)          # ปุ่มหน้าเชิงกราน
-        M.ell(v3(s * 0.07, 0.075, 1.89), 0.065, 0.05, 0.08)  # ก้นลีบ
-        M.cap(v3(s * 0.15, 0.0, 1.86), v3(s * 0.06, 0.0, 1.95), 0.058)
-    M.cap(v3(0, 0.035, 2.0), v3(0, 0.03, 2.5), 0.082)       # แกนลำตัว
-    M.ell(v3(0, -0.01, 2.2), 0.10, 0.072, 0.12)            # ท้องแฟบ (ถอยหลังกว่าซี่โครง)
-    M.ell(v3(0, 0.05, 2.2), 0.11, 0.06, 0.15)              # กล้ามหลัง
-    J["Pelvis"] = v3(0, 0.02, 1.95)
-
-    # ---------------- กระดูกสันหลังนูน
-    def back_y(z):
-        if z < 2.4:
-            return 0.104
-        if z < 3.12:
-            return RC_Y + rib_b(z) - 0.005
-        return 0.12 - (z - 3.12) * 0.8
-    z = 1.93
-    while z < 3.27:
-        M.ball(v3(0, back_y(z), z), 0.016)
-        z += 0.042
-
-    # ---------------- ซี่โครง
-    for zz in np.linspace(2.46, 3.1, 8):
-        M.ell(v3(0, RC_Y, zz), rib_a(zz) - 0.028, rib_b(zz) - 0.028, 0.075)
-    for s in (1, -1):
-        for i in range(10):
-            zb = 3.07 - i * 0.066
-            drop = 0.11
-            phi_end = math.pi - 0.16 if i < 6 else math.pi - 0.30 - 0.22 * (i - 6)
-            pts = []
-            for k in range(13):
-                phi = phi_end * k / 12
-                zz = zb - drop * (1 - math.cos(phi)) / 2
-                pts.append(v3(s * rib_a(zz) * math.sin(phi), RC_Y + rib_b(zz) * math.cos(phi), zz))
-            M.chain(pts, 0.0125, 0.0105)
-    M.cap(v3(0, RC_Y - rib_b(3.06) - 0.004, 3.1), v3(0, RC_Y - rib_b(2.74) - 0.004, 2.72), 0.02)  # กระดูกอก
-
-    # ---------------- ไหล่ ไหปลาร้า สะบัก คอ
-    for s in (1, -1):
-        M.cap(v3(s * 0.08, 0.02, 3.12), v3(s * 0.30, 0.01, 3.12), 0.044)
-        M.cap(v3(s * 0.04, 0.05, 3.27), v3(s * 0.27, 0.04, 3.17), 0.03)            # บ่า
-        M.cap(v3(s * 0.02, -0.095, 3.16), v3(s * 0.30, -0.015, 3.19), 0.016)       # ไหปลาร้า
-        M.ball(v3(s * 0.33, 0.01, 3.17), 0.031)
-        M.ell(v3(s * 0.345, 0.005, 3.09), 0.043, 0.05, 0.08)                       # ไหล่ลีบ
-        M.ell(v3(s * 0.13, RC_Y + rib_b(2.95) + 0.006, 2.95), 0.075, 0.018, 0.10)  # สะบัก
-        M.cap(v3(s * 0.06, 0.17, 3.04), v3(s * 0.28, 0.08, 3.13), 0.011)
-        M.cap(v3(s * 0.048, 0.0, 3.49), v3(s * 0.024, -0.085, 3.17), 0.012)        # เอ็นคอ
-    M.cap(v3(0, 0.04, 3.12), v3(0, -0.02, 3.5), 0.036)
-    M.cap(v3(0, 0.07, 3.18), v3(0, 0.02, 3.5), 0.028)
-    M.ball(v3(0, -0.068, 3.32), 0.015)                                              # ลูกกระเดือก
-    M.cap(v3(0, -0.055, 3.2), v3(0, -0.06, 3.4), 0.016)
-    J["NeckBase"] = v3(0, 0.025, 3.15)
-    J["NeckTop"] = v3(0, -0.02, 3.48)
-
-    # ---------------- หัวกะโหลก
-    cc, (sx, sy, sz) = CRANIUM
-    M.ell(cc, sx, sy, sz)
-    M.ell(H + v3(0, -0.045, -0.03), 0.085, 0.075, 0.09)            # ใบหน้า
-    M.cap(H + v3(-0.075, -0.112, 0.035), H + v3(0.075, -0.112, 0.035), 0.02)  # สันคิ้ว
-    for s in (1, -1):
-        M.ball(H + v3(s * 0.074, -0.09, -0.022), 0.025)             # โหนกแก้ม
-        M.cap(H + v3(s * 0.074, -0.09, -0.022), H + v3(s * 0.105, -0.02, -0.02), 0.013)
-        M.cap(H + v3(s * 0.075, -0.01, -0.07), H + v3(s * 0.033, -0.115, -0.128), 0.017)  # กราม
-        M.ball(H + v3(s * 0.077, -0.008, -0.072), 0.019)
-        M.ell(H + v3(s * 0.113, 0.0, -0.005), 0.013, 0.028, 0.055)   # หู
-    M.ball(H + v3(0, -0.125, -0.135), 0.023)                        # คาง
-    M.cap(H + v3(0, -0.128, 0.02), H + v3(0, -0.148, -0.035), 0.011)  # สันจมูก
-    M.cap(H + v3(-0.027, -0.132, -0.072), H + v3(0.027, -0.132, -0.072), 0.008)   # ริมฝีปากเหี่ยว
-    M.cap(H + v3(-0.024, -0.13, -0.104), H + v3(0.024, -0.13, -0.104), 0.008)
-    # ลูกบอลลบ: เบ้าตาลึก ขมับตอบ แก้มตอบ รูจมูก ปาก
-    for s in (1, -1):
-        M.ball(H + v3(s * 0.044, -0.128, 0.0), 0.04, neg=True)
-        M.ball(H + v3(s * 0.126, -0.04, 0.025), 0.034, neg=True)
-        M.ball(H + v3(s * 0.068, -0.122, -0.075), 0.027, neg=True)
-        J[("EyeL" if s > 0 else "EyeR")] = H + v3(s * 0.044, -0.11, 0.0)
-    M.ball(H + v3(0, -0.162, -0.05), 0.016, neg=True)
-    M.ball(H + v3(0, -0.148, -0.088), 0.019, neg=True)
-    J["Mouth"] = H + v3(0, -0.13, -0.088)
-    J["JawPivot"] = H + v3(0, -0.005, -0.045)
-    J["Chin"] = H + v3(0, -0.13, -0.14)
-    J["HeadTop"] = v3(0, H.y + 0.01, cc.z + sz)
-
-    # ---------------- แขน มือ นิ้วยาว
-    for s, side in ((1, "Left"), (-1, "Right")):
-        sh = v3(s * 0.335, 0.01, 3.11)
-        du = v3(s * math.sin(math.radians(16)), -0.05, -math.cos(math.radians(16))).normalized()
-        el = sh + du * 0.95
-        df = v3(s * math.sin(math.radians(12)), -0.13, -math.cos(math.radians(12))).normalized()
-        wr = el + df * 0.93
-        J[side + "ClavIn"] = v3(s * 0.04, 0.0, 3.14)
-        J[side + "Shoulder"], J[side + "Elbow"], J[side + "Wrist"] = sh, el, wr
-        M.ball(sh, 0.034)
-        M.cap(sh, el, 0.026)                                     # ต้นแขน
-        M.cap(sh + du * 0.08, sh + du * 0.55, 0.033)
-        M.ball(el + v3(0, 0.022, 0.01), 0.031)                   # ศอก
-        M.ball(el + v3(s * 0.025, 0, 0), 0.027)
-        M.ball(el + v3(-s * 0.022, 0, 0), 0.026)
-        M.cap(el + v3(s * 0.012, -0.005, -0.02), wr + v3(s * 0.014, -0.008, 0), 0.018)  # กระดูกแขนท่อนล่าง 2 ชิ้น
-        M.cap(el + v3(-s * 0.01, 0.015, -0.02), wr + v3(-s * 0.012, 0.01, 0), 0.016)
-        M.cap(el + df * 0.06, el + df * 0.4, 0.027)
-        M.ball(wr + v3(s * 0.02, 0, 0), 0.018)
-        M.ball(wr + v3(-s * 0.02, 0.005, 0), 0.017)
-        d = df
-        w = (v3(0, 1, 0) - d * d.y).normalized()                  # ขวางฝ่ามือ (ชี้ไปหลัง)
-        n = d.cross(w).normalized()
-        if n.x * s > 0:
-            n = -n                                                # ฝ่ามือหันเข้าหาลำตัว
-        DIRS[side + "PalmN"] = n
-        rot = Matrix((w, d, w.cross(d))).transposed().to_quaternion()
-        M.ell(wr + d * 0.09, 0.046, 0.085, 0.016, rot=rot)        # ฝ่ามือแบน
-        for k, (fname, o) in enumerate((("Index", -1.5), ("Middle", -0.5), ("Ring", 0.5), ("Pinky", 1.5))):
-            kb = wr + d * 0.02 + w * o * 0.011
-            kn = wr + d * 0.17 + w * o * 0.03 - d * abs(o + 0.5) * 0.006
-            M.cap(kb, kn, 0.011)
-            M.ball(kn, 0.0145)
-            L = (0.26, 0.29, 0.27, 0.21)[k]
-            fd = (d + w * o * 0.07 + n * 0.10).normalized()
-            j1 = kn + fd * L * 0.55
-            fd2 = (fd + n * 0.22 + w * o * 0.03).normalized()
-            tip = j1 + fd2 * L * 0.45
-            M.cap(kn, j1, 0.0102)
-            M.ball(j1, 0.0122)
-            M.cap(j1, tip, 0.0086)
-            claw = tip + (fd2 + n * 0.3).normalized() * 0.03
-            M.cap(tip, claw, 0.0052)
-            TIPS.append((claw, 0.034))
-            J[f"{side}{fname}1"], J[f"{side}{fname}2"], J[f"{side}{fname}Tip"] = kn, j1, claw
-            if fname == "Middle":
-                J[side + "Knuckle"] = kn
-        tb = wr + d * 0.035 - w * 0.032 + n * 0.012
-        td = (d * 0.75 - w * 0.45 + n * 0.35).normalized()
-        t1 = tb + td * 0.10
-        td2 = (td + n * 0.2).normalized()
-        t2 = t1 + td2 * 0.10
-        M.cap(tb, t1, 0.013)
-        M.ball(t1, 0.0135)
-        M.cap(t1, t2, 0.0102)
-        claw = t2 + td2 * 0.028
-        M.cap(t2, claw, 0.0055)
-        TIPS.append((claw, 0.032))
-        J[side + "Thumb1"], J[side + "Thumb2"], J[side + "ThumbTip"] = tb, t1, claw
+def torso_z(zh):
+    k = TORSO_K
+    return k["z0"] + (zh - 0.88) * k["kz"]
 
 
-# ================================================================ 2. ชิ้นแยก: ลิ้น ตา ผม ผ้า
-class Geo:
-    def __init__(self):
-        self.V, self.F, self.UV = [], [], []
+def subdivide(body):
+    m = body.modifiers.new("Sub", "SUBSURF")
+    m.levels = m.render_levels = 1
+    m.uv_smooth = "PRESERVE_BOUNDARIES"
+    bpy.context.view_layer.objects.active = body
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    body.select_set(True)
+    bpy.ops.object.modifier_move_to_index(modifier="Sub", index=0)
+    bpy.ops.object.modifier_apply(modifier="Sub")
+    log(f"subdivide: {len(body.data.vertices)} verts, {sum(len(p.vertices) - 2 for p in body.data.polygons)} tris")
 
-    def tube(self, path, rad, sides, tip=True, root_cap=False, n0=None):
-        n = len(path)
-        T = [(path[min(i + 1, n - 1)] - path[max(i - 1, 0)]).normalized() for i in range(n)]
-        N = Vector(n0) if n0 is not None else T[0].orthogonal()
-        N = (N - T[0] * N.dot(T[0])).normalized()
-        base = len(self.V)
-        acc = [0.0]
-        for i in range(1, n):
-            acc.append(acc[-1] + (path[i] - path[i - 1]).length)
-        circ = 2 * math.pi * sum(max(r) for r in rad) / n
-        for i in range(n):
-            if i:
-                N = (N - T[i] * N.dot(T[i])).normalized()
-            B = T[i].cross(N)
-            rx, ry = rad[i]
-            for k in range(sides):
-                a = 2 * math.pi * k / sides
-                self.V.append(path[i] + N * (rx * math.cos(a)) + B * (ry * math.sin(a)))
-        for i in range(n - 1):
-            for k in range(sides):
-                k2 = (k + 1) % sides
-                self.F.append((base + i * sides + k, base + i * sides + k2, base + (i + 1) * sides + k2, base + (i + 1) * sides + k))
-                u0, u1 = circ * k / sides, circ * (k + 1) / sides
-                self.UV.append(((u0, acc[i]), (u1, acc[i]), (u1, acc[i + 1]), (u0, acc[i + 1])))
-        if tip:
-            ti = len(self.V)
-            self.V.append(path[-1] + T[-1] * (sum(rad[-1]) * 0.5))
-            last = base + (n - 1) * sides
-            for k in range(sides):
-                k2 = (k + 1) % sides
-                self.F.append((last + k, last + k2, ti))
-                u0, u1 = circ * k / sides, circ * (k + 1) / sides
-                self.UV.append(((u0, acc[-1]), (u1, acc[-1]), ((u0 + u1) / 2, acc[-1] + 0.01)))
-        if root_cap:
-            ci = len(self.V)
-            self.V.append(path[0] - T[0] * 0.002)
-            for k in range(sides):
-                k2 = (k + 1) % sides
-                self.F.append((base + k2, base + k, ci))
-                u0, u1 = circ * k / sides, circ * (k + 1) / sides
-                self.UV.append(((u1, 0.0), (u0, 0.0), ((u0 + u1) / 2, -0.01)))
 
-    def sphere(self, r, nu=18, nv=12):
-        base = len(self.V)
-        self.V.append(v3(0, 0, -r))
-        for j in range(1, nv):
-            th = math.pi * j / nv - math.pi / 2
-            for i in range(nu):
-                ph = 2 * math.pi * i / nu
-                self.V.append(v3(r * math.cos(th) * math.cos(ph), r * math.cos(th) * math.sin(ph), r * math.sin(th)))
-        top = len(self.V)
-        self.V.append(v3(0, 0, r))
-        C = 2 * math.pi * r
+# ข้อต่อ (หัว, ท้าย) ของกระดูกแขนขา: >1 = ปุ่มกระดูกนูนใต้หนัง, ตรงกลางท่อนคอดเหลือแต่หนังติดกระดูก
+LIMB_SHAPE = {"upper_arm": (1.0, 1.13), "forearm": (1.13, 1.04), "thigh": (1.0, 1.16), "shin": (1.16, 1.08)}
+LIMB_SHAFT = 0.84
 
-        def uv(i, j):
-            return (C * i / nu, math.pi * r * j / nv)
-        for i in range(nu):
-            i2 = (i + 1) % nu
-            self.F.append((base, base + 1 + i2, base + 1 + i))
-            self.UV.append((uv(i + 0.5, 0), uv(i + 1, 1), uv(i, 1)))
-        for j in range(nv - 2):
-            r0 = base + 1 + j * nu
-            r1 = r0 + nu
-            for i in range(nu):
-                i2 = (i + 1) % nu
-                self.F.append((r0 + i, r0 + i2, r1 + i2, r1 + i))
-                self.UV.append((uv(i, j + 1), uv(i + 1, j + 1), uv(i + 1, j + 2), uv(i, j + 2)))
-        rl = base + 1 + (nv - 2) * nu
-        for i in range(nu):
-            i2 = (i + 1) % nu
-            self.F.append((rl + i, rl + i2, top))
-            self.UV.append((uv(i, nv - 1), uv(i + 1, nv - 1), uv(i + 0.5, nv)))
 
-    def grid(self, P, cols, rows, wrap=False):
-        """P(i, j) -> (Vector, (u, v)) ; i = คอลัมน์ 0..cols, j = แถว 0..rows"""
-        base = len(self.V)
-        nc = cols if wrap else cols + 1
-        uvs = {}
-        for j in range(rows + 1):
-            for i in range(nc):
-                p, uv = P(i, j)
-                self.V.append(p)
-                uvs[(i, j)] = uv
-        for j in range(rows):
-            for i in range(cols):
-                i2 = (i + 1) % nc if wrap else i + 1
-                self.F.append((base + j * nc + i, base + (j + 1) * nc + i, base + (j + 1) * nc + i2, base + j * nc + i2))
-                uv_i2 = P(i + 1, j)[1] if wrap and i2 == 0 else uvs[(i2, j)]
-                uv_i2b = P(i + 1, j + 1)[1] if wrap and i2 == 0 else uvs[(i2, j + 1)]
-                self.UV.append((uvs[(i, j)], uvs[(i, j + 1)], uv_i2b, uv_i2))
+def gaunt(body, rig):
+    """หนังหุ้มกระดูก: ซี่โครงบานเหนือท้องตอบลึก แขนขาคอดกลางท่อน ปุ่มเข่า ศอก ข้อเท้านูน"""
+    me = body.data
+    P = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", P)
+    P = P.reshape(-1, 3)
+    names = [b.name for b in rig.data.bones]
+    W = body_weights(body, names)
+    col = {n: i for i, n in enumerate(names)}
+    torso = W[:, col["chest"]] + W[:, col["spine"]] + W[:, col["hips"]]
+    X, Y, Z = torso_q(P)
+    k = TORSO_K
+    rib = np.exp(-((Z - 1.26) / 0.08) ** 2) * sstep(0.5, 0.8, torso)
+    P[:, 0] *= 1 + 0.07 * rib
+    P[:, 1] = np.where(Y < 0.05, P[:, 1] * (1 + 0.07 * rib), P[:, 1])
+    belly = np.exp(-((Z - 1.05) / 0.07) ** 2) * sstep(0.5, 0.8, torso) * np.clip(-Y / 0.05, 0, 1)
+    P[:, 1] += 0.055 * k["u"] * belly
+    P[:, 0] *= 1 - 0.12 * belly
+    side = np.exp(-((Z - 1.05) / 0.08) ** 2) * sstep(0.5, 0.8, torso)             # เอวคอดด้านข้าง
+    P[:, 0] *= 1 - 0.08 * side
+    sig = 0.075
+    for base, (hf, tf) in LIMB_SHAPE.items():
+        for s in ("L", "R"):
+            n = f"{base}.{s}"
+            b = rig.data.bones[n]
+            h, t = np.array(b.head_local), np.array(b.tail_local)
+            d = t - h
+            L = np.linalg.norm(d)
+            d /= L
+            w = W[:, col[n]]
+            sel = w > 0.05
+            q = P[sel] - h
+            a = np.clip(q @ d, 0, L)
+            rad = q - np.outer(q @ d, d)
+            f = LIMB_SHAFT + (hf - LIMB_SHAFT) * np.exp(-(a / sig) ** 2) + (tf - LIMB_SHAFT) * np.exp(-((L - a) / sig) ** 2)
+            P[sel] += rad * ((f - 1) * w[sel])[:, None]
+    me.vertices.foreach_set("co", P.ravel())
+    me.update()
 
-    def obj(self, name, loc=None):
-        me = bpy.data.meshes.new(name)
-        me.from_pydata([tuple(p) for p in self.V], [], [tuple(f) for f in self.F])
-        uvl = me.uv_layers.new(name="UVMap")
-        uvl.data.foreach_set("uv", [c for f in self.UV for uv in f for c in uv])
-        me.update()
-        ob = bpy.data.objects.new(name, me)
-        bpy.context.scene.collection.objects.link(ob)
-        if loc is not None:
-            ob.location = loc
-        return ob
+
+# ================================================================ 2. ชิ้นแยก
+def new_obj(name, bm, rig, groups):
+    """groups: callable(world point, vertex index) -> {bone: weight}"""
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    for p in me.polygons:
+        p.use_smooth = True
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.parent = rig
+    ob.matrix_parent_inverse = rig.matrix_world.inverted()
+    vg = {}
+    for v in me.vertices:
+        for bn, w in groups(v.co, v.index).items():
+            if w <= 1e-4:
+                continue
+            if bn not in vg:
+                vg[bn] = ob.vertex_groups.new(name=bn)
+            vg[bn].add([v.index], w, "REPLACE")
+    ob.modifiers.new("Armature", "ARMATURE").object = rig
+    return ob
+
+
+def slab(bm, grid, closed, t):
+    """ผ้าบาง: grid[j][i] (แถว j, คอลัมน์ i) หนา t, ปิดวงในแนว i ถ้า closed · คืน faces ที่สร้าง"""
+    J, I = len(grid), len(grid[0])
+
+    def nrm(j, i):
+        a = grid[j][(i + 1) % I if closed else min(i + 1, I - 1)] - grid[j][(i - 1) % I if closed else max(i - 1, 0)]
+        b = grid[min(j + 1, J - 1)][i] - grid[max(j - 1, 0)][i]
+        return a.cross(b).normalized()
+    top = [[bm.verts.new(grid[j][i] + nrm(j, i) * t / 2) for i in range(I)] for j in range(J)]
+    bot = [[bm.verts.new(grid[j][i] - nrm(j, i) * t / 2) for i in range(I)] for j in range(J)]
+    ni = I if closed else I - 1
+    fs = []
+    for j in range(J - 1):
+        for i in range(ni):
+            i2 = (i + 1) % I
+            fs.append(bm.faces.new((top[j][i], top[j][i2], top[j + 1][i2], top[j + 1][i])))
+            fs.append(bm.faces.new((bot[j][i], bot[j + 1][i], bot[j + 1][i2], bot[j][i2])))
+    for j in (0, J - 1):
+        for i in range(ni):
+            i2 = (i + 1) % I
+            fs.append(bm.faces.new((top[j][i], bot[j][i], bot[j][i2], top[j][i2])))
+    if not closed:
+        for i in (0, I - 1):
+            for j in range(J - 1):
+                fs.append(bm.faces.new((top[j][i], top[j + 1][i], bot[j + 1][i], bot[j][i])))
+    return fs
 
 
 def catmull(pts, n):
@@ -437,1062 +304,1670 @@ def catmull(pts, n):
     return out
 
 
-def build_tongue():
-    """ลิ้นยาวแดงคล้ำห้อยจากปากลงถึงเอว (ลอยหน้าอก ~10 ซม.)"""
-    m = J["Mouth"]
-    ctrl = [m + v3(0, 0.03, 0.0), m + v3(0, -0.03, -0.005), m + v3(0, -0.075, -0.04), v3(0.006, -0.235, 3.42),
-            v3(-0.01, -0.25, 3.18), v3(0.012, -0.252, 2.92), v3(-0.006, -0.245, 2.64), v3(0.008, -0.232, 2.36), v3(0.0, -0.215, 2.26)]
-    path = catmull(ctrl, 44)
-    rad = []
-    for i, p in enumerate(path):
-        s = i / (len(path) - 1)
-        wid = 0.031 * (1 - 0.3 * s)
-        th = 0.0105 * (1 - 0.25 * s)
-        if s < 0.08:
-            k = 0.55 + 0.45 * s / 0.08
-            wid *= k
-            th *= k
-        if s > 0.9:
-            k = math.sqrt(max(0.05, 1 - ((s - 0.9) / 0.1) ** 2))
-            wid *= k
-            th *= max(0.5, k)
-        rad.append((wid, th))
-    g = Geo()
-    g.tube(path, rad, 12, tip=True, root_cap=True, n0=(1, 0, 0))
-    # จุดแบ่งกระดูกลิ้น 6 ท่อน
+def body_bvh(body):
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    bm.transform(body.matrix_world)
+    t = BVHTree.FromBMesh(bm)
+    bm.free()
+    return t
+
+
+def front_y(bvh, x, z, default):
+    hit = bvh.ray_cast(Vector((x, -3.0, z)), Vector((0, 1, 0)), 6.0)[0]
+    return hit.y if hit is not None else default
+
+
+# ---------------------------------------------------------------- ผมยุ่งสั้นแค่ต้นคอ (ไม่ลงไปถึงบ่า: หัวเอียงแล้วไม่ทะลุไหล่)
+def build_hair(body, rig):
+    H = HAIR
+    h = H["Head"](body, rig)
+    s = h.s
+    b = H["Build"](h, ["HairBlack"])
+    rnd = random.Random(13)
+    sym, noise = H["sym"], H["noise"]
+    wild = lambda th, ph: max(0.008, 0.016 + 0.014 * noise.noise(h.dir(th, ph) * 6.0))
+    front = lambda th: math.exp(-(math.degrees(math.atan2(math.sin(th), math.cos(th))) / 55.0) ** 2)   # หน้าโล่ง เห็นตาโปนกับลิ้น
+    base = sym([(0, -0.10), (60, -0.12), (100, -0.15), (180, -0.17)])
+    b.shell(H["GHOST_AZ"], True, H["POLE"], H["GHOST_LINE"], wild, hem=lambda th: base(th) + (0.6 - base(th)) * front(th),
+            flare=lambda th: sym([(0, 0.02), (90, 0.05), (180, 0.04)])(th) * (1 - front(th)),
+            tip=0.016, rows=8, drop_rows=5, clear=0.010, jitter=0.07, jitter_f=11.0)
+    n = 0
+    while n < 30:                                           # ปอยผมพันกัน ชี้ออกแล้วตกลง (ไม่ยาวเกินต้นคอ)
+        th = rnd.uniform(-math.pi, math.pi)
+        ph = rnd.uniform(R(-10), R(70))
+        if abs(th) < R(65) and ph < R(45):
+            continue                                        # ไม่บังหน้า (ตาโปนกับลิ้นต้องเห็นชัด)
+        d = h.dir(th, ph)
+        root = h.on(th, ph, 0.010)
+        w = d + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.3)))
+        w.z -= 0.2
+        w.normalize()
+        L = rnd.uniform(0.04, 0.08) * s
+        droop = Vector((0, 0, -rnd.uniform(0.3, 0.8)))
+        mid = root + w * L * 0.55
+        end = mid + (w + droop).normalized() * L * 0.55
+        b.tube([root, mid, h.push(end, 0.01)], [0.015 * s, 0.010 * s, 0.0], sides=5)
+        n += 1
+    ob = b.finish("Hair", rig)
+    # ผมช่วงล่างตามคอ ช่วงบนตามหัว: ก้ม เงย เอียงหัวแล้วปลายผมไม่จิ้มเข้าคอ/บ่า
+    zt = rig.data.bones["head"].head_local.z
+    gh = ob.vertex_groups["head"]
+    gn = ob.vertex_groups.new(name="neck")
+    for v in ob.data.vertices:
+        w = sm(zt - 0.12, zt + 0.03, v.co.z)
+        gh.add([v.index], w, "REPLACE")
+        if w < 1:
+            gn.add([v.index], 1 - w, "REPLACE")
+    return ob, h
+
+
+# ---------------------------------------------------------------- หน้า: ตำแหน่งตา จมูก ปาก (กฎเดียวกับ build_skin.landmarks / กระหัง)
+def face_marks(body, head):
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    bm.transform(body.matrix_world)
+    bm.verts.ensure_lookup_table()
+    seen, isl = set(), []
+    for v in bm.verts:
+        if v.index in seen:
+            continue
+        st, grp = [v], []
+        seen.add(v.index)
+        while st:
+            x = st.pop()
+            grp.append(x)
+            for e in x.link_edges:
+                y = e.other_vert(x)
+                if y.index not in seen:
+                    seen.add(y.index)
+                    st.append(y)
+        isl.append(grp)
+    isl.sort(key=len)
+    s = head.s
+    small = [g for g in isl[:-1] if len(g) < 1500 and min(v.co.z for v in g) > head.C.z - 0.2 * s]
+    nose = min(small, key=lambda g: sum(v.co.y for v in g) / len(g))
+    top = max(v.co.z for v in nose)
+    base = min(v.co.z for v in nose)
+    tip = min(nose, key=lambda v: v.co.y).co.copy()
+    skin = isl[-1]
+    chin = min(v.co.z for v in skin if v.co.y < tip.y + 0.07 * s and abs(v.co.x) < 0.02 * s and v.co.z > head.C.z - 0.2 * s)
+    bm.free()
+    eye = top + 0.15 * (top - base)                       # สูงกว่ากระหังเพราะหัวถูกยืด (ตรงกับตาที่วาดไว้ใน UV ของคน)
+    mouth = base - 0.40 * (base - chin)
+    return dict(eye=eye, base=base, top=top, tip=tip, chin=chin, mouth=mouth)
+
+
+EYES = []   # (center, radius)
+
+
+def build_eyes(body, rig, hd, fm, bvh):
+    """ลูกตาโปนกลมโต (ตามภาพอ้างอิง) ฝังครึ่งลูกในเบ้า ผูกกับ head"""
+    s = hd.s
+    bm = bmesh.new()
+    r = 0.0145 * s
+    for sx in (1, -1):
+        x = 0.031 * s * sx
+        y = front_y(bvh, x, fm["eye"], hd.C.y - 0.09 * s)
+        c = Vector((x, y + 0.42 * r, fm["eye"] + 0.002 * s))
+        EYES.append((c, r))
+        sph = bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=10, radius=r)
+        for v in sph["verts"]:
+            v.co += c
+    return new_obj("Eyes", bm, rig, lambda p, i: {"head": 1.0})
+
+
+# ---------------------------------------------------------------- ลิ้นยาวแดงคล้ำห้อยจากปากลงถึงท้อง
+TONGUE = {}
+TONGUE_MARKS = (0.0, 0.08, 0.24, 0.42, 0.6, 0.79, 1.0)
+
+
+def build_tongue(body, rig, hd, fm, bvh):
+    s = hd.s
+    m = Vector((0, front_y(bvh, 0.0, fm["mouth"], hd.C.y - 0.1 * s), fm["mouth"]))
+    z_end = torso_z(1.06)                                   # ปลายลิ้นถึงท้องตอบ
+    ctrl = [m + Vector((0, 0.025, 0.004)), m + Vector((0, -0.02, -0.004)), m + Vector((0, -0.07, -0.05))]
+    zs = np.linspace(m.z - 0.16, z_end, 7)
+    for i, z in enumerate(zs):
+        y = min(front_y(bvh, 0.0, z, m.y) - 0.095, m.y - 0.1)
+        ctrl.append(Vector((0.012 * math.sin(i * 1.7), y, z)))
+    path = catmull(ctrl, 48)
     acc = [0.0]
     for i in range(1, len(path)):
         acc.append(acc[-1] + (path[i] - path[i - 1]).length)
-    marks = (0.0, 0.1, 0.25, 0.42, 0.6, 0.79, 1.0)
-    for k, f in enumerate(marks):
-        target = f * acc[-1]
+    TONGUE.update(path=path, acc=acc, mouth=m)
+    bm = bmesh.new()
+    rings = []
+    n = len(path)
+    N = Vector((1, 0, 0))
+    sides = 12
+    for i, p in enumerate(path):
+        T = (path[min(i + 1, n - 1)] - path[max(i - 1, 0)]).normalized()
+        Nn = (N - T * N.dot(T)).normalized()
+        B = T.cross(Nn)
+        f = i / (n - 1)
+        wid, th = 0.034 * (1 - 0.3 * f), 0.011 * (1 - 0.25 * f)
+        if f < 0.06:
+            k = 0.55 + 0.45 * f / 0.06
+            wid, th = wid * k, th * k
+        if f > 0.9:
+            k = math.sqrt(max(0.05, 1 - ((f - 0.9) / 0.1) ** 2))
+            wid, th = wid * k, th * max(0.5, k)
+        ring = []
+        for kk in range(sides):
+            a = 2 * math.pi * kk / sides
+            dip = 0.3 * th * math.exp(-(math.cos(a) / 0.35) ** 2) * (math.sin(a) < 0)   # ร่องกลางลิ้นด้านหน้า
+            ring.append(bm.verts.new(p + Nn * (wid * math.cos(a)) + B * (th * math.sin(a) + dip)))
+        rings.append(ring)
+    for A_, B_ in zip(rings, rings[1:]):
+        for k in range(sides):
+            bm.faces.new((A_[k], A_[(k + 1) % sides], B_[(k + 1) % sides], B_[k]))
+    tip = bm.verts.new(path[-1] + (path[-1] - path[-2]).normalized() * 0.006)
+    for k in range(sides):
+        bm.faces.new((rings[-1][k], rings[-1][(k + 1) % sides], tip))
+    bm.faces.new(rings[0][::-1])
+    marks = []
+    for fmk in TONGUE_MARKS:
+        target = fmk * acc[-1]
         i = min(range(len(acc)), key=lambda q: abs(acc[q] - target))
-        J[f"Tongue{k}"] = path[i].copy()
-    return g.obj(NAME + "_Tongue")
+        marks.append(path[i].copy())
+    TONGUE["marks"] = marks
+    accn = np.array(acc)
+    PP = np.array([tuple(p) for p in path])
+    mids = [(TONGUE_MARKS[k] + TONGUE_MARKS[k + 1]) / 2 * acc[-1] for k in range(6)]
+
+    def groups(p, idx):
+        i = int(np.argmin(np.linalg.norm(PP - np.array(p), axis=1)))
+        sv = accn[i]
+        w = {}
+        for k in range(6):
+            span = (TONGUE_MARKS[k + 1] - TONGUE_MARKS[k]) * acc[-1]
+            w[f"Tongue{k + 1}"] = max(0.0, 1 - abs(sv - mids[k]) / span)
+        if sv < mids[0]:
+            w["Tongue1"] = 1.0
+        if sv > mids[-1]:
+            w["Tongue6"] = 1.0
+        top = sorted(w.items(), key=lambda t: -t[1])[:2]
+        tot = sum(v for _, v in top) or 1.0
+        return {k: v / tot for k, v in top}
+    return bm, groups
 
 
-def build_eyes():
-    obs = []
-    for nm in ("EyeL", "EyeR"):
-        g = Geo()
-        g.sphere(EYE_R, 18, 12)
-        obs.append(g.obj(NAME + "_" + nm, loc=J[nm].copy()))
-    return obs
+def add_tongue_bones(rig):
+    bpy.context.view_layer.objects.active = rig
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = rig.data.edit_bones
+    prev = eb["head"]
+    mk = TONGUE["marks"]
+    for k in range(6):
+        b = eb.new(f"Tongue{k + 1}")
+        b.head, b.tail = mk[k], mk[k + 1]
+        b.parent = prev
+        b.use_connect = k > 0
+        b.align_roll(Vector((0, -1, 0)))
+        prev = b
+    bpy.ops.object.mode_set(mode="OBJECT")
+    for k in range(6):
+        rig.data.bones[f"Tongue{k + 1}"].use_deform = True
 
 
-def build_hair():
-    """ผมกระเซิงบางๆ เป็นกระจุกเส้นเรียว มีหนังหัวโผล่ ยาวไม่เกินบ่า"""
-    rng = np.random.default_rng(11)
-    cc, (ax, ay, az) = CRANIUM
-    g = Geo()
-    n = 0
-    while n < 78:
-        d = Vector(rng.normal(size=3)).normalized()
-        if d.z < -0.15 or (d.y < -0.3 and d.z < 0.6) or (d.y < 0.1 and d.z < 0.05 and abs(d.x) < 0.9):
-            continue
-        root = cc + v3(d.x * ax, d.y * ay, d.z * az) * 0.94
-        out = v3(d.x / ax, d.y / ay, d.z / az).normalized()
-        L = rng.uniform(0.16, 0.42) if d.y > -0.1 else rng.uniform(0.08, 0.2)
-        steps = 8
-        p = root.copy()
-        path = [p.copy()]
-        wob = Vector(rng.normal(size=3)) * 0.35
-        for k in range(1, steps + 1):
-            f = k / steps
-            dirv = (out * (0.9 * (1 - f) + 0.15) + v3(0, 0.05, -1) * (0.25 + 0.9 * f) + wob * (0.5 + f) + Vector(rng.normal(size=3)) * 0.25).normalized()
-            p = p + dirv * (L / steps)
-            q = p - cc
-            e = (q.x / (ax * 1.08)) ** 2 + (q.y / (ay * 1.08)) ** 2 + (q.z / (az * 1.08)) ** 2
-            if e < 1.0:
-                p = cc + q / math.sqrt(e)
-            path.append(p.copy())
-        r0 = rng.uniform(0.007, 0.012)
-        rad = [(r0 * (1 - 0.82 * (i / steps)) * 1.35, r0 * (1 - 0.82 * (i / steps)) * 0.75) for i in range(steps + 1)]
-        g.tube(path, rad, 5, tip=True, n0=out)
-        n += 1
-    return g.obj(NAME + "_Hair")
+# ---------------------------------------------------------------- ผ้านุ่งจงกระเบน
+# ส่วนบน: ผ้าพันสะโพกแนบตัว (ยิง ray หาผิวรอบตัวแบบกระหัง) ขอบล่างต่ำกว่าเป้านิดเดียว ชายบานคลุมโคนขากางเกง
+# ส่วนล่าง: ขากางเกง 2 ข้าง แต่ละข้างพันรอบต้นขาของตัวเอง ห่างผิว ~3 ซม. ผูกกับต้นขาข้างนั้น = ก้าวยาวแค่ไหนขาก็ไม่ทะลุผ้า
+#         โคนขากางเกงสอดอยู่ใต้ผ้าพันสะโพก (ไม่มีรอยต่อให้เห็น) · ผ้าเก่าซีด ชายขาดแหว่ง
+CLOTH = {}
+W_AZ, W_N = 48, 9
+LEG_AZ, LEG_N = 28, 9
 
 
-CLOTH_TOP = 2.07
+def hull_radius(bvh, zs, az, yc, reach):
+    out = []
+    for z, a in zip(zs, az):
+        c = Vector((0, yc, z))
+        d = Vector((math.sin(a), -math.cos(a), 0))
+        hit = bvh.ray_cast(c + d * reach, -d, reach)[0]
+        out.append((hit - c).length if hit is not None and (hit - c).dot(d) > 0.005 else None)
+    n = len(out)
+    if all(r is None for r in out):
+        return [0.2] * n
+    for i in range(n):
+        if out[i] is None:
+            j = 1
+            while out[(i - j) % n] is None:
+                j += 1
+            k = 1
+            while out[(i + k) % n] is None:
+                k += 1
+            out[i] = (out[(i - j) % n] * k + out[(i + k) % n] * j) / (j + k)
+    for _ in range(8):                  # นูนออก: ผ้าขึงข้ามแอ่ง ไม่จมตามร่อง
+        out = [max(out[i], 0.985 * (out[i - 1] + out[(i + 1) % n]) / 2) for i in range(n)]
+    return out
 
 
-def build_cloth():
-    """ผ้าขาดๆ พันสะโพก: แถบคาดเอวต่อเนื่อง + ชายผ้าขาดเป็นริ้ว 14 ริ้ว (ริ้วซ้าย/ขวาตามขาแต่ละข้าง ไม่ทะลุขาตอนก้าว)"""
-    rng = np.random.default_rng(5)
-    cy = 0.012
+def leg_frame(rig, side):
+    b = rig.data.bones["thigh." + side]
+    h, t = Vector(b.head_local), Vector(b.tail_local)
+    d = (t - h).normalized()
+    e1 = (Vector((1, 0, 0)) - d * d.x).normalized()
+    e2 = d.cross(e1).normalized()
+    return h, t, d, e1, e2
 
-    def ring(theta, z):
-        dz = max(0.0, 2.0 - z)
-        rx, ry = 0.24 + dz * 0.17, 0.152 + dz * 0.15
-        fold = 1 + 0.03 * math.sin(theta * 14 + 1.3) + 0.018 * math.sin(theta * 5)
-        return v3(rx * fold * math.cos(theta), cy + ry * fold * math.sin(theta), z)
 
-    g = Geo()
-    C = 72
-    zs = [CLOTH_TOP - k * 0.04 for k in range(6)]   # 2.07 -> 1.87
-    g.grid(lambda i, j: (ring(2 * math.pi * i / C, zs[j]) + v3(0, 0, 0.004 * math.sin(i * 1.7)), (0.2 * 2 * math.pi * i / C, zs[0] - zs[j])), C, 5, wrap=True)
-    NS = 14
-    for k in range(NS):
-        a0 = -math.pi / 2 + 2 * math.pi * k / NS + 0.025
-        a1 = -math.pi / 2 + 2 * math.pi * (k + 1) / NS - 0.025
-        mid = (a0 + a1) / 2
-        hem = 1.49 + 0.13 * abs(math.sin(mid)) + rng.uniform(-0.05, 0.05)
-        rows, cols = 9, 4
-        jag = [rng.uniform(-0.06, 0.03) for _ in range(cols + 1)]
-        top = 1.91
+def thigh_r(bvh, c, dirv, default):
+    hit = bvh.ray_cast(c, dirv, 0.14)[0]
+    return (hit - c).length if hit is not None else default
 
-        def P(i, j, a0=a0, a1=a1, hem=hem, jag=jag, top=top):
-            f = j / rows
-            shrink = 0.16 * f * f
-            a = a0 + (a1 - a0) * (shrink + (1 - 2 * shrink) * i / cols)
-            z = top + (hem - top) * f + (jag[i] * f ** 3)
-            p = ring(a, z) * 0.985 + v3(0, cy * 0.015, 0)
-            return p, (0.2 * a, top - z)
-        g.grid(P, cols, rows)
-    ob = g.obj(NAME + "_Cloth")
-    sol = ob.modifiers.new("Solidify", "SOLIDIFY")
-    sol.thickness = 0.009
-    sol.offset = 0.0
-    apply_mods(ob)
+
+def build_cloth(body, rig, bvh):
+    rnd = random.Random(5)
+    me = body.data
+    P = np.array([tuple(v.co) for v in me.vertices])
+    hz = rig.data.bones["hips"].head_local.z
+    mid = P[(np.abs(P[:, 0]) < 0.012) & (P[:, 2] < hz)]
+    crotch = float(mid[:, 2].min())
+    top = torso_z(1.0)
+    hem_w = crotch - 0.05
+    yc = 0.01 * TORSO_K["u"]
+    CLOTH.update(top=top, crotch=crotch, hem_w=hem_w)
+    bm = bmesh.new()
+    comp = {}
+    # ---- ผ้าพันสะโพก
+    az = [2 * math.pi * i / W_AZ for i in range(W_AZ)]
+    jag = [rnd.uniform(-0.018, 0.008) for _ in az]
+    tears = {rnd.randrange(W_AZ) for _ in range(3)}
+    grid, prev = [], None
+    for j in range(W_N):
+        f = j / (W_N - 1)
+        zs = [top + (hem_w + (jag[i] + (0.05 if i in tears else 0.0)) * (j == W_N - 1) - top) * f for i in range(W_AZ)]
+        rr = hull_radius(bvh, zs, az, yc, 0.36)
+        rr = [max(r, prev[i]) if prev else r for i, r in enumerate(rr)]
+        prev = rr
+        row = []
+        for i, a in enumerate(az):
+            fold = 0.008 * f * math.sin(5 * a + 1.3) + 0.005 * f * math.sin(11 * a + 0.4)
+            band = 0.008 if j <= 1 else 0.0                 # ขอบเอวม้วนพับ
+            r = rr[i] + 0.016 + band + 0.05 * f * f + fold   # ชายล่างบานคลุมโคนขากางเกง
+            row.append(Vector((math.sin(a) * r, yc - math.cos(a) * r, zs[i])))
+        grid.append(row)
+    comp["waist"] = slab(bm, grid, True, 0.008)
+    # ---- ขากางเกง 2 ข้าง
+    for side in ("L", "R"):
+        h, t, d, e1, e2 = leg_frame(rig, side)
+        L = (t - h).length
+        a0 = (h.z - (crotch + 0.07)) / (h.z - t.z)             # โคน: เหนือเป้า สอดใต้ผ้าพันสะโพก
+        a1 = 0.42                                              # ชาย: 42% ของต้นขา
+        CLOTH["leg_" + side] = (a0, a1)
+        bs = [2 * math.pi * i / LEG_AZ for i in range(LEG_AZ)]
+        jagl = [rnd.uniform(-0.02, 0.01) for _ in bs]
+        tl = {rnd.randrange(LEG_AZ) for _ in range(2)}
+        rows, prevr = [], None
+        for j in range(LEG_N):
+            f = j / (LEG_N - 1)
+            al = [a0 + (a1 - a0) * f + ((jagl[i] - (0.05 if i in tl else 0.0)) / L if j == LEG_N - 1 else 0.0) for i in range(LEG_AZ)]
+            dirs = [e1 * math.cos(b_) + e2 * math.sin(b_) for b_ in bs]
+            rr = [thigh_r(bvh, h + d * (al[i] * L), dirs[i], None) for i in range(LEG_AZ)]
+            ok = [r for r in rr if r is not None]
+            med = sorted(ok)[len(ok) // 2] if ok else 0.06
+            rr = [min(r, med * 1.8) if r is not None else med for r in rr]      # ray ที่เลยไปโดนขาหนีบ/ขาอีกข้าง
+            rr = [(rr[i - 1] + 2 * rr[i] + rr[(i + 1) % LEG_AZ]) / 4 for i in range(LEG_AZ)]
+            if prevr:
+                rr = [max(r, 0.88 * p) for r, p in zip(rr, prevr)]                # ผ้าค่อยๆ สอบตามต้นขา
+            prevr = rr
+            row = []
+            for i, b_ in enumerate(bs):
+                fold = 0.006 * math.sin(4 * b_ + (1.0 if side == "L" else 2.3)) * f
+                inner = max(0.0, -dirs[i].x * (1 if side == "L" else -1))        # ด้านในขา (ขาหนีบ) เผื่อมากกว่า
+                row.append(h + d * (al[i] * L) + dirs[i] * (rr[i] + 0.026 + 0.012 * inner * (1 - f) + 0.01 * f + fold))
+            rows.append(row)
+        comp["leg_" + side] = slab(bm, rows, True, 0.008)
+        CLOTH["leg_grid_" + side] = rows
+    # ---- ปมผ้าที่สะโพกซ้ายค่อนหน้า + ชายผ้า 2 ชายห้อยข้างนอกขากางเกงซ้าย
+    i = int(round(R(64) / (2 * math.pi) * W_AZ)) % W_AZ
+    p = grid[2][i]
+    dout = Vector((p.x, p.y - yc, 0)).normalized()
+    kp = p + dout * 0.04
+    before = set(bm.faces)
+    sph = bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=7, radius=1.0)
+    for v in sph["verts"]:
+        c = v.co.copy()
+        n = 1 + 0.18 * math.sin(3 * c.x + 2 * c.z) + 0.1 * math.sin(5 * c.y)
+        v.co = kp + Vector((c.x * 0.06, c.y * 0.045, c.z * 0.05)) * n
+    knot = [f for f in bm.faces if f not in before]
+    h, t, d, e1, e2 = leg_frame(rig, "L")
+    Lt = (t - h).length
+    a_knot = (h.z - (kp.z - 0.12)) / (h.z - t.z)
+    tails = []
+    for (b0, b1, a_end, w0, w1, wave) in ((R(-35), R(-10), 0.55, 0.12, 0.09, 0.03), (R(15), R(40), 0.48, 0.10, 0.07, 0.04)):
+        rows = []
+        K = 10
+        for k in range(K + 1):
+            q = k / K
+            if q < 0.25:                                     # จากปมลงมาตามผ้าพันสะโพก
+                c = kp.lerp(kp + Vector((0, 0, -0.12)), q / 0.25) + dout * 0.02
+                nrm = dout
+            else:
+                u_ = (q - 0.25) / 0.75
+                bb = b0 + (b1 - b0) * u_
+                a = a_knot + (a_end - a_knot) * u_
+                cc = h + d * (a * Lt)
+                dirv = e1 * math.cos(bb) + e2 * math.sin(bb)
+                c = cc + dirv * ((thigh_r(bvh, cc, dirv, None) or 0.06) + 0.07 + 0.02 * u_ + wave * math.sin(u_ * 6 + b0 * 3) * u_)
+                nrm = dirv
+            side_v = d.cross(nrm).normalized()
+            w = w0 + (w1 - w0) * q
+            fr = Vector((0, 0, -0.03)) if k == K else Vector()
+            rows.append([c - side_v * w / 2 + fr, c, c + side_v * w / 2])
+        tails += slab(bm, rows, False, 0.007)
+    comp["knot"] = knot + tails
+    bm.verts.index_update()
+    bm.faces.index_update()
+    tail_v = set(v.index for f in tails for v in f.verts)
+    leg_v = {s: set(v.index for f in comp["leg_" + s] for v in f.verts) for s in ("L", "R")}
+    comp_faces = {k: sorted(f.index for f in fs) for k, fs in comp.items()}
+    # ---- น้ำหนัก: ผ้าพันสะโพกติด hips (ชายล่างตามต้นขานิดๆ) · ขากางเกงตามต้นขาข้างนั้นเกือบเต็ม · ชายผ้าตามต้นขาซ้าย
+    # ขากางเกงใช้น้ำหนักเดียวกับผิวขาจุดที่ใกล้ที่สุด (ขาข้างเดียวกัน) = ผ้าขยับตามผิวพอดีทุกท่า ผิวไม่โผล่ทะลุ
+    from mathutils.kdtree import KDTree
+    gname = {g.index: g.name for g in body.vertex_groups}
+    kd = {}
+    for s in ("L", "R", "C"):
+        idx = [v.index for v in me.vertices if s == "C" or v.co.x * (1 if s == "L" else -1) > 0.005]
+        t_ = KDTree(len(idx))
+        for i_ in idx:
+            t_.insert(me.vertices[i_].co, i_)
+        t_.balance()
+        kd[s] = t_
+
+    def skin_w(p, s):
+        acc = {}
+        for co, i_, dist in kd[s].find_n(p, 4):
+            k_ = 1.0 / max(dist, 1e-4)
+            for g in me.vertices[i_].groups:
+                n_ = gname[g.group]
+                acc[n_] = acc.get(n_, 0.0) + g.weight * k_
+        top4 = sorted(acc.items(), key=lambda t: -t[1])[:4]
+        tot = sum(w for _, w in top4) or 1.0
+        return {n_: w / tot for n_, w in top4}
+
+    def groups(p, idx):
+        for s in ("L", "R"):
+            if idx in leg_v[s]:
+                return skin_w(p, s)
+        if idx in tail_v:
+            w = 0.9 * sm(kp.z - 0.05, kp.z - 0.25, p.z)
+            return {"hips": 1 - w, "thigh.L": w}
+        f = 0.4 * sm(crotch + 0.1, hem_w, p.z)
+        s = sm(-0.07, 0.07, p.x)
+        w = {"hips": 1 - f, "thigh.L": f * s, "thigh.R": f * (1 - s)}
+        k = sm(crotch + 0.06, crotch + 0.16, p.z)              # ผ้าพันสะโพกช่วงบนตามผิว (ปุ่มกระดูกสะโพกนูนตอนก้าวไม่ทะลุ)
+        if k > 0:
+            sw = skin_w(p, "C")
+            w = {n_: (1 - k) * w.get(n_, 0.0) + k * sw.get(n_, 0.0) for n_ in set(w) | set(sw)}
+            top4 = sorted(w.items(), key=lambda t: -t[1])[:4]
+            tot = sum(x for _, x in top4)
+            w = {n_: x / tot for n_, x in top4}
+        return w
+    ob = new_obj("Cloth", bm, rig, groups)
+    CLOTH["faces"] = comp_faces
+    log(f"cloth: top {top:.2f} crotch {crotch:.2f} waist hem {hem_w:.2f} leg tubes {CLOTH['leg_L'][0]:.2f}..{CLOTH['leg_L'][1]:.2f} of thigh")
     return ob
 
 
-# ================================================================ 3. ตัวช่วย mesh
-def apply_mods(ob):
-    dg = bpy.context.evaluated_depsgraph_get()
-    me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
-    old = ob.data
-    ob.modifiers.clear()
-    ob.data = me
-    me.name = ob.name
-    bpy.data.meshes.remove(old)
+# ================================================================ 3. atlas UV + paint (วิธีเดียวกับกระหัง)
+BOX = {"Body": (0.0, 0.0, 0.75, 0.75), "Hair": (0.0, 0.75, 0.375, 1.0), "Cloth": (0.375, 0.75, 0.75, 1.0),
+       "Tongue": (0.75, 0.25, 1.0, 1.0), "Eyes": (0.75, 0.0, 1.0, 0.25)}
+PAD = 0.006
+OBJ_ID = {"Body": 1, "Hair": 2, "Cloth": 3, "Tongue": 4, "Eyes": 5}
 
 
-def tris(ob):
+def atlas_uv(ob):
+    u0, v0, u1, v1 = BOX[ob.name]
+    u0 += PAD
+    v0 += PAD
+    u1 -= PAD
+    v1 -= PAD
     me = ob.data
-    me.calc_loop_triangles()
-    return len(me.loop_triangles)
+    if ob.name != "Body":
+        for o in bpy.context.selected_objects:
+            o.select_set(False)
+        bpy.context.view_layer.objects.active = ob
+        ob.select_set(True)
+        while me.uv_layers:
+            me.uv_layers.remove(me.uv_layers[0])
+        me.uv_layers.new(name="UVMap")
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.smart_project(angle_limit=R(60), island_margin=0.01, scale_to_bounds=True)
+        bpy.ops.object.mode_set(mode="OBJECT")
+    uv = me.uv_layers[0]
+    uv.name = "UVMap"
+    a = np.empty(len(uv.data) * 2, np.float32)
+    uv.data.foreach_get("uv", a)
+    a = a.reshape(-1, 2)
+    a[:, 0] = u0 + np.clip(a[:, 0], 0, 1) * (u1 - u0)
+    a[:, 1] = v0 + np.clip(a[:, 1], 0, 1) * (v1 - v0)
+    uv.data.foreach_set("uv", a.ravel())
 
 
-def coords(ob):
-    a = np.empty(len(ob.data.vertices) * 3)
-    ob.data.vertices.foreach_get("co", a)
-    return a.reshape(-1, 3)
+def set_engine(sc, names):
+    for n in names:
+        try:
+            sc.render.engine = n
+            return n
+        except TypeError:
+            pass
 
 
-def bbox(objs, world=True):
-    mn, mx = np.full(3, 1e9), np.full(3, -1e9)
-    dg = bpy.context.evaluated_depsgraph_get()
-    for o in objs:
-        ev = o.evaluated_get(dg)
-        me = ev.to_mesh()
-        a = np.empty(len(me.vertices) * 3)
-        me.vertices.foreach_get("co", a)
-        a = a.reshape(-1, 3)
-        M = np.array(o.matrix_world)
-        a = a @ M[:3, :3].T + M[:3, 3]
-        ev.to_mesh_clear()
-        mn, mx = np.minimum(mn, a.min(0)), np.maximum(mx, a.max(0))
-    return mn, mx
-
-
-def scale_all(objs, k):
-    for o in objs:
-        a = coords(o) * k
-        o.data.vertices.foreach_set("co", a.ravel())
-        o.data.update()
-        o.location = o.location * k
-    for key in J:
-        J[key] = J[key] * k
-    for i, (p, r) in enumerate(TIPS):
-        TIPS[i] = (p * k, r * k)
-
-
-def select_only(objs, active=None):
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in objs:
-        o.select_set(True)
-    bpy.context.view_layer.objects.active = active or objs[0]
-
-
-# ================================================================ 4. วัสดุ procedural + bake
-class G:
-    def __init__(self, mat):
-        mat.use_nodes = True
-        self.t = mat.node_tree
-        self.t.nodes.clear()
-        self.out = self.node("ShaderNodeOutputMaterial")
-
-    def node(self, typ, ins=(), **props):
-        n = self.t.nodes.new(typ)
-        for k, v in props.items():
-            setattr(n, k, v)
-        for k, v in ins:
-            self.set(n.inputs[k], v)
-        return n
-
-    def set(self, sock, v):
-        if isinstance(v, bpy.types.NodeSocket):
-            self.t.links.new(v, sock)
-        elif isinstance(v, bpy.types.Node):
-            self.t.links.new(v.outputs[0], sock)
-        else:
-            sock.default_value = v
-
-    def math(self, op, a, b=0.0):
-        return self.node("ShaderNodeMath", [(0, a), (1, b)], operation=op).outputs[0]
-
-    def vm(self, op, a, b):
-        return self.node("ShaderNodeVectorMath", [(0, a), (1, b)], operation=op).outputs[0]
-
-    def vs(self, a, f):
-        return self.node("ShaderNodeVectorMath", [(0, a), (3, f)], operation="SCALE").outputs[0]
-
-    def lerp(self, a, b, f):
-        return self.vm("ADD", a, self.vs(self.vm("SUBTRACT", b, a), f))
-
-    def ss(self, x, e0, e1):
-        return self.node("ShaderNodeMapRange", [(0, x), (1, e0), (2, e1), (3, 0.0), (4, 1.0)], interpolation_type="SMOOTHSTEP", clamp=True).outputs[0]
-
-    def noise(self, vec, scale, detail=4.0):
-        return self.node("ShaderNodeTexNoise", [("Vector", vec), ("Scale", scale), ("Detail", detail)])
-
-    def edge(self, vec, scale):
-        return self.node("ShaderNodeTexVoronoi", [("Vector", vec), ("Scale", scale)], feature="DISTANCE_TO_EDGE").outputs["Distance"]
-
-    def ao(self, dist, local):
-        return self.node("ShaderNodeAmbientOcclusion", [("Distance", dist)], samples=16, only_local=local).outputs["AO"]
-
-    def finish(self, col, rough, height, bump):
-        """ต่อ Emission (สำหรับ bake สี/roughness) + Principled พร้อม bump (สำหรับ bake normal)"""
-        self.col, self.rough = col, rough
-        self.emis = self.node("ShaderNodeEmission", [("Strength", 1.0)])
-        self.bsdf = self.node("ShaderNodeBsdfPrincipled", [("Base Color", (0.5, 0.5, 0.5, 1.0))])
-        if height is not None:
-            b = self.node("ShaderNodeBump", [("Strength", bump), ("Distance", 0.002), ("Height", height)])
-            self.t.links.new(b.outputs[0], self.bsdf.inputs["Normal"])
-
-    def mode(self, m):
-        for l in list(self.out.inputs[0].links):
-            self.t.links.remove(l)
-        for l in list(self.emis.inputs["Color"].links):
-            self.t.links.remove(l)
-        if m == "Normal":
-            self.t.links.new(self.bsdf.outputs[0], self.out.inputs[0])
-        else:
-            self.set(self.emis.inputs["Color"], self.col if m == "Color" else self.node("ShaderNodeCombineXYZ", [(0, self.rough), (1, self.rough), (2, self.rough)]).outputs[0])
-            self.t.links.new(self.emis.outputs[0], self.out.inputs[0])
-
-
-SKIN = (96, 86, 72)          # เทาอมน้ำตาล แห้งเหี่ยว
-SKIN_DARK = (58, 50, 42)
-SKIN_SICK = (82, 84, 66)     # ด่างเทาอมเขียวเน่า
-SKIN_BONE = (138, 128, 108)  # ฝุ่นซีดบนปุ่มกระดูก
-SPOT = (44, 34, 30)
-CRACK = (24, 18, 15)
-NAIL = (92, 74, 40)
-SOCKET = (8, 5, 5)
-MOUTH = (30, 6, 8)
-
-
-def skin_graph(g):
-    co = g.node("ShaderNodeTexCoord").outputs["Object"]
-    n_lo = g.noise(co, 2.2, 3).outputs["Fac"]
-    n_mid = g.noise(co, 8.0, 5).outputs["Fac"]
-    n_hi = g.noise(co, 45.0, 3).outputs["Fac"]
-    warp = g.vm("ADD", co, g.vs(g.vm("SUBTRACT", g.noise(co, 5.0, 2).outputs["Color"], (0.5, 0.5, 0.5)), 0.05))
-    c1 = g.math("SUBTRACT", 1.0, g.ss(g.edge(warp, 15.0), 0.0, 0.035))
-    c2 = g.math("SUBTRACT", 1.0, g.ss(g.edge(warp, 52.0), 0.0, 0.05))
-    crack = g.math("MAXIMUM", c1, g.math("MULTIPLY", c2, 0.55))
-    col = g.lerp(lin(SKIN_DARK), lin(SKIN), g.ss(n_lo, 0.3, 0.7))
-    col = g.lerp(col, lin(SKIN_SICK), g.math("MULTIPLY", g.ss(n_mid, 0.55, 0.72), 0.55))
-    pt = g.node("ShaderNodeNewGeometry").outputs["Pointiness"]
-    col = g.lerp(col, lin(SKIN_BONE), g.math("MULTIPLY", g.ss(pt, 0.5, 0.58), 0.75))
-    col = g.lerp(col, lin(SPOT), g.math("MULTIPLY", g.ss(n_hi, 0.6, 0.68), 0.6))
-    col = g.lerp(col, lin(CRACK), g.math("MULTIPLY", crack, 0.85))
-    col = g.vs(col, g.math("ADD", 0.1, g.math("MULTIPLY", g.ss(g.ao(0.07, True), 0.15, 1.0), 0.9)))
-    sep = g.node("ShaderNodeSeparateXYZ", [(0, g.node("ShaderNodeAttribute", attribute_name="Masks").outputs["Color"])])
-    nail, sock, mouth = sep.outputs[0], sep.outputs[1], sep.outputs[2]
-    col = g.lerp(col, lin(NAIL), g.math("MULTIPLY", nail, 0.9))
-    col = g.lerp(col, lin(SOCKET), sock)
-    col = g.lerp(col, lin(MOUTH), mouth)
-    rough = g.math("ADD", 0.8, g.math("MULTIPLY", crack, 0.15))
-    rough = g.math("SUBTRACT", rough, g.math("MULTIPLY", nail, 0.4))
-    rough = g.math("SUBTRACT", rough, g.math("MULTIPLY", sock, 0.5))
-    rough = g.math("SUBTRACT", rough, g.math("MULTIPLY", mouth, 0.5))
-    rough = g.math("ADD", rough, g.math("MULTIPLY", g.math("SUBTRACT", n_mid, 0.5), 0.1))
-    height = g.math("SUBTRACT", g.math("ADD", g.math("MULTIPLY", n_mid, 0.4), g.math("MULTIPLY", n_hi, 0.2)), g.math("MULTIPLY", crack, 0.9))
-    g.finish(col, rough, height, 0.6)
-
-
-def tongue_graph(g):
-    co = g.node("ShaderNodeTexCoord").outputs["Object"]
-    n1 = g.noise(co, 14.0, 4).outputs["Fac"]
-    n2 = g.noise(co, 140.0, 2).outputs["Fac"]
-    vein = g.math("SUBTRACT", 1.0, g.ss(g.edge(co, 22.0), 0.0, 0.03))
-    col = g.lerp(lin((86, 16, 20)), lin((138, 40, 44)), g.ss(n1, 0.35, 0.7))
-    col = g.lerp(col, lin((40, 8, 12)), g.math("MULTIPLY", vein, 0.7))
-    col = g.lerp(col, lin((150, 70, 62)), g.math("MULTIPLY", g.ss(n2, 0.6, 0.75), 0.35))
-    col = g.vs(col, g.math("ADD", 0.25, g.math("MULTIPLY", g.ao(0.05, False), 0.75)))
-    rough = g.math("ADD", 0.22, g.math("MULTIPLY", n2, 0.2))
-    height = g.math("ADD", g.math("MULTIPLY", n2, 0.6), g.math("MULTIPLY", vein, -0.4))
-    g.finish(col, rough, height, 0.5)
-
-
-def eye_graph(g):
-    co = g.node("ShaderNodeTexCoord").outputs["Object"]
-    f = g.node("ShaderNodeVectorMath", [(0, g.node("ShaderNodeVectorMath", [(0, co)], operation="NORMALIZE").outputs[0]), (1, (0.0, -1.0, 0.0))], operation="DOT_PRODUCT").outputs["Value"]
-    vein = g.math("SUBTRACT", 1.0, g.ss(g.edge(co, 260.0), 0.0, 0.06))
-    col = g.lerp(lin((150, 52, 40)), lin((196, 180, 136)), g.ss(f, 0.2, 0.8))
-    col = g.lerp(col, lin((120, 24, 22)), g.math("MULTIPLY", vein, g.math("SUBTRACT", 1.0, g.ss(f, 0.6, 0.9))))
-    col = g.lerp(col, lin((112, 110, 92)), g.ss(f, 0.955, 0.965))      # ม่านตาขุ่น
-    col = g.lerp(col, lin((6, 4, 4)), g.ss(f, 0.986, 0.99))             # รูม่านตาเล็กเท่ารูเข็ม
-    rough = g.math("ADD", 0.08, g.math("MULTIPLY", vein, 0.1))
-    g.finish(col, rough, None, 0.0)
-
-
-def hair_graph(g):
-    co = g.node("ShaderNodeTexCoord").outputs["Object"]
-    n1 = g.noise(co, 30.0, 3).outputs["Fac"]
-    col = g.lerp(lin((20, 18, 17)), lin((62, 56, 48)), g.ss(n1, 0.45, 0.8))
-    col = g.vs(col, g.math("ADD", 0.3, g.math("MULTIPLY", g.ao(0.04, False), 0.7)))
-    rough = g.math("ADD", 0.55, g.math("MULTIPLY", n1, 0.2))
-    g.finish(col, rough, g.noise(co, 200.0, 2).outputs["Fac"], 0.3)
-
-
-def cloth_graph(g, k):
-    co = g.node("ShaderNodeTexCoord").outputs["Object"]
-    z = g.node("ShaderNodeSeparateXYZ", [(0, co)]).outputs[2]
-    n1 = g.noise(co, 6.0, 4).outputs["Fac"]
-    n2 = g.noise(co, 30.0, 3).outputs["Fac"]
-    weave = g.noise(co, 420.0, 1).outputs["Fac"]
-    col = g.lerp(lin((132, 86, 90)), lin((158, 112, 112)), g.ss(n1, 0.35, 0.65))     # ชมพูซีดเก่า
-    col = g.lerp(col, lin((84, 64, 52)), g.math("MULTIPLY", g.ss(n2, 0.5, 0.75), 0.6))  # คราบดิน
-    col = g.lerp(col, lin((52, 40, 34)), g.math("MULTIPLY", g.ss(z, 1.78 * k, 1.5 * k), 0.75))  # ชายผ้าเปื้อนโคลน
-    col = g.vs(col, g.math("ADD", 0.2, g.math("MULTIPLY", g.ss(g.ao(0.06, False), 0.1, 1.0), 0.8)))
-    col = g.vs(col, g.math("ADD", 0.9, g.math("MULTIPLY", weave, 0.2)))
-    rough = g.math("ADD", 0.88, g.math("MULTIPLY", weave, 0.1))
-    g.finish(col, rough, g.math("ADD", weave, g.math("MULTIPLY", n2, 0.5)), 0.35)
-
-
-def set_masks(hi):
-    P = coords(hi)
-    nail = np.zeros(len(P))
-    for p, r in TIPS:
-        d = np.linalg.norm(P - np.array(p), axis=1)
-        nail = np.maximum(nail, 1 - smoothstep(r * 0.55, r, d))
-    sock = np.zeros(len(P))
-    for e in ("EyeL", "EyeR"):
-        d = np.linalg.norm(P - np.array(J[e]), axis=1)
-        sock = np.maximum(sock, 1 - smoothstep(EYE_R * 1.45, EYE_R * 2.3, d))
-    d = np.linalg.norm(P - np.array(J["Mouth"]), axis=1)
-    mouth = 1 - smoothstep(0.02, 0.034, d)
-    a = np.stack([nail, sock, mouth, np.ones(len(P))], 1).astype(np.float32)
-    at = hi.data.color_attributes.new("Masks", "FLOAT_COLOR", "POINT")
-    at.data.foreach_set("color", a.ravel())
-
-
-def uv_layout(body, parts, density):
-    objs = [body] + parts
-    bpy.context.scene.tool_settings.use_uv_select_sync = True
-    # ตัว: smart project · ชิ้นแยกมี UV ของตัวเองแล้ว (หน่วยเมตร)
-    select_only([body])
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=math.radians(62), island_margin=0.0, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    select_only(objs, body)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.average_islands_scale()
-    bpy.ops.object.mode_set(mode="OBJECT")
-    for o in parts:  # ความละเอียดต่อชิ้น เทียบกับตัว (ตา x2.2 ให้รูม่านตาคม, ผมครึ่งเดียว)
-        k = density.get(o.name, 1.0)
-        uv = np.empty(len(o.data.loops) * 2)
-        o.data.uv_layers[0].data.foreach_get("uv", uv)
-        o.data.uv_layers[0].data.foreach_set("uv", uv * k)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.pack_islands(rotate=True, margin=0.006)
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-
-def bake_textures(hi, body, parts):
-    scn = bpy.context.scene
-    scn.render.engine = "CYCLES"
-    scn.cycles.device = "CPU"
-    scn.cycles.samples = 24
-    scn.render.bake.margin = 3
-    imgs = {}
-    for k, fill, nc in (("Color", (0.1, 0.08, 0.07, 1), False), ("Roughness", (0.85, 0.85, 0.85, 1), True), ("Normal", (0.5, 0.5, 1.0, 1), True)):
-        im = bpy.data.images.new(f"{NAME}_{k}", TEX, TEX, alpha=False)
-        if nc:
-            im.colorspace_settings.name = "Non-Color"
-        im.generated_color = fill
-        imgs[k] = im
-    graphs, targets = [], []
-
-    def mk(obj, fn, *args):
-        mat = bpy.data.materials.new(obj.name + "_Bake")
-        g = G(mat)
-        fn(g, *args)
-        obj.data.materials.clear()
-        obj.data.materials.append(mat)
-        graphs.append(g)
-        return g
-    mk(hi, skin_graph)
-    gm = {"Tongue": tongue_graph, "EyeL": eye_graph, "EyeR": eye_graph, "Hair": hair_graph}
-    for o in parts:
-        key = o.name.split("_", 1)[1]
-        g = mk(o, cloth_graph, HEIGHT / 3.92) if key == "Cloth" else mk(o, gm[key])
-        tn = g.node("ShaderNodeTexImage")
-        g.t.nodes.active = tn
-        targets.append(tn)
-    lo_mat = bpy.data.materials.new(NAME + "_BakeTarget")
-    lo_mat.use_nodes = True
-    tn = lo_mat.node_tree.nodes.new("ShaderNodeTexImage")
-    lo_mat.node_tree.nodes.active = tn
-    targets.append(tn)
-    body.data.materials.clear()
-    body.data.materials.append(lo_mat)
-    files = {}
-    for m, btype in (("Color", "EMIT"), ("Roughness", "EMIT"), ("Normal", "NORMAL")):
-        for g in graphs:
-            g.mode(m)
-        for t in targets:
-            t.image = imgs[m]
-        scn.cycles.samples = 24 if m == "Color" else 4
-        t1 = time.time()
-        select_only(parts)
-        bpy.ops.object.bake(type=btype, use_clear=False, margin=3, normal_space="TANGENT")
-        select_only([hi, body], body)
-        bpy.ops.object.bake(type=btype, use_selected_to_active=True, cage_extrusion=0.012, max_ray_distance=0.06,
-                            use_clear=False, margin=3, normal_space="TANGENT")
-        path = os.path.join(ROOT, f"{NAME}_{m}.png")
-        im = imgs[m]
-        im.filepath_raw = path
-        im.file_format = "PNG"
-        im.save()
-        files[m] = path
-        log(f"  bake {m}: {time.time() - t1:.0f}s -> {os.path.basename(path)}")
-    met = bpy.data.images.new(f"{NAME}_Metalness", TEX, TEX, alpha=False)
-    met.colorspace_settings.name = "Non-Color"
-    met.generated_color = (0, 0, 0, 1)
-    met.filepath_raw = os.path.join(ROOT, f"{NAME}_Metalness.png")
-    met.file_format = "PNG"
-    met.save()
-    files["Metalness"] = met.filepath_raw
-    return files
-
-
-def final_material(files):
-    mat = bpy.data.materials.new(NAME + "_Mat")
+def bake_maps(objs, rig):
+    sc = bpy.context.scene
+    set_engine(sc, ["CYCLES"])
+    sc.cycles.device = "CPU"
+    sc.cycles.samples = 1
+    rig.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    mat = bpy.data.materials.new("_Bake")
     mat.use_nodes = True
     nt = mat.node_tree
     nt.nodes.clear()
-    out = nt.nodes.new("ShaderNodeOutputMaterial")
-    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    nt.links.new(bsdf.outputs[0], out.inputs[0])
+    outn = nt.nodes.new("ShaderNodeOutputMaterial")
+    em = nt.nodes.new("ShaderNodeEmission")
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    oi = nt.nodes.new("ShaderNodeObjectInfo")
+    img = nt.nodes.new("ShaderNodeTexImage")
+    nt.links.new(em.outputs[0], outn.inputs["Surface"])
+    saved = {}
+    for o in objs:
+        saved[o.name] = [s.material for s in o.material_slots]
+        o.data.materials.clear()
+        o.data.materials.append(mat)
+        o.pass_index = OBJ_ID[o.name]
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    res = {}
+    for key, sock in (("pos", geo.outputs["Position"]), ("nrm", geo.outputs["Normal"]), ("id", oi.outputs["Object Index"])):
+        im = bpy.data.images.new("_b_" + key, BAKE, BAKE, float_buffer=True)
+        im.colorspace_settings.name = "Non-Color"
+        img.image = im
+        nt.nodes.active = img
+        for l in list(nt.links):
+            if l.to_node == em:
+                nt.links.remove(l)
+        nt.links.new(sock, em.inputs["Color"])
+        bpy.ops.object.bake(type="EMIT", margin=16, margin_type="EXTEND", use_clear=True)
+        a = np.empty(BAKE * BAKE * 4, np.float32)
+        im.pixels.foreach_get(a)
+        res[key] = a.reshape(BAKE * BAKE, 4)[:, :3].copy()
+        bpy.data.images.remove(im)
+    for o in objs:
+        o.data.materials.clear()
+        for m in saved[o.name]:
+            o.data.materials.append(m)
+    bpy.data.materials.remove(mat)
+    res["id"] = np.rint(res["id"][:, 0]).astype(np.int32)
+    return res
 
-    def tex(key, nc):
-        im = bpy.data.images.load(files[key], check_existing=False)
-        if nc:
-            im.colorspace_settings.name = "Non-Color"
+
+def _hash(ix, iy, iz, seed):
+    h = (ix * 73856093) ^ (iy * 19349663) ^ (iz * 83492791) ^ (seed * 2654435761 & 0x7FFFFFFF)
+    h = (h ^ (h >> 13)) * 1274126177
+    h = h ^ (h >> 16)
+    return (h & 0xFFFF).astype(np.float32) / 65535.0
+
+
+def vnoise(P, f, seed=0):
+    Q = P * np.asarray(f, np.float32)
+    i = np.floor(Q).astype(np.int64)
+    t = Q - i
+    t = t * t * (3 - 2 * t)
+    out = 0.0
+    for dx in (0, 1):
+        for dy in (0, 1):
+            for dz in (0, 1):
+                w = (t[:, 0] if dx else 1 - t[:, 0]) * (t[:, 1] if dy else 1 - t[:, 1]) * (t[:, 2] if dz else 1 - t[:, 2])
+                out = out + w * _hash(i[:, 0] + dx, i[:, 1] + dy, i[:, 2] + dz, seed)
+    return out
+
+
+def fbm(P, f, oct=4, seed=0):
+    a, tot, s = 0.0, 0.0, 1.0
+    for o in range(oct):
+        a = a + s * vnoise(P, np.asarray(f, np.float32) * (2 ** o), seed + o)
+        tot += s
+        s *= 0.5
+    return a / tot
+
+
+def lines(P, f, w, seed=0):
+    """เส้นบางแตกกิ่ง (เส้นเลือด รอยแตก): 1 บนเส้น"""
+    n = vnoise(P, f, seed) + 0.5 * vnoise(P, np.asarray(f) * 2.1, seed + 9)
+    return 1 - sstep(0.0, w, np.abs(n - 0.75))
+
+
+def ell(X, Z, cx, cz, rx, rz):
+    return np.sqrt(((X - cx) / rx) ** 2 + ((Z - cz) / rz) ** 2)
+
+
+def seg_dist2(X, Z, a, b):
+    ax, az = a
+    bx, bz = b
+    dx, dz = bx - ax, bz - az
+    t = np.clip(((X - ax) * dx + (Z - az) * dz) / (dx * dx + dz * dz), 0, 1)
+    return np.hypot(X - ax - t * dx, Z - az - t * dz), t
+
+
+def mix(c, col, w):
+    w = np.clip(w, 0, 1)[:, None]
+    return c * (1 - w) + np.asarray(col, np.float32) / 255.0 * w
+
+
+def paint_body(P, N, rig, fm, hd):
+    """ผิวเปรต: เทาซีดอมเหลืองแบบศพแห้ง (ซีดกว่ากระหัง) ด่างคล้ำ ผิวแห้งแตกระแหงลึก เส้นเลือดม่วงดำ
+    ลำตัวใช้เกณฑ์ตำแหน่งของกระหัง (แปลงกลับเป็นพิกัดคนด้วย torso_q) แต่ร่องซี่โครงลึกและมืดกว่า"""
+    n = len(P)
+    X, Y, Z = P[:, 0], P[:, 1], P[:, 2]
+    s = hd.s
+    u = TORSO_K["u"]
+    QX, QY, QZ = torso_q(P)
+    big = fbm(P, (2, 2, 2), 3, 1)
+    mid = fbm(P, (9, 9, 9), 3, 2)
+    fine = vnoise(P, (60, 60, 60), 3)
+    c = np.empty((n, 3), np.float32)
+    c[:] = np.array([150, 140, 118], np.float32) / 255
+    c = mix(c, (118, 112, 94), sstep(0.45, 0.75, big))
+    c = mix(c, (168, 158, 134), sstep(0.55, 0.80, mid) * 0.45)
+    c = mix(c, (96, 92, 70), sstep(0.62, 0.8, fbm(P, (5, 5, 5), 2, 7)) * 0.45)      # ด่างอมเขียวเน่า
+    c = mix(c, (60, 52, 42), sstep(0.9, 0.2, Z) * 0.55 + sstep(0.6, 0.85, mid) * 0.25)  # มือเท้าคล้ำดินโคลน
+    rough = 0.78 + 0.12 * mid
+    H = (fine - 0.5) * 0.25 + (mid - 0.5) * 0.4
+    C = hd.C
+    dh = np.linalg.norm(P - np.asarray(C, np.float32), axis=1)
+    onface = sstep(0.13 * s, 0.09 * s, dh) * (Y < C.y - 0.02 * s)
+    cr = lines(P, (48, 48, 48), 0.025, 11) * (1 - 0.6 * onface)
+    c = mix(c, (40, 34, 28), cr * 0.75)
+    H -= cr * 0.7
+    cr2 = lines(P, (140, 140, 140), 0.04, 12) * (1 - 0.6 * onface)
+    c = mix(c, (70, 62, 50), cr2 * 0.4)
+    H -= cr2 * 0.3
+    limb = np.clip(sstep(0.17, 0.30, np.abs(QX)) + sstep(1.4, 0.9, Z / u), 0, 1)
+    vein = lines(P, (6, 6, 2.5), 0.03, 21) * limb
+    c = mix(c, (70, 62, 84), vein * 0.6)
+    H += vein * 0.9
+    # ซี่โครง: ลาดลงด้านข้าง ร่องลึกดำ · ซี่โครงด้านหลัง · กระดูกอก · ขอบชายโครง · ท้องตอบ สะดือ · สันเชิงกราน
+    ribz = 1.10
+    reg = sstep(ribz, ribz + 0.03, QZ) * sstep(1.41, 1.34, QZ) * sstep(0.2, 0.135, np.abs(QX)) * sstep(0.11, 0.02, QY)
+    ph = (QZ + 0.55 * np.abs(QX) - ribz) / 0.031
+    rib = (0.5 + 0.5 * np.cos(2 * np.pi * ph)) ** 3
+    gap = (1 - rib) * reg * sstep(0.006, 0.03, np.abs(QX))
+    c = mix(c, (44, 38, 32), gap * 0.95)
+    c = mix(c, (196, 186, 160), rib * reg * 0.55)
+    H += (rib * 2.0 - 1.0) * reg
+    back = QY > 0.03
+    regb = sstep(ribz, ribz + 0.04, QZ) * sstep(1.40, 1.30, QZ) * sstep(0.2, 0.04, np.abs(QX)) * back
+    phb = (QZ - 0.25 * np.abs(QX) - ribz) / 0.031
+    ribb = (0.5 + 0.5 * np.cos(2 * np.pi * phb)) ** 3
+    c = mix(c, (52, 46, 38), (1 - ribb) * regb * 0.6)
+    H += (ribb * 1.2 - 0.6) * regb
+    stern = np.exp(-(QX / 0.010) ** 2) * sstep(1.18, 1.24, QZ) * sstep(1.42, 1.36, QZ) * (QY < 0)
+    H += stern * 0.7
+    c = mix(c, (186, 176, 150), stern * 0.4)
+    belly = sstep(1.12, 1.07, QZ) * sstep(0.92, 0.98, QZ) * sstep(0.0, -0.05, QY)
+    c = mix(c, (58, 52, 42), belly * 0.6 * sstep(0.16, 0.0, np.abs(QX)))
+    H -= belly * 0.6
+    arch = np.exp(-((QZ - (ribz + 0.02 + 0.55 * np.abs(QX))) / 0.012) ** 2) * sstep(0.16, 0.05, np.abs(QX)) * (QY < 0)
+    c = mix(c, (50, 44, 36), arch * 0.6)
+    H -= arch * 0.5
+    navel = np.exp(-((QX / 0.007) ** 2 + ((QZ - 1.0) / 0.009) ** 2)) * (QY < 0)
+    c = mix(c, (30, 24, 20), navel)
+    H -= navel * 1.5
+    hip = np.exp(-((QZ - (0.98 - 0.25 * np.abs(QX))) / 0.012) ** 2) * sstep(0.06, 0.12, np.abs(QX)) * sstep(0.17, 0.13, np.abs(QX)) * (QY < 0.02)
+    H += hip * 0.5
+    c = mix(c, (176, 166, 140), hip * 0.3)
+    # ไหปลาร้า แอ่งเหนือไหปลาร้า เอ็นคอ กระดูกสันหลัง สะบัก
+    for sx in (1, -1):
+        d, t = seg_dist2(QX, QZ, (0.025 * sx, 1.425), (0.165 * sx, 1.448))
+        cl = np.exp(-(d / 0.008) ** 2) * (QY < 0.02)
+        H += cl * 1.3
+        c = mix(c, (196, 186, 160), cl * 0.5)
+        hol = np.exp(-(((QX - 0.09 * sx) / 0.04) ** 2 + ((QZ - 1.468) / 0.012) ** 2)) * (QY < 0.0)
+        H -= hol * 1.2
+        c = mix(c, (50, 44, 36), hol * 0.7)
+        d, t = seg_dist2(X, Z, (0.045 * sx * s, fm["chin"] - 0.01 * s), (0.016 * sx * TORSO_K["kx"], torso_z(1.44)))
+        cord = np.exp(-(d / (0.008 * u)) ** 2) * (Y < 0.03 * u)
+        H += cord * 1.0
+        c = mix(c, (176, 166, 140), cord * 0.35)
+    vert = np.exp(-(QX / 0.009) ** 2) * (0.5 + 0.5 * np.cos(2 * np.pi * (QZ - 1.0) / 0.028)) * sstep(0.95, 1.0, QZ) * sstep(1.50, 1.44, QZ) * back
+    H += vert * 1.0
+    c = mix(c, (186, 176, 150), vert * 0.4)
+    for sx in (1, -1):
+        bl = ell(QX, QZ, 0.085 * sx, 1.33, 0.05, 0.075)
+        edge = np.exp(-((bl - 1) / 0.12) ** 2) * back
+        H += edge * 0.7 - (bl < 1) * back * 0.15
+        c = mix(c, (52, 46, 38), edge * 0.35)
+    # เข่า ศอก ข้อมือ ข้อเท้า: ปุ่มกระดูกซีด หนังย่นรอบๆ · ข้อนิ้วปูด เล็บยาวเหลืองสกปรก
+    bs = rig.data.bones
+    for side in ("L", "R"):
+        for j, rad in (("forearm." + side, 0.07), ("shin." + side, 0.09), ("hand." + side, 0.05), ("foot." + side, 0.06)):
+            q = np.asarray(bs[j].head_local, np.float32)
+            d = np.linalg.norm(P - q, axis=1)
+            k = sstep(rad, 0.0, d)
+            c = mix(c, (186, 176, 150), k * 0.35)
+            wr = lines(P, (40, 40, 40), 0.05, 31) * k
+            c = mix(c, (60, 52, 42), wr * 0.6)
+            H += wr * 0.8
+        for f in ("index", "middle", "ring", "pinky", "thumb"):
+            tip = np.asarray(bs[f"{f}_03.{side}"].tail_local, np.float32)
+            d = np.linalg.norm(P - tip, axis=1)
+            nail = sstep(0.034, 0.018, d)
+            c = mix(c, (112, 96, 52), nail * 0.95)
+            c = mix(c, (40, 32, 18), nail * sstep(0.02, 0.008, d))
+            rough = rough * (1 - nail * 0.4)
+            H += nail * 0.5
+            for kk in ("01", "02", "03"):
+                q = np.asarray(bs[f"{f}_{kk}.{side}"].head_local, np.float32)
+                dk = np.linalg.norm(P - q, axis=1)
+                kn = sstep(0.02, 0.0, dk)
+                c = mix(c, (70, 62, 50), kn * 0.5)
+                H += kn * 0.5
+        toe = np.asarray(bs["toe." + side].tail_local, np.float32)
+        dt = np.linalg.norm(P - toe, axis=1)
+        c = mix(c, (92, 80, 48), sstep(0.06, 0.02, dt) * 0.7)
+    sole = sstep(0.03, 0.006, Z)
+    c = mix(c, (40, 34, 28), sole * 0.8)
+    # ---- หน้า: เบ้าตาลึกดำรอบลูกตาโปน ขอบตาแดงช้ำ แก้มตอบ ปากอ้ากลมดำ (ลิ้นออกมา) ฟันห่าง
+    head = dh < 0.16 * s
+    E, MZ = fm["eye"], fm["mouth"]
+    scalp = head & ((Z > E + 0.075 * s) | ((Y > C.y + 0.02 * s) & (Z > MZ)))
+    c = mix(c, (44, 40, 36), scalp * 0.85)
+    fr = head & (Y < C.y - 0.02 * s) & (np.abs(X) < 0.085 * s)
+    ax = np.abs(X)
+    w = fr.astype(np.float32)
+    ex = 0.031 * s
+    sock = sstep(1.35, 0.5, ell(ax, Z, ex, E, 0.025 * s, 0.02 * s)) * w
+    c = mix(c, (22, 14, 14), sock * 0.95)
+    H -= sock * 1.2
+    rim = np.exp(-((ell(ax, Z, ex, E, 0.017 * s, 0.017 * s) - 1) / 0.12) ** 2) * w
+    c = mix(c, (110, 30, 28), rim * 0.7)
+    under = sstep(1.0, 0.0, ell(ax, Z, ex + 0.004 * s, E - 0.022 * s, 0.022 * s, 0.009 * s)) * w
+    c = mix(c, (40, 30, 30), under * 0.6)
+    H -= under * 0.5
+    bd, bt = seg_dist2(ax, Z, (0.01 * s, E + 0.02 * s), (0.056 * s, E + 0.028 * s))
+    brow = sstep(0.006 * s, 0.003 * s, bd) * w
+    c = mix(c, (40, 36, 32), brow * 0.8)
+    H += brow * 1.2
+    for k in range(4):
+        zz = E + (0.040 + 0.010 * k) * s + 0.004 * s * np.sin(X * 90 / s + k)
+        g = np.exp(-((Z - zz) / (0.0013 * s)) ** 2) * sstep(0.05 * s, 0.02 * s, ax) * w
+        c = mix(c, (70, 62, 50), g * 0.6)
+        H -= g * 0.9
+    nos = (ell(ax, Z, 0.0085 * s, fm["base"] + 0.002 * s, 0.0045 * s, 0.003 * s) < 1) & fr
+    c = mix(c, (16, 10, 10), nos * 1.0)
+    H -= nos * 1.0
+    d, t = seg_dist2(ax, Z, (0.015 * s, fm["base"] + 0.003 * s), (0.034 * s, MZ - 0.006 * s))
+    nl = np.exp(-(d / (0.0035 * s)) ** 2) * w * np.sin(np.pi * np.clip(t * 0.9 + 0.1, 0, 1))
+    c = mix(c, (50, 40, 34), nl * 0.7)
+    H -= nl * 1.4
+    ch = sstep(1.0, 0.0, ell(ax, Z, 0.052 * s, MZ + 0.014 * s, 0.022 * s, 0.03 * s)) * w
+    c = mix(c, (58, 50, 42), ch * 0.7)
+    H -= ch * 0.8
+    mx, mz = 0.024 * s, 0.017 * s
+    mo = ell(X, Z, 0, MZ, mx, mz)
+    mouth = (mo < 1) & fr
+    lip = np.exp(-((mo - 1.0) / 0.16) ** 2) * w
+    c = mix(c, (70, 34, 34), lip * 0.9)
+    H += lip * 0.5
+    c = mix(c, (10, 3, 3), mouth * 1.0)
+    H = np.where(mouth, -1.5, H)
+    rough = np.where(mouth, 0.3, rough)
+    tw = 0.0062 * s
+    colm = np.abs(np.mod(X + tw / 2, tw) - tw / 2)
+    teeth = mouth & (Z > MZ + 0.009 * s) & (colm > 0.0012 * s) & (np.abs(X) < 0.018 * s)
+    teeth |= mouth & (Z < MZ - 0.011 * s) & (colm > 0.0016 * s) & (np.abs(X) < 0.015 * s)
+    c = mix(c, (150, 132, 84), teeth * 1.0)
+    H = np.where(teeth, -0.4, H)
+    tv = lines(P, (70, 70, 70), 0.05, 61) * sstep(0.05 * s, 0.07 * s, ax) * head * sstep(E - 0.02 * s, E + 0.02 * s, Z) * (Y < C.y + 0.03 * s)
+    c = mix(c, (80, 60, 90), tv * 0.8)
+    H += tv * 0.6
+    c, rough, H = wounds(P, N, rig, fm, hd, c, rough, H)
+    return c, np.clip(rough, 0.05, 1.0), H
+
+
+# ---------------------------------------------------------------- บาดแผล (วาดในพิกัด 3 มิติ = ต่อเนื่องข้ามรอยตัด UV ไม่มีแผลขาดครึ่ง)
+FLESH, FLESH_HI, CRUST, DRIP, BRUISE = (120, 16, 18), (176, 52, 46), (46, 12, 10), (72, 16, 14), (84, 58, 70)
+
+
+def wound_paint(c, rough, H, core, crust, halo, drip, scab=None):
+    c = mix(c, BRUISE, halo * 0.45)
+    c = mix(c, DRIP, drip * 0.85)
+    c = mix(c, CRUST, crust * 0.95)
+    c = mix(c, FLESH, core)
+    rough = np.where(core > 0.35, 0.16, np.where(crust > 0.5, 0.5, np.where(drip > 0.5, 0.38, rough)))
+    H = H - core * 1.4 + crust * 0.45 + drip * 0.12
+    if scab is not None:
+        c = mix(c, (60, 26, 18), scab * 0.9)
+        H = H + scab * 0.5
+    return c, rough, H
+
+
+def gash(P, N, a, b, facing, width, seed, drips=3, depth=0.14):
+    """แผลแตกยาวจาก a ไป b บนผิวที่หันไปทาง facing: เนื้อแดงเปียกตรงกลาง สะเก็ดเลือดแห้งดำรอบขอบ ช้ำรอบนอก
+    เลือดแห้งไหลเป็นทางลงล่าง · คืน (core, crust, halo, drip)"""
+    a, b, o = np.array(a, np.float32), np.array(b, np.float32), np.array(facing, np.float32)
+    o /= np.linalg.norm(o)
+    near = (np.abs((P - (a + b) / 2) @ o) < depth) & (N @ o > 0.2)
+    pp = P - np.outer(P @ o, o)
+    pa, pb = a - (a @ o) * o, b - (b @ o) * o
+    d = pb - pa
+    L2 = max(float(d @ d), 1e-8)
+    u = np.clip((pp - pa) @ d / L2, 0, 1)
+    dist = np.linalg.norm(pp - (pa + np.outer(u, d)), axis=1)
+    rnd = np.random.default_rng(seed)
+    wob = 1 + 0.45 * (vnoise(P, (90, 90, 90), seed) - 0.5) * 2
+    w = width * np.sin(np.pi * np.clip(u, 0.02, 0.98)) ** 0.6 * wob
+    t = dist / np.maximum(w, 1e-5)
+    core = sstep(0.6, 0.2, t) * near
+    crust = sstep(1.15, 0.7, t) * near * (1 - core)
+    halo = sstep(2.4, 1.1, t) * near * (1 - crust - core)
+    drip = np.zeros(len(P), np.float32)
+    down = np.array((0, 0, -1), np.float32)
+    side = np.cross(o, down)
+    if np.linalg.norm(side) > 0.3:
+        side /= np.linalg.norm(side)
+        for k in range(drips):
+            q = a + (b - a) * rnd.uniform(0.2, 0.8)
+            ln = rnd.uniform(0.04, 0.13)
+            dx = (P - q) @ side
+            dz = (P - q) @ down
+            wid = 0.0035 * (1 + 0.6 * (1 - np.clip(dz / ln, 0, 1)))
+            drip = np.maximum(drip, np.exp(-(dx / wid) ** 2) * sstep(-0.004, 0.004, dz) * sstep(ln, ln * 0.7, dz) * near)
+    return core, crust, halo, drip
+
+
+def claws(P, N, a, d, facing, length, seed, n=3, gap=0.022, width=0.0035):
+    """รอยข่วนเล็บขนานกัน n เส้น (ตื้น แดงสด ขอบสะเก็ด)"""
+    a, d, o = np.array(a, np.float32), np.array(d, np.float32), np.array(facing, np.float32)
+    d /= np.linalg.norm(d)
+    o /= np.linalg.norm(o)
+    sd = np.cross(o, d)
+    sd /= np.linalg.norm(sd)
+    out = [np.zeros(len(P), np.float32) for _ in range(4)]
+    for k in range(n):
+        st = a + sd * gap * (k - (n - 1) / 2) + d * 0.01 * math.sin(k * 2.1)
+        r = gash(P, N, st, st + d * length * (1 - 0.15 * abs(k - 1)), o, width, seed + k, drips=1 if k == 1 else 0, depth=0.1)
+        out = [np.maximum(x, y) for x, y in zip(out, r)]
+    return out
+
+
+def wounds(P, N, rig, fm, hd, c, rough, H):
+    """แผลเปิด แผลแตกตรงหนังตึงหุ้มกระดูก (หน้าแข้ง เข่า ศอก ซี่โครง ไหปลาร้า) รอยข่วน สะเก็ด เลือดแห้งไหลเป็นทาง แผลที่หน้า"""
+    X, Y, Z = P[:, 0], P[:, 1], P[:, 2]
+    s = hd.s
+    bs = rig.data.bones
+    QX, QY, QZ = torso_q(P)
+
+    def bone_pt(name, a, off=(0, 0, 0)):
+        b = bs[name]
+        return np.array(b.head_local.lerp(b.tail_local, a)) + np.array(off)
+    # แผลเปื่อยกระจายทั่วตัว (แบบ wither() แต่ใหญ่และลึกกว่า) + สะเก็ดแห้ง
+    so = fbm(P, (4.5, 4.5, 4.5), 3, 167)
+    sore_core = sstep(0.80, 0.84, so)
+    sore_rim = sstep(0.75, 0.79, so) * (1 - sore_core)
+    scab = sstep(0.74, 0.78, fbm(P, (11, 11, 11), 2, 168)) * sstep(0.5, 0.7, vnoise(P, (60, 60, 60), 169))
+    c, rough, H = wound_paint(c, rough, H, sore_core, sore_rim, sstep(0.70, 0.75, so) * (1 - sore_rim - sore_core) * 0.6,
+                              np.zeros(len(P), np.float32), scab * (1 - sore_core))
+    # หนังแตกเป็นร่องแดงรอบปุ่มกระดูก
+    bone_m = np.zeros(len(P), np.float32)
+    for side in ("L", "R"):
+        for j, rad in (("shin." + side, 0.11), ("forearm." + side, 0.08)):
+            bone_m = np.maximum(bone_m, sstep(rad, 0.0, np.linalg.norm(P - np.array(bs[j].head_local), axis=1)))
+        sh = bs["shin." + side]
+        h, t = np.array(sh.head_local), np.array(sh.tail_local)
+        a = np.clip((P - h) @ (t - h) / np.dot(t - h, t - h), 0, 1)
+        dd = np.linalg.norm(P - (h + np.outer(a, t - h)), axis=1)
+        bone_m = np.maximum(bone_m, sstep(0.07, 0.0, dd) * (N[:, 1] < -0.3) * sstep(0.95, 0.8, a))  # สันหน้าแข้ง
+    bone_m = np.maximum(bone_m, sstep(1.12, 1.16, QZ) * sstep(1.40, 1.34, QZ) * sstep(0.2, 0.1, np.abs(QX)) * (QY < 0))
+    split = lines(P, (26, 26, 26), 0.03, 171) * bone_m
+    c = mix(c, (96, 18, 16), split * 0.9)
+    c = mix(c, CRUST, sstep(0.3, 0.6, split) * 0.6)
+    H -= split * 0.9
+    rough = np.where(split > 0.5, 0.25, rough)
+    # แผลแตกลึกตรงหนังตึงหุ้มกระดูก
+    G = []
+    fwd, back = (0, -1, 0), (0, 1, 0)
+    for side, sg, sd in (("L", 1, 0), ("R", -1, 10)):
+        G.append(gash(P, N, bone_pt("shin." + side, 0.28 + 0.1 * sg), bone_pt("shin." + side, 0.55 + 0.08 * sg), fwd, 0.012, 201 + sd, 4))
+        G.append(gash(P, N, bone_pt("shin." + side, 0.0, (0.03 * sg, 0, 0.02)), bone_pt("shin." + side, 0.0, (-0.03 * sg, 0, -0.03)), fwd, 0.011, 202 + sd, 2))   # เข่าแตก
+        G.append(gash(P, N, bone_pt("forearm." + side, 0.0, (0, 0, 0.03)), bone_pt("forearm." + side, 0.12), back, 0.01, 203 + sd, 2))           # ศอก
+    G.append(gash(P, N, (0.06 * TORSO_K["kx"], 0, torso_z(1.30)), (0.15 * TORSO_K["kx"], 0, torso_z(1.24)), fwd, 0.011, 211, 3))   # ซี่โครงซ้าย
+    G.append(gash(P, N, (-0.05 * TORSO_K["kx"], 0, torso_z(1.20)), (-0.13 * TORSO_K["kx"], 0, torso_z(1.15)), fwd, 0.009, 212, 2))               # ซี่โครงขวา
+    G.append(gash(P, N, (-0.04 * TORSO_K["kx"], 0, torso_z(1.433)), (-0.15 * TORSO_K["kx"], 0, torso_z(1.448)), fwd, 0.008, 213, 3))            # ไหปลาร้าขวา
+    G.append(gash(P, N, (0.07 * TORSO_K["kx"], 0, torso_z(1.30)), (0.02 * TORSO_K["kx"], 0, torso_z(1.10)), back, 0.012, 214, 3))               # หลัง
+    # หน้า: แผลแตกที่แก้มซ้าย หน้าผาก มุมปากขวาฉีก
+    E, MZ = fm["eye"], fm["mouth"]
+    G.append(gash(P, N, (0.038 * s, 0, E - 0.03 * s), (0.055 * s, 0, MZ + 0.0), fwd, 0.0045 * s, 221, 2, depth=0.12 * s))
+    G.append(gash(P, N, (-0.03 * s, 0, E + 0.07 * s), (0.01 * s, 0, E + 0.085 * s), fwd, 0.0035 * s, 222, 1, depth=0.12 * s))
+    G.append(gash(P, N, (-0.022 * s, 0, MZ), (-0.04 * s, 0, MZ - 0.012 * s), fwd, 0.003 * s, 223, 2, depth=0.12 * s))
+    # รอยข่วนเล็บ: ต้นขาขวาใต้ชายผ้า, แขนท่อนล่างซ้าย, อก
+    G.append(claws(P, N, bone_pt("thigh.R", 0.55, (0.0, -0.06, 0)), (0.25, 0, -1), fwd, 0.18, 231))
+    G.append(claws(P, N, bone_pt("forearm.L", 0.45), np.array(bs["forearm.L"].tail_local - bs["forearm.L"].head_local), fwd, 0.16, 235, gap=0.016))
+    G.append(claws(P, N, (0.02 * TORSO_K["kx"], 0, torso_z(1.40)), (0.6, 0, -1), fwd, 0.2, 239, gap=0.02))
+    core, crust, halo, drip = [np.max(np.stack([g[i] for g in G]), 0) for i in range(4)]
+    c, rough, H = wound_paint(c, rough, H, core, crust, halo, drip)
+    hi = core * sstep(0.6, 0.85, vnoise(P, (220, 220, 220), 240))                     # ประกายเนื้อเปียก
+    c = mix(c, FLESH_HI, hi * 0.6)
+    return c, rough, H
+
+
+def paint_hair(P):
+    n = len(P)
+    f1 = vnoise(P, (100, 100, 40), 71)
+    f2 = fbm(P, (16, 16, 16), 3, 72)
+    c = np.empty((n, 3), np.float32)
+    c[:] = np.array([30, 28, 26], np.float32) / 255
+    c = mix(c, (62, 58, 52), sstep(0.6, 0.95, f1) * 0.6)          # ผมแห้งกระด้าง ปลายซีด
+    c = mix(c, (10, 9, 9), sstep(0.5, 0.2, f2) * 0.7)
+    return c, 0.8 + 0.12 * f2, (f1 - 0.5) * 0.8
+
+
+def paint_cloth(P):
+    """ผ้าจงกระเบนเก่า: ชมพูซีดจนเกือบเทา ด่างแดดเผา คราบดิน ชายผ้าเปื้อนโคลนดำ ขอบขาดลุ่ย คราบเลือดเก่า ลายทอหยาบ"""
+    n = len(P)
+    X, Y, Z = P[:, 0], P[:, 1], P[:, 2]
+    c = np.empty((n, 3), np.float32)
+    c[:] = np.array([150, 104, 106], np.float32) / 255
+    f1 = fbm(P, (4, 4, 4), 4, 81)
+    c = mix(c, (176, 134, 130), sstep(0.4, 0.7, f1) * 0.6)
+    c = mix(c, (156, 142, 124), sstep(0.6, 0.78, fbm(P, (2, 2, 2), 2, 82)) * 0.6)
+    dirt = fbm(P, (7, 7, 7), 4, 83)
+    c = mix(c, (80, 60, 48), sstep(0.5, 0.75, dirt) * 0.65)
+    hw, hl = CLOTH["hem_w"], CLOTH["hem_l"]
+    waist = Z > hw - 0.015
+    mud = np.maximum(sstep(hw + 0.07, hw, Z) * waist, sstep(hl + 0.09, hl, Z) * (Z < hl + 0.12))
+    c = mix(c, (52, 40, 32), mud * (0.45 + 0.4 * dirt))
+    edge = np.maximum(sstep(hw + 0.02, hw - 0.01, Z) * waist, sstep(hl + 0.025, hl - 0.01, Z) * (Z < hl + 0.12))
+    c = mix(c, (34, 26, 22), edge * 0.8)
+    stain = sstep(0.68, 0.8, fbm(P, (11, 11, 11), 3, 84))
+    c = mix(c, (60, 30, 26), stain * 0.5)
+    weave = 0.5 + 0.25 * np.sin(X * 900) + 0.25 * np.sin(Z * 900)
+    c *= (0.9 + 0.2 * weave)[:, None]
+    return c, 0.88 + 0.1 * dirt, (weave - 0.5) * 0.4 + (dirt - 0.5) * 0.5
+
+
+def paint_tongue(P):
+    n = len(P)
+    n1 = fbm(P, (14, 14, 14), 3, 91)
+    n2 = vnoise(P, (160, 160, 160), 92)
+    vein = lines(P, (20, 20, 20), 0.03, 93)
+    c = np.empty((n, 3), np.float32)
+    c[:] = np.array([96, 18, 22], np.float32) / 255
+    c = mix(c, (150, 44, 46), sstep(0.35, 0.7, n1))
+    c = mix(c, (44, 8, 12), vein * 0.7)
+    c = mix(c, (160, 80, 70), sstep(0.6, 0.75, n2) * 0.35)
+    return c, 0.22 + 0.2 * n2, n2 * 0.6 - vein * 0.4
+
+
+def paint_eyes(P):
+    n = len(P)
+    c = np.zeros((n, 3), np.float32)
+    rough = np.full(n, 0.12, np.float32)
+    H = np.zeros(n, np.float32)
+    for cen, r in EYES:
+        sel = np.linalg.norm(P - np.array(cen), axis=1) < r * 1.5
+        if not sel.any():
+            continue
+        q = P[sel] - np.array(cen)
+        q /= np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-6)
+        f = -q[:, 1]                                          # 1 = กลางหน้าตา
+        cc = np.empty((sel.sum(), 3), np.float32)
+        cc[:] = np.array([206, 192, 150], np.float32) / 255  # ตาขาวอมเหลือง
+        vein = lines(P[sel], (900, 900, 900), 0.08, 41)
+        cc = mix(cc, (150, 30, 24), vein * 0.8 * sstep(0.85, 0.2, f) + sstep(0.4, -0.2, f) * 0.7)
+        cc = mix(cc, (120, 116, 96), sstep(0.955, 0.965, f))  # ม่านตาขุ่น
+        cc = mix(cc, (8, 5, 5), sstep(0.988, 0.992, f))      # รูม่านตาเล็กเท่ารูเข็ม
+        c[sel] = cc
+    return c, rough, H
+
+
+def paint(maps, rig, body, hd, fm):
+    pos, nrm, ids = maps["pos"], maps["nrm"], maps["id"]
+    S = BAKE * BAKE
+    col = np.zeros((S, 3), np.float32)
+    col[:] = 0.2
+    rough = np.full(S, 0.7, np.float32)
+    hgt = np.zeros(S, np.float32)
+    for oid, fn in ((1, lambda P, N: paint_body(P, N, rig, fm, hd)), (2, lambda P, N: paint_hair(P)),
+                    (3, lambda P, N: paint_cloth(P)), (4, lambda P, N: paint_tongue(P)), (5, lambda P, N: paint_eyes(P))):
+        sel = np.nonzero(ids == oid)[0]
+        if not len(sel):
+            log("no texels for", oid)
+            continue
+        c, r, h = fn(pos[sel].astype(np.float32), nrm[sel].astype(np.float32))
+        col[sel] = c
+        rough[sel] = r
+        hgt[sel] = h
+    return col, rough, hgt
+
+
+def down(a, k=BAKE // TEX):
+    sh = a.shape
+    a = a.reshape(TEX, k, TEX, k, -1).mean(axis=(1, 3))
+    return a.reshape(TEX * TEX, *sh[1:])
+
+
+def save_png(arr, path, chans=3, colorspace="sRGB"):
+    n = int(math.sqrt(len(arr)))
+    px = np.ones((len(arr), 4), np.float32)
+    px[:, :chans] = arr.reshape(len(arr), -1)[:, :chans] if arr.ndim > 1 else arr[:, None]
+    if chans == 1:
+        px[:, 1] = px[:, 0]
+        px[:, 2] = px[:, 0]
+    im = bpy.data.images.new("_save", n, n)
+    im.colorspace_settings.name = colorspace
+    im.pixels.foreach_set(np.clip(px, 0, 1).ravel())
+    im.filepath_raw = path
+    im.file_format = "PNG"
+    im.save()
+    bpy.data.images.remove(im)
+
+
+def bake_normal(objs, hgt):
+    """normal map (tangent, OpenGL +Y) จาก height ที่วาด ผ่าน Bump node ใน Cycles"""
+    sc = bpy.context.scene
+    sc.cycles.samples = 4
+    him = bpy.data.images.new("_height", BAKE, BAKE, float_buffer=True)
+    him.colorspace_settings.name = "Non-Color"
+    px = np.ones((BAKE * BAKE, 4), np.float32)
+    px[:, 0] = px[:, 1] = px[:, 2] = hgt
+    him.pixels.foreach_set(px.ravel())
+    out = bpy.data.images.new("_nrm", BAKE, BAKE, float_buffer=True)
+    out.colorspace_settings.name = "Non-Color"
+    mat = bpy.data.materials.new("_BakeN")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    o = nt.nodes.new("ShaderNodeOutputMaterial")
+    b = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    ht = nt.nodes.new("ShaderNodeTexImage")
+    ht.image = him
+    ht.interpolation = "Cubic"
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 1.0
+    bump.inputs["Distance"].default_value = 0.004
+    nt.links.new(ht.outputs["Color"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], b.inputs["Normal"])
+    nt.links.new(b.outputs[0], o.inputs["Surface"])
+    tgt = nt.nodes.new("ShaderNodeTexImage")
+    tgt.image = out
+    nt.nodes.active = tgt
+    saved = {}
+    for ob in objs:
+        saved[ob.name] = [s.material for s in ob.material_slots]
+        ob.data.materials.clear()
+        ob.data.materials.append(mat)
+    for ob in bpy.context.selected_objects:
+        ob.select_set(False)
+    for ob in objs:
+        ob.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    bpy.ops.object.bake(type="NORMAL", normal_space="TANGENT", margin=16, margin_type="EXTEND", use_clear=True)
+    a = np.empty(BAKE * BAKE * 4, np.float32)
+    out.pixels.foreach_get(a)
+    a = a.reshape(-1, 4)[:, :3]
+    for ob in objs:
+        ob.data.materials.clear()
+        for m in saved[ob.name]:
+            ob.data.materials.append(m)
+    for im in (him, out):
+        bpy.data.images.remove(im)
+    bpy.data.materials.remove(mat)
+    v = down(a * 2 - 1)
+    v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-6)
+    return v * 0.5 + 0.5
+
+
+def make_material(objs):
+    mat = bpy.data.materials.get(NAME) or bpy.data.materials.new(NAME)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    o = nt.nodes.new("ShaderNodeOutputMaterial")
+    b = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    nt.links.new(b.outputs[0], o.inputs["Surface"])
+
+    def tex(suffix, cs):
         n = nt.nodes.new("ShaderNodeTexImage")
-        n.image = im
+        p = os.path.join(M, f"{NAME}_{suffix}.png")
+        im = bpy.data.images.get(os.path.basename(p))
+        if im:
+            bpy.data.images.remove(im)
+        n.image = bpy.data.images.load(p)
+        n.image.colorspace_settings.name = cs
         return n
-    tc = tex("Color", False)
-    nt.links.new(tc.outputs[0], bsdf.inputs["Base Color"])
-    nt.links.new(tex("Roughness", True).outputs[0], bsdf.inputs["Roughness"])
-    nt.links.new(tex("Metalness", True).outputs[0], bsdf.inputs["Metallic"])
+    nt.links.new(tex("Color", "sRGB").outputs["Color"], b.inputs["Base Color"])
+    nt.links.new(tex("Roughness", "Non-Color").outputs["Color"], b.inputs["Roughness"])
+    nt.links.new(tex("Metalness", "Non-Color").outputs["Color"], b.inputs["Metallic"])
     nm = nt.nodes.new("ShaderNodeNormalMap")
-    nt.links.new(tex("Normal", True).outputs[0], nm.inputs["Color"])
-    nt.links.new(nm.outputs[0], bsdf.inputs["Normal"])
-    nt.nodes.active = tc
+    nm.uv_map = "UVMap"
+    nt.links.new(tex("Normal", "Non-Color").outputs["Color"], nm.inputs["Color"])
+    nt.links.new(nm.outputs[0], b.inputs["Normal"])
+    for ob in objs:
+        ob.data.materials.clear()
+        ob.data.materials.append(mat)
+    for m in list(bpy.data.materials):
+        if m.users == 0 or (m.use_fake_user and m.name != NAME):
+            m.use_fake_user = False
     return mat
 
 
-# ================================================================ 5. rig
-BONES = []  # (name, head, tail, parent, up, radius, deform)
+# ================================================================ 4. ท่า (Poser ของตัวมนุษย์ + ลิ้นห้อยตามแรงโน้มถ่วง)
+def rotw(ax, d):
+    return Matrix.Rotation(R(d), 3, ax)
 
 
-def bone_specs():
-    BONES.clear()
+class PretPoser:
+    """ใช้ Poser ของ build_anims (องศา, clamp ตาม joint limits) แล้วแก้ลิ้นทุกเฟรม: ลิ้นห้อยดิ่งตามแรงโน้มถ่วง
+    ไม่ว่าหัวจะก้มเงยแค่ไหน (ไม่ฟาดเข้าอก) แกว่งเพิ่มตาม sway (องศา รอบแกนโลก X = หน้า-หลัง, Y = ซ้าย-ขวา)"""
 
-    def add(n, h, t, p, up, r, deform=True):
-        BONES.append((n, Vector(h), Vector(t), p, Vector(up), r, deform))
-    k = HEIGHT / 3.92
-    add("Root", (0, 0, 0), (0, 0, 0.3 * k), None, (0, -1, 0), 1, False)
-    add("Hips", J["Pelvis"], v3(0, 0.03, 2.22) * k, "Root", (0, -1, 0), 0.17 * k)
-    add("Spine", v3(0, 0.03, 2.22) * k, v3(0, 0.03, 2.55) * k, "Hips", (0, -1, 0), 0.11 * k)
-    add("Chest", v3(0, 0.03, 2.55) * k, J["NeckBase"], "Spine", (0, -1, 0), 0.16 * k)
-    add("Neck", J["NeckBase"], J["NeckTop"], "Chest", (0, -1, 0), 0.045 * k)
-    add("Head", J["NeckTop"], J["HeadTop"], "Neck", (0, -1, 0), 0.11 * k)
-    add("Jaw", J["JawPivot"], J["Chin"], "Head", (0, 0, -1), 0.05 * k)
-    prev = "Jaw"
-    for i in range(1, 7):
-        add(f"Tongue{i}", J[f"Tongue{i - 1}"], J[f"Tongue{i}"], prev, (0, -1, 0), 0.03 * k)
-        prev = f"Tongue{i}"
-    for side in ("Left", "Right"):
-        n = DIRS[side + "PalmN"]
-        add(side + "Clavicle", J[side + "ClavIn"], J[side + "Shoulder"], "Chest", (0, 0, 1), 0.05 * k)
-        add(side + "UpperArm", J[side + "Shoulder"], J[side + "Elbow"], side + "Clavicle", (0, -1, 0), 0.04 * k)
-        add(side + "LowerArm", J[side + "Elbow"], J[side + "Wrist"], side + "UpperArm", (0, -1, 0), 0.034 * k)
-        add(side + "Hand", J[side + "Wrist"], J[side + "Knuckle"], side + "LowerArm", n, 0.035 * k)
-        for f in ("Thumb", "Index", "Middle", "Ring", "Pinky"):
-            add(f"{side}{f}1", J[f"{side}{f}1"], J[f"{side}{f}2"], side + "Hand", n, 0.015 * k)
-            add(f"{side}{f}2", J[f"{side}{f}2"], J[f"{side}{f}Tip"], f"{side}{f}1", n, 0.012 * k)
-        add(side + "UpperLeg", J[side + "Hip"], J[side + "Knee"], "Hips", (0, -1, 0), 0.055 * k)
-        add(side + "LowerLeg", J[side + "Knee"], J[side + "Ankle"], side + "UpperLeg", (0, -1, 0), 0.042 * k)
-        add(side + "Foot", J[side + "Ankle"], J[side + "Ball"], side + "LowerLeg", (0, 0, 1), 0.045 * k)
-        add(side + "Toe", J[side + "Ball"], J[side + "ToeTip"], side + "Foot", (0, 0, 1), 0.025 * k)
+    def __init__(self, rig):
+        self.P = AN["Poser"](rig)
+        self.rig = rig
+        self.sway = [(0.0, 0.0)] * 6
+        bs = rig.data.bones
+        self.B = {n: bs[n].matrix_local.to_3x3() for n in ["head"] + [f"Tongue{k}" for k in range(1, 7)]}
 
-
-def build_armature():
-    data = bpy.data.armatures.new(NAME + "Rig")
-    arm = bpy.data.objects.new(NAME + "Rig", data)
-    bpy.context.scene.collection.objects.link(arm)
-    select_only([arm])
-    bpy.ops.object.mode_set(mode="EDIT")
-    eb = data.edit_bones
-    for n, h, t, p, up, r, deform in BONES:
-        b = eb.new(n)
-        b.head, b.tail = h, t
-        b.align_roll(up)
-        b.use_deform = deform
-        if p:
-            b.parent = eb[p]
-            b.use_connect = (eb[p].tail - h).length < 1e-5
-    bpy.ops.object.mode_set(mode="OBJECT")
-    for pb in arm.pose.bones:
-        pb.rotation_mode = "QUATERNION"
-    return arm
-
-
-def seg_dist(P, a, b):
-    a, b = np.array(a), np.array(b)
-    ab = b - a
-    t = np.clip(((P - a) @ ab) / max(ab @ ab, 1e-12), 0, 1)
-    return np.linalg.norm(P - (a + t[:, None] * ab), axis=1)
-
-
-def auto_weights(P, names):
-    """น้ำหนักตามระยะถึงกระดูก (หารด้วยความหนาเนื้อของกระดูกนั้น) ผสมเฉพาะกับกระดูกพ่อ/ลูก ไม่เกิน 4 ชิ้น"""
-    spec = {b[0]: b for b in BONES}
-    D = np.stack([seg_dist(P, spec[n][1], spec[n][2]) / spec[n][5] for n in names], 1)
-    near = D.argmin(1)
-    W = np.zeros_like(D)
-    for i, n in enumerate(names):
-        cand = [i] + [j for j, m in enumerate(names) if spec[m][3] == n or spec[n][3] == m]
-        mask = near == i
-        if not mask.any():
-            continue
-        sub = D[mask][:, cand]
-        w = np.exp(-(sub - sub.min(1, keepdims=True)) / 0.2)
-        w[sub - sub.min(1, keepdims=True) > 0.7] = 0
-        Wm = np.zeros((mask.sum(), len(names)))
-        Wm[:, cand] = w
-        W[mask] = Wm
-    return W
-
-
-def assign(ob, names, W):
-    order = np.argsort(-W, 1)[:, :4]
-    groups = {n: ob.vertex_groups.get(n) or ob.vertex_groups.new(name=n) for n in names}
-    for v in range(len(W)):
-        idx = [j for j in order[v] if W[v, j] > 1e-3]
-        tot = sum(W[v, j] for j in idx)
-        for j in idx:
-            groups[names[j]].add([v], float(W[v, j] / tot), "REPLACE")
-
-
-def skin(arm, body, tongue, hair, cloth, eyes):
-    k = HEIGHT / 3.92
-    names = [b[0] for b in BONES if b[6] and not b[0].startswith("Tongue") and b[0] != "Jaw"]
-    P = coords(body)
-    W = auto_weights(P, names)
-    # กราม: ส่วนหน้าล่างของหัวใต้ระดับปาก
-    jaw = smoothstep(J["Mouth"].z + 0.01 * k, J["Mouth"].z - 0.022 * k, P[:, 2]) * smoothstep(J["JawPivot"].y + 0.02 * k, J["JawPivot"].y - 0.04 * k, P[:, 1])
-    jaw *= smoothstep(J["NeckTop"].z - 0.01 * k, J["NeckTop"].z + 0.03 * k, P[:, 2]) * (np.abs(P[:, 0]) < 0.11 * k)
-    hi = names.index("Head")
-    names2 = names + ["Jaw"]
-    W2 = np.zeros((len(P), len(names2)))
-    W2[:, :len(names)] = W
-    W2[:, -1] = W[:, hi] * jaw
-    W2[:, hi] = W[:, hi] * (1 - jaw)
-    assign(body, names2, W2)
-    tn = [f"Tongue{i}" for i in range(1, 7)]
-    assign(tongue, tn, auto_weights(coords(tongue), tn))
-    for o in [hair] + eyes:
-        g = o.vertex_groups.new(name="Head")
-        g.add(list(range(len(o.data.vertices))), 1.0, "REPLACE")
-    # ผ้า: ริ้วผ้าข้างซ้าย/ขวาตามต้นขาข้างนั้น มากขึ้นเรื่อยๆ ไปทางชาย
-    C = coords(cloth)
-    t = smoothstep(1.92 * k, 1.55 * k, C[:, 2])
-    side = np.clip(np.abs(C[:, 0]) / (0.09 * k), 0.35, 1.0)
-    wl = t * side * (C[:, 0] > 0) * 0.85
-    wr = t * side * (C[:, 0] <= 0) * 0.85
-    assign(cloth, ["Hips", "LeftUpperLeg", "RightUpperLeg"], np.stack([1 - wl - wr, wl, wr], 1))
-    for o in (body, tongue, hair, cloth, *eyes):
-        o.parent = arm
-        m = o.modifiers.new("Armature", "ARMATURE")
-        m.object = arm
-    W_all = W2
-    return int((W_all > 1e-3).sum(1).max()), int(((W_all > 1e-3).sum(1) == 0).sum())
-
-
-# ================================================================ 6. ท่า (FK + IK ขาแบบวิเคราะห์)
-def qx(d):
-    return Quaternion((1, 0, 0), math.radians(d))
-
-
-def qy(d):
-    return Quaternion((0, 1, 0), math.radians(d))
-
-
-def qz(d):
-    return Quaternion((0, 0, 1), math.radians(d))
-
-
-FINGERS = ("Thumb", "Index", "Middle", "Ring", "Pinky")
-
-
-class Poser:
-    def __init__(self, arm):
-        self.arm = arm
-        self.rest = {b.name: b.matrix_local.to_quaternion() for b in arm.data.bones}
-        self.parent = {b.name: (b.parent.name if b.parent else None) for b in arm.data.bones}
-        self.order = [b.name for b in arm.data.bones]  # พ่อมาก่อนลูกเสมอ
-        self.last = {}
-        k = HEIGHT / 3.92
-        self.k = k
-        self.L1 = (J["LeftKnee"] - J["LeftHip"]).length
-        self.L2 = (J["LeftAnkle"] - J["LeftKnee"]).length
-        self.ball_rel = J["LeftAnkle"] - J["LeftBall"]
-
-    def leg(self, P, side, hips_loc, ankle, pitch=0.0):
-        hip = J[side + "Hip"] + hips_loc
-        dy, dz = ankle.y - hip.y, ankle.z - hip.z
-        d = min(math.hypot(dy, dz), (self.L1 + self.L2) * 0.9995)
-        phi = math.atan2(dy, -dz)
-        beta = math.acos(max(-1, min(1, (self.L1 ** 2 + d * d - self.L2 ** 2) / (2 * self.L1 * d))))
-        gam = math.acos(max(-1, min(1, (self.L2 ** 2 + d * d - self.L1 ** 2) / (2 * self.L2 * d))))
-        a1, ash = phi - beta, phi + gam
-        P[side + "UpperLeg"] = Quaternion((1, 0, 0), a1)
-        P[side + "LowerLeg"] = Quaternion((1, 0, 0), ash - a1)
-        P[side + "Foot"] = Quaternion((1, 0, 0), math.radians(pitch) - ash)
-
-    def ankle_from_ball(self, ball, pitch):
-        r = self.ball_rel
-        a = math.radians(pitch)
-        return ball + v3(r.x, r.y * math.cos(a) - r.z * math.sin(a), r.y * math.sin(a) + r.z * math.cos(a))
-
-    def key(self, frame, P, PL, hips_loc):
-        for n in self.order:
-            pb = self.arm.pose.bones[n]
-            if n in PL:
-                q = PL[n].copy()
+    def key(self, f):
+        P, rig = self.P, self.rig
+        for p in P.pb:
+            p.rotation_euler = (0, 0, 0)
+            p.location = (0, 0, 0)
+        for k, (kind, v) in P.frame.items():
+            if kind == "rot":
+                P.pb[k].rotation_euler = v
             else:
-                r = self.rest[n]
-                q = r.inverted() @ P.get(n, Quaternion()) @ r
-            if n in self.last:
-                q.make_compatible(self.last[n])
-            self.last[n] = q.copy()
-            pb.rotation_quaternion = q
-            pb.keyframe_insert("rotation_quaternion", frame=frame, group=n)
-        hb = self.arm.pose.bones["Hips"]
-        hb.location = self.rest["Hips"].inverted() @ hips_loc
-        hb.keyframe_insert("location", frame=frame, group="Hips")
-
-    def delta(self, P, name):
-        chain = []
-        n = name
-        while n:
-            chain.append(n)
-            n = self.parent[n]
-        D = Quaternion()
-        for n in reversed(chain):
-            D = D @ P.get(n, Quaternion())
-        return D
-
-
-def base_pose(P, PL, t, curl=18.0, arms_in=9.0, stoop=1.0):
-    """ท่ายืนพื้นฐาน: หลังค่อม คอยื่น เงยหน้า แขนห้อยแนบลำตัว ศอกงอนิด นิ้วงอนิด"""
-    P["Spine"] = qx(6 * stoop)
-    P["Chest"] = qx(5 * stoop)
-    P["Neck"] = qx(14 * stoop)
-    P["Head"] = qx(-16 * stoop)
-    for side, s in (("Left", 1), ("Right", -1)):
-        P[side + "UpperArm"] = qx(-3) @ qy(s * arms_in)
-        P[side + "LowerArm"] = qx(-12)
-        P[side + "Hand"] = qx(-6)
-        for i, f in enumerate(FINGERS):
-            c = curl * (0.6 if f == "Thumb" else 1.0)
-            PL[f"{side}{f}1"] = qx(c)
-            PL[f"{side}{f}2"] = qx(c * 1.2)
+                P.pb[k.split("@")[0]].location = v
+        bpy.context.view_layer.update()
+        Mh = rig.pose.bones["head"].matrix.to_3x3()
+        S_prev = None
+        for k in range(1, 7):
+            n = f"Tongue{k}"
+            fb, sd = self.sway[k - 1]
+            S = (S_prev or Matrix.Identity(3)) @ rotw("X", fb) @ rotw("Y", sd)
+            Bk = self.B[n]
+            if k == 1:
+                loc = (self.B["head"].inverted() @ Bk).inverted() @ Mh.inverted() @ S @ Bk
+            else:
+                loc = Bk.inverted() @ S_prev.inverted() @ S @ Bk
+            P.pb[n].rotation_euler = loc.to_euler("XYZ")
+            S_prev = S
+        for p in P.pb:
+            p.keyframe_insert("rotation_euler", frame=f, group=p.name)
+            if p.name in ("root", "hips"):
+                p.keyframe_insert("location", frame=f, group=p.name)
+        P.frame = {}
+        self.sway = [(0.0, 0.0)] * 6
 
 
-def tongue_pose(ps, P, sway_side, sway_fb, comp=0.85):
-    D = ps.delta(P, "Jaw")
-    P["Tongue1"] = Quaternion().slerp(D.inverted(), comp) @ qy(sway_side[0]) @ qx(sway_fb[0])
-    for i in range(2, 7):
-        P[f"Tongue{i}"] = qy(sway_side[i - 1]) @ qx(sway_fb[i - 1])
+FINGERS = AN["FINGERS"]
+LEG_LEN = {}
 
 
-def pose_idle(ps, t):
-    P, PL = {}, {}
-    k = ps.k
-    base_pose(P, PL, t)
-    tau = 2 * math.pi
-    breath = math.sin(tau * 2 * t)
-    P["Chest"] = P["Chest"] @ qx(-1.5 * breath)
-    P["Spine"] = P["Spine"] @ qz(2 * math.sin(tau * t))
-    # หัวเอียงช้าๆ แล้วกระตุกหันขวับครั้งหนึ่ง (เฟรม ~66-80)
-    tw = sstep(0.55, 0.575, t) * (1 - sstep(0.6, 0.7, t))
-    P["Head"] = P["Head"] @ qy(6 * math.sin(tau * t + 1.0)) @ qz(16 * tw) @ qx(-6 * tw)
-    P["Jaw"] = qx(3 + 4 * tw * abs(math.sin(tau * 12 * t)))
-    for side, s, ph in (("Left", 1, 0.0), ("Right", -1, 1.7)):
-        P[side + "UpperArm"] = qx(-3 + 2 * math.sin(tau * t + ph)) @ qy(s * 9)
-        for i, f in enumerate(FINGERS):
-            c = 18 + 12 * math.sin(tau * t * 2 + i * 0.7 + ph)   # นิ้วยาวขยับเป็นคลื่นช้าๆ
-            PL[f"{side}{f}1"] = qx(c * (0.6 if f == "Thumb" else 1.0))
-            PL[f"{side}{f}2"] = qx(c * 1.3)
-    hips = v3(0.015 * k * math.sin(tau * t), 0, -0.045 * k + 0.006 * k * breath)
-    P["Hips"] = qy(-1.2 * math.sin(tau * t))
-    tongue_pose(ps, P, [2.5 * math.sin(tau * t - i * 0.5) + 6 * tw * math.sin(tau * 6 * t - i) for i in range(6)],
-                [1.5 * math.sin(tau * 2 * t - i * 0.4) for i in range(6)])
-    for side in ("Left", "Right"):
-        ps.leg(P, side, hips, J[side + "Ankle"])
-    return P, PL, hips
+def knees(P, a, spread=3.0):
+    """งอเข่าโดยเท้ายังแนบพื้น: ต้นขา +a หน้าแข้ง -2a เท้า +a · คืนระยะที่สะโพกต้องลดลง"""
+    P.both("thigh", a, 0, spread)
+    P.both("shin", -2 * a)
+    P.both("foot", a)
+    return LEG_LEN["leg"] * (1 - math.cos(R(a)))
 
 
-WALK_STRIDE = 0.9   # เมตร ต่อก้าว (เท้าไถลหลัง 0.9 m ระหว่างยืน) รอบละ 3.2 วิ = เดินช้ามาก ~0.56 m/s = 2.0 studs/s
+def arms_hang(P, swing_l=0.0, swing_r=0.0, bend_l=10.0, bend_r=10.0, out=0.0):
+    """แขนยาวห้อยกางออกจากตัวเล็กน้อย (มือห่างผ้าและต้นขา) ศอกงอนิด"""
+    lo = math.degrees(P.lim.get("upper_arm.L", (R(-35),) * 6)[0]) + 3
+    P.rot("upper_arm.L", lo + out, 0, -swing_l)
+    P.rot("upper_arm.R", lo + out, 0, -swing_r)
+    P.rot("forearm.L", 0, 0, -bend_l)
+    P.rot("forearm.R", 0, 0, -bend_r)
+    P.both("hand", -8, 0, 0)
+
+
+def claw(P, k=1.0, ph=0.0):
+    """นิ้วยาวงองุ้มเป็นกรงเล็บ ขยับเป็นคลื่นช้าๆ"""
+    for i, f in enumerate(FINGERS):
+        w = math.sin(ph + i * 0.5)
+        P.both(f, (-18 - 6 * w) * k if f.endswith("_01") else (-26 - 8 * w) * k)
+    P.both("thumb_01", -8 * k)
+    P.both("thumb_02", -14 * k)
+    P.both("thumb_03", -18 * k)
+
+
+def hunch(P, k=1.0):
+    """หลังค่อม คอยื่น เงยหน้ามองไปข้างหน้า"""
+    P.rot("spine", 7 * k)
+    P.rot("chest", 7 * k)
+    P.rot("neck", 16 * k)
+    P.rot("head", -22 * k)
+    P.both("shoulder", 2 * k)
+
+
+def c_idle(pp, t):
+    P = pp.P
+    a = 2 * math.pi * t
+    br = math.sin(2 * a)
+    hunch(P)
+    tw = sm(0.55, 0.575, t) * (1 - sm(0.6, 0.72, t))              # หัวกระตุกหันขวับครั้งหนึ่งต่อรอบ
+    P.rot("spine", 7 + 0.8 * br, 0, 1.5 * math.sin(a))
+    P.rot("chest", 7 + 1.2 * br, 2 * math.sin(a + 0.4))
+    P.rot("neck", 16, 4 * math.sin(a + 1.0) + 12 * tw, 2 * math.sin(a))
+    P.rot("head", -22 - 5 * tw, 6 * math.sin(a + 1.0) + 16 * tw, 2.5 * math.sin(a + 0.7) - 6 * tw)
+    arms_hang(P, 3 * math.sin(a), 3 * math.sin(a + 0.8), 10 + 2 * br, 10 + 2 * br)
+    claw(P, 1.0, a * 2)
+    drop = knees(P, 4 + 1.0 * br)
+    P.lift("hips", -drop)
+    P.rot("hips", 0, 0, 1.2 * math.sin(a))
+    pp.sway = [(1.5 * math.sin(2 * a - i * 0.4), 2.0 * math.sin(a - i * 0.5) + 5 * tw * math.sin(12 * a - i)) for i in range(6)]
+
+
 WALK_FRAMES = 96
 
 
-def pose_walk(ps, t):
-    P, PL = {}, {}
-    k = ps.k
-    base_pose(P, PL, t, curl=22, arms_in=8, stoop=1.4)
-    tau = 2 * math.pi
-    S = WALK_STRIDE * k
-    SF = 0.62
-    hips = v3(0.03 * k * math.sin(tau * t), 0.0, (-0.115 - 0.03 * math.cos(2 * tau * t)) * k)
-    yaw = 6 * math.sin(tau * t)
-    P["Hips"] = qz(yaw) @ qy(3 * math.sin(tau * t))
-    for side, ph in (("Left", 0.0), ("Right", 0.5)):
-        p = (t + ph) % 1.0
-        x0 = J[side + "Ball"]
-        if p < SF:
-            u = p / SF
-            pitch = 28 * sstep(0.72, 1.0, u)
-            ball = v3(x0.x, -S / 2 + S * u + x0.y, x0.z)
-            ank = ps.ankle_from_ball(ball, pitch)
-            ps.leg(P, side, hips, ank, pitch)
-            P[side + "Toe"] = qx(-pitch)
-        else:
-            u = (p - SF) / (1 - SF)
-            e = sstep(0.0, 1.0, u)
-            pitch = 28 * (1 - sstep(0.0, 0.45, u)) - 12 * math.sin(math.pi * min(1, u * 1.3)) * (1 - u)
-            ank = v3(J[side + "Ankle"].x, S / 2 - S * e + J[side + "Ankle"].y, J[side + "Ankle"].z + 0.2 * k * math.sin(math.pi * u))
-            if u < 0.25:   # ต่อจากท่าเขย่งปลายเท้าให้ข้อเท้าไม่กระโดด
-                a0 = ps.ankle_from_ball(v3(x0.x, S / 2 + x0.y, x0.z), 28)
-                ank = a0.lerp(ank, sstep(0.0, 0.25, u))
-            ps.leg(P, side, hips, ank, pitch)
-            P[side + "Toe"] = qx(-8 * math.sin(math.pi * u))
-    P["Spine"] = P["Spine"] @ qz(-yaw * 0.5)
-    P["Chest"] = P["Chest"] @ qz(-yaw * 0.9) @ qx(1.5 * math.sin(2 * tau * t))
-    P["Head"] = P["Head"] @ qx(3 * math.sin(2 * tau * t + 0.6)) @ qz(yaw * 0.8 + 4 * math.sin(tau * t * 0.5))
-    P["Jaw"] = qx(5)
-    for side, s, ph in (("Left", 1, 0.0), ("Right", -1, 0.5)):
-        sw = 16 * math.cos(tau * (t + ph - 0.1))          # แขนยาวแกว่งช้ากว่าขา (ห้อยถ่วง)
-        P[side + "UpperArm"] = qx(sw) @ qy(s * 8)
-        P[side + "LowerArm"] = qx(-14 - 10 * (0.5 + 0.5 * math.sin(tau * (t + ph))))
-        P[side + "Hand"] = qx(-8 + 8 * math.cos(tau * (t + ph - 0.25)))
-    tongue_pose(ps, P, [4 * math.sin(tau * t - i * 0.55) for i in range(6)],
-                [3 * math.sin(2 * tau * t - 0.8 - i * 0.5) for i in range(6)])
-    return P, PL, hips
+def c_walk(pp, t):
+    """เดินช้าก้าวยาว (ขายาวมาก): ต้นขาแกว่ง ±17° เข่างอตอนยกขา ตัวโยกขึ้นลง แขนยาวแกว่งช้ากว่าขา"""
+    P = pp.P
+    ph = 2 * math.pi * t
+    for side, off in (("L", 0.0), ("R", math.pi)):
+        p = ph + off
+        th = 17 * math.sin(p) + 3
+        knee = -(6 + 38 * max(0.0, math.cos(p)) ** 1.5) - 8 * max(0.0, math.sin(p)) * max(0.0, -math.cos(p))
+        foot = 9 * math.sin(p + 0.5) - 3 * max(0.0, -math.sin(p))
+        P.rot("thigh." + side, th, 0, 3)
+        P.rot("shin." + side, knee)
+        P.rot("foot." + side, foot)
+        P.rot("toe." + side, -10 * max(0.0, -math.sin(p + 0.4)) + 12 * max(0.0, -math.cos(p)) * (math.sin(p) < 0))
+    bob = 0.045 * math.sin(ph) ** 2
+    P.lift("hips", -bob - 0.03)
+    P.rot("hips", 0, 6 * math.sin(ph), 2.5 * math.sin(ph))
+    hunch(P, 1.3)
+    P.rot("spine", 9, -4 * math.sin(ph), -1.5 * math.sin(ph))
+    P.rot("chest", 9, -5 * math.sin(ph))
+    P.rot("neck", 20, 2 * math.sin(ph), 0)
+    P.rot("head", -28 + 3 * math.sin(2 * ph + 0.6), 3 * math.sin(ph), 0)
+    sw = 13 * math.sin(ph - 0.5)                                   # แขนยาวห้อยถ่วง แกว่งตามหลังขา
+    arms_hang(P, -sw, sw, 14 + 8 * max(0, -math.sin(ph)), 14 + 8 * max(0, math.sin(ph)), out=1)
+    claw(P, 1.1, ph)
+    pp.sway = [(3 * math.sin(2 * ph - 0.8 - i * 0.5), 3.5 * math.sin(ph - i * 0.55)) for i in range(6)]
 
 
 SHRIEK_FRAMES = 90
 
 
-def pose_shriek(ps, t):
-    P, PL = {}, {}
-    k = ps.k
+def c_shriek(pp, t):
+    """ย่อตัวเตรียม -> แหงนหน้ากรีดร้อง อกแอ่น กางแขนยาวขึ้น นิ้วกางแอ่นสั่นเทิ้ม ลิ้นสะบัด -> คืนท่ายืน"""
+    P = pp.P
     f = t * SHRIEK_FRAMES
-    base_pose(P, PL, t)
-    a = sstep(0, 10, f) * (1 - sstep(10, 16, f))                    # ย่อตัวเตรียม
-    s = sstep(12, 21, f) * (1 - sstep(62, 84, f))                   # กรีดร้อง
-    tau = 2 * math.pi
+    a = sm(0, 10, f) * (1 - sm(10, 16, f))
+    s = sm(12, 21, f) * (1 - sm(62, 84, f))
 
-    def tr(seed, amp):  # สั่นเทิ้ม
+    def tr(seed, amp):
         return amp * s * (math.sin(f * 2.9 + seed) * 0.6 + math.sin(f * 5.3 + seed * 2.1) * 0.4)
-    P["Spine"] = P["Spine"] @ qx(-7 * s + 5 * a)
-    P["Chest"] = P["Chest"] @ qx(-12 * s + 6 * a + tr(1, 2.0)) @ qz(tr(2, 1.5))
-    P["Neck"] = P["Neck"] @ qx(-16 * s + 8 * a)
-    P["Head"] = P["Head"] @ qx(-34 * s + 12 * a + tr(3, 3.5)) @ qy(tr(4, 4))
-    P["Jaw"] = qx(3 + 30 * s + tr(5, 4))
-    for side, sg in (("Left", 1), ("Right", -1)):
-        P[side + "Clavicle"] = qy(-sg * 10 * s)
-        P[side + "UpperArm"] = qx(-28 * s - 6 * a + tr(6 + sg, 3)) @ qy(sg * (9 + 6 * a - 46 * s))
-        P[side + "LowerArm"] = qx(-12 - 38 * s + tr(8 + sg, 4))
-        P[side + "Hand"] = qx(-6 + 26 * s)
-        for i, fn in enumerate(FINGERS):
-            c = 18 + 14 * a - 34 * s + tr(10 + i, 6)                 # นิ้วกางแอ่นสุด
-            PL[f"{side}{fn}1"] = qx(c * (0.6 if fn == "Thumb" else 1.0)) @ Quaternion((0, 0, 1), math.radians(sg * (i - 2) * 7 * s))
-            PL[f"{side}{fn}2"] = qx(c * 1.1)
-    hips = v3(0, 0.02 * k * s, (-0.045 - 0.06 * a - 0.03 * s) * k)
-    tongue_pose(ps, P, [s * 10 * math.sin(f * 0.9 - i * 0.8) + 2 * math.sin(tau * t - i * 0.5) for i in range(6)],
-                [s * 7 * math.sin(f * 0.7 - i * 0.6) for i in range(6)], comp=0.7)
-    for side in ("Left", "Right"):
-        ps.leg(P, side, hips, J[side + "Ankle"])
-    return P, PL, hips
+    hunch(P)
+    P.rot("spine", 7 + 6 * a - 6 * s)
+    P.rot("chest", 7 + 6 * a - 14 * s + tr(1, 2.0), 0, tr(2, 1.5))
+    P.rot("neck", 16 + 6 * a - 30 * s)
+    P.rot("head", -22 + 8 * a - 22 * s + tr(3, 3.5), tr(4, 4))
+    P.both("shoulder", 6 - 4 * s)
+    lo = math.degrees(P.lim["upper_arm.L"][0]) + 3
+    for side, k in (("L", 1), ("R", -1)):
+        P.rot("upper_arm." + side, lo * (1 - s) + 50 * s + tr(6 + k, 3), 0, -18 * s - 6 * a)
+        P.rot("forearm." + side, 0, 0, -(10 + 20 * a + 25 * s + tr(8 + k, 4)))
+        P.rot("hand." + side, -8 + 30 * s)
+    for i, fn in enumerate(FINGERS):
+        P.both(fn, (-20 - 16 * a) * (1 - s) + (8 if fn.endswith("_01") else 0) * s + tr(10 + i, 6))
+    P.both("thumb_01", -8 + 20 * s, 0, 20 * s)
+    P.both("thumb_02", -14 * (1 - s))
+    drop = knees(P, 4 + 12 * a + 3 * s)
+    P.lift("hips", -drop)
+    # หมุนบวกรอบแกน X ของโลก = ลิ้นเหวี่ยงไปข้างหลัง (เข้าอก) จึงสะบัดไปข้างหน้าอย่างเดียว
+    # หัวแหงนแล้วปากไปอยู่เหนืออก: โคนลิ้นยื่นออกไปข้างหน้าก่อน (-38°) แล้วค่อยงอห้อยลง ไม่ทะลุอก
+    pp.sway = [((-38 if i == 0 else 4 + 3 * math.sin(f * 0.7 - i * 0.6)) * s, s * 7 * math.sin(f * 0.9 - i * 0.8) + 2 * math.sin(2 * math.pi * t - i * 0.5)) for i in range(6)]
 
 
-def make_action(arm, ps, name, frames, fn, loop):
-    act = bpy.data.actions.new(name)
-    act.use_fake_user = True
-    if not arm.animation_data:
-        arm.animation_data_create()
-    arm.animation_data.action = act
-    ps.last.clear()
-    for fr in range(1, frames + 2 if loop else frames + 1):
-        t = (fr - 1) / frames
-        P, PL, hips = fn(ps, t)
-        ps.key(fr, P, PL, hips)
-    log(f"  action {name}: {frames + 1 if loop else frames} frames @{FPS}fps{' loop' if loop else ''}")
-    return act
+CLIPS = {"Idle": (c_idle, 120, False), "TallSlowWalk": (c_walk, WALK_FRAMES, False), "Shriek": (c_shriek, SHRIEK_FRAMES, True)}
 
 
-# ================================================================ 7. export + ภาพตัวอย่าง
-def export_fbx(path, objs, arm, anim):
-    select_only(objs + [arm], arm)
-    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, apply_scale_options="FBX_SCALE_NONE",
-                             axis_forward="-Z", axis_up="Y", bake_space_transform=False, object_types={"MESH", "ARMATURE"},
-                             mesh_smooth_type="FACE", path_mode="STRIP", embed_textures=False, use_mesh_modifiers=False,
-                             add_leaf_bones=False, primary_bone_axis="Y", secondary_bone_axis="X", armature_nodetype="NULL",
-                             use_armature_deform_only=False, bake_anim=anim, bake_anim_use_all_actions=False,
-                             bake_anim_use_nla_strips=False, bake_anim_force_startend_keying=True, bake_anim_simplify_factor=0.0)
+def add_anims(rig):
+    pp = PretPoser(rig)
+    th = rig.data.bones["thigh.L"]
+    sh = rig.data.bones["shin.L"]
+    LEG_LEN["leg"] = (th.tail_local - th.head_local).length + (sh.tail_local - sh.head_local).length
+    if not rig.animation_data:
+        rig.animation_data_create()
+    made = {}
+    for name, (fn, n, once) in CLIPS.items():
+        act = bpy.data.actions.new(name)
+        act.use_fake_user = True
+        rig.animation_data.action = act
+        for f in range(n + 1):
+            fn(pp, f / n if once else (f % n) / n)
+            pp.key(f + 1)
+        act.frame_range = (1, n + 1)
+        try:
+            act.use_cyclic = not once
+        except AttributeError:
+            pass
+        made[name] = n + 1
+    rig.animation_data.action = bpy.data.actions["Idle"]
+    sc = bpy.context.scene
+    sc.render.fps = 30
+    sc.frame_start, sc.frame_end = 1, made["Idle"]
+    return made
 
 
-def render_setup(res, bg=0.42, mode="TEXTURE"):
-    scn = bpy.context.scene
-    scn.render.engine = "BLENDER_WORKBENCH"
-    sh = scn.display.shading
-    sh.light = "STUDIO"
-    sh.color_type = mode
-    if mode == "SINGLE":
-        sh.single_color = (0.55, 0.5, 0.45)
-    sh.show_cavity = True
-    sh.cavity_type = "BOTH"
-    sh.show_shadows = True
-    scn.render.resolution_x, scn.render.resolution_y = res
-    scn.render.film_transparent = False
-    if not scn.world:
-        scn.world = bpy.data.worlds.new("World")
-    scn.world.color = (bg, bg, bg)
-    scn.view_settings.view_transform = "Standard"
+# ================================================================ 5. ตรวจการทะลุทุกเฟรมทุกท่า
+ARM = ("upper_arm", "forearm", "hand", "thumb", "index", "middle", "ring", "pinky")
+LEG = ("thigh", "shin", "foot", "toe")
 
 
-def shoot(path, objs, d, ortho=True, res=(800, 1200), margin=1.08):
-    mn, mx = bbox(objs)
-    c = Vector((mn + mx) / 2)
-    size = Vector(mx - mn)
-    cam = bpy.data.objects.get("PrevCam")
-    if not cam:
-        cam = bpy.data.objects.new("PrevCam", bpy.data.cameras.new("PrevCam"))
-        bpy.context.scene.collection.objects.link(cam)
-    d = Vector(d).normalized()
-    aspect = res[0] / res[1]
-    horiz = abs(d.y) * size.x + abs(d.x) * size.y
-    if ortho:
-        cam.data.type = "ORTHO"
-        cam.data.ortho_scale = max(size.z, horiz / aspect) * margin
-        cam.location = c + d * 20
-        cam.data.clip_end = 100
-    else:
-        cam.data.type = "PERSP"
-        cam.data.lens = 50
-        cam.data.sensor_fit = "AUTO"
-        fov = 2 * math.atan(18 / 50)
-        rad = max(size.z, horiz / aspect) * 0.5 * margin
-        cam.location = c + d * (rad / math.tan(fov / 2) + max(size.x, size.y) * 0.5)
-    cam.rotation_euler = (c - cam.location).to_track_quat("-Z", "Y").to_euler()
-    bpy.context.scene.camera = cam
-    scn = bpy.context.scene
-    scn.render.resolution_x, scn.render.resolution_y = res
-    scn.render.filepath = path
-    bpy.ops.render.render(write_still=True)
+def part_of(bone):
+    base, _, side = bone.partition(".")
+    if base.startswith(ARM):
+        return "arm" + side
+    if base in LEG:
+        return "leg" + side
+    if base == "head":
+        return "head"
+    return "torso"
 
 
-def ref_human(x):
-    """หุ่นเทียบขนาดตัวละคร R15 (สูง 5.2 studs) เฉพาะภาพตัวอย่าง"""
-    s = STUD
-    g = Geo()
-    me = bpy.data.meshes.new("RefHuman")
-    bm = bmesh.new()
-    for (cx, cz, w, h) in ((0.5, 1.0, 0.9, 2.0), (-0.5, 1.0, 0.9, 2.0), (0, 3.1, 2.0, 2.2), (1.5, 3.1, 0.9, 2.0), (-1.5, 3.1, 0.9, 2.0)):
-        r = bmesh.ops.create_cube(bm, size=1.0)
-        for v in r["verts"]:
-            v.co = Vector((x + (cx + v.co.x * w) * s, v.co.y * 1.0 * s, (cz + v.co.z * h) * s))
-    r = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.6 * s)
-    for v in r["verts"]:
-        v.co += Vector((x, 0, 4.7 * s))
-    bm.to_mesh(me)
-    bm.free()
-    ob = bpy.data.objects.new("RefHuman", me)
-    bpy.context.scene.collection.objects.link(ob)
-    ob.color = (0.15, 0.25, 0.45, 1)
-    return ob
+def check_setup(rig, body):
+    names = [g.name for g in body.vertex_groups]
+    W = body_weights(body, names)
+    dom = [part_of(names[i]) for i in W.argmax(1)]
+    me = body.data
+    vpart = np.array(dom)
+    fpart = []
+    for p in me.polygons:
+        parts = [dom[i] for i in p.vertices]
+        # หน้าที่แตะหัวนับเป็นหัว (ขอบท้ายทอย/คอ) · เสมอกันเลือกตามลำดับคงที่ (ไม่ขึ้นกับลำดับของ set)
+        fpart.append("head" if "head" in parts else max(sorted(set(parts)), key=parts.count))
+    # ไม่นับโคนแขนช่วงรักแร้ และโคนขาช่วงขาหนีบ (ผิวต่อกันจริง ไม่ใช่การทะลุ)
+    P = np.array([tuple(v.co) for v in me.vertices])
+    keep = np.ones(len(P), bool)
+    for s in ("L", "R"):
+        for bone, part, lim in (("upper_arm." + s, "arm" + s, 0.45), ("thigh." + s, "leg" + s, 0.25)):
+            b = rig.data.bones[bone]
+            h, t = np.array(b.head_local), np.array(b.tail_local)
+            a = ((P - h) @ (t - h)) / np.dot(t - h, t - h)
+            keep &= ~((vpart == part) & (a < lim))
+    return dict(vpart=vpart, fpart=np.array(fpart), keep=keep)
 
 
-def renders(objs, arm, acts, mode="TEXTURE"):
-    os.makedirs(PREV, exist_ok=True)
-    render_setup((800, 1200), mode=mode)
-    for o in bpy.context.scene.objects:
+def eval_mesh(ob):
+    dg = bpy.context.evaluated_depsgraph_get()
+    e = ob.evaluated_get(dg)
+    me = e.to_mesh()
+    V = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", V)
+    V = V.reshape(-1, 3)
+    Mw = np.array(e.matrix_world)
+    V = V @ Mw[:3, :3].T + Mw[:3, 3]
+    F = [tuple(p.vertices) for p in me.polygons]
+    e.to_mesh_clear()
+    return V, F
+
+
+def inside(bvh, pts, tol=0.004, reach=0.15):
+    """จุดที่จมอยู่ใต้ผิว (ด้านในของ mesh ปิด) ลึกเกิน tol · คืน (จำนวนจุด, ลึกสุด)"""
+    n, deep = 0, 0.0
+    if bvh is None:
+        return 0, 0.0
+    for p in pts:
+        loc, nrm, idx, dist = bvh.find_nearest(Vector(p), reach)
+        if loc is None:
+            continue
+        d = (Vector(p) - loc).dot(nrm)
+        if d < -tol:
+            n += 1
+            deep = max(deep, -d)
+            HITS.append((tuple(np.round(p, 2)), round(-d, 3)))
+    return n, deep
+
+
+HITS = []
+
+
+def sub_bvh(V, F, sel):
+    fs = [F[i] for i in np.nonzero(sel)[0]]
+    return BVHTree.FromPolygons([tuple(v) for v in V], fs, all_triangles=False) if fs else None
+
+
+def cloth_poke(rig, V, vp, CV, CF, cf):
+    """ผิวขา/สะโพกที่อยู่ใต้ผ้าแต่โผล่ออกนอกผ้า: ยิง ray จากแกนกระดูก (ที่ขยับตามท่า) ผ่านจุดนั้นออกไป
+    ถ้าจุดอยู่ไกลกว่าผ้าชั้นแรกที่ ray ชน = ทะลุ"""
+    n, deep = 0, 0.0
+    pb = rig.pose.bones
+    mw = rig.matrix_world
+    for key, bone, parts in (("waist", "hips", ("torso", "legL", "legR")), ("leg_L", "thigh.L", ("legL",)), ("leg_R", "thigh.R", ("legR",))):
+        fl = [CF[i] for i in cf[key]]
+        bvh = BVHTree.FromPolygons([tuple(v) for v in CV], fl, all_triangles=False)
+        b = pb[bone]
+        h, t = np.array(mw @ b.head), np.array(mw @ b.tail)
+        cz = CV[np.unique(np.array([i for f in fl for i in f]))]
+        z0, z1 = cz[:, 2].min() + 0.02, cz[:, 2].max() - 0.02
+        if key != "waist":
+            z1 = min(z1, CLOTH["hem_w"] - 0.01)                # เหนือนี้ผ้าพันสะโพกคลุมอยู่ (ตรวจในรอบ waist)
+        sel = np.isin(vp, parts) & (V[:, 2] > z0) & (V[:, 2] < z1)
+        for p in V[sel]:
+            if key == "waist":
+                c = np.array((h[0], h[1], p[2]))
+            else:
+                d = t - h
+                c = h + np.clip((p - h) @ d / (d @ d), 0, 1) * d
+            dv = p - c
+            r = np.linalg.norm(dv)
+            if r < 1e-4:
+                continue
+            hit = bvh.ray_cast(Vector(c), Vector(dv / r), r + 0.3)[0]
+            if hit is None:
+                continue
+            rh = (hit - Vector(c)).length
+            if r > rh + 0.002:
+                n += 1
+                deep = max(deep, r - rh)
+                POKE.append((key, tuple(np.round(p, 2)), round(r - rh, 3)))
+    return n, deep
+
+
+POKE = []
+
+
+def check_clips(rig, body, tongue, hair, cloth, CS, made):
+    """ทุกเฟรมทุกท่า: แขน/นิ้วทะลุลำตัวหรือขา, ขาทะลุขาอีกข้าง, ลิ้นทะลุตัว/แขน, ผมทะลุบ่า/ลำตัว, ผิวขาโผล่ทะลุผ้า"""
+    sc = bpy.context.scene
+    report = {}
+    acc = np.array(TONGUE["acc"])
+    TV = np.array([tuple(v.co) for v in tongue.data.vertices])
+    path = np.array([tuple(p) for p in TONGUE["path"]])
+    tongue_keep = np.array([acc[int(np.argmin(np.linalg.norm(path - p, axis=1)))] > 0.09 for p in TV])
+    fp, vp, keep = CS["fpart"], CS["vpart"], CS["keep"]
+    for name in CLIPS:
+        rig.animation_data.action = bpy.data.actions[name]
+        worst = {}
+        for f in range(1, made[name] + 1):
+            sc.frame_set(f)
+            V, F = eval_mesh(body)
+            res = {}
+            for s, o in (("L", "R"), ("R", "L")):
+                res["arm" + s] = inside(sub_bvh(V, F, (fp != "arm" + s) & (fp != "head")), V[(vp == "arm" + s) & keep])
+                res["leg" + s] = inside(sub_bvh(V, F, fp == "leg" + o), V[(vp == "leg" + s) & keep])
+            allb = BVHTree.FromPolygons([tuple(v) for v in V], F, all_triangles=False)
+            TVp, _ = eval_mesh(tongue)
+            res["tongue"] = inside(allb, TVp[tongue_keep], tol=0.002)
+            HV, _ = eval_mesh(hair)
+            res["hair"] = inside(sub_bvh(V, F, fp != "head"), HV, tol=0.003)
+            CV, CF = eval_mesh(cloth)
+            res["cloth"] = cloth_poke(rig, V, vp, CV, CF, CLOTH["faces"])
+            for k, (n, d) in res.items():
+                if n and (k not in worst or n > worst[k][0]):
+                    worst[k] = (n, round(d * 1000, 1), f)
+        report[name] = worst
+        if HITS:
+            log(f"    inside hits {name}: " + "; ".join(str(x) for x in HITS[:: max(1, len(HITS) // 8)][:8]))
+        HITS.clear()
+        if POKE:
+            log(f"    cloth pokes {name}: " + "; ".join(str(x) for x in POKE[:: max(1, len(POKE) // 12)][:12]))
+        POKE.clear()
+        log(f"  clip check {name} ({made[name]} frames): " + (", ".join(f"{k}: {n} verts, deepest {d} mm @f{f}" for k, (n, d, f) in worst.items()) or "no clipping"))
+    return report
+
+
+# ================================================================ 6. export + ภาพตัวอย่าง
+def fbx(path, **kw):
+    bpy.ops.export_scene.fbx(filepath=path, global_scale=STUDS_PER_M, apply_scale_options="FBX_SCALE_NONE",
+                             axis_forward="-Z", axis_up="Y", bake_space_transform=False, add_leaf_bones=False,
+                             primary_bone_axis="Y", secondary_bone_axis="X", use_armature_deform_only=True, **kw)
+
+
+def export_all(rig, objs):
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    for o in objs + [rig]:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    act = rig.animation_data.action
+    rig.animation_data.action = None
+    for p in rig.pose.bones:
+        p.rotation_euler = (0, 0, 0)
+        p.location = (0, 0, 0)
+    rig.data.pose_position = "REST"
+    fbx(os.path.join(M, NAME + ".fbx"), use_selection=True, object_types={"ARMATURE", "MESH"}, mesh_smooth_type="FACE",
+        path_mode="STRIP", embed_textures=False, bake_anim=False, use_mesh_modifiers=False)
+    rig.data.pose_position = "POSE"
+    for name in CLIPS:
+        for o in bpy.context.selected_objects:
+            o.select_set(False)
+        rig.select_set(True)
+        bpy.context.view_layer.objects.active = rig
+        a = bpy.data.actions[name]
+        rig.animation_data.action = a
+        f0, f1 = (int(x) for x in a.frame_range)
+        sc = bpy.context.scene
+        sc.frame_start, sc.frame_end = f0, f1
+        fbx(os.path.join(M, f"{NAME}_{name}.fbx"), use_selection=True, object_types={"ARMATURE"}, bake_anim=True,
+            bake_anim_use_all_bones=True, bake_anim_use_nla_strips=False, bake_anim_use_all_actions=False,
+            bake_anim_force_startend_keying=True, bake_anim_step=1.0, bake_anim_simplify_factor=0.0)
+    rig.animation_data.action = act
+
+
+def stats(objs):
+    tot = 0
+    for o in objs:
+        me = o.data
+        tris = sum(len(p.vertices) - 2 for p in me.polygons)
+        tot += tris
+        mx = max((sum(1 for g in v.groups if g.weight > 0) for v in me.vertices), default=0)
+        log(f"{o.name}: {tris} tris, {len(me.vertices)} verts, max bones/vertex {mx}")
+    log(f"total {tot} tris")
+
+
+def preview_scene():
+    sc = bpy.context.scene
+    set_engine(sc, ["BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"])
+    try:
+        sc.eevee.taa_render_samples = 32
+    except AttributeError:
+        pass
+    sc.render.film_transparent = False
+    w = sc.world or bpy.data.worlds.new("World")
+    sc.world = w
+    w.use_nodes = True
+    bg = next(n for n in w.node_tree.nodes if n.type == "BACKGROUND")
+    bg.inputs[0].default_value = (0.045, 0.055, 0.075, 1)
+    bg.inputs[1].default_value = 1.0
+    for o in list(bpy.data.objects):
+        if o.type in ("LIGHT", "CAMERA"):
+            bpy.data.objects.remove(o, do_unlink=True)
+
+    def light(name, loc, energy, color, size):
+        l = bpy.data.lights.new(name, "AREA")
+        l.energy = energy
+        l.color = color
+        l.size = size
+        o = bpy.data.objects.new(name, l)
+        sc.collection.objects.link(o)
+        o.location = loc
+        o.rotation_euler = (Vector((0, 0, 2.2)) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+    light("_key", (-4.5, -6.0, 5.5), 3200, (0.85, 0.9, 1.0), 4.0)
+    light("_fill", (6.0, -4.0, 2.4), 900, (1.0, 0.85, 0.7), 5.0)
+    light("_rim", (1.0, 7.0, 5.0), 2400, (0.6, 0.8, 1.0), 4.0)
+    cam = bpy.data.objects.new("_cam", bpy.data.cameras.new("_cam"))
+    sc.collection.objects.link(cam)
+    sc.camera = cam
+    cam.data.type = "ORTHO"
+    try:
+        sc.view_settings.view_transform = "AgX"
+    except TypeError:
+        pass
+    return cam
+
+
+def eval_pts(objs):
+    return np.concatenate([eval_mesh(o)[0][::5] for o in objs])
+
+
+def render_view(cam, objs, az, el, path, res=(800, 1200), pts=None, margin=1.06):
+    sc = bpy.context.scene
+    for o in bpy.data.objects:
         if o.type == "MESH":
             o.hide_render = o not in objs
-    if arm:
-        arm.animation_data.action = acts["Idle"]
-        bpy.context.scene.frame_set(1)
-    shoot(os.path.join(PREV, NAME + "_front.png"), objs, (0, -1, 0.02))
-    shoot(os.path.join(PREV, NAME + "_side.png"), objs, (1, 0, 0.02))
-    shoot(os.path.join(PREV, NAME + ".png"), objs, (-0.75, -1.25, 0.35), ortho=False)
-    if not arm:
-        return
-    shoot_face(objs)
-    # ขนาดเทียบคน R15
-    rh = ref_human(1.25)
-    rh.hide_render = False
-    shoot(os.path.join(PREV, NAME + "_scale.png"), objs + [rh], (0, -1, 0.02), res=(1000, 1100))
-    bpy.data.objects.remove(rh)
-    # ท่า
-    arm.animation_data.action = acts["TallSlowWalk"]
-    bpy.context.scene.frame_set(13)
-    shoot(os.path.join(PREV, NAME + "_walk.png"), objs, (1, -0.35, 0.05), ortho=False)
-    arm.animation_data.action = acts["Shriek"]
-    bpy.context.scene.frame_set(40)
-    shoot(os.path.join(PREV, NAME + "_shriek.png"), objs, (-0.6, -1.25, 0.15), ortho=False)
-    arm.data.pose_position = "REST"
-    shoot(os.path.join(PREV, NAME + "_rest.png"), objs, (0, -1, 0.02), res=(1000, 1100))
-    arm.data.pose_position = "POSE"
-    arm.animation_data.action = acts["Idle"]
-    bpy.context.scene.frame_set(1)
-
-
-def shoot_face(objs):
-    """ภาพหน้าใกล้ (กรอบเฉพาะหัว)"""
-    cam = bpy.data.objects.get("PrevCam")
-    arm = objs[0].parent
-    hb = arm.pose.bones["Head"]
-    hc = arm.matrix_world @ ((hb.head + hb.tail) / 2)
-    fwd = (arm.matrix_world.to_3x3() @ hb.matrix.to_3x3() @ Vector((0, 0, 1))).normalized()
-    cam.data.type = "PERSP"
-    cam.data.lens = 50
-    d = (fwd + Vector((-0.25, 0, 0.05))).normalized()
-    cam.location = hc + d * 1.25 * (HEIGHT / 3.92)
-    cam.rotation_euler = (hc - cam.location).to_track_quat("-Z", "Y").to_euler()
-    scn = bpy.context.scene
-    scn.render.resolution_x, scn.render.resolution_y = (900, 900)
-    scn.render.filepath = os.path.join(PREV, NAME + "_face.png")
+    pts = eval_pts(objs) if pts is None else pts
+    a, e = R(az), R(el)
+    d = Vector((math.sin(a) * math.cos(e), -math.cos(a) * math.cos(e), math.sin(e)))
+    rot = (-d).to_track_quat("-Z", "Y")
+    M3 = rot.to_matrix()
+    right, up = np.array(M3.col[0]), np.array(M3.col[1])
+    xs, ys = pts @ right, pts @ up
+    cx, cy = (xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2
+    w_, h_ = xs.max() - xs.min(), ys.max() - ys.min()
+    span = (max(w_, h_ * res[0] / res[1]) if res[0] >= res[1] else max(h_, w_ * res[1] / res[0])) * margin   # ortho_scale = ด้านที่ยาวกว่าของภาพ
+    depth = float(pts.mean(0) @ np.array(d))
+    cam.location = Vector(right * cx + up * cy) + d * (depth + 10.0)
+    cam.rotation_euler = rot.to_euler()
+    cam.data.ortho_scale = span
+    cam.data.clip_end = 40
+    sc.render.resolution_x, sc.render.resolution_y = res
+    sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
+
+
+def tile(cam, objs, az, el, res, pts):
+    tmp = os.path.join(PREV, "_t.png")
+    render_view(cam, objs, az, el, tmp, res=res, pts=pts, margin=1.04)
+    im = bpy.data.images.load(tmp)
+    arr = np.empty(res[0] * res[1] * 4, np.float32)
+    im.pixels.foreach_get(arr)
+    bpy.data.images.remove(im)
+    os.remove(tmp)
+    return arr.reshape(res[1], res[0], 4)
+
+
+def sheet(tiles, path):
+    s = np.concatenate([np.concatenate(r, 1) for r in tiles][::-1], 0)
+    img = bpy.data.images.new("_sheet", s.shape[1], s.shape[0])
+    img.pixels.foreach_set(s.ravel())
+    img.filepath_raw = path
+    img.file_format = "PNG"
+    img.save()
+    bpy.data.images.remove(img)
+
+
+def previews(rig, objs, shape_only=False):
+    cam = preview_scene()
+    os.makedirs(PREV, exist_ok=True)
+    sc = bpy.context.scene
+    body = objs[0]
+    if not shape_only:
+        rig.animation_data.action = bpy.data.actions["Idle"]
+        sc.frame_set(1)
+    pts = eval_pts(objs)
+    render_view(cam, objs, 35, 8, os.path.join(PREV, NAME + ".png"), pts=pts)
+    render_view(cam, objs, 0, 3, os.path.join(PREV, NAME + "_front.png"), pts=pts)
+    render_view(cam, objs, 90, 2, os.path.join(PREV, NAME + "_side.png"), pts=pts)
+    hp = eval_pts(objs)
+    hp = hp[hp[:, 2] > rig.pose.bones["neck"].tail.z - 0.1]
+    render_view(cam, objs, 22, 4, os.path.join(PREV, NAME + "_face.png"), res=(800, 800), pts=hp, margin=1.15)
+    if shape_only:
+        return
+    # เทียบขนาดกับตัวมนุษย์ (human_base 1.80 ม. = 6.3 studs)
+    with bpy.data.libraries.load(os.path.join(HB, "human_base.blend")) as (src, dst):
+        dst.objects = ["Body"]
+    man = dst.objects[0]
+    man.name = "_Man"
+    sc.collection.objects.link(man)
+    man.parent = None
+    man.modifiers.clear()
+    man.matrix_world = Matrix.Translation((1.1, 0.0, 0.0))
+    bpy.context.view_layer.update()
+    render_view(cam, objs + [man], 0, 2, os.path.join(PREV, NAME + "_scale.png"), res=(900, 1100))
+    bpy.data.objects.remove(man, do_unlink=True)
+    rig.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    render_view(cam, objs, 0, 0, os.path.join(PREV, NAME + "_rest.png"))
+    rig.data.pose_position = "POSE"
+    # contact sheet: แถว = ท่า (บนลงล่าง Idle, TallSlowWalk, Shriek), 6 จังหวะต่อท่า, หน้าตรง / ด้านข้าง
+    for view, az in (("front", 0), ("side", 90)):
+        tiles = []
+        for name in CLIPS:
+            a = bpy.data.actions[name]
+            rig.animation_data.action = a
+            f0, f1 = (int(x) for x in a.frame_range)
+            row = []
+            for k in range(6):
+                sc.frame_set(int(round(f0 + (f1 - f0) * k / 5 if CLIPS[name][2] else f0 + (f1 - f0) * k / 6)))
+                row.append(tile(cam, objs, az, 2, (300, 460), pts))
+            tiles.append(row)
+        sheet(tiles, os.path.join(PREV, f"{NAME}_clips_{view}.png"))
+    rig.animation_data.action = bpy.data.actions["Idle"]
+    sc.frame_set(1)
 
 
 # ================================================================ main
 def main():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    scn = bpy.context.scene
-    scn.render.fps = FPS
-    M = Meta(NAME + "Meta", 0.0055)
-    build_body(M)
-    log(f"metaball elements: {M.count}")
-    dg = bpy.context.evaluated_depsgraph_get()
-    me = bpy.data.meshes.new_from_object(M.ob.evaluated_get(dg))
-    hi = bpy.data.objects.new(NAME + "_HI", me)
-    scn.collection.objects.link(hi)
-    bpy.data.objects.remove(M.ob)
-    log(f"HI mesh: {len(me.vertices)} verts, {tris(hi)} tris")
-    tongue = build_tongue()
-    eyes = build_eyes()
-    hair = build_hair()
-    cloth = build_cloth()
-    parts = [tongue, *eyes, hair, cloth]
-    mn, mx = bbox([hi] + parts)
-    k = HEIGHT / mx[2]
-    scale_all([hi] + parts, k)
-    log(f"scale x{k:.4f} -> height {HEIGHT:.3f} m ({HEIGHT / STUD:.1f} studs)")
-    me.shade_smooth()
-    for o in parts:
-        o.data.shade_smooth()
-
-    if STAGE == "shape":
-        renders([hi] + parts, None, None, mode="SINGLE")
-        return
-
-    # LO: decimate
-    lo = bpy.data.objects.new(NAME + "_Body", hi.data.copy())
-    scn.collection.objects.link(lo)
-    for a in list(lo.data.color_attributes):
-        lo.data.color_attributes.remove(a)
-    dec = lo.modifiers.new("Decimate", "DECIMATE")
-    dec.ratio = 14500 / tris(hi)
-    apply_mods(lo)
-    lo.data.shade_smooth()
-    log(f"LO body: {tris(lo)} tris")
-    set_masks(hi)
-    uv_layout(lo, parts, {NAME + "_EyeL": 2.2, NAME + "_EyeR": 2.2, NAME + "_Hair": 0.5, NAME + "_Tongue": 1.2, NAME + "_Cloth": 0.8})
-    files = bake_textures(hi, lo, parts)
-    mat = final_material(files)
-    for o in [lo] + parts:
-        o.data.materials.clear()
-        o.data.materials.append(mat)
-    bpy.data.objects.remove(hi)
-
-    # rig
-    bone_specs()
-    arm = build_armature()
-    maxinf, zero = skin(arm, lo, tongue, hair, cloth, eyes)
-    log(f"rig: {len(BONES)} bones; body max influences {maxinf}, unweighted verts {zero}")
-    # ตาเข้า mesh ตัว (ชิ้นน้อยลง)
-    select_only([lo] + eyes, lo)
-    bpy.ops.object.join()
-    body = lo
-    objs = [body, tongue, hair, cloth]
+    rig, body = open_base()
+    stretch(rig, body)
+    subdivide(body)
+    gaunt(body, rig)
+    bvh = body_bvh(body)
+    hair, hd = build_hair(body, rig)
+    hair.name = "Hair"
+    fm = face_marks(body, hd)
+    log("face", {k: (round(v, 3) if isinstance(v, float) else tuple(round(x, 3) for x in v)) for k, v in fm.items()}, "s", round(hd.s, 3))
+    eyes = build_eyes(body, rig, hd, fm, bvh)
+    tbm, tgroups = build_tongue(body, rig, hd, fm, bvh)
+    add_tongue_bones(rig)
+    tongue = new_obj("Tongue", tbm, rig, tgroups)
+    cloth = build_cloth(body, rig, bvh)
+    CLOTH["hem_l"] = min(min(p.z for p in CLOTH["leg_grid_" + s][-1]) for s in "LR")
+    objs = [body, hair, cloth, tongue, eyes]
     for o in objs:
-        n = max((sum(1 for g in v.groups if g.weight > 1e-4) for v in o.data.vertices), default=0)
-        log(f"  {o.name}: {tris(o)} tris, max influences {n}")
-    ps = Poser(arm)
-    acts = {
-        "Idle": make_action(arm, ps, "Idle", 120, pose_idle, True),
-        "TallSlowWalk": make_action(arm, ps, "TallSlowWalk", WALK_FRAMES, pose_walk, True),
-        "Shriek": make_action(arm, ps, "Shriek", SHRIEK_FRAMES, pose_shriek, False),
-    }
-    # export
-    arm.animation_data.action = None
-    for pb in arm.pose.bones:
-        pb.rotation_quaternion = Quaternion()
-        pb.location = Vector()
-    export_fbx(os.path.join(ROOT, NAME + ".fbx"), objs, arm, False)
-    for nm, act in acts.items():
-        arm.animation_data.action = act
-        fr = act.frame_range
-        scn.frame_start, scn.frame_end = int(fr[0]), int(fr[1])
-        export_fbx(os.path.join(ROOT, f"{NAME}_{nm}.fbx"), objs, arm, True)
-    scn.frame_start, scn.frame_end = 1, 120
-    mn, mx = bbox(objs)
-    size = (mx - mn) / STUD
-    log(f"bbox studs X={size[0]:.2f} Y(up)={size[2]:.2f} Z={size[1]:.2f}; total tris {sum(tris(o) for o in objs)}")
-    renders(objs, arm, acts)
-    arm.animation_data.action = acts["Idle"]
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT, "pret.blend"))
+        o.hide_render = False
+        o.hide_set(False)
+    log("weights trimmed", AN["limit_weights"]())
+    if STAGE == "shape":
+        previews(rig, objs, shape_only=True)
+        return
+    for o in objs:
+        atlas_uv(o)
+    maps = bake_maps(objs, rig)
+    col, rough, hgt = paint(maps, rig, body, hd, fm)
+    save_png(down(col), os.path.join(M, NAME + "_Color.png"))
+    save_png(down(rough[:, None]), os.path.join(M, NAME + "_Roughness.png"), 1, "Non-Color")
+    save_png(np.zeros((TEX * TEX, 1), np.float32), os.path.join(M, NAME + "_Metalness.png"), 1, "Non-Color")
+    save_png(bake_normal(objs, hgt), os.path.join(M, NAME + "_Normal.png"), 3, "Non-Color")
+    make_material(objs)
+    rig.data.pose_position = "POSE"
+    made = add_anims(rig)
+    log("clips", made)
+    stats(objs)
+    check_clips(rig, body, tongue, hair, cloth, check_setup(rig, body), made)
+    if STAGE == "check":
+        return
+    export_all(rig, objs)
+    previews(rig, objs)
+    for o in list(bpy.data.objects):
+        if o.name.startswith("_"):
+            bpy.data.objects.remove(o, do_unlink=True)
+    bpy.context.preferences.filepaths.save_version = 0
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(M, "pret.blend"), relative_remap=True)
     log("done")
 
 
-OUT = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else os.path.join(ROOT, "pret_build.log")
+OUT = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else os.path.join(os.environ.get("TEMP", HERE), "pret.txt")
 try:
     main()
 except Exception:
-    LOG.append(traceback.format_exc())
+    LOG.append("ERROR\n" + traceback.format_exc())
 open(OUT, "w", encoding="utf-8").write("\n".join(LOG))
 open(OUT + ".done", "w").write("x")
