@@ -555,6 +555,43 @@ SoundBank.Presets = {
 		mid = 3,
 		high = -22,
 	},
+
+	-- ================= 7. เสียงผีแต่ละตัว (ผู้ใช้อัปโหลดเอง ชื่อใน Asset Manager อยู่ในวงเล็บ) =================
+	-- ใช้กับโมเดลผีชุดใหม่ใน assets/models (ดู SoundBank.GhostSounds ด้านล่าง) · ยังไม่ได้ผูกกับ anomaly ไหน
+	Ghost_Pret = { id = "rbxassetid://83832562118605", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },          -- (ghot_pret)
+	Ghost_Pret_Laugh = { id = "rbxassetid://96531336289481", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },    -- (ghot_pret_luagh)
+	Ghost_Krahang = { id = "rbxassetid://106658585103812", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },      -- (ghost_krahang)
+	Ghost_Krahang_Laugh = { id = "rbxassetid://79000007807242", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 }, -- (ghost_krahang_luagh)
+	Ghost_Pop = { id = "rbxassetid://118203855044367", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },          -- (ghost_pob)
+	Ghost_Pop_Laugh = { id = "rbxassetid://135236414490615", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },    -- (ghost_pob_luagh)
+	-- ghost_thani (85921914400493) ใช้ไม่ได้ -> ใช้เสียงกระซิบ Passenger_Whisper.wav ที่ลากไว้ใน UploadedSounds แทน (ถ้าไม่เจอใช้เสียงหายใจข้างคอ)
+	Ghost_Tani = { id = "rbxassetid://2643071410", customKey = "Passenger_Whisper", volume = 0.6, speed = 1.0, low = 5, mid = 2, high = -22 },
+	Ghost_Tani_Laugh = { id = "rbxassetid://126775500193812", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },   -- (ghost_thani_luagh)
+	Ghost_MaeNak = { id = "rbxassetid://94253655567417", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },        -- (ghost_maenak)
+	Ghost_MaeNak_Laugh = { id = "rbxassetid://97648829291844", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },  -- (ghost_maenak_luagh)
+	Ghost_Kuman = { id = "rbxassetid://131044226335748", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },        -- (ghost_guman) กุมารทอง
+	Ghost_Kuman_Laugh = { id = "rbxassetid://138950273308352", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },  -- (ghost_guman_luagh)
+	Ghost_Showtime = { id = "rbxassetid://123185428314556", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },     -- (ghost_showtime) เสียงตอนผีปรากฏตัว
+	CoinDrop = { id = "rbxassetid://81683782868046", volume = 0.4, speed = 1.0, low = 0, mid = 2, high = -18 },            -- (effect_coindrop)
+}
+
+-- ผี -> ชื่อ preset เสียงพูด/คราง (voice) และเสียงหัวเราะ (laugh) ใช้ตอนผูกเสียงกับโมเดลผี
+SoundBank.GhostSounds = {
+	Pret = { voice = "Ghost_Pret", laugh = "Ghost_Pret_Laugh" },
+	Krahang = { voice = "Ghost_Krahang", laugh = "Ghost_Krahang_Laugh" },
+	Pop = { voice = "Ghost_Pop", laugh = "Ghost_Pop_Laugh" },
+	Tani = { voice = "Ghost_Tani", laugh = "Ghost_Tani_Laugh" },
+	MaeNak = { voice = "Ghost_MaeNak", laugh = "Ghost_MaeNak_Laugh" },
+	Kuman = { voice = "Ghost_Kuman", laugh = "Ghost_Kuman_Laugh" },
+	-- ผีที่ไม่มีเสียงของตัวเอง ยืมเสียงผีหญิง/ชายข้างบน (สลับคู่กันไม่ให้ตัวที่โผล่ใกล้กันเสียงซ้ำ)
+	Krasue = { voice = "Ghost_MaeNak", laugh = "Ghost_Pop_Laugh" },
+	Headless = { voice = "Ghost_Tani", laugh = "Ghost_MaeNak_Laugh" },     -- ไม่มีหัว ใช้เสียงกระซิบ
+	Mirror = { voice = "Ghost_MaeNak", laugh = "Ghost_Tani_Laugh" },
+	Dancer = { voice = "Ghost_Pop", laugh = "Ghost_MaeNak_Laugh" },
+	FuneralMan = { voice = "Ghost_Pret", laugh = "Ghost_Krahang_Laugh" },
+	FuneralElderMan = { voice = "Ghost_Krahang", laugh = "Ghost_Pret_Laugh" },
+	FuneralWoman = { voice = "Ghost_MaeNak", laugh = "Ghost_Tani_Laugh" },
+	FuneralElderWoman = { voice = "Ghost_Pop", laugh = "Ghost_MaeNak_Laugh" },
 }
 
 -- ---------------------------------------------------------------- 3. สถานีเพลงวิทยุลูกทุ่งเหงาๆ หลอนๆ 5 คลื่น (Vintage AM Luk Thung Stations)
