@@ -3,9 +3,14 @@
  "BodyHead": [],
  "Skin_00": [
   "mohom",
-  "farmer"
+  "farmer",
+  "ghost_white_m"
  ],
  "Skin_01": [
   "farmer"
+ ],
+ "Skin_02": [
+  "farmer",
+  "ghost_white_m"
  ]
 }

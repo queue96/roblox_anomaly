@@ -2,20 +2,22 @@
  "Body": [],
  "BodyHead": [],
  "Skin_00": [
-  "blouse_sin",
-  "indigo_scarf",
-  "sabai",
+  "chest_wrap",
   "wan_girl",
   "wan_band_tee",
   "wan_crop",
   "wan_plaid"
  ],
  "Skin_01": [
-  "chest_wrap",
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
   "wan_girl",
   "wan_band_tee",
   "wan_crop",
-  "wan_plaid"
+  "wan_plaid",
+  "ghost_white_f",
+  "ghost_dancer"
  ],
  "Skin_02": [
   "wan_girl",
@@ -29,21 +31,43 @@
   "sabai",
   "wan_girl",
   "wan_band_tee",
-  "wan_plaid"
+  "wan_crop",
+  "wan_plaid",
+  "ghost_white_f"
  ],
  "Skin_04": [
   "blouse_sin",
   "indigo_scarf",
   "sabai",
   "wan_girl",
-  "wan_plaid"
+  "wan_plaid",
+  "ghost_white_f"
  ],
  "Skin_05": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_plaid",
+  "ghost_white_f"
+ ],
+ "Skin_06": [
   "wan_girl",
   "wan_band_tee",
   "wan_plaid"
  ],
- "Skin_06": [
+ "Skin_07": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_plaid",
+  "ghost_white_f",
+  "ghost_dancer"
+ ],
+ "Skin_08": [
   "blouse_sin",
   "indigo_scarf",
   "sabai",
@@ -51,6 +75,25 @@
   "wan_girl",
   "wan_band_tee",
   "wan_crop",
-  "wan_plaid"
+  "wan_plaid",
+  "ghost_thai",
+  "ghost_headless",
+  "ghost_tani",
+  "ghost_white_f",
+  "ghost_dancer"
+ ],
+ "Skin_09": [
+  "blouse_sin",
+  "indigo_scarf",
+  "sabai",
+  "wan_girl",
+  "wan_band_tee",
+  "wan_crop",
+  "wan_plaid",
+  "ghost_thai",
+  "ghost_headless",
+  "ghost_tani",
+  "ghost_white_f",
+  "ghost_dancer"
  ]
 }

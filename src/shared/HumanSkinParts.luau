@@ -4,22 +4,26 @@
 -- one of these is worn). "Body" (skin no outfit covers) is not listed: it always stays.
 return {
 	human_base = {
-		Skin_00 = { "mohom", "farmer", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo" },
+		Skin_00 = { "mohom", "farmer", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m" },
 		Skin_01 = { "farmer" },
-		Skin_02 = { "farmer", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo" },
-		Skin_03 = { "farmer", "red_shirt", "wan_flannel", "wan_denim" },
-		Skin_04 = { "mohom", "farmer", "red_shirt", "wan_flannel", "wan_denim", "wan_camo" },
+		Skin_02 = { "farmer", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m" },
+		Skin_03 = { "farmer", "red_shirt", "wan_flannel", "wan_denim", "ghost_white_m" },
+		Skin_04 = { "mohom", "farmer", "red_shirt", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m" },
 		Skin_05 = { "farmer", "wan_baggy", "wan_flannel" },
 		Skin_06 = { "farmer", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo" },
+		Skin_07 = { "farmer", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo" },
 	},
 	human_female = {
-		Skin_00 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid" },
-		Skin_01 = { "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid" },
+		Skin_00 = { "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid" },
+		Skin_01 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid", "ghost_white_f", "ghost_dancer" },
 		Skin_02 = { "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid" },
-		Skin_03 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_plaid" },
-		Skin_04 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_plaid" },
-		Skin_05 = { "wan_girl", "wan_band_tee", "wan_plaid" },
-		Skin_06 = { "blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid" },
+		Skin_03 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid", "ghost_white_f" },
+		Skin_04 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_plaid", "ghost_white_f" },
+		Skin_05 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_plaid", "ghost_white_f" },
+		Skin_06 = { "wan_girl", "wan_band_tee", "wan_plaid" },
+		Skin_07 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_plaid", "ghost_white_f", "ghost_dancer" },
+		Skin_08 = { "blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid", "ghost_thai", "ghost_headless", "ghost_tani", "ghost_white_f", "ghost_dancer" },
+		Skin_09 = { "blouse_sin", "indigo_scarf", "sabai", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid", "ghost_thai", "ghost_headless", "ghost_tani", "ghost_white_f", "ghost_dancer" },
 	},
 	human_child = {
 		Skin_00 = { "mohom_child" },
@@ -27,10 +31,11 @@ return {
 		Skin_02 = { "chong_gold" },
 	},
 	human_elder_male = {
-		Skin_00 = { "mohom", "farmer" },
+		Skin_00 = { "mohom", "farmer", "ghost_white_m" },
 		Skin_01 = { "farmer" },
+		Skin_02 = { "farmer", "ghost_white_m" },
 	},
 	human_elder_female = {
-		Skin_00 = { "blouse_sin", "sabai", "indigo_scarf" },
+		Skin_00 = { "blouse_sin", "sabai", "indigo_scarf", "ghost_white_f" },
 	},
 }
