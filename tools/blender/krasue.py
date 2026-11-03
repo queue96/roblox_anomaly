@@ -11,7 +11,7 @@
 # ชิ้น mesh (origin เดียวกัน = กลางหัว):
 #   Krasue         หัว + คอของ human_female (mesh + UV เดิม) ตอคอขาด เขี้ยว — ผิววาดด้วย build_skin.paint_head หน้า "krasue"
 #                  (ผีซีด เบ้าตาคล้ำ น้ำตาเลือด ปากอ้า) + เลือดรอบปากไหลลงคางถึงคอ
-#   Krasue_Hair    ผมผีของ build_hair (_ghost แบบเดียวกับ ghost_long) ยาวประบ่า แหวกกลาง (HAIR_HEM, HAIR_GAP)
+#   Krasue_Hair    หนังหัว + ปอยผมแยกเส้น 43 ปอย (Head/Build ของ build_hair) ยาวประบ่า แหวกกลาง (krasue_hair, HAIR_HEM, HAIR_LINE)
 #   Krasue_Eyes    เลนส์ตาแดงก่ำ 2 ข้างแปะบนตาที่วาดไว้ (แยกไว้ให้เกมตั้ง Neon / เรืองแสงได้)
 #   Krasue_Organs  หลอดลม เส้นเลือด ปอด หัวใจ ก้อนไส้ ลำไส้ใหญ่ ไส้ห้อย — material แยก (Krasue_OrgansMat) ให้เกมทำเรืองแสง
 # หน่วยเมตร (1 stud = 0.28 m) สูงรวม ~3 studs · หน้าหันไป -Y ใน Blender (= -Z/LookVector ใน Studio)
@@ -327,9 +327,10 @@ HUMAN_DIR = os.path.join(ROOT, "human_female")
 HUMAN_BASE = os.path.join(ROOT, "human_base")
 HEAD_H = 0.244                              # ความสูงกะโหลก (หน่วยของสคริปต์นี้ก่อน rescale)
 STUMP_OLD = Vector((0.0, 0.012, -0.183))    # กลางตอคอของหัวเดิม ที่อวัยวะวางไว้ใต้
-HAIR_HEM = [(0, -0.20), (40, -0.22), (90, -0.25), (180, -0.28)]   # ปลายผม (x ขนาดหัว จากกลางหัว): ยาวประบ่า (ghost_long ยาวถึงอก ผู้ใช้ว่ายาวเกิน)
+HAIR_HEM = [(0, -0.20), (40, -0.21), (90, -0.23), (180, -0.26)]   # ปลายผม (x ขนาดหัว จากกลางหัว): ยาวประบ่า (ghost_long ยาวถึงอก ผู้ใช้ว่ายาวเกิน)
 HAIR_LINE = [(0, 42), (10, 34), (25, 22), (45, 12), (70, 6), (100, 6), (180, -20)]   # แนวผม (องศา: มุมรอบหัว -> มุมเงย) ลงมาคลุมมุมหน้าผาก
-HAIR_GAP = (0, 22)                        # build_hair.GHOST_GAP: แหวกกลางให้เห็นหน้าทั้งหน้า (เดิมแหวกหน้าตาซ้าย)
+NOSE_W = 0.8                                # ความกว้างจมูกเทียบเดิม
+NOSE_FLAT = 0.6                             # กดจมูกของ human ที่ยื่นเกินผิวหน้าลงเท่านี้ (0 = เดิม)
 ORG_D = Vector()                            # เลื่อนอวัยวะ + กระดูกอวัยวะไปใต้ตอคอใหม่ (ตั้งใน build_human)
 HAIR_P = -0.10                              # จุดหมุนกระดูกผม (ระดับคาง หน่วยก่อน rescale)
 HAIR_AMP = 0.5                              # ตัวคูณมุมแกว่งผมในทุกท่า (ผมสั้นประบ่า แกว่งน้อยกว่าผมยาวเดิม)
@@ -442,26 +443,87 @@ def ghost_fangs(part, surf, fr, T, KS, sk, meta, face=FACE, reg="fang", wfn=None
 
 
 def krasue_hair(b, hr):
-    """ผมผีของ build_hair (shell แบบ _ghost/ghost_long) ยาวประบ่า แหวกกลาง:
-    แนวผมหน้าผากลดลงมาคลุมมุมหน้าผากเป็นโค้ง ผมบางลงจนแนบหนังหัวตรงแนวผม (ไม่เป็นขอบหนาเหมือนผ้าคลุมหัว)
-    ร่องแสกกลางจากหน้าผากถึงกระหม่อม"""
+    """ผมกระสือ ยาวประบ่า แหวกกลาง สร้างด้วย Head/Build ของ build_hair:
+    1) หนังหัวเป็น shell บางๆ แค่ถึงแนวผม (แนวผมโค้งลงคลุมมุมหน้าผาก บางแนบหนังหัวตรงแนวผม ร่องแสกกลาง)
+    2) ปอยผมแบนเรียวแยกเป็นเส้นๆ HAIR_LOCKS ปอย: รากใกล้กระหม่อม/แสก ไล่ตามหนังหัวลงมาแล้วตกตรงถึงประบ่า
+       ยาวไม่เท่ากัน ปลายเรียวแหลม มีช่องระหว่างปอย (ไม่เป็นผ้าคลุมทึบแบบ shell ผืนเดียว)"""
     R, key, sym = math.radians, hr["key"], hr["sym"]
-    base, gap = sym(HAIR_HEM), hr["ghost_gap"]
+    h, s = b.h, b.h.s
     line = sym([(az, R(el)) for az, el in HAIR_LINE])
+    base = sym(HAIR_HEM)
 
     def deg(th):
         return abs(math.degrees(math.atan2(math.sin(th), math.cos(th))))
 
     def thick(th, ph):
-        t = 0.008 + 0.008 * key(ph, [(R(0), 0.4), (R(60), 1.0)])
+        t = 0.006 + 0.006 * key(ph, [(R(0), 0.4), (R(60), 1.0)])
         edge = key(ph - line(th), [(0.0, 0.25), (R(14), 1.0)]) if deg(th) < 70 else 1.0      # บางที่แนวผมหน้า
         part = 1 - 0.75 * math.exp(-(deg(th) / 5) ** 2) * key(ph, [(R(30), 0), (R(48), 1)])  # ร่องแสกกลาง
         return t * edge * part
 
-    b.shell(hr["GHOST_AZ"], True, hr["POLE"], line, thick,
-            hem=lambda th: base(th) + (0.6 - base(th)) * float(sm(0.25, 0.55, gap(th))),   # เปลี่ยนสั้น->ยาวชันๆ ไม่เป็นขั้นข้างตา
-            flare=lambda th: sym([(0, 0.010), (90, 0.018), (180, 0.014)])(th) * (1 - gap(th)),
-            tip=0.008, rows=10, drop_rows=10, clear=0.02, jitter=0.05, tuck=0.004)
+    b.shell(hr["GHOST_AZ"], True, hr["POLE"], line, thick, rows=10, tuck=0.004)
+    rnd = random.Random(23)
+    U = h.U
+
+    def ribbon(pts, wid):
+        """ปอยแบน: หน้าตัดรีกว้างตามแนวรอบหัว บางตามแนวรัศมี ปลายสุดเป็นจุดเดียว (เรียวแหลม)"""
+        before = set(b.bm.faces)
+        rings = []
+        for p, w in zip(pts, wid):
+            rad = p - h.C
+            rad.z = 0
+            rad = rad.normalized() if rad.length > 1e-6 else h.F
+            side = U.cross(rad).normalized()
+            if w < 1e-5:
+                rings.append([b.bm.verts.new(p)])
+                continue
+            rings.append([b.bm.verts.new(p + side * math.cos(a) * w + rad * math.sin(a) * w * 0.32)
+                          for a in (2 * math.pi * k / 6 for k in range(6))])
+        for A, B in zip(rings, rings[1:]):
+            if len(B) == 1:
+                for k in range(6):
+                    b.bm.faces.new((A[k], A[(k + 1) % 6], B[0]))
+            else:
+                for k in range(6):
+                    b.bm.faces.new((A[k], A[(k + 1) % 6], B[(k + 1) % 6], B[k]))
+        b.bm.faces.new(rings[0])
+        b._tag(before, 0)
+
+    def lock(th0, th1, ph0, off, wd, extra):
+        """รากที่ (th0, ph0) ไล่ตามหนังหัวลงถึงข้างหัว (ph 0) พร้อมเลื่อนมุมไป th1 แล้วตกตรงถึงประบ่า"""
+        pts = []
+        for k in range(8):
+            f = k / 7
+            pts.append(h.on(th0 + (th1 - th0) * float(sm(0, 1, f)), ph0 * (1 - f), off * (0.05 + 0.95 * float(sm(0, 0.5, f)))))   # รากจมในหนังหัว
+        top = pts[-1]
+        hz = h.horiz(th1)
+        zb = h.C.z + (base(th1) + extra) * s
+        nd = 9
+        for k in range(1, nd + 1):
+            f = k / nd
+            p = Vector((top.x, top.y, top.z + (zb - top.z) * f)) + hz * (0.012 * s * f) \
+                + U.cross(hz) * (0.004 * s * math.sin(f * 4 + th1 * 7))
+            pts.append(h.push(p, 0.008 * s, hz))
+        n = len(pts)
+        wid = [wd * s * ((0.55 + 0.45 * float(sm(0, 0.3, i / (n - 1)))) * (1 - float(sm(0.65, 1.0, i / (n - 1))))) for i in range(n)]
+        wid[-1] = 0.0
+        ribbon(pts, wid)
+
+    nl = 0
+    for sg in (1, -1):
+        # ปอยหน้า: รากข้างแสก ตกคลุมขมับ/ข้างแก้ม (ไม่บังหน้า)
+        for th0, th1, ph0, off in ((8, 46, 74, 0.013), (12, 54, 70, 0.017), (16, 62, 66, 0.013), (20, 70, 62, 0.019)):
+            lock(R(sg * th0), R(sg * th1), R(ph0), off, 0.030, rnd.uniform(-0.02, 0.03))
+            nl += 1
+        # ข้าง + หลัง 2 ชั้น (ชั้นนอกเหลื่อมครึ่งช่อง ปิดช่องของชั้นใน)
+        for layer, (off, wd) in enumerate(((0.012, 0.034), (0.020, 0.030))):
+            for a in range(78 + 6 * layer, 181, 12):
+                if sg < 0 and a >= 180:
+                    continue
+                th = R(sg * (a + rnd.uniform(-3, 3)))
+                lock(th, th, R(78 + rnd.uniform(-6, 4)), off, wd * rnd.uniform(0.85, 1.15), rnd.uniform(-0.025, 0.035))   # ปลายยาวไม่เท่ากัน (ไม่ยาวจนกวาดโดนปอดตอน HairWhip)
+                nl += 1
+    log(f"  hair: scalp cap + {nl} locks")
 
 
 def build_human():
@@ -506,6 +568,19 @@ def build_human():
     bm.free()
     me.update()
     log(f"  removed ears: {len(ears)} faces")
+    # จมูก (ชิ้นแยกของ human) โด่งเป็นกรวยแหลม ดูหลุดจากหน้าตอนมองใกล้: กดส่วนที่ยื่นเกินผิวหน้าลงครึ่งหนึ่ง
+    isl = sorted(sk["islands"](me), key=len)
+    nose = {v for fi in (f for g in isl[:-1] for f in g) for v in me.polygons[fi].vertices}
+    mwi = body.matrix_world.inverted()
+    for vi in nose:
+        p = body.matrix_world @ me.vertices[vi].co
+        fw = (p - C).dot(fr.F)
+        if fw > meta["RF"]:
+            p = p - fr.F * (fw - meta["RF"]) * NOSE_FLAT
+        p = p - fr.L * ((p - C).dot(fr.L) * (1 - NOSE_W))                        # แคบลง ไม่เป็นสามเหลี่ยมกว้าง
+        me.vertices[vi].co = mwi @ p
+    me.update()
+    log(f"  nose: {len(nose)} verts pressed x{1 - NOSE_FLAT:.2f}")
     for o in list(bpy.data.objects):
         if o.name.startswith("Cloth_"):
             bpy.data.objects.remove(o, do_unlink=True)
@@ -522,7 +597,6 @@ def build_human():
     bm.to_mesh(me)
     bm.free()
     me.update()
-    hr["GHOST_GAP"] = HAIR_GAP
     hr["STYLES"]["krasue"] = (lambda b: krasue_hair(b, hr), ["HairBlack"])
     hair_ob = hr["add_hair"]("female", ["krasue"])["krasue"]
     bm = bmesh.new()
