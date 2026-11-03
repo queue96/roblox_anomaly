@@ -3,10 +3,12 @@
 #
 #   exec(open(r"...\human_base\build_skin.py", encoding="utf-8").read())
 #   skin_all()          # per character: unwrap the normal body, paint textures, apply to all its .blend files
-#   add_skin("female")  # current scene: UVs from human_female_uv.json + Skin / SkinGhost materials
+#   add_skin("female")  # current scene: UVs from human_female_uv.json + Skin / SkinGhost / SkinWithered materials
+#   withered_char("female")  # only the _Withered set, on the stored UVs (skin_all re-unwraps: the UVs can shift)
 #   preview_all()       # renders skin_previews/<char>.png (face front / 3-4 / side / hand, human + ghost)
 #
-# Files per character (next to its .blend): <name>_Color/_Normal/_Roughness.png and <name>_Ghost_Color/_Normal/_Roughness.png
+# Files per character (next to its .blend): <name>_Color/_Normal/_Roughness.png, <name>_Ghost_*.png (pale ghost)
+# and <name>_Withered_*.png (dried, cracked, leathery ghost skin; material SkinWithered)
 # (1024, Roblox SurfaceAppearance: ColorMap / NormalMap (OpenGL, +Y up) / RoughnessMap), <name>_uv.json.
 #
 # UV layout (v up):
@@ -44,6 +46,7 @@ LOOK = {
     "elder_female": dict(skin=(0.78, 0.60, 0.49), brow=(0.46, 0.44, 0.42), age=0.90, eye=0.96, lip=(0.64, 0.42, 0.42), brow_w=0.85, lash=1.2),
 }
 GHOST_SKIN = (0.70, 0.73, 0.70)
+WITHERED_SKIN = (0.47, 0.44, 0.40)          # ghost="withered": dried, leathery grey-brown (mummified)
 
 def blend_files(char=None):
     fs = sorted(glob.glob(os.path.join(M, "human_*", "human_*.blend")))
@@ -291,6 +294,42 @@ def mix(col, c, a):
     a = np.clip(a, 0, 1)[..., None]
     return col*(1 - a) + np.asarray(c)*a
 
+# ---------------------------------------------------------------- withered ghost skin (shared by head and body)
+def wither(col, hgt, rough, skin, x, y, z=None, k=1.0):
+    """leathery dried skin over everything: crinkle folds, fine crackle, dark split cracks, rot blotches, wet sores.
+    x, y(, z) in metres divided by the head scale (head: 2D face space; body: 3D surface points)"""
+    def co(fx, fy, fz=None):
+        return (x*fx, y*fy) if z is None else (x*fx, y*fy, z*(fz if fz is not None else fx))
+    # coarse folds: mostly across (sagging), with a second set running down; height in metres
+    f1 = ridge(*co(70, 210, 70), seed=61, sharp=14)
+    f2 = ridge(*co(190, 60, 190), seed=62, sharp=14)
+    dirn = sstep(0.4, 0.6, fbm(*co(9, 9), oct=2, seed=60))           # patches where folds run across / down
+    folds = f1*(1 - dirn) + f2*dirn
+    hgt = hgt - 0.0008*k*folds
+    col = mix(col, skin*0.58, 0.50*folds)
+    fine = ridge(*co(520, 520), seed=63, sharp=11)                  # crêpe-paper crackle between the folds
+    hgt = hgt - 0.00028*k*fine
+    col = mix(col, skin*0.72, 0.28*fine)
+    # rot blotches: dark brown, bruised purple, olive-grey
+    m = fbm(*co(26, 26), oct=4, seed=66)
+    col = mix(col, (0.24, 0.18, 0.15), 0.60*sstep(0.56, 0.74, m))
+    col = mix(col, (0.30, 0.22, 0.30), 0.35*sstep(0.62, 0.78, fbm(*co(18, 18), oct=3, seed=68)))
+    col = mix(col, (0.44, 0.46, 0.40), 0.25*sstep(0.40, 0.24, m))
+    col = mix(col, skin*1.20, 0.25*sstep(0.66, 0.80, fbm(*co(140, 140), oct=2, seed=69)))   # dry flaky spots
+    # split cracks through the dried skin, dark red-brown inside
+    cr = ridge(*co(300, 300), seed=64, sharp=34)*sstep(0.48, 0.62, fbm(*co(30, 30), oct=2, seed=65))
+    col = mix(col, (0.20, 0.06, 0.05), 0.85*cr)
+    hgt = hgt - 0.0007*k*cr
+    rough = np.where(cr > 0.4, 0.45, rough)
+    # open sores: raw red centre, dark rim, wet
+    so = fbm(*co(30, 30), oct=3, seed=67)
+    rim = sstep(0.78, 0.82, so); core = sstep(0.83, 0.87, so)
+    col = mix(col, (0.16, 0.08, 0.06), 0.7*rim)
+    col = mix(col, (0.45, 0.07, 0.05), 0.9*core)
+    hgt = hgt - 0.0010*k*core + 0.0003*k*(rim - core)
+    rough = np.where(core > 0.4, 0.25, rough)
+    return col, hgt, rough
+
 # ---------------------------------------------------------------- face painting
 # expressions (สีหน้า) for shared/HumanEmotes.SetFace: one whole skin atlas per face (make_face_textures)
 #   open: eye opening (0 closed .. 1 normal .. >1 wide), brow: + inner ends up (sad) / - down (angry),
@@ -310,16 +349,18 @@ FACES = {
 def paint_head(meta, char, ghost, face=None):
     f = FACES.get(face, {}) if face else {}
     lk = LOOK[char]; s = meta["s"]; RF = meta["RF"]; age = lk["age"]
+    withered = ghost == "withered"
+    if withered: age = 1.2                                            # every old-age wrinkle, a bit deeper
     rows = np.arange(N//2, N); cols = np.arange(N)
     v = (rows + 0.5)/N; u = (cols + 0.5)/N
     hh = meta["h0"] + (v - HV0)/(HV1 - HV0)*(meta["h1"] - meta["h0"])
     az = unwarp((u - 0.5)*2*math.pi)
     X, Y = np.meshgrid(az*RF, hh)
     cv = Canvas(X, Y)
-    skin = np.array(GHOST_SKIN if ghost else lk["skin"])
+    skin = np.array(WITHERED_SKIN if withered else GHOST_SKIN if ghost else lk["skin"])
     if f.get("pale"): skin = skin*(1 - f["pale"]) + np.array((0.70, 0.72, 0.70))*f["pale"]
     col = np.ones(X.shape + (3,))*skin
-    hgt = np.zeros(X.shape); rough = np.full(X.shape, 0.62 if not ghost else 0.72)
+    hgt = np.zeros(X.shape); rough = np.full(X.shape, 0.62 if not ghost else 0.85 if withered else 0.72)
     # soft skin variation
     n1 = fbm(X*60, Y*60, oct=4, seed=3) - 0.5
     col *= (1 + 0.06*n1)[..., None]
@@ -397,6 +438,8 @@ def paint_head(meta, char, ghost, face=None):
         # age spots
         spots = sstep(0.72, 0.76, fbm(X*420, Y*420, oct=2, seed=11))*cv.ell(0, ey, 0.09*s, 0.06*s, 1.0)
         col = mix(col, skin*np.array((0.78, 0.66, 0.56)), 0.35*k*spots)
+    if withered:   # leathery skin first, so the eyes and mouth stay readable on top of it
+        col, hgt, rough = wither(col, hgt, rough, skin, X/s, Y/s, None, 1.0)
     # ---------------- eyes
     for sx in (1, -1):
         cx = sx*ex
@@ -420,6 +463,7 @@ def paint_head(meta, char, ghost, face=None):
             # bloodshot
             veins = ridge(X*900, Y*900, seed=5, sharp=14)*soft*sstep(0.25, 1.0, np.abs(dx))
             col = mix(col, (0.55, 0.12, 0.10), 0.8*veins)
+            if withered: icx, icy, ir, irc = cx, ey + 0.0006*s, ir*1.15, (0.80, 0.80, 0.72)   # milky cataract
         elif f.get("dull"):
             icx, icy, irc = cx, ey + 0.0012*s, (0.36, 0.33, 0.30)             # dead: grey, wide pupil, no shine
         else:
@@ -428,7 +472,7 @@ def paint_head(meta, char, ghost, face=None):
         ring = np.hypot(X - icx, Y - icy)/ir
         col = mix(col, np.array(irc)*(0.75 + 0.35*ring[..., None].clip(0, 1)), iris)
         pr = 0.62 if f.get("dull") else (0.45 if not ghost else 0.25)
-        col = mix(col, (0.02, 0.02, 0.02), cv.ell(icx, icy, ir*pr, ir*pr, 0.2)*soft)
+        col = mix(col, (0.02, 0.02, 0.02) if not withered else (0.48, 0.48, 0.43), cv.ell(icx, icy, ir*pr, ir*pr, 0.2)*soft)
         if not ghost and not f.get("dull"):
             col = mix(col, (0.95, 0.95, 0.95), 0.9*cv.ell(icx + sx*0.25*ir - 0.2*ir, icy + 0.35*ir, 0.18*ir, 0.18*ir, 0.4)*soft)  # catchlight
         rough = np.where(inside, 0.12, rough)
@@ -476,8 +520,9 @@ def paint_head(meta, char, ghost, face=None):
         if f.get("bruise") and sx < 0:   # injured: purple bruise round one eye
             col = mix(col, (0.38, 0.20, 0.34), 0.75*cv.ell(cx, ey, a*1.6, 0.012*s, 1.0)*(1 - soft))
         if ghost:   # dark sunken sockets, black streaks running down from the eyes
-            col = mix(col, (0.18, 0.16, 0.20), 0.55*cv.ell(cx, ey, a*1.6, 0.013*s, 1.0)*(1 - soft))
-            hgt += -0.0012*cv.ell(cx, ey, a*1.7, 0.014*s, 1.0)*(1 - soft)
+            k = 1.6 if withered else 1.0                                  # withered: skull-deep sockets
+            col = mix(col, (0.18, 0.16, 0.20) if not withered else (0.10, 0.07, 0.06), 0.55*k*cv.ell(cx, ey, a*1.6*k**0.5, 0.013*s*k**0.5, 1.0)*(1 - soft))
+            hgt += -0.0012*k*cv.ell(cx, ey, a*1.7*k**0.5, 0.014*s*k**0.5, 1.0)*(1 - soft)
             for j, off in enumerate((-0.35, 0.1, 0.45)):
                 x0 = cx + off*a
                 pts = [(x0 + 0.0015*s*math.sin(i*1.3 + j), ey - bl - 0.001*s - i*0.006*s, 1.0 - i/7) for i in range(8)]
@@ -488,8 +533,9 @@ def paint_head(meta, char, ghost, face=None):
     for sx in (1, -1):
         col = mix(col, skin*0.35 if not ghost else (0.15, 0.12, 0.14), cv.ell(sx*0.0075*s, bh + 0.0035*s, 0.0045*s, 0.0025*s, 0.5)*(Y > bh - 0.0005))
     # ---------------- mouth
-    lipc = np.array(lk["lip"]) if not ghost else np.array((0.34, 0.30, 0.36))
+    lipc = np.array(lk["lip"]) if not ghost else np.array((0.24, 0.15, 0.14) if withered else (0.34, 0.30, 0.36))
     mo = f.get("mouth_open", 0.0); smile = f.get("smile", 0.0)
+    if withered: mo = max(mo, 0.8)                                    # shrunken lips pulled back off the teeth
     mw = mw*(0.72 if f.get("scream") else 1.0 + 0.12*max(smile, 0.0))
     xm = np.clip(np.abs(X)/mw, 0, 1.2)
     myx = my + smile*0.007*s*np.clip(xm, 0, 1)**2                     # expression: corners up / down
@@ -505,7 +551,10 @@ def paint_head(meta, char, ghost, face=None):
     if mo > 0:   # dark inside, teeth along the top
         inside_m = (xm < 1) & (np.abs(Y - myx) < gap/2)
         col = mix(col, (0.10, 0.04, 0.04) if not ghost else (0.02, 0.01, 0.01), inside_m*0.95)
-        if f.get("teeth"):
+        if withered:   # long brown-yellow teeth, both rows, dark gaps between them
+            gaps = 0.5 + 0.5*np.cos(X/(0.0021*s)*math.pi)
+            col = mix(col, np.array((0.60, 0.52, 0.34))*(0.75 + 0.25*gaps[..., None]), inside_m*(np.abs(Y - myx) > gap*0.08)*np.clip(gaps*3, 0, 1)*0.95)
+        elif f.get("teeth"):
             col = mix(col, (0.86, 0.83, 0.74), inside_m*(Y > myx + gap/2 - 0.0016*s)*0.95)
     hgt += 0.0004*(in_lo*np.clip((Y - lo_lip)/(0.004*s), 0, 1)) + 0.0002*in_up - 0.0004*(xm < 1.05)*np.exp(-((Y - myx)/(0.0006*s))**2)
     rough = np.where(in_up | in_lo, 0.42, rough)
@@ -517,6 +566,20 @@ def paint_head(meta, char, ghost, face=None):
         where = np.clip(temple + sstep(meta["chin_h"], meta["chin_h"] - 0.03*s, Y), 0, 1)
         col = mix(col, (0.32, 0.30, 0.45), 0.55*vv*where); hgt += 0.0004*vv*where
         col *= (1 - 0.18*cv.ell(0, my + 0.01*s, 0.07*s, 0.03*s, 1.0)*(np.abs(X) > 0.03*s))[..., None]   # hollow cheeks
+    if withered:   # skin dried onto the skull (crinkle / cracks / sores painted before the eyes, see above)
+        for sx in (1, -1):
+            temple = cv.ell(sx*0.060*s, ey + 0.012*s, 0.016*s, 0.024*s, 1.0)            # sunken temples
+            cheek = cv.ell(sx*0.042*s, my + 0.014*s, 0.017*s, 0.020*s, 1.0)             # cheeks sucked in under the bone
+            bone = cv.ell(sx*0.046*s, ey - 0.016*s, 0.024*s, 0.0055*s, 1.0)             # cheekbone shows through
+            hgt += -0.0018*(temple + cheek) + 0.0009*bone
+            col *= (1 - 0.30*temple - 0.35*cheek)[..., None]
+            col = mix(col, skin*1.18, 0.35*bone)
+        jaw = sstep(meta["chin_h"] + 0.004*s, meta["chin_h"] - 0.004*s, Y)*sstep(meta["chin_h"] - 0.02*s, meta["chin_h"] - 0.008*s, Y)
+        hgt += 0.0006*jaw; col = mix(col, skin*1.1, 0.25*jaw)                            # sharp jaw line
+        for sx in (1, -1):                                                               # neck tendons stand out
+            cord = cv.seg([(sx*0.014*s, meta["chin_h"] - 0.01*s, 0.3), (sx*0.020*s, meta["chin_h"] - 0.05*s, 1.0), (sx*0.026*s, meta["chin_h"] - 0.10*s, 0.4)], 0.004*s)
+            hgt += 0.0012*cord; col = mix(col, skin*1.12, 0.3*cord)
+            col = mix(col, skin*0.6, 0.4*cv.seg([(sx*0.006*s, meta["chin_h"] - 0.01*s, 0.3), (sx*0.010*s, meta["chin_h"] - 0.07*s, 1.0)], 0.004*s))
     if f.get("blood_head"):   # injured: split forehead at the hairline, blood running down the temple and cheek
         gx, gy = 0.028*s, brow_y + 0.032*s
         gash = cv.seg([(gx - 0.012*s, gy + 0.004*s, 0.6), (gx, gy, 1.0), (gx + 0.010*s, gy + 0.006*s, 0.5)], 0.0016*s)
@@ -533,10 +596,12 @@ def paint_head(meta, char, ghost, face=None):
 # ---------------------------------------------------------------- body / hand painting
 def paint_body(ras, meta, char, ghost, face=None):
     lk = LOOK[char]; age = lk["age"]; fr = ras["fr"]; names = ras["names"]
+    withered = ghost == "withered"
+    if withered: age = 1.2
     P, Nn, mask, bone = ras["P"], ras["N"], ras["mask"], ras["bone"]
-    skin = np.array(GHOST_SKIN if ghost else lk["skin"])
+    skin = np.array(WITHERED_SKIN if withered else GHOST_SKIN if ghost else lk["skin"])
     sh = mask.shape
-    col = np.ones(sh + (3,))*skin; hgt = np.zeros(sh); rough = np.full(sh, 0.62 if not ghost else 0.72)
+    col = np.ones(sh + (3,))*skin; hgt = np.zeros(sh); rough = np.full(sh, 0.62 if not ghost else 0.85 if withered else 0.72)
     x, y, z = P[..., 0], P[..., 1], P[..., 2]
     col *= (1 + 0.07*(fbm(x*25, y*25, z*25, oct=4, seed=2) - 0.5))[..., None]
     hgt += 0.00004*(fbm(x*700, y*700, z*700, oct=2, seed=6) - 0.5)
@@ -547,12 +612,14 @@ def paint_body(ras, meta, char, ghost, face=None):
         d = P - J; ax = d @ A; rad = np.linalg.norm(d - ax[..., None]*A, axis=-1)
         return ax, rad, A
     # dorsal direction of each hand: across the knuckles x finger direction, pointing up/out
+    dorsal = {}
     for side in ("L", "R"):
         hJ, hA = fr.joints["hand." + side]
         across = fr.joints["index_01." + side][0] - fr.joints["pinky_01." + side][0]
         dors = np.cross(hA, across); dors /= np.linalg.norm(dors)
         sgn = 1 if side == "L" else -1
         if dors[0]*sgn + dors[2] < 0: dors = -dors
+        dorsal[side] = dors
         nd = Nn @ dors
         handish = np.isin(bn, [f"{f}_0{i}.{side}" for f in ("index", "middle", "ring", "pinky", "thumb") for i in (1, 2, 3)] + ["hand." + side])
         for f in ("index", "middle", "ring", "pinky", "thumb"):
@@ -574,7 +641,12 @@ def paint_body(ras, meta, char, ghost, face=None):
                     ax3, rad3, A3 = near_joint(f"{f}_03.{side}")
                     J3, Av = fr.joints[f"{f}_03.{side}"]; ln = np.linalg.norm(Av)
                     on = handish & (bn == f"{f}_03.{side}") & (ax3 > 0.40*ln) & (ax3 < 1.05*ln) & (nd > 0.55)
-                    col = mix(col, skin*np.array((1.08, 0.96, 0.94)) if not ghost else (0.42, 0.40, 0.38), on*0.85)
+                    if withered:   # long, thick, yellow-brown nails, ridged, dirt under the tip
+                        on = handish & (bn == f"{f}_03.{side}") & (ax3 > 0.25*ln) & (nd > 0.35)
+                        col = mix(col, np.array((0.36, 0.29, 0.16))*(0.8 + 0.3*np.sin(rad3/(0.0012*s))[..., None]), on*0.95)
+                        col = mix(col, (0.08, 0.06, 0.04), on*sstep(0.85*ln, 1.0*ln, ax3))
+                    else:
+                        col = mix(col, skin*np.array((1.08, 0.96, 0.94)) if not ghost else (0.42, 0.40, 0.38), on*0.85)
                     hgt += 0.00025*on; rough = np.where(on, 0.30, rough)
         # wrist creases (palm side)
         ax, rad, _ = near_joint("hand." + side)
@@ -618,6 +690,26 @@ def paint_body(ras, meta, char, ghost, face=None):
         vv = ridge(x*22, y*22, z*22, seed=51, sharp=55)*sstep(0.62, 0.70, fbm(x*6, y*6, z*6, oct=2, seed=53))
         col = mix(col, (0.36, 0.34, 0.48), 0.35*vv); hgt += 0.0003*vv
         col = mix(col, (0.45, 0.48, 0.42), 0.12*fbm(x*8, y*8, z*8, oct=3, seed=52))
+    if withered:   # dried skin; ribs and sternum showing, knuckles and tendons on the back of the hands
+        col, hgt, rough = wither(col, hgt, rough, skin, x/s, y/s, z/s, 1.0)
+        torso = np.isin(bn, ["chest", "spine"])*mask
+        front = np.clip(0.6 - Nn[..., 1], 0, 1)                             # front and sides (front faces -Y)
+        cJ = fr.joints["chest"][0]
+        ribz = (z - cJ[2])/s
+        rib = 0.5 + 0.5*np.cos((ribz/0.034 - 0.15*(np.abs(x - cJ[0])/s)/0.034)*2*math.pi)   # ribs slope down to the sides
+        rib = sstep(0.55, 0.95, rib)*torso*front*sstep(0.010, 0.022, np.abs(x - cJ[0])/s)
+        hgt += -0.0016*rib; col = mix(col, (0.18, 0.13, 0.11), 0.45*rib)
+        stern = torso*front*np.exp(-((x - cJ[0])/(0.006*s))**2)
+        hgt += -0.0010*stern; col = mix(col, skin*0.6, 0.35*stern)
+        for side in ("L", "R"):   # tendons fanning from the wrist to each knuckle
+            hJ, hA = fr.joints["hand." + side]
+            for f in ("index", "middle", "ring", "pinky"):
+                K, _ = fr.joints[f"{f}_01.{side}"]
+                d = K - hJ; ll = float(d @ d) + 1e-12
+                t = np.clip(((P - hJ) @ d)/ll, 0, 1)
+                dist = np.linalg.norm(P - (hJ + t[..., None]*d), axis=-1)
+                ten = np.isin(bn, ["hand." + side])*np.exp(-(dist/(0.0028*s))**2)*np.clip(Nn @ dorsal[side], 0, 1)
+                hgt += 0.0008*ten; col = mix(col, skin*1.15, 0.3*ten)
     return col, hgt, rough
 
 # ---------------------------------------------------------------- textures
@@ -638,10 +730,10 @@ def save_png(arr, path, noncolor):
     img.pixels.foreach_set(rgba.ravel()); img.filepath_raw = path; img.file_format = 'PNG'; img.save()
     bpy.data.images.remove(img)
 
-def make_textures(char, uv, meta, body):
+def make_textures(char, uv, meta, body, variants=(False, True, "withered")):
     ras = rasterise(body, uv)
     out = {}
-    for ghost in (False, True):
+    for ghost in variants:
         hc, hh, hr, hp = paint_head(meta, char, ghost)
         bc, bh, br = paint_body(ras, meta, char, ghost)
         bc, _ = dilate(bc, ras["mask"]); bh, _ = dilate(bh, ras["mask"]); br, _ = dilate(br, ras["mask"])
@@ -651,7 +743,7 @@ def make_textures(char, uv, meta, body):
         rgh = np.concatenate([br, hr], 0)
         nrm = normal_from_height(hgt, np.concatenate([bp, hp[0]], 0), np.concatenate([bp, hp[1]], 0))
         nrm[N//2 - 1:N//2 + 1] = (0.5, 0.5, 1.0)                     # no gradient across the head / body border
-        base = os.path.join(char_dir(char), NAMES[char] + ("_Ghost" if ghost else ""))
+        base = os.path.join(char_dir(char), NAMES[char] + ("_Withered" if ghost == "withered" else "_Ghost" if ghost else ""))
         save_png(col, base + "_Color.png", False); save_png(nrm, base + "_Normal.png", True); save_png(rgh, base + "_Roughness.png", True)
         out[ghost] = base
     return out
@@ -712,6 +804,7 @@ def add_skin(char):
     set_uv(body.data, np.array(d["uv"]).reshape(-1, 2))
     base = os.path.join(char_dir(char), NAMES[char])
     sk = skin_material("Skin", base); gh = skin_material("SkinGhost", base + "_Ghost"); gh.use_fake_user = True
+    wi = skin_material("SkinWithered", base + "_Withered"); wi.use_fake_user = True
     body.data.materials.clear(); body.data.materials.append(sk)
 
 def skin_char(char, save=True):
@@ -729,6 +822,23 @@ def skin_char(char, save=True):
             bpy.ops.wm.open_mainfile(filepath=f); add_skin(char)
             bpy.ops.wm.save_mainfile(relative_remap=True)
     return meta
+
+def withered_char(char, save=True):
+    """only the _Withered set, painted on the UVs stored in <name>_uv.json (no re-unwrap, so the plain / ghost
+    textures and anything exported with them stay valid); adds SkinWithered to every .blend of the character"""
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(char), NAMES[char] + ".blend"))
+    body = bpy.data.objects["Body"]
+    d = json.load(open(os.path.join(char_dir(char), NAMES[char] + "_uv.json")))
+    if d["loops"] != len(body.data.loops): raise RuntimeError(f"{char}: UV file is for {d['loops']} loops, body has {len(body.data.loops)}")
+    uv = np.array(d["uv"]).reshape(-1, 2)
+    set_uv(body.data, uv)
+    meta = {k: np.float64(v) if isinstance(v, float) else v for k, v in d.items() if k != "uv"}   # as unwrap() gives them
+    make_textures(char, uv, meta, body, variants=("withered",))
+    if save:
+        bpy.context.preferences.filepaths.save_version = 0
+        for f in blend_files(char):
+            bpy.ops.wm.open_mainfile(filepath=f); add_skin(char)
+            bpy.ops.wm.save_mainfile(relative_remap=True)
 
 def skin_all(save=True):
     return {c: skin_char(c, save) for c in DIRS.values()}
@@ -759,7 +869,7 @@ def preview(char, out, hair=False):
     hJ = fr.joints["hand.L"][0] + fr.joints["hand.L"][1]*0.9
     shots = [(C, (0, -1, 0.05), 0.55*s), (C, (0.7, -0.7, 0.05), 0.55*s), (C, (1, 0, 0.05), 0.55*s), (hJ, (1, 0.2, 0.8), 0.45*s)]
     tiles = []
-    for mname in ("Skin", "SkinGhost"):
+    for mname in ("Skin", "SkinGhost", "SkinWithered"):
         body.data.materials[0] = bpy.data.materials[mname]
         row = []
         for c_, d_, dist in shots:
@@ -780,7 +890,7 @@ def preview_all(chars=None, out_dir=os.path.join(M, "skin_previews")):
     os.makedirs(out_dir, exist_ok=True)
     for c in chars or DIRS.values():
         bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(c), NAMES[c] + ".blend"))
-        if "SkinGhost" not in bpy.data.materials: add_skin(c)
+        if "SkinWithered" not in bpy.data.materials: add_skin(c)
         preview(c, os.path.join(out_dir, NAMES[c] + ".png"))
 
 if __name__ == "__main__":
