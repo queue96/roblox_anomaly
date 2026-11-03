@@ -7,15 +7,18 @@
 #   Krasue_Color/_Normal/_Roughness/_Metalness.png  texture 1024 ชุดเดียวใช้ทุกชิ้น
 #   Krasue_Anims.json    ค่าท่าทุกเฟรม (quaternion + location ของแต่ละกระดูก ใน local space ของ Blender)
 #   krasue.blend, previews/Krasue*.png
+#   KRASUE_FACES=1 (env) = สร้างสีหน้าผี ghost / ghost_cry ของ human_female ลง human_female/faces/ ด้วย
 # ชิ้น mesh (origin เดียวกัน = กลางหัว):
-#   Krasue         หัว คอ (ตอคอขาด) เขี้ยว — ผิวซีด เบ้าตาคล้ำ ปากอ้าเลือดไหลลงคาง
-#   Krasue_Hair    หนังหัว + ปอยผมยาว 34 ปอย ตกรอบหน้าลงถึงระดับปอด
-#   Krasue_Eyes    ลูกตาแดงก่ำ 2 ข้าง (แยกไว้ให้เกมตั้ง Neon / เรืองแสงได้)
+#   Krasue         หัว + คอของ human_female (mesh + UV เดิม) ตอคอขาด เขี้ยว — ผิววาดด้วย build_skin.paint_head หน้า "krasue"
+#                  (ผีซีด เบ้าตาคล้ำ น้ำตาเลือด ปากอ้า) + เลือดรอบปากไหลลงคางถึงคอ
+#   Krasue_Hair    ผมผีของ build_hair (_ghost แบบเดียวกับ ghost_long) ยาวประบ่า แหวกกลาง (HAIR_HEM, HAIR_GAP)
+#   Krasue_Eyes    เลนส์ตาแดงก่ำ 2 ข้างแปะบนตาที่วาดไว้ (แยกไว้ให้เกมตั้ง Neon / เรืองแสงได้)
 #   Krasue_Organs  หลอดลม เส้นเลือด ปอด หัวใจ ก้อนไส้ ลำไส้ใหญ่ ไส้ห้อย — material แยก (Krasue_OrgansMat) ให้เกมทำเรืองแสง
 # หน่วยเมตร (1 stud = 0.28 m) สูงรวม ~3 studs · หน้าหันไป -Y ใน Blender (= -Z/LookVector ใน Studio)
 import bpy, bmesh, math, os, sys, json, random, traceback
 import numpy as np
 from mathutils import Vector, Matrix, Quaternion
+from mathutils.bvhtree import BVHTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(os.path.dirname(os.path.dirname(HERE)), "assets", "models")
@@ -53,11 +56,10 @@ def vnoise(n, cells, seed):
 
 # ---------------------------------------------------------------- atlas: ช่องของแต่ละผิว (x0, y0, w, h) px จากมุมบนซ้าย
 REG = {
-    "face": (0, 0, 512, 512),       # หัว (หน้ากินพื้นที่ครึ่งหนึ่งของแนวนอน)
-    "hair": (512, 0, 512, 512),     # ปอยผม
+    # ครึ่งบน (แถว 0-511) = หัว + คอ ใช้ UV ทรงกระบอกของ human model ตรงๆ (v 0.505-0.995) วาดด้วย build_skin.paint_head
     "lung": (0, 512, 256, 256),
     "heart": (256, 512, 256, 256),
-    "neck": (512, 512, 256, 256),
+    "hair": (512, 512, 256, 256),   # ผม (UV ทรงกระบอกรอบหัว)
     "eye": (768, 512, 256, 256),
     "gut": (0, 768, 256, 256),      # ลำไส้เล็ก
     "trachea": (256, 768, 128, 128),
@@ -65,7 +67,6 @@ REG = {
     "vessel": (256, 896, 128, 128),
     "colon": (384, 896, 128, 128),  # ลำไส้ใหญ่
     "fang": (512, 768, 128, 128),
-    "scalp": (640, 768, 128, 128),
 }
 
 
@@ -73,67 +74,6 @@ def ruv(reg, s, t):
     """(s, t) ในช่อง reg -> UV ของ atlas (t = 1 คือขอบบนของช่อง)"""
     x0, y0, w, h = REG[reg]
     return ((x0 + MG + s * (w - 2 * MG)) / N, 1.0 - (y0 + MG + (1.0 - t) * (h - 2 * MG)) / N)
-
-
-# ---------------------------------------------------------------- รูปทรงหัว
-RX, RY, RZ = 0.083, 0.098, 0.122   # รัศมีกะโหลก (กว้าง ลึก สูง) กลางหัว = origin
-# (cx, cy, cz, sx, sy, sz, ความนูน, สะท้อนซ้ายขวา) — นูน/บุ๋มตามแนวรัศมีจากกลางหัว
-FEAT = [
-    (0.031, -0.090, 0.012, 0.016, 0.03, 0.012, -0.011, True),     # เบ้าตาลึก
-    (0.032, -0.092, 0.031, 0.020, 0.03, 0.0065, 0.004, True),     # สันคิ้ว
-    (0.0, -0.100, -0.005, 0.0085, 0.04, 0.026, 0.014, False),     # สันจมูก
-    (0.0, -0.104, -0.036, 0.011, 0.04, 0.011, 0.012, False),      # ปลายจมูก
-    (0.011, -0.097, -0.042, 0.007, 0.03, 0.006, 0.005, True),     # ปีกจมูก
-    (0.055, -0.070, -0.012, 0.016, 0.03, 0.014, 0.006, True),     # โหนกแก้ม
-    (0.048, -0.075, -0.050, 0.015, 0.03, 0.018, -0.007, True),    # แก้มตอบ
-    (0.0, -0.090, -0.076, 0.019, 0.04, 0.010, -0.011, False),     # ปากอ้า (บุ๋มลึก)
-    (0.0, -0.093, -0.062, 0.021, 0.04, 0.0045, 0.0035, False),    # ริมฝีปากบน
-    (0.0, -0.088, -0.091, 0.018, 0.04, 0.005, 0.004, False),      # ริมฝีปากล่าง
-    (0.0, -0.072, -0.112, 0.015, 0.04, 0.012, 0.005, False),      # คาง
-    (0.083, 0.0, 0.0, 0.006, 0.016, 0.024, 0.012, True),          # หู (ผมคลุม)
-]
-
-
-def head_xyz(a, ph):
-    """a = มุมรอบแกนตั้ง (0 = หน้า -Y, บวกไป +X), ph = มุมจากกลางกระหม่อม -> จุดบนผิวหัว (numpy)"""
-    a = np.asarray(a, float)
-    ph = np.asarray(ph, float)
-    sp = np.sin(ph)
-    x = RX * sp * np.sin(a)
-    y = -RY * sp * np.cos(a)
-    z = RZ * np.cos(ph)
-    low = sm(-0.01, -0.12, z)                      # กราม/คางเรียวลง
-    x = x * (1 - 0.25 * low)
-    y = np.where(y > 0, y * (1 - 0.35 * low), y * (1 - 0.12 * low))
-    front = np.clip(np.cos(a), 0, 1) ** 2
-    y = y - 0.032 * sm(-0.03, -0.115, z) * front   # หน้าช่วงล่างยื่นออก (ไม่ให้คางหลบเป็นไข่)
-    d = np.zeros_like(x)
-    for cx, cy, cz, sx, sy, sz, amp, mir in FEAT:
-        for sg in ((1, -1) if mir else (1,)):
-            d = d + amp * np.exp(-(((x - sg * cx) / sx) ** 2 + ((y - cy) / sy) ** 2 + ((z - cz) / sz) ** 2))
-    ln = np.sqrt(x * x + y * y + (z + 0.01) ** 2) + 1e-9
-    return x + d * x / ln, y + d * y / ln, z + d * (z + 0.01) / ln
-
-
-def a_of(u):   # u -1..1 -> มุม (ถี่ตรงหน้า)
-    u = np.asarray(u, float)
-    return math.pi * (0.45 * u + 0.55 * u ** 3)
-
-
-def ph_of(v):  # v 0..1 -> มุมจากกระหม่อม (ถี่ช่วงตา-ปาก)
-    v = np.asarray(v, float)
-    return math.pi * (v + 0.1 * np.sin(2 * math.pi * v))
-
-
-_A, _P = np.meshgrid(np.linspace(-1.3, 1.3, 420), np.linspace(0.4, math.pi - 0.05, 420))
-_HX, _HY, _HZ = head_xyz(_A, _P)
-
-
-def surf_front(x, z):
-    """จุดบนผิวหน้า (ฝั่ง -Y) ที่ใกล้ (x, z) ที่สุด"""
-    d = (_HX - x) ** 2 + (_HZ - z) ** 2 + (_HY > 0) * 1.0
-    k = np.unravel_index(np.argmin(d), d.shape)
-    return Vector((float(_HX[k]), float(_HY[k]), float(_HZ[k])))
 
 
 # ---------------------------------------------------------------- mesh builder (ใส่ UV ต่อ loop + น้ำหนักกระดูกต่อจุด)
@@ -350,7 +290,7 @@ def w_hair(p):
     side = "L" if az >= 0 else "R"
     wb = float(sm(math.pi / 2, math.pi, abs(az)))
     wh = float(sm(-0.04, 0.03, p.z))     # รากผมติดหัว
-    u = float(sm(-0.06, -0.22, p.z))     # ช่วงล่างเป็นของกระดูกข้อ 2 (ผสมยาวๆ ไม่หักเป็นมุม)
+    u = float(sm(-0.06, 0.55 * HAIR_ZB, p.z))   # ช่วงล่างเป็นของกระดูกข้อ 2 (ผสมยาวๆ ไม่หักเป็นมุม)
     d = {"Head": wh}
     for c, wc in ((side, 1 - wb), ("B", wb)):
         if wc > 0:
@@ -379,123 +319,309 @@ def w_guts(p):
     return {n: w / tot for w, (_, n) in zip(ws, pick)}
 
 
-# ================================================================ 1. หัว คอ เขี้ยว
-STREAKS = [(-0.016, 0.0030, -0.135), (-0.007, 0.0045, -0.165), (0.003, 0.0035, -0.118), (0.011, 0.0050, -0.172), (0.018, 0.0028, -0.126)]
-NECK = dict(cy=0.012, rx=0.037, ry=0.039, z0=-0.045, z1=-0.183)
+# ================================================================ 1. หัว คอ ผม ตา เขี้ยว — จาก human_female
+# ใช้หัว+คอของ human_female (mesh + UV + ผิววาดด้วย build_skin หน้า "krasue") และผมผีของ build_hair (_ghost ยาวประบ่า)
+# แล้วย่อขยายให้หัวสูงเท่าหัวที่ปั้นเองเดิม (HEAD_H) อวัยวะ กระดูก และท่าเดิมจึงใช้ค่าเดิมได้
+HUMAN_DIR = os.path.join(ROOT, "human_female")
+HUMAN_BASE = os.path.join(ROOT, "human_base")
+HEAD_H = 0.244                              # ความสูงกะโหลก (หน่วยของสคริปต์นี้ก่อน rescale)
+STUMP_OLD = Vector((0.0, 0.012, -0.183))    # กลางตอคอของหัวเดิม ที่อวัยวะวางไว้ใต้
+HAIR_HEM = [(0, -0.20), (40, -0.22), (90, -0.25), (180, -0.28)]   # ปลายผม (x ขนาดหัว จากกลางหัว): ยาวประบ่า (ghost_long ยาวถึงอก ผู้ใช้ว่ายาวเกิน)
+HAIR_LINE = [(0, 42), (10, 34), (25, 22), (45, 12), (70, 6), (100, 6), (180, -20)]   # แนวผม (องศา: มุมรอบหัว -> มุมเงย) ลงมาคลุมมุมหน้าผาก
+HAIR_GAP = (0, 22)                        # build_hair.GHOST_GAP: แหวกกลางให้เห็นหน้าทั้งหน้า (เดิมแหวกหน้าตาซ้าย)
+ORG_D = Vector()                            # เลื่อนอวัยวะ + กระดูกอวัยวะไปใต้ตอคอใหม่ (ตั้งใน build_human)
+HAIR_ZB = -0.40                             # ปลายผมล่างสุด (ตั้งใน build_human) ใช้แบ่งน้ำหนักกระดูกผมข้อ 1/2
 
 
-def build_head():
-    m = Part("Krasue")
-    NU, NV = 64, 44
-    us = [-1 + 2 * j / NU for j in range(NU + 1)]
-    vs = [i / NV for i in range(NV + 1)]
-    AA, PP = np.meshgrid(a_of(us), ph_of(vs))
-    X, Y, Z = head_xyz(AA, PP)
-    P = [[Vector((X[i, j], Y[i, j], Z[i, j])) for j in range(NU + 1)] for i in range(NV + 1)]
-    UV = [[ruv("face", (us[j] + 1) / 2, 1 - vs[i]) for j in range(NU + 1)] for i in range(NV + 1)]
-    m.orient(m.grid(P, UV, W("Head"), close_u=True), (0, 0, 0))
-    # คอ: ท่อรีจากในหัวลงไปถึงตอคอขาด (ขอบหนังขาดรุ่งริ่ง) แล้วพับเข้าเป็นเนื้อแดงข้างใน
-    nc = 20
+def load_ns(path):
+    """exec สคริปต์ของ human model ใน namespace แยก ให้อ่าน/เขียนไฟล์ใน assets/models ของ checkout นี้"""
+    ns = {"__name__": "krasue_lib", "__file__": path}
+    exec(compile(open(path, encoding="utf-8").read(), path, "exec"), ns)
+    ns["M"] = ROOT
+    return ns
+
+
+CHAR, FACE = "female", "krasue"           # ตัวคนที่ใช้หัว + สีหน้าใน build_skin.FACES
+
+
+# ---- ส่วนหน้าผีที่ใช้ซ้ำได้ (ผีตัวอื่นที่ใช้หัว human: เรียกด้วย char/face ของตัวเอง; sk = namespace ของ build_skin)
+def paint_ghost_head(sk, meta, char=CHAR, face=FACE, red_eyes=True, blood=True, neck_soak=True):
+    """ผิวหัว (ครึ่งบนของ atlas, แถวล่างขึ้นบนแบบ build_skin): paint_head(face) + ตาแดง + เลือดรอบปากไหลลงคางถึงคอ
+    (neck_soak = คอล่างชุ่มเลือดทั้งรอบ สำหรับหัวขาด) คืน (สี, ความสูง, roughness, normal)
+    พิกัด Canvas: X = มุมรอบหัว * RF, Y = ความสูงตามแกนหัว (ม. ของ human)"""
+    hc, hh, hr, (ppx, ppy) = sk["paint_head"](meta, char, True, face)
+    f = sk["FACES"][face]
+    rows, cols = np.arange(N // 2, N), np.arange(N)
+    v, u = (rows + 0.5) / N, (cols + 0.5) / N
+    X, Y = np.meshgrid(sk["unwarp"]((u - 0.5) * 2 * math.pi) * meta["RF"],
+                       meta["h0"] + (v - sk["HV0"]) / (sk["HV1"] - sk["HV0"]) * (meta["h1"] - meta["h0"]))
+    cv, mx, sst = sk["Canvas"](X, Y), sk["mix"], sk["sstep"]
+    s, ey, my, cb, h0 = meta["s"], meta["eye_h"], meta["mouth_h"], meta["chin_h"], meta["h0"]
+    es = s * sk["LOOK"][char]["eye"]
+    ex, a = 0.032 * s, 0.0155 * es
+    bu, bl = 0.0062 * es * f["open"], 0.0044 * es * f["open"]
+    mw, gap = 0.022 * s, f["mouth_open"] * 0.006 * s
+    # ตาแดงก่ำ (ใต้เลนส์ตา ghost_eyes อีกชั้น เผื่อมุมที่เลนส์บัง)
+    for sx in ((1, -1) if red_eyes else ()):
+        eye = cv.ell(sx * ex, ey + (bu - bl) / 2, a, (bu + bl) / 2, 0.3)
+        hc = mx(hc, (0.50, 0.04, 0.05), 0.85 * eye)
+        hc = mx(hc, (0.95, 0.16, 0.08), cv.ell(sx * ex, ey + 0.0006 * s, 0.0042 * s, 0.0042 * s, 0.3) * eye)
+    # เลือด: รอบปาก มุมปาก ทางไหลจากริมฝีปากล่างลงคางถึงคอ คอล่างชุ่มเลือดทั้งรอบ
+    bd = 0.8 * cv.ell(0, my - 0.003 * s, mw * 1.25, 0.013 * s, 1.0)
+    for sx in (1, -1):
+        bd = np.maximum(bd, cv.ell(sx * mw, my - 0.002 * s, 0.006 * s, 0.009 * s, 0.6))
+    for x0, w, ye in ((-0.017, 0.0030, h0 + 0.03 * s), (-0.008, 0.0045, h0 - 0.01), (0.002, 0.0035, cb - 0.012 * s),
+                      (0.010, 0.0050, h0 - 0.01), (0.019, 0.0028, cb - 0.035 * s), (-0.024, 0.0025, cb + 0.004 * s)):
+        y0 = my - gap / 2 - 0.004 * s
+        pts = [(x0 * s + 0.0016 * s * math.sin(i * 1.1 + x0 * 300), y0 + (ye - y0) * i / 13, 1.0 - 0.3 * i / 13) for i in range(14)]
+        bd = np.maximum(bd, cv.seg(pts, w * s))
+        bd = np.maximum(bd, 0.9 * cv.ell(pts[-1][0], ye, w * s * 1.4, w * s * 2.2, 0.5))
+    bd = np.maximum(bd, 0.85 * cv.ell(0, cb + 0.004 * s, 0.024 * s, 0.013 * s, 0.9))              # คางเปื้อนเป็นแผ่น
+    bd = np.maximum(bd, 0.55 * cv.ell(0, cb - 0.045 * s, 0.028 * s, 0.050 * s, 1.0))              # ไหลเป็นแผ่นลงคอหน้า
+    if neck_soak:
+        bd = np.maximum(bd, sst(h0 + 0.055 * s, h0 + 0.012 * s, Y + 0.020 * s * (sk["fbm"](X * 45, Y * 45, oct=3, seed=81) - 0.5)))
+    bd = np.clip(bd, 0, 1) * (1.0 if blood else 0.0)
+    bd = bd * ~((np.abs(X) < mw) & (np.abs(Y - my) < gap / 2))                                   # ในปากยังดำ เห็นฟัน
+    hc = mx(hc, (0.30, 0.0, 0.02), 0.92 * bd)
+    hc = mx(hc, (0.45, 0.02, 0.03), 0.5 * bd * sk["fbm"](X * 300, Y * 300, oct=2, seed=82))       # เลือดสดเป็นจุด
+    hr = hr * (1 - bd) + 0.12 * bd
+    hh = hh + 0.00025 * bd
+    return hc, hh, hr, sk["normal_from_height"](hh, ppx, ppy)
+
+
+def face_caster(fr, verts, faces, meta):
+    """surf(X, Y) -> (จุด, normal ออกนอก) บนผิวหัว ตรงพิกัด Canvas ของ build_skin (ยิงจากแกนหัวออกไป) — พิกัด world ของ human"""
+    bvh = BVHTree.FromPolygons(verts, faces)
+
+    def surf(x, y):
+        az = x / meta["RF"]
+        dn = fr.F * math.cos(az) + fr.L * math.sin(az)
+        loc, nrm, _, _ = bvh.ray_cast(fr.C + fr.U * y, dn, 1.0)
+        nrm = nrm.normalized()
+        return loc, (nrm if nrm.dot(dn) > 0 else -nrm)
+    return surf
+
+
+def ghost_eyes(part, surf, fr, T, KS, sk, meta, char=CHAR, face=FACE, reg="eye", wfn=None):
+    """เลนส์ตาทรงรีแบนโค้งตามหน้า 2 ข้าง ทับตาที่ paint_head วาด (ขนาดตาม LOOK[char]["eye"] และ FACES[face]["open"])
+    T = world ของ human -> พิกัดของโมเดล, KS = ตัวคูณขนาด; คืนจุดกลางตา"""
+    s, f = meta["s"], sk["FACES"][face]
+    es = s * sk["LOOK"][char]["eye"]
+    a, bu, bl = 0.0155 * es, 0.0062 * es * f.get("open", 1.0), 0.0044 * es * f.get("open", 1.0)
+    th, out = 0.0028, []
+    for sg in (1, -1):
+        loc, nn = surf(sg * 0.032 * s, meta["eye_h"] + (bu - bl) / 2)
+        xa = fr.U.cross(nn).normalized()
+        rot = Matrix((xa, -nn, xa.cross(-nn).normalized())).transposed()
+        c = T(loc + nn * (th * 0.45))
+        out.append(c)
+        bend = meta["RF"] * KS
+        part.ellip(c, (a * 1.02 * KS, th * KS, (bu + bl) / 2 * 1.05 * KS), reg, wfn or W("Head"), nu=16, nv=10, rot=rot,
+                   shape=lambda lo, dd, b=bend: lo + Vector((0, lo.x ** 2 / (2 * b), 0)))   # โค้งตามหน้า
+    return out
+
+
+def ghost_fangs(part, surf, fr, T, KS, sk, meta, face=FACE, reg="fang", wfn=None, upper=(0.55, 0.0115, 0.0030), lower=(0.42, 0.0065, 0.0022)):
+    """เขี้ยวบน 2 ซี่ยาว ล่าง 2 ซี่สั้น ที่ขอบปากอ้าของ paint_head (FACES[face]["mouth_open"])
+    upper/lower = (ตำแหน่ง x เทียบครึ่งความกว้างปาก, ยาว ม., รัศมีโคน ม.) ของ human; lower=None = ไม่มีเขี้ยวล่าง"""
+    s = meta["s"]
+    mw, gap = 0.022 * s, sk["FACES"][face].get("mouth_open", 0.0) * 0.006 * s
+    for sg in (1, -1):
+        for spec, yb, dirn in ((upper, meta["mouth_h"] + gap / 2 + 0.0008, -1), (lower, meta["mouth_h"] - gap / 2 - 0.0008, 1)):
+            if not spec:
+                continue
+            xf, ln, r0 = spec
+            loc, nn = surf(sg * xf * mw, yb)
+            b0 = loc - nn * 0.0006
+            tip = b0 + fr.U * (dirn * ln) + nn * 0.0012
+            pts = [T(b0.lerp(tip, k / 4) + nn * 0.0012 * math.sin(math.pi * k / 4)) for k in range(5)]
+            part.tube(pts, [r0 * KS * (1 - 0.92 * k / 4) for k in range(5)], reg, wfn or W("Head"), n=6)
+
+
+def krasue_hair(b, hr):
+    """ผมผีของ build_hair (shell แบบ _ghost/ghost_long) ยาวประบ่า แหวกกลาง:
+    แนวผมหน้าผากลดลงมาคลุมมุมหน้าผากเป็นโค้ง ผมบางลงจนแนบหนังหัวตรงแนวผม (ไม่เป็นขอบหนาเหมือนผ้าคลุมหัว)
+    ร่องแสกกลางจากหน้าผากถึงกระหม่อม"""
+    R, key, sym = math.radians, hr["key"], hr["sym"]
+    base, gap = sym(HAIR_HEM), hr["ghost_gap"]
+    line = sym([(az, R(el)) for az, el in HAIR_LINE])
+
+    def deg(th):
+        return abs(math.degrees(math.atan2(math.sin(th), math.cos(th))))
+
+    def thick(th, ph):
+        t = 0.008 + 0.008 * key(ph, [(R(0), 0.4), (R(60), 1.0)])
+        edge = key(ph - line(th), [(0.0, 0.25), (R(14), 1.0)]) if deg(th) < 70 else 1.0      # บางที่แนวผมหน้า
+        part = 1 - 0.75 * math.exp(-(deg(th) / 5) ** 2) * key(ph, [(R(30), 0), (R(48), 1)])  # ร่องแสกกลาง
+        return t * edge * part
+
+    b.shell(hr["GHOST_AZ"], True, hr["POLE"], line, thick,
+            hem=lambda th: base(th) + (0.6 - base(th)) * float(sm(0.25, 0.55, gap(th))),   # เปลี่ยนสั้น->ยาวชันๆ ไม่เป็นขั้นข้างตา
+            flare=lambda th: sym([(0, 0.010), (90, 0.018), (180, 0.014)])(th) * (1 - gap(th)),
+            tip=0.008, rows=10, drop_rows=10, clear=0.02, jitter=0.05, tuck=0.004)
+
+
+def build_human():
+    global ORG_D, HAIR_ZB, BONES, SEG
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(HUMAN_DIR, "human_female.blend"))
+    sk = load_ns(os.path.join(HUMAN_BASE, "build_skin.py"))
+    hr = load_ns(os.path.join(HUMAN_BASE, "build_hair.py"))
+    body, rig = bpy.data.objects["Body"], bpy.data.objects["HumanRig"]
+    d = json.load(open(os.path.join(HUMAN_DIR, "human_female_uv.json"), encoding="utf-8"))
+    uv = np.array(d["uv"]).reshape(-1, 2)          # UV ชุดเดียวกับ texture ของ human_female (ไม่ unwrap ใหม่)
+    meta = {k: np.float64(v) if isinstance(v, float) else v for k, v in d.items() if k != "uv"}   # เหมือน withered_char
+    sk["set_uv"](body.data, uv)
+    if os.environ.get("KRASUE_FACES"):              # สีหน้าผี ghost / ghost_cry ของตัวหญิง (ร่างเต็ม ก่อนตัดหัว)
+        log("  female faces ->", sk["make_face_textures"]("female", uv, meta, body, faces=["ghost", "ghost_cry"]))
+    fr = sk["Frame"](body, rig)
+    C, KS = fr.C.copy(), HEAD_H / (0.235 * fr.s)
+    T = lambda p: (Vector(p) - C) * KS
+    log(f"  human_female head: centre {tuple(round(c, 3) for c in C)}, scale x{KS:.3f}")
+    # เหลือหัว + คอ (เกณฑ์เดียวกับ unwrap: น้ำหนัก head + neck >= 0.5) ก่อนสร้างผม ผมจะตกตรงไม่พาดบ่า
+    me = body.data
+    hn = fr.w[:, fr.gi["head"]] + fr.w[:, fr.gi["neck"]]
+    keep = {p.index for p in me.polygons if all(hn[v] >= 0.5 for v in p.vertices)
+            and all(uv[li][1] >= sk["HV0"] - 1e-3 for li in p.loop_indices)}
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context="FACES")
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    # หู (ชิ้นแยกข้างหัว) โผล่ทะลุผมที่ตกตรง ผมคลุมหูอยู่แล้วจึงตัดทิ้ง เหลือจมูก
+    ears = set()
+    for isl in sk["islands"](me):
+        cx_ = sum((body.matrix_world @ me.vertices[v].co for fi in isl for v in me.polygons[fi].vertices), Vector()).x / sum(len(me.polygons[fi].vertices) for fi in isl)
+        if abs(cx_ - C.x) > 0.04 * fr.s:
+            ears |= set(isl)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index in ears], context="FACES")
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    log(f"  removed ears: {len(ears)} faces")
+    for o in list(bpy.data.objects):
+        if o.name.startswith("Cloth_"):
+            bpy.data.objects.remove(o, do_unlink=True)
+    # ใต้ตอคอไม่มีตัวให้ผมพักแล้ว build_hair จะดันผมออกเป็นกระโจม: ใส่เสาทรงกระบอกต่อคอลงไปชั่วคราวให้ผมตกตรงรอบเสา
+    nf0 = len(me.polygons)
+    zlo = min(v.co.z for v in me.vertices)
+    ring = [v.co for v in me.vertices if v.co.z < zlo + 0.02]
+    cx = sum((p for p in ring), Vector()) / len(ring)
+    rad = sum(math.hypot(p.x - cx.x, p.y - cx.y) for p in ring) / len(ring)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=16, radius1=rad * 0.9, radius2=rad * 0.9, depth=0.8,
+                          matrix=Matrix.Translation((cx.x, cx.y, zlo + 0.01 - 0.4)))
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    hr["GHOST_GAP"] = HAIR_GAP
+    hr["STYLES"]["krasue"] = (lambda b: krasue_hair(b, hr), ["HairBlack"])
+    hair_ob = hr["add_hair"]("female", ["krasue"])["krasue"]
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index >= nf0], context="FACES")
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    bpy.context.view_layer.update()
+
+    # ---- หัว: mesh + UV ของ human (ผูก Head 100%)
+    wv = [body.matrix_world @ v.co for v in me.vertices]
+    head = Part("Krasue")
+    for p in wv:
+        head.vert(T(p), {"Head": 1.0})
+    lay = me.uv_layers.active.data
+    for p in me.polygons:
+        head.face(list(p.vertices), [tuple(lay[li].uv) for li in p.loop_indices])
+    # ตอคอขาด: ขอบล่างสุดของคอ ขาดรุ่งริ่ง แล้วปิดด้วยเนื้อแดงเว้าเข้า
+    cnt = {}
+    for p in me.polygons:
+        for ek in p.edge_keys:
+            cnt[ek] = cnt.get(ek, 0) + 1
+    nb = {}
+    for (i, j), c in cnt.items():
+        if c == 1:
+            nb.setdefault(i, []).append(j)
+            nb.setdefault(j, []).append(i)
+    loops, seen = [], set()
+    for v0 in nb:
+        if v0 in seen:
+            continue
+        lp, prev, cur = [v0], None, v0
+        seen.add(v0)
+        while True:
+            nxt = [x for x in nb[cur] if x != prev and x not in seen]
+            if not nxt:
+                break
+            prev, cur = cur, nxt[0]
+            lp.append(cur)
+            seen.add(cur)
+        loops.append(lp)
+    rim = min(loops, key=lambda lp: sum(head.co[i].z for i in lp) / len(lp))
+    ctr = sum((head.co[i] for i in rim), Vector()) / len(rim)
     rng = random.Random(4)
-    jag = [rng.random() for _ in range(nc)]
-    jag = [(jag[j] + 0.5 * jag[(j + 1) % nc] + 0.5 * jag[j - 1]) / 2 for j in range(nc)]
-    zs = [NECK["z0"] + (NECK["z1"] - NECK["z0"]) * k / 6 for k in range(7)]
-    rows, urows = [], []
-    for k, z in enumerate(zs):
-        grow = 1 + 0.06 * (k / 6) ** 2
-        row, ur = [], []
-        for j in range(nc + 1):
-            th = 2 * math.pi * j / nc - math.pi
-            zz = z - (0.010 * jag[j % nc] if k == 6 else 0.0)
-            row.append(Vector((NECK["rx"] * grow * math.sin(th), NECK["cy"] - NECK["ry"] * grow * math.cos(th), zz)))
-            ur.append(ruv("neck", j / nc, 1 - k / 6))
-        rows.append(row)
-        urows.append(ur)
-    c = Vector((0, NECK["cy"], -0.11))
-    m.orient(m.grid(rows, urows, W("Head"), close_u=True), c)
-    rim = rows[-1]
-    inner = [Vector((q.x * 0.78, NECK["cy"] + (q.y - NECK["cy"]) * 0.78, NECK["z1"] + 0.006)) for q in rim]
-    ctr = [Vector((0, NECK["cy"] + 0.004, NECK["z1"] + 0.012))] * (nc + 1)
-    fl = [[ruv("flesh", 0.5 + rr * math.cos(2 * math.pi * j / nc), 0.5 + rr * math.sin(2 * math.pi * j / nc)) for j in range(nc + 1)]
-          for rr in (0.48, 0.32, 0.0)]
-    m.orient(m.grid([rim, inner, ctr], fl, W("Head"), close_u=True), c)
-    # เขี้ยว: บน 2 ซี่ยาว ล่าง 2 ซี่สั้น
-    for sg in (1, -1):
-        for x, z, dz, r0 in ((0.0115, -0.067, -0.017, 0.0034), (0.0085, -0.0875, 0.009, 0.0024)):
-            b0 = surf_front(sg * x, z) + Vector((0, -0.001, 0))
-            tip = b0 + Vector((0, 0.002, dz))
-            pts = [b0.lerp(tip, k / 4) + Vector((0, -0.0012 * math.sin(math.pi * k / 4), 0)) for k in range(5)]
-            m.tube(pts, [r0 * (1 - 0.92 * k / 4) for k in range(5)], "fang", W("Head"), n=6)
-    return m
+    jag = [rng.random() for _ in rim]
+    for k, i in enumerate(rim):
+        head.co[i] = head.co[i] - Vector((0, 0, 0.010 * (jag[k] + 0.5 * jag[k - 1]) / 1.5))
+    ORG_D = ctr - STUMP_OLD
+    f0 = len(head.f)
+    n = len(rim)
+    angs = [math.atan2(head.co[i].x - ctr.x, -(head.co[i].y - ctr.y)) for i in rim]
+    inner = [head.vert(Vector((ctr.x + (head.co[i].x - ctr.x) * 0.78, ctr.y + (head.co[i].y - ctr.y) * 0.78, ctr.z + 0.006)), {"Head": 1.0})
+             for i in rim]
+    cc = head.vert(ctr + Vector((0, 0.004, 0.012)), {"Head": 1.0})
+    fuv = lambda rr, an: ruv("flesh", 0.5 + rr * math.cos(an), 0.5 + rr * math.sin(an))
+    for k in range(n):
+        k1 = (k + 1) % n
+        head.face([rim[k], rim[k1], inner[k1], inner[k]], [fuv(0.48, angs[k]), fuv(0.48, angs[k1]), fuv(0.32, angs[k1]), fuv(0.32, angs[k])])
+        head.face([inner[k], inner[k1], cc], [fuv(0.32, angs[k]), fuv(0.32, angs[k1]), fuv(0.0, 0.0)])
+    head.orient(f0, ctr + Vector((0, 0, 0.05)))
+    log(f"  head+neck {len(me.polygons)} faces, stump rim {n} verts, centre {tuple(round(c, 3) for c in ctr)}")
 
+    # ---- ตา + เขี้ยว: ยิงจากแกนหัวออกไปหาผิวตรงพิกัดที่ build_skin วาดตา/ปากไว้
+    surf = face_caster(fr, wv, [list(p.vertices) for p in me.polygons], meta)
+    eyes = Part("Krasue_Eyes")
+    eye_c = ghost_eyes(eyes, surf, fr, T, KS, sk, meta)
+    ghost_fangs(head, surf, fr, T, KS, sk, meta)
 
-def build_eyes():
-    m = Part("Krasue_Eyes")
-    centers = []
-    for sg in (1, -1):
-        c = surf_front(sg * 0.031, 0.011) + Vector((0, 0.0075, 0))
-        centers.append(c)
-        m.ellip(c, (0.0125, 0.0125, 0.0125), "eye", W("Head"), nu=16, nv=10)
-    return m, centers
+    # ---- ผม: UV ทรงกระบอกรอบหัวลงช่อง hair, น้ำหนัก Head + Hair_L/R/B (w_hair)
+    hp = [T(hair_ob.matrix_world @ v.co) for v in hair_ob.data.vertices]
+    HAIR_ZB = min(p.z for p in hp)
+    zt = max(p.z for p in hp)
+    hair = Part("Krasue_Hair")
+    for p in hp:
+        hair.vert(p, w_hair(p))
+    for poly in hair_ob.data.polygons:
+        vs = list(poly.vertices)
+        cen = sum((hp[i] for i in vs), Vector()) / len(vs)
+        ac = math.atan2(cen.x, -cen.y)
+        uvs = []
+        for i in vs:
+            az = math.atan2(hp[i].x, -hp[i].y)
+            az = ac + math.atan2(math.sin(az - ac), math.cos(az - ac))     # ตะเข็บอยู่หลังหัว
+            uvs.append(ruv("hair", min(max(0.5 + az / (2 * math.pi), 0.0), 1.0), (hp[i].z - HAIR_ZB) / (zt - HAIR_ZB)))
+        hair.face(vs, uvs)
 
-
-# ================================================================ 2. ผม
-def rho(a):
-    return 1.0 / math.sqrt((math.sin(a) / RX) ** 2 + (math.cos(a) / RY) ** 2)
-
-
-def build_hair():
-    m = Part("Krasue_Hair")
-    # หนังหัว: เปลือกครอบกะโหลก แนวผมหน้าผากสูง แสกกลาง ด้านหลังลงถึงท้ายทอย
-    NA, NI = 48, 9
-    P, UV = [], []
-    for i in range(NI + 1):
-        row, ur = [], []
-        for j in range(NA + 1):
-            a = 2 * math.pi * j / NA - math.pi
-            phm = 0.62 + (1.9 - 0.62) * float(sm(0.5, 2.6, abs(a)))
-            ph = phm * i / NI
-            off = 0.006 - 0.003 * math.exp(-(a / 0.06) ** 2) * (ph < 1.0)
-            row.append(Vector(((RX + off) * math.sin(ph) * math.sin(a), -(RY + off) * math.sin(ph) * math.cos(a), (RZ + off) * math.cos(ph))))
-            ur.append(ruv("scalp", j / NA, 1 - i / NI))
-        P.append(row)
-        UV.append(ur)
-    m.orient(m.grid(P, UV, W("Head"), close_u=True), (0, 0, 0))
-    # ปอยผม: (มุมราก, ph ราก, มุมปลาย, z ปลาย, กว้าง, ชั้น)
-    locks = []
-    rng = random.Random(11)
-    for sg in (1, -1):
-        for a0, ph0, a1, ze, w in ((0.10, 0.30, 0.95, -0.27, 0.030), (0.24, 0.42, 1.08, -0.31, 0.032), (0.40, 0.52, 1.22, -0.29, 0.034)):
-            locks.append((sg * a0, ph0, sg * a1, ze, w, 0))
-        for k in range(14):
-            a0 = 0.75 + k * (math.pi - 0.75) / 13.5
-            a1 = max(a0 + 0.04 * (rng.random() - 0.5), 1.3)
-            ze = -0.29 - 0.08 * (a0 / math.pi) - 0.035 * rng.random()
-            locks.append((sg * a0, 0.55 + 0.3 * rng.random(), sg * a1, ze, 0.034, k % 2))
-    for li, (a0, ph0, a1, ze, wd, layer) in enumerate(locks):
-        off = 0.011 + 0.007 * layer
-        NA_, NB_ = 5, 11
-        pts, ups, wid = [], [], []
-        for k in range(NA_ + NB_ + 1):
-            u = k / (NA_ + NB_)
-            if k <= NA_:
-                f = k / NA_
-                ph = ph0 + (math.pi / 2 - ph0) * f
-                a = a0 + (a1 - a0) * float(sm(0.0, 1.0, f))
-                o = 0.001 + (off - 0.001) * float(sm(0.0, 0.6, f))   # รากผมจมใต้หนังหัว ไม่โผล่เป็นหนาม
-                p = Vector(((RX + o) * math.sin(ph) * math.sin(a), -(RY + o) * math.sin(ph) * math.cos(a), (RZ + o) * math.cos(ph)))
-            else:
-                f = (k - NA_) / NB_
-                z = ze * f
-                a = a1 + 0.035 * math.sin(f * 5 + li) + (0.12 * math.copysign(1, a1) if abs(a1) < 1.3 else 0) * f * f
-                fl = 0.075 * (-z)
-                p = Vector(((RX + off + fl) * math.sin(a), -(RY + off + fl) * math.cos(a), z))
-            pts.append(p)
-            ups.append(Vector((p.x / (RX + off) ** 2, p.y / (RY + off) ** 2, max(p.z, 0) / (RZ + off) ** 2)))
-            wid.append(wd * (0.6 + 0.6 * float(sm(0, 0.25, u)) - 0.85 * float(sm(0.72, 1.0, u))) / 2)
-        m.tube(pts, wid, "hair", w_hair, n=6, ups=ups, flat=0.2)
-    log(f"  hair locks: {len(locks)}")
-    return m
+    # ---- กระดูก: Head จากกระดูก head ของ HumanRig, ผมจากขนาดผมจริง
+    hb = rig.data.bones["head"]
+    mid = [p for p in hp if abs(p.z) < 0.04]
+    sx, by = max(abs(p.x) for p in mid), max(p.y for p in mid)
+    nb_ = {"Head": (T(rig.matrix_world @ hb.head_local), T(rig.matrix_world @ hb.tail_local))}
+    for nm, sg in (("L", 1), ("R", -1)):
+        nb_[f"Hair_{nm}1"] = (Vector((sg * sx, 0, 0)), Vector((sg * sx * 1.08, 0.005, 0.45 * HAIR_ZB)))
+        nb_[f"Hair_{nm}2"] = (nb_[f"Hair_{nm}1"][1], Vector((sg * sx * 1.2, 0.01, HAIR_ZB)))
+    nb_["Hair_B1"] = (Vector((0, by, 0)), Vector((0, by * 1.08, 0.45 * HAIR_ZB)))
+    nb_["Hair_B2"] = (nb_["Hair_B1"][1], Vector((0, by * 1.2, HAIR_ZB)))
+    BONES = [(nm, tuple(nb_[nm][0]), tuple(nb_[nm][1]), par) if nm in nb_ else (nm, hd, tl, par) for nm, hd, tl, par in BONES]
+    SEG = {b[0]: (Vector(b[1]), Vector(b[2])) for b in BONES}
+    log(f"  hair (ghost ประบ่า): {len(hair_ob.data.polygons)} faces, bottom z {HAIR_ZB:.3f}, organs moved {tuple(round(c, 3) for c in ORG_D)}")
+    return head, eyes, hair, eye_c, paint_ghost_head(sk, meta)
 
 
 # ================================================================ 3. อวัยวะ
@@ -585,7 +711,7 @@ TARGET_H = 3.0 * K  # สูงรวม 3 studs
 def rescale(parts, organs):
     """ย่ออวัยวะรอบตอคอ แล้วขยายทั้งตัว (mesh + กระดูก) ให้สูงรวม TARGET_H; คืนตัวคูณรวม"""
     global BONES, SEG
-    org = lambda p: ORG_C + (Vector(p) - ORG_C) * ORG_S
+    org = lambda p: ORG_C + (Vector(p) - ORG_C) * ORG_S + ORG_D
     organs.co = [org(p) for p in organs.co]
     BONES = [(n, tuple(org(h)) if n in ORG_BONES else h, tuple(org(t)) if n in ORG_BONES else t, par) for n, h, t, par in BONES]
     zs = [p.z for pt in parts for p in pt.co]
@@ -610,89 +736,6 @@ def mix(c, m_, colr):
     return c * (1 - m_[..., None]) + np.array(colr, float) * m_[..., None]
 
 
-def skin_base(n, seed):
-    n1, n2 = vnoise(n, 8, seed), vnoise(n, 32, seed + 1)
-    col = np.array([0.80, 0.81, 0.78]) * (0.9 + 0.12 * n1 + 0.06 * n2)[..., None]
-    blot = sm(0.55, 0.8, vnoise(n, 14, seed + 2))
-    col = mix(col, 0.25 * blot, (0.55, 0.60, 0.62))
-    return col, n2
-
-
-def blood_streaks(x, z, front, zmax):
-    b = np.zeros_like(x)
-    for x0, w, ze in STREAKS:
-        xc = x0 + 0.0015 * np.sin(z * 260 + x0 * 400)
-        b = b + np.exp(-((x - xc) / w) ** 2) * (z < zmax) * (z > ze) * front
-        b = b + np.exp(-(((x - x0) ** 2 + ((z - ze) / 1.4) ** 2) / (1.5 * w) ** 2)) * front
-    return np.clip(b, 0, 1)
-
-
-def paint_face():
-    S, T, n = region_st("face")
-    a, ph = a_of(2 * S - 1), ph_of(1 - T)
-    x, y, z = head_xyz(a, ph)
-    col, n2 = skin_base(n, 11)
-    n3 = vnoise(n, 90, 13)
-    fr = (y < -0.02).astype(float)
-    col = col * (1 - 0.25 * sm(0.3, -0.6, np.cos(a)))[..., None]     # หลังหัวหม่นลง (ผมคลุม)
-    col = col * (1 - 0.18 * sm(-0.09, -0.122, z))[..., None]
-    h = 0.15 * n2 + 0.08 * n3
-    r = 0.55 + 0.1 * n2
-    eyes = np.zeros_like(x)
-    rim = np.zeros_like(x)
-    for sg in (1, -1):
-        eyes += np.exp(-(((x - sg * 0.031) / 0.021) ** 2 + ((z - 0.009) / 0.016) ** 2))
-        dd = np.sqrt((x - sg * 0.031) ** 2 + ((z - 0.010) / 0.8) ** 2)
-        rim += np.exp(-((dd - 0.0135) / 0.0025) ** 2)
-    col = mix(col, 0.88 * np.clip(eyes, 0, 1) ** 1.3 * fr, (0.16, 0.06, 0.09))      # เบ้าตาคล้ำม่วง
-    col = mix(col, 0.6 * np.clip(rim, 0, 1) * fr, (0.45, 0.03, 0.05))              # ขอบตาแดง
-    for sg in (1, -1):                                                              # คิ้วบาง ปลายในกดต่ำ (หน้าดุ)
-        dx = (x - sg * 0.033) / 0.019
-        zb = 0.031 + 0.004 * (1 - dx ** 2) + 0.005 * ((np.abs(x) - 0.033) / 0.019)
-        col = mix(col, 0.85 * np.exp(-((z - zb) / 0.0024) ** 2) * np.exp(-dx ** 4) * fr, (0.05, 0.04, 0.04))
-    # เส้นเลือดดำคล้ำที่ขมับและใต้คาง
-    vein = (np.abs(vnoise(n, 18, 21) - 0.5) < 0.012) * (((np.abs(x) > 0.045) & (z > -0.02)) | (z < -0.095))
-    col = mix(col, 0.3 * vein, (0.36, 0.40, 0.52))
-    # ปาก: ข้างในดำแดง ฟันเหลือง ริมฝีปากคล้ำ
-    q = (x / 0.0205) ** 2 + ((z + 0.0765) / 0.0125) ** 2
-    mouth = (q < 1) * fr
-    lips = ((q >= 1) & (q < 2.1)) * fr
-    col = mix(col, 0.85 * lips, (0.30, 0.03, 0.05))
-    col = mix(col, mouth, (0.08, 0.0, 0.01))
-    teeth = mouth * (((z > -0.0765 + 0.0125 * 0.45) | (z < -0.0765 - 0.0125 * 0.55)) & (np.sin(x * 2 * math.pi / 0.0052) > -0.5))
-    col = mix(col, teeth, (0.78, 0.72, 0.58))
-    h = h - 0.5 * mouth + 0.2 * lips
-    r = np.where(mouth > 0, 0.3, np.where(lips > 0, 0.35, r))
-    # เลือด: มุมปาก ริมฝีปากล่าง ไหลเป็นทางลงคางถึงคอ + น้ำตาเลือด
-    blood = blood_streaks(x, z, fr, -0.084)
-    blood = blood + 0.75 * np.exp(-((x / 0.02) ** 2 + ((z + 0.1) / 0.012) ** 2)) * fr
-    for sg in (1, -1):
-        blood = blood + np.exp(-(((x - sg * 0.021) / 0.006) ** 2 + ((z + 0.08) / 0.008) ** 2)) * fr
-        xc = sg * (0.029 + 0.002 * np.sin(z * 200))
-        blood = blood + 0.7 * np.exp(-((x - xc) / 0.0016) ** 2) * (z < 0.0) * (z > -0.05 + 0.01 * sg) * fr
-    blood = np.clip(blood, 0, 1) * (1 - mouth)
-    col = mix(col, blood, (0.32, 0.0, 0.02))
-    r = r * (1 - blood) + 0.12 * blood
-    h = h + 0.25 * blood
-    return col, h, r
-
-
-def paint_neck():
-    S, T, n = region_st("neck")
-    th = (S - 0.5) * 2 * math.pi
-    x = NECK["rx"] * np.sin(th)
-    z = NECK["z0"] + (1 - T) * (NECK["z1"] - NECK["z0"])
-    fr = (np.cos(th) > 0.2).astype(float)
-    col, n2 = skin_base(n, 31)
-    col = col * (0.9 - 0.2 * sm(0.3, -0.6, np.cos(th)))[..., None]
-    blood = blood_streaks(x, z, fr, -0.06)
-    soak = sm(0.30, 0.02, T + 0.15 * (vnoise(n, 10, 33) - 0.5))
-    drip = (np.sin(S * 2 * math.pi * 9 + 1.3) > 0.85) * sm(0.45, 0.1, T)
-    blood = np.clip(blood + soak + drip, 0, 1)
-    col = mix(col, blood, (0.30, 0.0, 0.02))
-    return col, 0.15 * n2 + 0.2 * blood, 0.55 * (1 - blood) + 0.14 * blood
-
-
 def paint_hair(reg, seed):
     S, T, n = region_st(reg)
     lo1, lo2 = vnoise(n, 5, seed), vnoise(n, 7, seed + 1)
@@ -714,7 +757,8 @@ def paint_organ(reg, base, dark, seed, rough=0.18):
     return S, T, n, n1, col, 0.4 * n2 + 0.3 * n3 + 0.4 * veins, rough + 0.12 * n2
 
 
-def paint_all():
+def paint_all(head):
+    """head = (สี, ความสูง, roughness, normal) ของครึ่งบน จาก paint_ghost_head (แถวล่างขึ้นบน)"""
     col = np.zeros((N, N, 3))
     hgt = np.zeros((N, N))
     rgh = np.full((N, N), 0.6)
@@ -725,10 +769,10 @@ def paint_all():
         hgt[y0:y0 + hh, x0:x0 + w] = h
         rgh[y0:y0 + hh, x0:x0 + w] = np.clip(r, 0.04, 1)
 
-    put("face", *paint_face())
-    put("neck", *paint_neck())
+    hc, _, hr, hn = head
+    col[:N // 2] = np.clip(np.flipud(hc), 0, 1)
+    rgh[:N // 2] = np.clip(np.flipud(hr), 0.04, 1)
     put("hair", *paint_hair("hair", 41))
-    put("scalp", *paint_hair("scalp", 43))
     _, _, _, _, c, h, r = paint_organ("lung", (0.55, 0.04, 0.06), (0.25, 0.0, 0.03), 51)
     put("lung", c, h, r)
     S, T, n, n1, c, h, r = paint_organ("heart", (0.42, 0.02, 0.04), (0.22, 0.0, 0.05), 61)
@@ -775,6 +819,8 @@ def paint_all():
     nx, ny = -gx * 6.0, gy * 6.0
     ln = np.sqrt(nx ** 2 + ny ** 2 + 1)
     nrm = np.stack([nx / ln, ny / ln, 1 / ln], -1) * 0.5 + 0.5
+    nrm[:N // 2] = np.flipud(hn)                  # หัว: normal map ของ build_skin (ความหนาแน่น texel จริงของหัว)
+    nrm[N // 2 - 1:N // 2 + 1] = (0.5, 0.5, 1.0)
     files = {}
     for suffix, arr, nonc in (("Color", col, False), ("Normal", nrm, True), ("Roughness", rgh, True), ("Metalness", np.zeros((N, N)), True)):
         if arr.ndim == 2:
@@ -1117,20 +1163,19 @@ def night_render(objs, path):
 
 # ================================================================ main
 def main():
+    log("head + hair from human_female")
+    head, eyes, hair, eye_c, head_tex = build_human()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     os.makedirs(PREV, exist_ok=True)
     coll = bpy.data.collections.new(NAME)
     bpy.context.scene.collection.children.link(coll)
 
-    log("build meshes")
-    head = build_head()
-    eyes, eye_c = build_eyes()
-    hair = build_hair()
+    log("build organs")
     organs = build_organs()
     G = rescale([head, eyes, hair, organs], organs)
     log(f"  organs x{ORG_S} around neck stump, whole model x{G:.3f} -> {TARGET_H / K:.1f} studs tall")
     log("paint textures")
-    files = paint_all()
+    files = paint_all(head_tex)
     mat = make_material(NAME + "_Mat", files)
     mat_eye = make_material(NAME + "_EyesMat", files)
     mat_org = make_material(NAME + "_OrgansMat", files)
