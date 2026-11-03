@@ -1203,6 +1203,38 @@ def workbench(res=900):
     scn.world.color = (0.32, 0.32, 0.34)
 
 
+def day_render(path):
+    """EEVEE แสงกลางวัน (เหมือน build_skin.preview / ภาพหน้าของผีตัวอื่น) ใช้ normal map + PBR ใกล้เคียงในเกม"""
+    scn = bpy.context.scene
+    try:
+        scn.render.engine = "BLENDER_EEVEE"
+    except TypeError:
+        scn.render.engine = "BLENDER_EEVEE_NEXT"
+    vt, old_world = scn.view_settings.view_transform, scn.world
+    scn.view_settings.view_transform = "Standard"
+    w = bpy.data.worlds.get("DayWorld") or bpy.data.worlds.new("DayWorld")
+    scn.world = w
+    try:
+        w.use_nodes = True
+    except Exception:
+        pass
+    bg = next(n for n in w.node_tree.nodes if n.type == "BACKGROUND")
+    bg.inputs[0].default_value = (0.25, 0.26, 0.28, 1)
+    bg.inputs[1].default_value = 0.6
+    lights = []
+    for nm, rot, energy in (("Key", (math.radians(55), 0, math.radians(-35)), 3.5), ("Fill", (math.radians(70), 0, math.radians(60)), 1.0)):
+        lo = bpy.data.objects.new(nm, bpy.data.lights.new(nm, "SUN"))
+        lo.data.energy = energy
+        lo.rotation_euler = rot
+        scn.collection.objects.link(lo)
+        lights.append(lo)
+    render(path)
+    for lo in lights:
+        bpy.data.objects.remove(lo)
+    scn.view_settings.view_transform = vt
+    scn.world = old_world
+
+
 def night_render(objs, path):
     """ภาพกลางคืน (EEVEE): ไส้/ตาเรืองแสง แสงจันทร์อ่อน ไฟแดงจากอวัยวะส่องหน้าจากด้านล่าง"""
     scn = bpy.context.scene
@@ -1293,12 +1325,14 @@ def main():
     workbench()
     for nm, d in (("Krasue", (-0.75, -1.25, 0.45)), ("Krasue_front", (0, -1, 0.06)), ("Krasue_side", (1, 0, 0.05))):
         cam_at(objs, d)
-        render(os.path.join(PREV, nm + ".png"))
+        (day_render if nm == "Krasue_front" else render)(os.path.join(PREV, nm + ".png"))   # หน้าตรง: EEVEE เหมือนภาพหน้าใกล้
+        workbench()
     cam_at(objs, (0, -1, 0.0), scale=1.0)
     cam = bpy.context.scene.camera
     cam.data.ortho_scale = 0.32 * G
     cam.location = Vector((0, -3.0, -0.01))
-    render(os.path.join(PREV, "Krasue_face.png"))
+    day_render(os.path.join(PREV, "Krasue_face.png"))   # หน้าใกล้: EEVEE แสงกลางวันแบบ build_skin.preview (Workbench+cavity ทำจมูกแยกชิ้นเป็นเหลี่ยมคม)
+    workbench()
     set_action(arm, "Lunge")
     bpy.context.scene.frame_set(15)
     bpy.context.view_layer.update()
