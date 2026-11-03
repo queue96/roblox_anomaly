@@ -429,7 +429,6 @@ OUTFITS = {
                      ("tube", "belt", 1.22, ("tz", 1.42), "ghost_dancer_gold", dict(clear=0.040, band=True)),
                      ("sweep", "buckle", path_buckle, "ghost_dancer_gold", dict(over=True, clear=0.006)),
                      ("strip", "collar", path_collar, 0.040, "ghost_dancer_gold", dict(clear=0.012, thick=0.004, over=True)),
-                     ("strip", "epaulets", path_epaulets, 0.040, "ghost_dancer_gold", dict(clear=0.014, thick=0.006, over=True)),
                      ("strip", "sabai", path_sabai_long, 0.16, "ghost_sabai_red", dict(clear=0.032, over=True, tail_hang=True, cols=5)),
                      ("sweep", "pendant", path_pendant, "ghost_dancer_gold", dict(over=True, clear=0.006)),
                      ("ring", "bracelets", "hand", 0.0, "ghost_dancer_gold", dict(tr=0.009, room=0.007)),
@@ -495,7 +494,7 @@ FABRIC = {
     "ghost_white_trousers":   dict(c=(0.84, 0.84, 0.80), weave=0.7, folds=1.6, ghost=dict(pale=0.2, dirt=1.6, blood=0.25, holes=0.8)),
     # green brocade body, red yoke over the shoulders and red sleeves (ref: art_refs/body/ghost_dancer_ref_colors.png)
     "ghost_brocade_top":      dict(c=(0.07, 0.27, 0.15), yoke=(0.55, 0.06, 0.08), weave=0.5, rough=0.6, brocade=True, folds=0.3,
-                                   ghost=dict(pale=0.22, dirt=0.35, blood=0.0, holes=0.12, gold_edges=True)),
+                                   ghost=dict(pale=0.22, dirt=0.30, blood=0.0, holes=0.0, fray=0.0, gold_edges=True)),
 }
 
 # ---------------------------------------------------------------- noise
@@ -694,7 +693,7 @@ def _gold(X, Y):            # gold belt / chains / bangles: hammered with a squa
 # Noise is periodic across the tile (u), so the cloth still tiles; `span` patterns don't tile (u = 0..1 along the
 # whole strip, see build_strip) and may place things along it (blood from the neck at the shoulder end).
 BLOOD = (0.30, 0.025, 0.03); BLOOD_OLD = (0.20, 0.06, 0.04); DIRT = (0.30, 0.24, 0.16)
-def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0):
+def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0, fray=1.0):
     """kind "skirt": Y 0 = hem (dirt, fraying and mud rise from it); "band": Y 0..1 across a strip (both edges fray)"""
     u = X/TILE; Q = 6
     n = lambda k, s_, o=3: fbm(u*k, Y*k*(1.0 if kind == "skirt" else 0.35), oct=o, seed=s_, period=k)
@@ -711,7 +710,7 @@ def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0):
     bl = n(4, seed + 3)
     spot = sstep(0.70, 0.74, bl)*blood
     c = mix(c, BLOOD_OLD, spot*0.85); c = mix(c, np.array(BLOOD_OLD)*0.6, spot*sstep(0.80, 0.74, bl)*0.6)   # darker rims
-    fr = edge < 0.035 + 0.04*n(24, seed + 4, 2)                            # frayed, torn edge
+    fr = edge < (0.035 + 0.04*n(24, seed + 4, 2))*fray                    # frayed, torn edge
     threads = (np.sin(X*2*math.pi/0.003) > 0.3) & (edge < 0.06)
     c = mix(c, np.array(DIRT)*0.35, fr*0.9); c = mix(c, c*0.6, threads*0.4)
     r = np.full(X.shape, rough) + 0.1*low - 0.35*spot
@@ -759,23 +758,6 @@ pattern("ghost_sabai_green", "norm")(_ghost_sabai((0.20, 0.42, 0.24), (0.08, 0.2
 pattern("ghost_sin_white", "norm")(_ghost_sin((0.86, 0.86, 0.82), (0.80, 0.80, 0.76), (0.70, 0.70, 0.66), 75, dirt=1.0, blood=0.25))  # ชุดขาว
 pattern("ghost_sabai_white", "norm")(_ghost_sabai((0.88, 0.88, 0.84), (0.82, 0.82, 0.78), (0.74, 0.74, 0.70), 76, blood=0.25, lattice=False))
 
-GOLD_OLD = (0.58, 0.45, 0.22)
-@pattern("ghost_dancer_gold", "metric", metal=True)
-def _ghost_dancer_gold(X, Y):     # tarnished gold of the crown, collar, belt and bangles: engraved scrolls, red glass, dust in the grooves
-    u = X/TILE; P = TILE/12
-    c = np.ones(X.shape + (3,))*np.array(GOLD_OLD)
-    scroll = np.abs(np.sin(X*4*math.pi/P + 1.5*np.sin(Y*4*math.pi/P))) < 0.15        # fine filigree
-    c = mix(c, (0.34, 0.26, 0.14), scroll*0.6)
-    gx = (X % P)/P - 0.5; gy = (Y % P)/P - 0.5; gem = np.hypot(gx, gy) < 0.08
-    c = mix(c, (0.40, 0.05, 0.06), gem)
-    lost = gem*(fbm(np.floor(X/P)*0.7, np.floor(Y/P)*0.7, oct=1, seed=95) > 0.66)        # glass fallen out
-    c = mix(c, (0.10, 0.08, 0.05), lost)
-    tar = fbm(u*6, Y/TILE*6, oct=3, seed=96, period=6)
-    c = mix(c, (0.22, 0.19, 0.13), sstep(0.60, 0.78, tar)*0.6)                          # dull, dusty patches
-    c = (c*0.8 + c.mean(-1, keepdims=True)*0.2)*0.95                                    # muted, not shiny
-    r = 0.50 + 0.25*sstep(0.6, 0.78, tar) + 0.2*gem
-    return c, r, -0.0003*scroll + 0.0004*gem*~lost - 0.0004*lost
-
 def brocade(u, v, gold, base):
     """ผ้ายก motif on (u, v) in cell units: a diamond with a four-petal flower, a dot between, gold on the base"""
     cu = u % 1.0 - 0.5; cvv = v % 1.0 - 0.5
@@ -785,6 +767,23 @@ def brocade(u, v, gold, base):
     m |= np.hypot(np.abs(cu) - 0.5, np.abs(cvv) - 0.5) < 0.07                          # dot on the corners
     c = np.ones(u.shape + (3,))*np.array(base)
     return mix(c, gold, m*0.9), m
+
+GOLD_OLD = (0.58, 0.45, 0.22)
+@pattern("ghost_dancer_gold", "metric", metal=True)
+def _ghost_dancer_gold(X, Y):     # tarnished gold of the crown, collar, belt and bangles: engraved scrolls, red glass, dust in the grooves
+    u = X/TILE; P = TILE/12
+    c = np.ones(X.shape + (3,))*np.array(GOLD_OLD)
+    orn, scroll = brocade(X/(P*0.5), Y/(P*0.5), (0.80, 0.66, 0.34), (0.40, 0.30, 0.15))      # small flower-and-diamond ornament
+    c = mix(c, orn, 0.85)
+    gx = (X % P)/P - 0.5; gy = (Y % P)/P - 0.5; gem = np.hypot(gx, gy) < 0.08
+    c = mix(c, (0.40, 0.05, 0.06), gem)
+    lost = gem*(fbm(np.floor(X/P)*0.7, np.floor(Y/P)*0.7, oct=1, seed=95) > 0.66)        # glass fallen out
+    c = mix(c, (0.10, 0.08, 0.05), lost)
+    tar = fbm(u*6, Y/TILE*6, oct=3, seed=96, period=6)
+    c = mix(c, (0.22, 0.19, 0.13), sstep(0.60, 0.78, tar)*0.6)                          # dull, dusty patches
+    c = (c*0.8 + c.mean(-1, keepdims=True)*0.2)*0.95                                    # muted, not shiny
+    r = 0.50 + 0.25*sstep(0.6, 0.78, tar) + 0.2*gem
+    return c, r, -0.0003*scroll + 0.0004*gem*~lost - 0.0004*lost
 
 @pattern("ghost_brocade_sin", "norm")
 def _ghost_brocade_sin(X, Y):     # ผ้านุ่งยก (span: u 0..1 round the waist, 0 = front): maroon brocade, gold hem, pleated front panel
@@ -806,8 +805,10 @@ def _ghost_sabai_red(X, Y):       # สไบนางรำ: red with a narrow 
     c = np.ones(X.shape + (3,))*np.array((0.55, 0.06, 0.09))           # red like the sleeves
     c = mix(c, GOLD_OLD, (Y < 0.06) | (Y > 0.94)); c = mix(c, (0.40, 0.08, 0.09), (np.abs(Y - 0.5) < 0.30)*(np.sin(X*2*math.pi/0.01) > 0.7)*0.4)
     c = c*(0.92 + 0.08*weave(X, Y*0.75))[..., None]
-    c, r, h = ghost_cloth(c, X, Y, 80, "band", 0.35, 0.05, 0.6, pale=0.45)
-    return c, r, h
+    c, r, h = ghost_cloth(c, X, Y, 80, "band", 0.35, 0.05, 0.6, pale=0.45, fray=0.25)
+    fold = np.sin(Y*2*math.pi*3.0 + 0.6*np.sin(X/TILE*2*math.pi*2))              # soft folds along the sash
+    c = c*(0.86 + 0.14*fold)[..., None]
+    return c, r, h + 0.0012*fold
 @pattern("ghost_flower", "norm")
 def _ghost_flower(X, Y):          # ดอกไม้ทัดหู / อุบะ: wilted red petals, dark centres, a little green
     u = X/TILE
@@ -1090,7 +1091,7 @@ def ghost_shell(b, ras, freg, m, c, h, r, g, k):
             t = np.zeros((N, N)); t[lm] = Body.chain_param(P[lm], J)
             seg = np.linalg.norm(J[1] - J[0])/s                                  # ~0.27 m per unit of the limb parameter
             edge = np.minimum(edge, np.where(lm, (t[lm].max() - t)*seg, 9.0))
-    fr = edge < 0.010 + 0.016*fbm(x*90, y*90, z*90, oct=2, seed=84 + k)
+    fr = (edge < 0.010 + 0.016*fbm(x*90, y*90, z*90, oct=2, seed=84 + k))*(g.get("fray", 1.0) > 0)
     c = mix(c, np.array(DIRT)*0.5, sstep(0.05, 0.0, edge)*0.5)              # grime along the hems
     c = mix(c, np.array(DIRT)*0.3, fr*0.85); h = h - 0.0004*fr
     # torn holes: a few patches, ragged outline, dark inside, light threads at the rim
@@ -1685,11 +1686,11 @@ def build_sweep(b, spec, under=None):
 def _chada():
     """ชฎา profile (scale of the band ellipse, height x s above the band): band, a short dome, seven stepped rings
     getting smaller, then a thin spike"""
-    pr = [(1.00, 0.0), (1.05, 0.010), (1.05, 0.034), (0.99, 0.044), (0.93, 0.066), (0.82, 0.095)]
+    pr = [(1.00, 0.0), (1.03, 0.008), (1.03, 0.026), (0.99, 0.034), (0.93, 0.060), (0.78, 0.092)]
     for i in range(7):
-        h = 0.105 + i*0.029; k = 0.74*(1 - i/8.0)
-        pr += [(k, h), (k + 0.11, h + 0.006), (k + 0.11, h + 0.013), (k*0.90, h + 0.020)]
-    pr += [(0.10, 0.33), (0.06, 0.38), (0.03, 0.44), (0.012, 0.49), (0.0, 0.52)]
+        h = 0.100 + i*0.020; k = 0.62*(1 - i/7.5)
+        pr += [(k, h), (k + 0.08, h + 0.004), (k + 0.08, h + 0.009), (k*0.88, h + 0.014)]
+    pr += [(0.07, 0.245), (0.045, 0.28), (0.022, 0.32), (0.008, 0.35), (0.0, 0.37)]
     return pr
 CHADA = _chada()
 def crown_frame(b):
@@ -1705,9 +1706,9 @@ def crown_frame(b):
     P = np.array([tuple(p) for p in pts]); hv = b.co[b.reg == "head"]
     C = Vector(((hv.min(0) + hv.max(0))/2).tolist())
     f_, l_, u_ = (P - np.array(C)) @ np.array(F), (P - np.array(C)) @ np.array(L), (P - np.array(C)) @ np.array(U)
-    top = float(((hv - np.array(C)) @ np.array(U)).max()); base = top - 0.085*s
+    top = float(((hv - np.array(C)) @ np.array(U)).max()); base = top - 0.068*s       # band high on the forehead
     band = (u_ > base - 0.01*s) & (u_ < base + 0.03*s)
-    rF = float(np.abs(f_[band]).max()) + 0.008*s; rL = float(np.abs(l_[band]).max()) + 0.008*s
+    rF = float(np.abs(f_[band]).max()) + 0.004*s; rL = float(np.abs(l_[band]).max()) + 0.004*s
     return dict(U=U, F=F, L=L, C=C, f=f_, l=l_, u=u_, base=base, rF=rF, rL=rL)
 
 def build_crown(b, spec):
@@ -1718,19 +1719,19 @@ def build_crown(b, spec):
     def need(h, a):          # scale of the band ellipse that holds the head / hair at height h (x s above the band), azimuth a
         m = (np.abs(u_ - (base + h*s)) < 0.012*s)
         if not m.any(): return 0.0
-        return float(np.sqrt((f_[m]/rF)**2 + (l_[m]/rL)**2).max()) + (0.06 if h < 0.06 else 0.03)
-    drop = lambda a: 0.075*(1 - math.cos(a))/2               # how far the band comes down: 0 at the forehead, 7.5 cm at the nape
-    seg = 36; rows_o, rows_i = [], []
+        return float(np.sqrt((f_[m]/rF)**2 + (l_[m]/rL)**2).max()) + 0.025     # hugging the head
+    drop = lambda a: 0.06*(1 - math.cos(a))/2                # how far the band comes down: 0 at the forehead, 6 cm at the nape
+    seg = 36; rows_o, rows_i, rows_pt = [], [], []
     for kk, hh in CHADA:
-        ro, ri = [], []
+        ro, ri, rp = [], [], []
         for j in range(seg + 1):
             a = 2*math.pi*j/seg
             h2 = hh - drop(a)*(1 - sst(0.0, 0.08, hh))
             k2 = max(kk, need(h2, a)) if kk > 0 else 0.0
             d = F*math.cos(a)*rF + L*math.sin(a)*rL
             p = C + U*(base + h2*s) + d*k2
-            ro.append(msh.vert(p, W)); ri.append(msh.vert(p - (d.normalized()*0.004*s if k2 > 0 else U*0.004*s), W))
-        rows_o.append(ro); rows_i.append(ri)
+            ro.append(msh.vert(p, W)); ri.append(msh.vert(p - (d.normalized()*0.004*s if k2 > 0 else U*0.004*s), W)); rp.append(tuple(p))
+        rows_o.append(ro); rows_i.append(ri); rows_pt.append(rp)
     def uvp(i, j): return (2*math.pi*j/seg*(rF + rL)/2/TILE, -CHADA[i][1]*s/TILE)
     for i in range(len(CHADA) - 1):
         for j in range(seg):
@@ -1738,15 +1739,31 @@ def build_crown(b, spec):
             msh.face([rows_i[i][j], rows_i[i + 1][j], rows_i[i + 1][j + 1], rows_i[i][j + 1]], [uvp(i, j), uvp(i + 1, j), uvp(i + 1, j + 1), uvp(i, j + 1)])
     for j in range(seg):                # bottom rim of the band
         msh.face([rows_o[0][j + 1], rows_o[0][j], rows_i[0][j], rows_i[0][j + 1]], [uvp(0, j + 1), uvp(0, j), uvp(0, j), uvp(0, j + 1)])
+    # กระจัง: a ring of pointed gold leaves standing up round the top of the band, leaning out a little
+    ib = 2; nl = 24
+    for j in range(nl):
+        a0, a1 = 2*math.pi*(j + 0.1)/nl, 2*math.pi*(j + 0.9)/nl; am = (a0 + a1)/2
+        def ring_pt(a, row=ib):
+            jj = a/(2*math.pi)*seg; j0 = int(jj) % seg; f = jj - int(jj)
+            return Vector(rows_pt[row][j0]).lerp(Vector(rows_pt[row][(j0 + 1) % seg]), f)
+        p0, p1 = ring_pt(a0), ring_pt(a1); pm = ring_pt(am)
+        out = (pm - (C + U*U.dot(pm - C))).normalized()
+        tip = pm + U*0.030*s + out*0.008*s; th_ = out*0.0025*s
+        v = [msh.vert(q, W) for q in (p0 + th_, p1 + th_, tip + th_, p0 - th_, p1 - th_, tip - th_)]
+        msh.face([v[0], v[1], v[2]], [(0, 0), (0.05, 0), (0.025, 0.1)]); msh.face([v[5], v[4], v[3]], [(0.025, 0.1), (0.05, 0), (0, 0)])
+        msh.face([v[3], v[0], v[2], v[5]], [(0, 0)]*4); msh.face([v[1], v[4], v[5], v[2]], [(0, 0)]*4)
     return msh
 
-def _ball(msh, c, r, w, seg=8, rings=5, v0=0.0, v1=1.0):
+def _ball(msh, c, r, w, seg=8, rings=5, v0=0.0, v1=1.0, flat=None):
+    """sphere; flat = (axis, factor): squashed along axis (a petal)"""
     ids = []
     for i in range(rings + 1):
         th = math.pi*i/rings; row = []
         for j in range(seg + 1):
             ph = 2*math.pi*j/seg
-            row.append(msh.vert(c + Vector((math.sin(th)*math.cos(ph), math.sin(th)*math.sin(ph), math.cos(th)))*r, w))
+            d = Vector((math.sin(th)*math.cos(ph), math.sin(th)*math.sin(ph), math.cos(th)))
+            if flat: d = d - flat[0]*d.dot(flat[0])*(1 - flat[1])
+            row.append(msh.vert(c + d*r, w))
         ids.append(row)
     for i in range(rings):
         for j in range(seg):
@@ -1763,10 +1780,15 @@ def build_flowers(b, spec):
     for sx in (1, -1):
         a = sx*math.radians(72); d = (F*math.cos(a)*rF + L*math.sin(a)*rL)
         c0 = C + U*(base - 0.005*s) + d*1.12 + d.normalized()*0.012*s
-        for k in range(7):
-            off = Vector(rnd.uniform(-1, 1, 3))*0.013*s
-            p = c0 + off + d.normalized()*abs(off.length)*0.3
-            _ball(msh, p, (0.0075 + 0.003*rnd.rand())*s, W, v0=0.3, v1=1.0)
+        out_ = d.normalized(); t1 = out_.cross(U).normalized(); t2 = out_.cross(t1)
+        for k in range(3 if sx > 0 else 1):  # flowers: each a dark centre and six petals round it; one big rose on the right
+            off = (t1*rnd.uniform(-1, 1) + t2*rnd.uniform(-1, 1))*0.012*s if sx > 0 else Vector()
+            cc = c0 + off + out_*0.006*s; pr_ = (0.009 + 0.002*rnd.rand())*s if sx > 0 else 0.016*s
+            _ball(msh, cc, pr_*0.55, W, seg=6, rings=4, v0=0.0, v1=0.15)
+            for j in range(6):
+                a_ = 2*math.pi*j/6 + rnd.rand()
+                _ball(msh, cc + (t1*math.cos(a_) + t2*math.sin(a_))*pr_*1.0 - out_*0.002*s, pr_*0.75, W, seg=6, rings=4, v0=0.25, v1=0.85,
+                      flat=(out_, 0.30))
         for t in range(3):          # อุบะ: buds hanging down beside the ear, a little out from the cheek
             st = c0 + L*sx*0.0 + F*(t - 1)*0.012*s - U*0.012*s
             for k in range(5):

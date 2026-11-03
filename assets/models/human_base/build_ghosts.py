@@ -110,7 +110,7 @@ DANCE = {
     # the reference: weight on the right leg, left knee bent forward, right arm straight out to the side (ตั้งมือ),
     # left hand in front of the chest palm out, head tilted to the extended arm
     "A": dict(dl=34, dr=16, hz=5, sz=-6, cz=-4, hy=8, hz_=10,
-              R=(40, -6, 6, 62, -70, "wong"), L=(-12, 58, 96, 60, -40, "wong")),     # elbow forward, off the sabai
+              R=(40, -6, 6, 62, -70, "wong"), L=(-20, 45, 110, 70, 15, "wong")),     # hand in front of the chest, palm out, forearm clear of the sabai (found by a grid search)
     # ตั้งวง high in front with the right hand, จีบ low at the left hip, weight centred, deeper
     "C": dict(dl=28, dr=28, hz=0, sz=0, cz=-2, hy=-6, hz_=-6,
               R=(44, 38, 72, 52, -20, "wong"), L=(-22, 22, 58, 28, 10, "jeeb")),
@@ -423,17 +423,17 @@ def porcelain_face(body, rig, char, s):
     for sx in (1, -1):
         for k in range(7):
             ang = math.radians(rnd.uniform(-160, -20)) if k < 6 else math.radians(rnd.uniform(-10, 10))
-            x0 = sx*(ex + math.cos(ang)*0.0165*es); y0 = ey + math.sin(ang)*0.0068*es; n = rnd.randint(4, 8)
+            x0 = sx*(ex + math.cos(ang)*0.0165*es); y0 = ey + math.sin(ang)*0.0068*es; n = rnd.randint(7, 12)
             def walk(x, y, a_, n, w):
                 for _ in range(n):
-                    a_ += rnd.uniform(-0.6, 0.6); L_ = rnd.uniform(0.004, 0.008)*s
+                    a_ += rnd.uniform(-0.5, 0.5); a_ += (-math.pi/2 - a_)*0.15 if k < 6 else 0.0; L_ = rnd.uniform(0.005, 0.009)*s
                     x2, y2 = x + sx*math.cos(a_)*L_, y + math.sin(a_)*L_
                     segs.append((x, y, x2, y2, w)); x, y = x2, y2
                     if rnd.rand() < 0.25 and w > 0.0006*s: walk(x, y, a_ + rnd.choice((-0.9, 0.9)), max(1, n//2), w*0.6)
                     w *= 0.85
             walk(x0, y0, ang, n, 0.0013*s)
     dist = np.full(X.shape, 9.0); wid = np.full(X.shape, 0.001)
-    box = face & (np.abs(Y - ey) < 0.07*s) & (np.abs(X) < 0.09*s)
+    box = face & (Y < ey + 0.05*s) & (Y > ey - 0.11*s) & (np.abs(X) < 0.09*s)
     Xb, Yb = X[box], Y[box]; db = np.full(Xb.shape, 9.0); wb = np.full(Xb.shape, 0.001)
     for x0, y0, x1, y1, w in segs:
         dx, dy = x1 - x0, y1 - y0; ll = dx*dx + dy*dy or 1e-12
@@ -495,8 +495,13 @@ def cut_body(name):
     faces = json.load(open(os.path.join(CL["char_dir"](g["char"]), CL["NAMES"][g["char"]] + "_clothes.json")))["outfits"]
     gone = set(CL["hidden_faces"](me, {g["outfit"]: faces[g["outfit"]]})[g["outfit"]])
     if g.get("headless"): gone |= head_faces(body)
+    # keep the smooth shading: the corner normals of the whole body, put back after the cut (as build_anims.split_skin)
+    key = lambda co, c: (round(co.x, 5), round(co.y, 5), round(co.z, 5), round(c.x, 5), round(c.y, 5), round(c.z, 5))
+    nrm = {key(me.vertices[me.loops[li].vertex_index].co, p.center): me.corner_normals[li].vector.copy()
+           for p in me.polygons for li in p.loop_indices}
     bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index in gone], context='FACES'); bm.to_mesh(me); bm.free()
+    me.normals_split_custom_set([nrm[key(me.vertices[me.loops[li].vertex_index].co, p.center)] for p in me.polygons for li in p.loop_indices])
     return len(gone)
 
 # ---------------------------------------------------------------- clipping check
