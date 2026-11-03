@@ -372,7 +372,7 @@ LanguageModule.UI = {
 	Tut_OpenShop = { th = "เดินไปที่เชือกหลังโต๊ะ แล้วกด [E] ดึงเปิดแผงร้าน", en = "Go to the rope behind the counter and press [E] to raise the shutter." },
 	Tut_Generator = { th = "ไฟร้านยังดับ: ไปที่เครื่องปั่นไฟข้างร้าน กด [E] แล้วกดตามจังหวะจนเครื่องติด", en = "Still no power: go to the generator beside the shop, press [E], and follow the rhythm until it starts." },
 	Tut_TakeCan = { th = "ตู้ยังไม่มีน้ำมัน: หยิบแกลลอนมุมหลังร้าน กด [E]", en = "The pumps are empty: take the jerry can in the back corner of the shop with [E]." },
-	Tut_FillCan = { th = "ไปที่ถังน้ำมันหลังร้าน กด [E] ค้างตักน้ำมันใส่แกลลอน (ถังแดง = ตู้หลอดแดง, ถังน้ำเงิน = ตู้ดีเซลเขียว)", en = "Go to the fuel drums behind the shop and hold [E] to fill the can (red drum = red pump, blue drum = green diesel pump)." },
+	Tut_FillCan = { th = "ไปที่ถังน้ำมันหลังร้าน กด [E] ค้างตักน้ำมันใส่แกลลอน (ถังไหนก็ได้ เทได้ทั้งตู้ซ้ายและขวา)", en = "Go to the fuel drums behind the shop and hold [E] to fill the can (any drum works for either pump)." },
 	Tut_Pour = { th = "กลับมาที่ตู้น้ำมันหน้าร้าน กด [E] ค้างเทน้ำมันใส่ตู้ (ตู้หมดเมื่อไหร่ทำแบบนี้อีก)", en = "Back at the pumps, hold [E] to pour the fuel in (repeat whenever a pump runs dry)." },
 	Tut_Offer = { th = "หยิบขนมไทยที่ถาดบนเคาน์เตอร์ [E] ไปที่ศาลพระภูมิ กด [E] ค้างถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Take the Thai sweets from the tray on the counter [E], go to the spirit house and hold [E] to offer them (protection timer is top-right)." },
 	Tut_Ghosts = { th = "ลูกค้ามาแล้วกด [G] ค้างพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน", en = "When customers arrive, hold [G] to pray and see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside." },

@@ -53,14 +53,14 @@ local CONFIG = {
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
 	-- จังหวะลูกค้า: มาทีละ 1 คัน/คนเท่านั้น (ห้ามมาพร้อมกัน 2 กลุ่ม) -> พอออกไปพ้นแมพแล้ว พักตาม rest วินาที
 	Pacing = {
-		{ kind = "single", weight = 3, count = 1, rest = { 35, 55 } }, -- มาคันเดียว พักให้บรรยากาศเงียบเหงา
-		{ kind = "quiet", weight = 2, count = 1, rest = { 60, 90 } }, -- มาคันเดียว แล้วเงียบไปนาน
+		{ kind = "single", weight = 3, count = 1, rest = { 20, 35 } }, -- มาคันเดียว พักให้บรรยากาศเงียบเหงา (เร่งขึ้น 2026-11-04 เดิม 35-55)
+		{ kind = "quiet", weight = 2, count = 1, rest = { 40, 60 } }, -- มาคันเดียว แล้วเงียบไปนาน (เดิม 60-90)
 	},
-	FirstWaveDelay = { 18, 28 }, -- หลังเปิดร้าน รอให้เงียบสักพักก่อนคันแรกจะมา
+	FirstWaveDelay = { 12, 18 }, -- หลังเปิดร้าน รอให้เงียบสักพักก่อนคันแรกจะมา (เดิม 18-28)
 	-- ฝนตก: ลูกค้ามาน้อยลงและทิ้งช่วงห่างขึ้น (มาทีละ 1 ราย ไม่ซ้อนกัน)
 	RainPacing = {
-		{ kind = "single", weight = 3, count = 1, rest = { 45, 70 } },
-		{ kind = "quiet", weight = 2, count = 1, rest = { 70, 100 } },
+		{ kind = "single", weight = 3, count = 1, rest = { 30, 45 } }, -- (เดิม 45-70)
+		{ kind = "quiet", weight = 2, count = 1, rest = { 50, 70 } }, -- (เดิม 70-100)
 	},
 	WalkerChance = 0.25, -- ลูกค้าเดินมาถือแกลลอน (ปกติ)
 	WalkerChanceRain = 0.5, -- (ฝนตก) เดินกางร่มมา
@@ -1053,7 +1053,7 @@ local function giveTool(player: Player, tool: Tool)
 	end
 end
 
--- fuel = "Petrol" (ถังแดง -> ตู้หลอดแดงเท่านั้น) | "Diesel" (ถังน้ำเงิน -> ตู้ดีเซลเขียวเท่านั้น)
+-- fuel = "Petrol" / "Diesel" = เทได้แค่ตู้นั้น | nil = เทได้ทั้งคู่ (ถังหลังร้านตอนนี้เป็น nil ทุกใบ)
 local CAN_DIESEL = Color3.fromRGB(110, 190, 90)
 local function setCanFull(tool: Tool, full: boolean, fuel: string?)
 	tool:SetAttribute("Full", full)
@@ -1090,14 +1090,15 @@ takeCanPrompt:SetAttribute("Range", TAKE_RANGE)
 takeCanPrompt:SetAttribute("HideIfHasTool", "FuelCan") -- มีแกลลอนอยู่แล้ว ไม่ขึ้นปุ่มหยิบเพิ่ม
 takeCanPrompt.Enabled = true
 
--- ถังหลังร้าน 1:1 กับตู้หน้าร้าน: ถังแดง (FuelDrum_Red) = เบนซิน -> ตู้หลอดแดงเท่านั้น, ถังน้ำเงิน (FuelDrum) = ดีเซล -> ตู้ดีเซลเขียวเท่านั้น
+-- ถังหลังร้าน 2 ใบ (FuelDrum_Red / FuelDrum) เป็นน้ำมันแบบเดียวกัน: ตักจากใบไหนก็เทได้ทั้งตู้หลอดและตู้ดีเซล
+-- (เดิมแยกแดง = เบนซิน / น้ำเงิน = ดีเซล ผู้ใช้ให้รวม 2026-11-03 เพราะเข้าใจยาก)
 local drums: { { part: BasePart, fuel: string? } } = {}
 do
 	local yard = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("ImportedYardProps")
-	for _, pair in ipairs({ { "FuelDrum_Red", "Petrol" }, { "FuelDrum", "Diesel" } }) do
-		local d = yard and yard:FindFirstChild(pair[1])
+	for _, name in ipairs({ "FuelDrum_Red", "FuelDrum" }) do
+		local d = yard and yard:FindFirstChild(name)
 		if d and d:IsA("BasePart") then
-			table.insert(drums, { part = d, fuel = pair[2] })
+			table.insert(drums, { part = d, fuel = nil })
 		end
 	end
 	if #drums == 0 then
@@ -1163,7 +1164,7 @@ local function pour(player: Player, diesel: boolean)
 		Notice:FireClient(player, "NeedCan", 3)
 		return
 	end
-	-- 1:1 ถังกับตู้: แกลลอนจากถังแดงเทได้แค่ตู้หลอด, ถังน้ำเงินเทได้แค่ตู้ดีเซล (ถังสำรองไม่มีชนิด = เทได้ทั้งคู่)
+	-- ถังทุกใบไม่มีชนิดแล้ว (fuel = nil) = เทได้ทั้งคู่ เช็กนี้เหลือไว้เผื่อกลับไปแยกชนิด
 	local fuel = can:GetAttribute("Fuel")
 	if fuel ~= nil and fuel ~= (if diesel then "Diesel" else "Petrol") then
 		Notice:FireClient(player, if diesel then "WrongCanDiesel" else "WrongCanPetrol", 4)
@@ -1171,6 +1172,7 @@ local function pour(player: Player, diesel: boolean)
 	end
 	setCanFull(can, false)
 	SoundBank.PlayOneShot("FuelGlugLoop", if diesel then dieselBody else pumpBody, 50, 2.0)
+	-- เทแยกทีละตู้ (ซ้าย/ขวา) แต่แกลลอนจากถังไหนก็เทตู้ไหนก็ได้ (ผู้ใช้ 2026-11-03)
 	if diesel then
 		dieselLevel = 1
 		setDieselLevel(1, 2.5)

@@ -370,6 +370,73 @@ end)
 onPrayingChanged()
 applyAll(true)
 
+-- ---------------------------------------------------------------- ได้ยินเสียงสวดของผู้เล่นคนอื่น (เสียง 3D ที่หัวคนนั้น)
+-- เสียงสวดของตัวเองสร้างฝั่ง Client เลยไม่ replicate: เครื่องนี้สร้างเสียงให้คนอื่นที่ Praying เองจาก attribute ของเขา
+local otherChants: { [Player]: Sound } = {}
+local otherChantIndex: { [Player]: number } = {}
+local function stopOtherChant(p: Player)
+	local s = otherChants[p]
+	otherChants[p] = nil
+	if s then
+		TweenService:Create(s, TweenInfo.new(0.2), { Volume = 0 }):Play()
+		task.delay(0.22, function()
+			s:Destroy()
+		end)
+	end
+end
+local function onOtherPraying(p: Player)
+	if p:GetAttribute("Praying") ~= true then
+		stopOtherChant(p)
+		return
+	end
+	local head = p.Character and p.Character:FindFirstChild("Head") :: BasePart?
+	if not head or otherChants[p] then
+		return
+	end
+	local idx = ((otherChantIndex[p] or (p.UserId % 4)) % 4) + 1 -- สวดคนละบทต่อรอบ เหมือนตัวเอง
+	otherChantIndex[p] = idx
+	local preset = SoundBank.GetChantPreset(idx, false)
+	if not preset then
+		return
+	end
+	local soundId, isCustom = SoundBank.ResolveId(preset)
+	if not isCustom then
+		return
+	end
+	local s = Instance.new("Sound")
+	s.Name = "OtherPlayerChant"
+	s:SetAttribute("SoundCategory", "Music")
+	s.SoundId = soundId
+	s.Looped = true
+	s.Volume = preset.volume or 0.48
+	s.PlaybackSpeed = preset.speed or 1.0
+	s.RollOffMode = Enum.RollOffMode.InverseTapered
+	s.RollOffMinDistance = 8
+	s.RollOffMaxDistance = 35
+	SoundBank.ApplyWarmEffects(s, { low = 2, mid = 3, high = -14 })
+	s.Parent = head
+	s:Play()
+	otherChants[p] = s
+end
+local function watchOther(p: Player)
+	if p == localPlayer then
+		return
+	end
+	p:GetAttributeChangedSignal("Praying"):Connect(function()
+		onOtherPraying(p)
+	end)
+	p.CharacterAdded:Connect(function()
+		stopOtherChant(p)
+		task.defer(onOtherPraying, p)
+	end)
+	onOtherPraying(p)
+end
+for _, p in ipairs(Players:GetPlayers()) do
+	watchOther(p)
+end
+Players.PlayerAdded:Connect(watchOther)
+Players.PlayerRemoving:Connect(stopOtherChant)
+
 -- ---------------------------------------------------------------- ปุ่มกด (กดเพื่อเปิด/ปิดพนมมือ Toggle)
 local lastToggle = 0
 local function onPray(_name: string, state: Enum.UserInputState, _input: InputObject)
