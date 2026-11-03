@@ -342,6 +342,7 @@ FACES = {
     "cry":     dict(open=0.32, brow=1.7, smile=-1.5, mouth_open=1.3, teeth=True, tears=True),
     "ghost":   dict(ghost=True, open=1.5, mouth_open=3.0, scream=True),
     "ghost_cry": dict(ghost=True, open=0.5, brow=1.9, smile=-1.6, mouth_open=1.7, tears=True, blood_tears=True),
+    "krasue":  dict(ghost=True, open=1.25, brow=-1.2, mouth_open=2.4, teeth=True, tears=True, blood_tears=True),   # tools/blender/krasue.py
     "angry":   dict(open=0.72, brow=-1.3, smile=-0.6, mouth_open=0.35, teeth=True),
     "injured": dict(open=0.62, brow=0.6, smile=-0.5, blood_head=True, bruise=True, blood_arm=True),
 }
