@@ -11,6 +11,7 @@ return {
 		Skin_04 = { "mohom", "farmer", "red_shirt", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m" },
 		Skin_05 = { "farmer", "wan_baggy", "wan_flannel" },
 		Skin_06 = { "farmer", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo" },
+		Skin_07 = { "farmer", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo" },
 	},
 	human_female = {
 		Skin_00 = { "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid" },

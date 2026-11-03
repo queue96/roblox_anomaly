@@ -109,22 +109,25 @@ def c_coffin_walk(P, t, st, s):
 DANCE = {
     # the reference: weight on the right leg, left knee bent forward, right arm straight out to the side (ตั้งมือ),
     # left hand in front of the chest palm out, head tilted to the extended arm
-    "A": dict(dl=34, dr=16, hz=5, sz=-6, cz=-4, hy=8, hz_=10,
+    # legs (thigh fwd, thigh out, shin, foot): weight on the right leg in a deep plie, the left foot forward, heel down,
+    # toes up; foot = -(thigh + shin) keeps a sole flat, more lifts the toes
+    "A": dict(LR=(30, 10, -56, 26), LL=(28, 4, -14, 12), drop=56, hz=5, sz=-6, cz=-4, hy=8, hz_=10,
               R=(40, -6, 6, 62, -70, "wong"), L=(-20, 45, 110, 70, 15, "wong")),     # hand in front of the chest, palm out, forearm clear of the sabai (found by a grid search)
     # ตั้งวง high in front with the right hand, จีบ low at the left hip, weight centred, deeper
-    "C": dict(dl=28, dr=28, hz=0, sz=0, cz=-2, hy=-6, hz_=-6,
+    "C": dict(LR=(26, 10, -46, 20), LL=(26, 10, -46, 20), drop=46, hz=0, sz=0, cz=-2, hy=-6, hz_=-6,
               R=(44, 38, 72, 52, -20, "wong"), L=(-22, 22, 58, 28, 10, "jeeb")),
 }
 def _mirror(d):
-    m = dict(d, dl=d["dr"], dr=d["dl"], hz=-d["hz"], sz=-d["sz"], cz=-d["cz"], hy=-d["hy"], hz_=-d["hz_"], R=d["L"], L=d["R"])
+    m = dict(d, LL=d["LR"], LR=d["LL"], hz=-d["hz"], sz=-d["sz"], cz=-d["cz"], hy=-d["hy"], hz_=-d["hz_"], R=d["L"], L=d["R"])
     return m
 DANCE["B"] = _mirror(DANCE["A"]); DANCE["D"] = _mirror(DANCE["C"])
 DANCE_SEQ = ["A", "C", "B", "D"]
 
 def dancer_pose(P, d, s, br=0.0, tw=0.0):
-    P.rot("thigh.L", d["dl"]*0.6, 0, 5); P.rot("thigh.R", d["dr"]*0.6, 0, 5)
-    P.rot("shin.L", -d["dl"]); P.rot("shin.R", -d["dr"]); P.rot("foot.L", d["dl"]*0.42); P.rot("foot.R", d["dr"]*0.42)
-    P.lift("hips", -hip_drop(min(d["dl"], d["dr"]), s))
+    for sd in ("L", "R"):
+        tx, tz, sh, ft = d["L" + sd]
+        P.rot("thigh." + sd, tx, 0, tz); P.rot("shin." + sd, sh); P.rot("foot." + sd, ft)
+    P.lift("hips", -hip_drop(d["drop"], s)*0.85)
     P.rot("hips", 0, 0, d["hz"]); P.rot("spine", -4 + 0.6*br, 0, d["sz"]); P.rot("chest", -4 + 0.8*br, 0, d["cz"])
     P.rot("neck", 2, d["hy"]*0.4, d["hz_"]*0.5); P.rot("head", 4 + 4*tw, d["hy"] + 12*tw, d["hz_"] - 8*tw)
     for sd in ("L", "R"):
@@ -134,7 +137,9 @@ def dancer_pose(P, d, s, br=0.0, tw=0.0):
 def _blend(a, b, u):
     out = {}
     for k in a:
-        if k in ("L", "R"):
+        if k in ("LL", "LR"):
+            out[k] = tuple(x + (y - x)*u for x, y in zip(a[k], b[k]))
+        elif k in ("L", "R"):
             out[k] = tuple(x + (y - x)*u for x, y in zip(a[k][:5], b[k][:5])) + ((a[k][5] if u < 0.5 else b[k][5]),)
         else: out[k] = a[k] + (b[k] - a[k])*u
     return out
@@ -152,7 +157,8 @@ def c_dancer_idle(P, t, st, s):
     """waiting: knees soft, hands together in front of the waist (one จีบ, one ตั้งวง low), breathing, the head
     tilting slowly from side to side"""
     ph = 2*math.pi*t; br = math.sin(ph*2)
-    d = dict(dl=12, dr=12, hz=1.5*math.sin(ph), sz=-1.5*math.sin(ph), cz=0, hy=6*math.sin(ph), hz_=8*math.sin(ph + 0.6),
+    d = dict(LR=(30, 10, -54 - 2*br, 25 + br), LL=(28, 4, -14, 12), drop=54 + 2*br,          # the reference stance, breathing
+             hz=4 + 1.5*math.sin(ph), sz=-5 - 1.5*math.sin(ph), cz=-3, hy=6*math.sin(ph), hz_=8*math.sin(ph + 0.6),
              R=(-16, 40, 72, 34, -10, "wong"), L=(-18, 38, 76, 30, 10, "jeeb"))
     dancer_pose(P, d, s, br=br)
 
@@ -867,7 +873,17 @@ def compare(name, ref, out, clip="dancer_dance", frame=None):
     tiles.append(shot(tgt, Vector((0.64, -0.77, 0)).normalized(), H*1.02, 540))
     hd = rig.matrix_world @ rig.pose.bones["head"].tail
     head = rig.matrix_world @ rig.pose.bones["head"].head; fc = head.lerp(hd, 0.45)
-    tiles.append(shot(fc, Vector((0, -1, 0.05)).normalized(), 0.42, 560))
+    for o in temps:
+        if o.name == "_rim": o.hide_render = True                 # no hard back light on the face (it cut the nose piece into a wedge)
+    cam.data.type = 'PERSP'; cam.data.lens = 85
+    def shot_p(tgt, d, dist, wpx):
+        sc.render.resolution_x, sc.render.resolution_y = wpx, Hh
+        cam.location = tgt + d*dist; cam.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler()
+        tmp = out[:-4] + "_t.png"; sc.render.filepath = tmp; bpy.ops.render.render(write_still=True)
+        im = bpy.data.images.load(tmp); a_ = np.empty(im.size[0]*im.size[1]*4, np.float32); im.pixels.foreach_get(a_)
+        r_ = a_.reshape(im.size[1], im.size[0], 4); bpy.data.images.remove(im); os.remove(tmp); return r_
+    w.node_tree.nodes["Background"].inputs[0].default_value = (0.25, 0.26, 0.28, 1)
+    tiles.append(shot_p(fc, Vector((0.25, -1, 0.08)).normalized(), 1.25, 560))
     rim = bpy.data.images.load(ref); ra = np.empty(rim.size[0]*rim.size[1]*4, np.float32); rim.pixels.foreach_get(ra)
     ra = ra.reshape(rim.size[1], rim.size[0], 4); k = Hh/ra.shape[0]
     yy = np.minimum((np.arange(Hh)/k).astype(int), ra.shape[0] - 1); xx = np.minimum((np.arange(int(ra.shape[1]*k))/k).astype(int), ra.shape[1] - 1)

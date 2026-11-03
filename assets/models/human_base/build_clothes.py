@@ -315,7 +315,7 @@ def path_sabai_long(b):
     yb = float(hips[:, 1].max()) + 0.045*b.s                      # behind the seat
     zw = b.z(1.0)
     pw = next((q for q in (_back(b, x_sh + 0.01 - dx*b.s, zw) for dx in (0.0, 0.03, 0.06)) if q is not None), None)
-    tail = tail[:-2] + ([pw + Vector((0, 0.02*b.s, 0))] if pw is not None else [])
+    tail = tail[2:-2] + ([pw + Vector((0, 0.02*b.s, 0))] if pw is not None else [])        # starts below the shoulder top
     tail += [Vector((x_sh*0.9, yb, z)) for z in np.linspace(b.z(0.3), b.foot_z + 0.02*b.s, 6)]
     return [loop, tail]
 
@@ -429,7 +429,7 @@ OUTFITS = {
                      ("tube", "belt", 1.22, ("tz", 1.42), "ghost_dancer_gold", dict(clear=0.040, band=True)),
                      ("sweep", "buckle", path_buckle, "ghost_dancer_gold", dict(over=True, clear=0.006)),
                      ("strip", "collar", path_collar, 0.040, "ghost_dancer_gold", dict(clear=0.012, thick=0.004, over=True)),
-                     ("strip", "sabai", path_sabai_long, 0.16, "ghost_sabai_red", dict(clear=0.032, over=True, tail_hang=True, cols=5)),
+                     ("strip", "sabai", path_sabai_long, 0.12, "ghost_sabai_red", dict(clear=0.032, over=True, tail_hang=True, cols=5, narrow_ends=True)),
                      ("sweep", "pendant", path_pendant, "ghost_dancer_gold", dict(over=True, clear=0.006)),
                      ("ring", "bracelets", "hand", 0.0, "ghost_dancer_gold", dict(tr=0.009, room=0.007)),
                      ("ring", "armlets", "upper_arm", 0.72, "ghost_dancer_gold", dict(tr=0.006, room=0.008)),
@@ -801,20 +801,23 @@ def _ghost_brocade_sin(X, Y):     # ผ้านุ่งยก (span: u 0..1 ro
     c, r, h = ghost_cloth(c, X, Y, 79, "skirt", 0.45, 0.08, 0.7, pale=0.45)
     return c, r, h + 0.0005*pleat*panel - 0.0002*m
 @pattern("ghost_sabai_red", "norm")
-def _ghost_sabai_red(X, Y):       # สไบนางรำ: red with a narrow gold border, dusty
-    c = np.ones(X.shape + (3,))*np.array((0.55, 0.06, 0.09))           # red like the sleeves
-    c = mix(c, GOLD_OLD, (Y < 0.06) | (Y > 0.94)); c = mix(c, (0.40, 0.08, 0.09), (np.abs(Y - 0.5) < 0.30)*(np.sin(X*2*math.pi/0.01) > 0.7)*0.4)
-    c = c*(0.92 + 0.08*weave(X, Y*0.75))[..., None]
-    c, r, h = ghost_cloth(c, X, Y, 80, "band", 0.35, 0.05, 0.6, pale=0.45, fray=0.25)
-    fold = np.sin(Y*2*math.pi*3.0 + 0.6*np.sin(X/TILE*2*math.pi*2))              # soft folds along the sash
-    c = c*(0.86 + 0.14*fold)[..., None]
-    return c, r, h + 0.0012*fold
+def _ghost_sabai_red(X, Y):       # สไบนางรำ: plain red silk, a thin gold edge, soft folds (kept clean: only a little dust)
+    c = np.ones(X.shape + (3,))*np.array((0.52, 0.06, 0.09))           # red like the sleeves
+    c = mix(c, GOLD_OLD, (Y < 0.045) | (Y > 0.955))
+    c = c*(0.95 + 0.05*weave(X, Y*0.75))[..., None]
+    g = c.mean(-1, keepdims=True); c = c*0.85 + g*0.15                  # a little faded
+    c = c*(0.94 + 0.06*fbm(X/TILE*4, Y*2, oct=2, seed=81, period=4))[..., None]
+    fold = np.sin(Y*2*math.pi*2.0 + 0.5*np.sin(X/TILE*2*math.pi*2))              # soft folds along the sash
+    c = c*(0.90 + 0.10*fold)[..., None]
+    return c, 0.55, 0.0010*fold
 @pattern("ghost_flower", "norm")
 def _ghost_flower(X, Y):          # ดอกไม้ทัดหู / อุบะ: wilted red petals, dark centres, a little green
     u = X/TILE
-    c = np.ones(X.shape + (3,))*np.array((0.45, 0.05, 0.07))
-    c = c*(0.7 + 0.5*fbm(u*12, Y*6, oct=3, seed=110, period=12))[..., None]
-    c = mix(c, (0.15, 0.03, 0.03), Y < 0.18); c = mix(c, (0.22, 0.30, 0.14), Y > 0.88)
+    c = np.ones(X.shape + (3,))*np.array((0.50, 0.05, 0.08))
+    c = c*(0.75 + 0.4*fbm(u*12, Y*6, oct=3, seed=110, period=12))[..., None]
+    c = mix(c, (0.28, 0.03, 0.05), Y < 0.30)                                 # rose bud: deeper red
+    c = mix(c, (0.84, 0.82, 0.74), (Y > 0.55)*(Y < 0.72))                     # white jasmine buds of the tassels
+    c = mix(c, (0.22, 0.30, 0.14), Y > 0.88)
     return c, 0.7, 0.0
 
 def vfolds(X):
@@ -1408,7 +1411,12 @@ def build_strip(b, spec, under=None):
         if len(pts) < 2: continue
         L, ring = 0.0, []
         prev_a = None
+        Lt = sum((pts[i] - pts[i - 1]).length for i in range(1, len(pts))); Lc = 0.0
         for i, p in enumerate(pts):
+            if i: Lc += (pts[i] - pts[i - 1]).length
+            if kw.get("narrow_ends"):      # narrower where it goes over the shoulder (both ends of the loop): lies flat, no fin
+                fe = min(Lc, Lt - Lc)/max(Lt, 1e-6); w = width*s*(0.45 + 0.55*sst(0.0, 0.12, fe))
+                clear = kw.get("clear", 0.01)*s*(0.45 + 0.55*sst(0.0, 0.12, fe))           # and close to the shoulder
             t = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
             p, n = push(p, clear + thick)
             a = t.cross(n).normalized()
@@ -1686,7 +1694,7 @@ def build_sweep(b, spec, under=None):
 def _chada():
     """ชฎา profile (scale of the band ellipse, height x s above the band): band, a short dome, seven stepped rings
     getting smaller, then a thin spike"""
-    pr = [(1.00, 0.0), (1.03, 0.008), (1.03, 0.026), (0.99, 0.034), (0.93, 0.060), (0.78, 0.092)]
+    pr = [(1.00, 0.0), (0.99, 0.010), (0.97, 0.024), (0.94, 0.036), (0.88, 0.060), (0.76, 0.090)]     # tapering from the bottom
     for i in range(7):
         h = 0.100 + i*0.020; k = 0.62*(1 - i/7.5)
         pr += [(k, h), (k + 0.08, h + 0.004), (k + 0.08, h + 0.009), (k*0.88, h + 0.014)]
@@ -1755,14 +1763,15 @@ def build_crown(b, spec):
     return msh
 
 def _ball(msh, c, r, w, seg=8, rings=5, v0=0.0, v1=1.0, flat=None):
-    """sphere; flat = (axis, factor): squashed along axis (a petal)"""
+    """sphere; flat = (axis, factor) or a list of them: squashed along each axis (a petal, a long bud)"""
+    flat = [flat] if flat and not isinstance(flat, list) else (flat or [])
     ids = []
     for i in range(rings + 1):
         th = math.pi*i/rings; row = []
         for j in range(seg + 1):
             ph = 2*math.pi*j/seg
             d = Vector((math.sin(th)*math.cos(ph), math.sin(th)*math.sin(ph), math.cos(th)))
-            if flat: d = d - flat[0]*d.dot(flat[0])*(1 - flat[1])
+            for ax_, fc_ in flat: d = d - ax_*d.dot(ax_)*(1 - fc_)
             row.append(msh.vert(c + d*r, w))
         ids.append(row)
     for i in range(rings):
@@ -1781,21 +1790,25 @@ def build_flowers(b, spec):
         a = sx*math.radians(72); d = (F*math.cos(a)*rF + L*math.sin(a)*rL)
         c0 = C + U*(base - 0.005*s) + d*1.12 + d.normalized()*0.012*s
         out_ = d.normalized(); t1 = out_.cross(U).normalized(); t2 = out_.cross(t1)
-        for k in range(3 if sx > 0 else 1):  # flowers: each a dark centre and six petals round it; one big rose on the right
-            off = (t1*rnd.uniform(-1, 1) + t2*rnd.uniform(-1, 1))*0.012*s if sx > 0 else Vector()
-            cc = c0 + off + out_*0.006*s; pr_ = (0.009 + 0.002*rnd.rand())*s if sx > 0 else 0.016*s
-            _ball(msh, cc, pr_*0.55, W, seg=6, rings=4, v0=0.0, v1=0.15)
-            for j in range(6):
-                a_ = 2*math.pi*j/6 + rnd.rand()
-                _ball(msh, cc + (t1*math.cos(a_) + t2*math.sin(a_))*pr_*1.0 - out_*0.002*s, pr_*0.75, W, seg=6, rings=4, v0=0.25, v1=0.85,
-                      flat=(out_, 0.30))
-        for t in range(3):          # อุบะ: buds hanging down beside the ear, a little out from the cheek
-            st = c0 + L*sx*0.0 + F*(t - 1)*0.012*s - U*0.012*s
+        roses = [(Vector(), 0.017*s)] if sx < 0 else [(t1*0.010*s + t2*0.008*s, 0.011*s), (-t1*0.011*s + t2*0.004*s, 0.010*s), (t2*-0.011*s, 0.009*s)]
+        for off, R_ in roses:               # ดอกกุหลาบ: a tight bud in the middle, three rings of petals opening outwards
+            cc = c0 + off + out_*0.006*s
+            _ball(msh, cc + out_*0.10*R_, R_*0.30, W, seg=6, rings=4, v0=0.14, v1=0.30)
+            for n_, rad, tilt, sz in ((5, 0.30, 0.25, 0.42), (7, 0.62, 0.55, 0.50), (9, 0.92, 0.85, 0.55)):
+                for j in range(n_):
+                    a_ = 2*math.pi*(j + 0.5*(n_ % 2))/n_ + rnd.uniform(-0.15, 0.15)
+                    rd = t1*math.cos(a_) + t2*math.sin(a_)
+                    ax_ = (out_*(1 - tilt) + rd*tilt).normalized()
+                    _ball(msh, cc + rd*rad*R_ - out_*0.18*R_*rad, R_*sz, W, seg=6, rings=4, v0=0.16, v1=0.52, flat=(ax_, 0.28))
+        for t in range(3):          # อุบะ: strings of small long buds, white and red, hanging beside the ear
+            st = c0 + t1*(t - 1)*0.010*s - U*0.014*s
             for k in range(5):
-                p = st - U*(0.013*k)*s
+                p = st - U*(0.014*k)*s
                 loc = head.find_nearest(p)[0]
                 if loc is not None and (p - loc).length < 0.022*s: p = loc + (p - loc).normalized()*0.022*s
-                _ball(msh, p, (0.0055 - 0.0006*k)*s, W, seg=6, rings=4, v0=0.0, v1=0.6)
+                white = (k + t) % 2 == 0
+                _ball(msh, p, 0.0068*s, W, seg=6, rings=4, v0=0.56 if white else 0.20, v1=0.70 if white else 0.50,
+                      flat=[(out_, 0.55), (t1, 0.55)])
     return msh
 
 # ---------------------------------------------------------------- materials# ---------------------------------------------------------------- materials
