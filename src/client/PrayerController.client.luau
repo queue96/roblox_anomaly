@@ -147,6 +147,7 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 2
 gui.Parent = localPlayer:WaitForChild("PlayerGui")
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui) -- ย่อตามความสูงจอ (shared/UiFit)
 
 local bar = Instance.new("Frame")
 bar.Name = "PrayBar"

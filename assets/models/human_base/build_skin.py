@@ -292,7 +292,23 @@ def mix(col, c, a):
     return col*(1 - a) + np.asarray(c)*a
 
 # ---------------------------------------------------------------- face painting
-def paint_head(meta, char, ghost):
+# expressions (สีหน้า) for shared/HumanEmotes.SetFace: one whole skin atlas per face (make_face_textures)
+#   open: eye opening (0 closed .. 1 normal .. >1 wide), brow: + inner ends up (sad) / - down (angry),
+#   smile: + corners up / - down, mouth_open, teeth, tears, dull (dead eyes), pale, blood_head, bruise, blood_arm,
+#   ghost: the whole ghost skin (sunken eyes, veins) + scream
+FACES = {
+    "blink":   dict(open=0.0),
+    "squint":  dict(open=0.28, smile=1.0, mouth_open=0.6, teeth=True),
+    "dead":    dict(open=0.42, dull=True, mouth_open=0.3, pale=0.35, smile=-0.2),
+    "cry":     dict(open=0.32, brow=1.7, smile=-1.5, mouth_open=1.3, teeth=True, tears=True),
+    "ghost":   dict(ghost=True, open=1.5, mouth_open=3.0, scream=True),
+    "ghost_cry": dict(ghost=True, open=0.5, brow=1.9, smile=-1.6, mouth_open=1.7, tears=True, blood_tears=True),
+    "angry":   dict(open=0.72, brow=-1.3, smile=-0.6, mouth_open=0.35, teeth=True),
+    "injured": dict(open=0.62, brow=0.6, smile=-0.5, blood_head=True, bruise=True, blood_arm=True),
+}
+
+def paint_head(meta, char, ghost, face=None):
+    f = FACES.get(face, {}) if face else {}
     lk = LOOK[char]; s = meta["s"]; RF = meta["RF"]; age = lk["age"]
     rows = np.arange(N//2, N); cols = np.arange(N)
     v = (rows + 0.5)/N; u = (cols + 0.5)/N
@@ -301,6 +317,7 @@ def paint_head(meta, char, ghost):
     X, Y = np.meshgrid(az*RF, hh)
     cv = Canvas(X, Y)
     skin = np.array(GHOST_SKIN if ghost else lk["skin"])
+    if f.get("pale"): skin = skin*(1 - f["pale"]) + np.array((0.70, 0.72, 0.70))*f["pale"]
     col = np.ones(X.shape + (3,))*skin
     hgt = np.zeros(X.shape); rough = np.full(X.shape, 0.62 if not ghost else 0.72)
     # soft skin variation
@@ -311,6 +328,8 @@ def paint_head(meta, char, ghost):
     es = s*lk["eye"]
     ex = 0.032*s                                                     # eye centres at +-ex
     a, bu, bl = 0.0155*es, 0.0062*es, 0.0044*es                      # eye half width, upper / lower lid height
+    op = f.get("open", 1.0)
+    bu, bl = bu*op, (bl*min(op*1.15, 1.0) if op < 1 else bl*op)        # expression: lids closing / wide
     brow_y = ey + 0.019*s
     mw = 0.022*s                                                     # half mouth width
     # cheeks / shading
@@ -390,19 +409,27 @@ def paint_head(meta, char, ghost):
         sclera = np.array((0.80, 0.76, 0.70)) if not ghost else np.array((0.86, 0.84, 0.74))
         col = mix(col, sclera, soft)
         ir = 0.0055*es
-        if ghost:
+        if ghost and f.get("scream"):
+            icx, icy, ir = cx, ey + 0.0004*s, ir*0.45                     # wide staring eyes, pin-point pupils
+            irc = (0.30, 0.28, 0.24)
+            veins = ridge(X*900, Y*900, seed=5, sharp=14)*soft*sstep(0.25, 1.0, np.abs(dx))
+            col = mix(col, (0.55, 0.12, 0.10), 0.9*veins)
+        elif ghost:
             icx, icy, ir = cx + sx*0.0005*s, ey + bu*0.9, ir*0.85        # rolled up under the upper lid
             irc = (0.62, 0.60, 0.52)
             # bloodshot
             veins = ridge(X*900, Y*900, seed=5, sharp=14)*soft*sstep(0.25, 1.0, np.abs(dx))
             col = mix(col, (0.55, 0.12, 0.10), 0.8*veins)
+        elif f.get("dull"):
+            icx, icy, irc = cx, ey + 0.0012*s, (0.36, 0.33, 0.30)             # dead: grey, wide pupil, no shine
         else:
             icx, icy, irc = cx, ey + 0.0006*s, (0.20, 0.12, 0.07)
         iris = cv.ell(icx, icy, ir, ir, 0.15)*soft
         ring = np.hypot(X - icx, Y - icy)/ir
         col = mix(col, np.array(irc)*(0.75 + 0.35*ring[..., None].clip(0, 1)), iris)
-        col = mix(col, (0.02, 0.02, 0.02), cv.ell(icx, icy, ir*(0.45 if not ghost else 0.25), ir*(0.45 if not ghost else 0.25), 0.2)*soft)
-        if not ghost:
+        pr = 0.62 if f.get("dull") else (0.45 if not ghost else 0.25)
+        col = mix(col, (0.02, 0.02, 0.02), cv.ell(icx, icy, ir*pr, ir*pr, 0.2)*soft)
+        if not ghost and not f.get("dull"):
             col = mix(col, (0.95, 0.95, 0.95), 0.9*cv.ell(icx + sx*0.25*ir - 0.2*ir, icy + 0.35*ir, 0.18*ir, 0.18*ir, 0.4)*soft)  # catchlight
         rough = np.where(inside, 0.12, rough)
         # lash line on the upper lid, thin lower lid line, lid crease above
@@ -420,13 +447,34 @@ def paint_head(meta, char, ghost):
         # eyebrows: band along an arc, broken into hair strokes
         bw = lk["brow_w"]
         bx0, bx1 = cx - sx*a*0.95, cx + sx*a*1.25
-        def brow_y_at(xx): t = (xx - bx0)/(bx1 - bx0); return brow_y + 0.0035*s*math.sin(math.pi*min(max(t, 0), 1)*0.9) - 0.0025*s*max(t - 0.75, 0)*4
+        btilt = f.get("brow", 0.0)*0.0065*s                         # expression: inner end up (+) / down (-)
+        def brow_y_at(xx): t = (xx - bx0)/(bx1 - bx0); return brow_y + 0.0035*s*math.sin(math.pi*min(max(t, 0), 1)*0.9) - 0.0025*s*max(t - 0.75, 0)*4 + btilt*(1 - min(max(t, 0), 1))
         pts = [(bx0 + (bx1 - bx0)*i/11, brow_y_at(bx0 + (bx1 - bx0)*i/11), 0.4 + 0.6*math.sin(math.pi*(0.15 + 0.85*i/11))**0.5) for i in range(12)]
         band = cv.seg(pts, 0.0028*s*bw)
         strokes = 0.55 + 0.45*np.sin((X*sx*0.6 + Y)/(0.00055*s)*1.0 + 3*fbm(X*400, Y*400, oct=2, seed=9))
         bcol = np.array(lk["brow"]) if not ghost else np.array((0.10, 0.10, 0.10))
         col = mix(col, bcol, np.clip(band*1.4, 0, 1)*strokes*(0.95 if not ghost else 0.5))
         hgt += 0.00012*band*strokes
+        bt = f.get("blood_tears")    # ghost_cry: dark red rims, blood running down to the jaw
+        if f.get("tears"):   # cry: red rims, wet streaks down the cheeks
+            rim = np.array((0.42, 0.06, 0.08)) if bt else skin*np.array((1.12, 0.70, 0.68))
+            col = mix(col, rim, (0.8 if bt else 0.65)*cv.ell(cx, ey, a*1.45, 0.011*s, 1.0)*(1 - soft))
+            # squeezed-shut wrinkles at the outer corner
+            for k in (-1, 0, 1):
+                pts = [(cx + sx*a*1.05, ey + k*0.0025*s, 1.0), (cx + sx*a*1.45, ey + k*0.0045*s, 0.2)]
+                col = mix(col, skin*0.72, 0.6*cv.seg(pts, 0.0006*s))
+            for j, off in enumerate((-0.45, 0.05, 0.5)):
+                x0 = cx + off*a
+                nstep = 18 if bt else 12
+                pts = [(x0 + 0.0016*s*math.sin(i*0.9 + j), ey - bl - 0.0006*s - i*0.0052*s, 1.0 - 0.7*i/(nstep - 1)) for i in range(nstep)]
+                wet = cv.seg(pts, (0.0019 if bt else 0.0016)*s)
+                tear = (0.40, 0.02, 0.03) if bt else (0.86, 0.92, 1.0)
+                col = mix(col, skin*0.80, 0.35*cv.seg(pts, 0.0028*s))           # wet track darkens the skin
+                col = mix(col, tear, 0.9*wet); rough = np.where(wet > 0.3, 0.08, rough)
+                drop = pts[-1]
+                col = mix(col, tear if bt else (0.90, 0.95, 1.0), 0.9*cv.ell(drop[0], drop[1], 0.0022*s, 0.0028*s, 0.4))
+        if f.get("bruise") and sx < 0:   # injured: purple bruise round one eye
+            col = mix(col, (0.38, 0.20, 0.34), 0.75*cv.ell(cx, ey, a*1.6, 0.012*s, 1.0)*(1 - soft))
         if ghost:   # dark sunken sockets, black streaks running down from the eyes
             col = mix(col, (0.18, 0.16, 0.20), 0.55*cv.ell(cx, ey, a*1.6, 0.013*s, 1.0)*(1 - soft))
             hgt += -0.0012*cv.ell(cx, ey, a*1.7, 0.014*s, 1.0)*(1 - soft)
@@ -434,21 +482,32 @@ def paint_head(meta, char, ghost):
                 x0 = cx + off*a
                 pts = [(x0 + 0.0015*s*math.sin(i*1.3 + j), ey - bl - 0.001*s - i*0.006*s, 1.0 - i/7) for i in range(8)]
                 col = mix(col, (0.05, 0.04, 0.05), 0.75*cv.seg(pts, 0.0011*s))
+    if f.get("tears") and not f.get("blood_tears"):   # cry: red nose tip
+        col = mix(col, skin*np.array((1.15, 0.72, 0.70)), 0.6*cv.ell(0, bh + 0.006*s, 0.012*s, 0.008*s, 1.0))
     # ---------------- nose: nostrils, darker under the tip
     for sx in (1, -1):
         col = mix(col, skin*0.35 if not ghost else (0.15, 0.12, 0.14), cv.ell(sx*0.0075*s, bh + 0.0035*s, 0.0045*s, 0.0025*s, 0.5)*(Y > bh - 0.0005))
     # ---------------- mouth
     lipc = np.array(lk["lip"]) if not ghost else np.array((0.34, 0.30, 0.36))
+    mo = f.get("mouth_open", 0.0); smile = f.get("smile", 0.0)
+    mw = mw*(0.72 if f.get("scream") else 1.0 + 0.12*max(smile, 0.0))
     xm = np.clip(np.abs(X)/mw, 0, 1.2)
+    myx = my + smile*0.007*s*np.clip(xm, 0, 1)**2                     # expression: corners up / down
+    gap = mo*0.006*s*np.clip(1 - xm**2, 0, None)**0.5                  # open mouth: lips apart
     bow = 0.0012*s*np.exp(-((X/(0.004*s))**2))                      # cupid's bow dip
-    up_lip = my + 0.0055*s*np.clip(1 - xm**2, 0, None)**0.6 - bow
-    lo_lip = my - 0.0075*s*np.clip(1 - xm**2, 0, None)**0.7
-    in_up = (xm < 1) & (Y > my) & (Y < up_lip); in_lo = (xm < 1) & (Y < my) & (Y > lo_lip)
-    lips = np.clip(np.minimum(np.abs(Y - my) + 0.0004*s, np.minimum(np.abs(up_lip - Y), np.abs(Y - lo_lip)))/(0.0012*s), 0, 1)
+    up_lip = myx + gap/2 + 0.0055*s*np.clip(1 - xm**2, 0, None)**0.6 - bow
+    lo_lip = myx - gap/2 - 0.0075*s*np.clip(1 - xm**2, 0, None)**0.7
+    in_up = (xm < 1) & (Y > myx + gap/2) & (Y < up_lip); in_lo = (xm < 1) & (Y < myx - gap/2) & (Y > lo_lip)
+    lips = np.clip(np.minimum(np.abs(Y - myx) - gap/2 + 0.0004*s, np.minimum(np.abs(up_lip - Y), np.abs(Y - lo_lip)))/(0.0012*s), 0, 1)
     col = mix(col, lipc*0.92, in_up*lips*0.85)
     col = mix(col, lipc, in_lo*lips*0.85)
-    col = mix(col, lipc*0.45 if not ghost else (0.12, 0.08, 0.10), (xm < 1.05)*np.exp(-((Y - my)/(0.0006*s))**2)*0.9)
-    hgt += 0.0004*(in_lo*np.clip((Y - lo_lip)/(0.004*s), 0, 1)) + 0.0002*in_up - 0.0004*(xm < 1.05)*np.exp(-((Y - my)/(0.0006*s))**2)
+    col = mix(col, lipc*0.45 if not ghost else (0.12, 0.08, 0.10), (xm < 1.05)*np.exp(-((Y - myx)/(0.0006*s))**2)*0.9)
+    if mo > 0:   # dark inside, teeth along the top
+        inside_m = (xm < 1) & (np.abs(Y - myx) < gap/2)
+        col = mix(col, (0.10, 0.04, 0.04) if not ghost else (0.02, 0.01, 0.01), inside_m*0.95)
+        if f.get("teeth"):
+            col = mix(col, (0.86, 0.83, 0.74), inside_m*(Y > myx + gap/2 - 0.0016*s)*0.95)
+    hgt += 0.0004*(in_lo*np.clip((Y - lo_lip)/(0.004*s), 0, 1)) + 0.0002*in_up - 0.0004*(xm < 1.05)*np.exp(-((Y - myx)/(0.0006*s))**2)
     rough = np.where(in_up | in_lo, 0.42, rough)
     if ghost:   # cracked lips, veins on temples / neck / cheeks
         cracks = ridge(X*1400, Y*500, seed=13, sharp=18)*(in_up | in_lo)
@@ -458,12 +517,21 @@ def paint_head(meta, char, ghost):
         where = np.clip(temple + sstep(meta["chin_h"], meta["chin_h"] - 0.03*s, Y), 0, 1)
         col = mix(col, (0.32, 0.30, 0.45), 0.55*vv*where); hgt += 0.0004*vv*where
         col *= (1 - 0.18*cv.ell(0, my + 0.01*s, 0.07*s, 0.03*s, 1.0)*(np.abs(X) > 0.03*s))[..., None]   # hollow cheeks
+    if f.get("blood_head"):   # injured: split forehead at the hairline, blood running down the temple and cheek
+        gx, gy = 0.028*s, brow_y + 0.032*s
+        gash = cv.seg([(gx - 0.012*s, gy + 0.004*s, 0.6), (gx, gy, 1.0), (gx + 0.010*s, gy + 0.006*s, 0.5)], 0.0016*s)
+        col = mix(col, (0.30, 0.02, 0.02), 0.95*gash)
+        col = mix(col, (0.55, 0.06, 0.05), 0.55*cv.ell(gx, gy, 0.018*s, 0.008*s, 1.0))
+        for j, (ox, ln) in enumerate(((-0.006, 0.07), (0.003, 0.10), (0.011, 0.05))):
+            x0 = gx + ox*s
+            pts = [(x0 + 0.002*s*math.sin(i*0.8 + j), gy - i*ln*s/9, 1.0 - 0.6*i/9) for i in range(10)]
+            col = mix(col, (0.45, 0.03, 0.03), 0.85*cv.seg(pts, 0.0013*s))
     ppm_y = np.full(X.shape, N*(HV1 - HV0)/(meta["h1"] - meta["h0"]))              # texels per metre
     ppm_x = np.broadcast_to(N*(1 + K_FACE*np.cos(az))/(2*math.pi*RF), X.shape)
     return col, hgt, rough, (ppm_x, ppm_y)
 
 # ---------------------------------------------------------------- body / hand painting
-def paint_body(ras, meta, char, ghost):
+def paint_body(ras, meta, char, ghost, face=None):
     lk = LOOK[char]; age = lk["age"]; fr = ras["fr"]; names = ras["names"]
     P, Nn, mask, bone = ras["P"], ras["N"], ras["mask"], ras["bone"]
     skin = np.array(GHOST_SKIN if ghost else lk["skin"])
@@ -540,6 +608,12 @@ def paint_body(ras, meta, char, ghost):
         col = mix(col, skin*np.array((1.06, 0.95, 0.92)) if not ghost else (0.42, 0.40, 0.38), nail*0.7)
     sole = np.isin(bn, ["foot.L", "foot.R", "toe.L", "toe.R"])*np.clip(-Nn[..., 2], 0, 1)
     col = mix(col, skin*np.array((1.06, 0.98, 0.95)), 0.5*sole)
+    if face and FACES.get(face, {}).get("blood_arm"):   # injured: grazes and blood down the left arm
+        arm_ = np.isin(bn, ["forearm.L", "upper_arm.L", "hand.L"])
+        graze = sstep(0.52, 0.62, fbm(x*45, y*45, z*45, oct=3, seed=71))*arm_
+        col = mix(col, (0.50, 0.05, 0.04), 0.85*graze)
+        drip = sstep(0.75, 0.80, ridge(x*18, y*60, z*18, seed=73, sharp=20))*arm_
+        col = mix(col, (0.40, 0.03, 0.03), 0.7*drip)
     if ghost:   # veins over the arms, chest, neck; dirty grey-green mottling
         vv = ridge(x*22, y*22, z*22, seed=51, sharp=55)*sstep(0.62, 0.70, fbm(x*6, y*6, z*6, oct=2, seed=53))
         col = mix(col, (0.36, 0.34, 0.48), 0.35*vv); hgt += 0.0003*vv
@@ -581,6 +655,33 @@ def make_textures(char, uv, meta, body):
         save_png(col, base + "_Color.png", False); save_png(nrm, base + "_Normal.png", True); save_png(rgh, base + "_Roughness.png", True)
         out[ghost] = base
     return out
+
+def make_face_textures(char, uv, meta, body, out_dir=None, faces=None):
+    """one Color atlas per expression (FACES) -> <char dir>/faces/<name>_face_<face>_Color.png (normal / roughness:
+    use the plain set, or the _Ghost set for "ghost"). Also writes faces_preview.png: the face of each, side by side"""
+    out_dir = out_dir or os.path.join(char_dir(char), "faces"); os.makedirs(out_dir, exist_ok=True)
+    ras = rasterise(body, uv)
+    bodies = {}
+    tiles = []
+    for face in (faces or list(FACES)):
+        f = FACES[face]; gh = bool(f.get("ghost"))
+        key = (gh, bool(f.get("blood_arm")))
+        if key not in bodies:
+            bc, _, _ = paint_body(ras, meta, char, gh, face if f.get("blood_arm") else None)
+            bc, _ = dilate(bc, ras["mask"]); bodies[key] = bc
+        hc, _, _, _ = paint_head(meta, char, gh, face)
+        col = np.concatenate([bodies[key], hc], 0)
+        save_png(col, os.path.join(out_dir, f"{NAMES[char]}_face_{face}_Color.png"), False)
+        H = hc.shape[0]; c0 = N//2                                   # preview: front of the head, brow to chin
+        tiles.append(hc[int(H*0.30):int(H*0.80), c0 - N//10:c0 + N//10])
+    save_png(np.concatenate(tiles, 1), os.path.join(out_dir, "faces_preview.png"), False)
+    return out_dir
+
+def faces_char(char):
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(char), NAMES[char] + ".blend"))
+    body = bpy.data.objects["Body"]; rig = bpy.data.objects["HumanRig"]
+    uv, meta = unwrap(body, rig)
+    return make_face_textures(char, uv, meta, body)
 
 # ---------------------------------------------------------------- materials
 def skin_material(name, base):
@@ -689,3 +790,5 @@ if __name__ == "__main__":
     if "--save" in argv:
         for c in chars or DIRS.values(): skin_char(c)
     if "--preview" in argv: preview_all(chars)
+    if "--faces" in argv:
+        for c in chars or ["male"]: faces_char(c)

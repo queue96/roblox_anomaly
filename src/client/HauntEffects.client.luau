@@ -22,15 +22,20 @@ gui.ResetOnSpawn = false
 gui.DisplayOrder = 40 -- เหนือ HUD ใต้ jumpscare / จอตาย
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- หนังตาเป็นวงรีกว้างกว่าจอ (ขอบเป็นแนวโค้งแบบเปลือกตา ไม่ใช่แถบดำตรงแบบจอหนัง) สีน้ำตาลแดงเข้ม
+-- (แสงลอดหนังตา) ให้แยกออกจากฉากกลางคืนที่มืดอยู่แล้ว — เดิมแถบดำตรงกลืนกับความมืด ดูไม่ออกว่าตาจะหลับ
 local function lid(top: boolean): Frame
 	local f = Instance.new("Frame")
 	f.Name = if top then "LidTop" else "LidBottom"
-	f.BackgroundColor3 = Color3.new(0, 0, 0)
+	f.BackgroundColor3 = Color3.fromRGB(26, 8, 6)
 	f.BorderSizePixel = 0
-	f.AnchorPoint = Vector2.new(0, if top then 1 else 0)
-	f.Position = UDim2.fromScale(0, if top then 0 else 1)
-	f.Size = UDim2.new(1, 0, 0.62, 0)
+	f.AnchorPoint = Vector2.new(0.5, if top then 1 else 0)
+	f.Position = UDim2.fromScale(0.5, if top then 0 else 1)
+	f.Size = UDim2.new(1.8, 0, 0.62, 0)
 	f.Parent = gui
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0.5, 0)
+	c.Parent = f
 	-- ขอบหนังตาจาง (ไม่ใช่เส้นตรงแข็ง) + โค้งนิดๆ
 	local g = Instance.new("UIGradient")
 	g.Rotation = if top then 90 else 270
@@ -40,6 +45,16 @@ local function lid(top: boolean): Frame
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	g.Parent = f
+	-- ด้านหลังวงรี (ฝั่งขอบจอ) โค้งกลับเข้ามา: ตอนหนังตาลงมาลึกจะเห็นช่องโหว่ที่มุมบน/ล่างของจอ
+	-- -> แผ่นทึบเต็มความกว้างวงรี ตั้งแต่กลางวงรีออกไปเลยขอบจอ (ขอบหนังตาด้านในยังโค้งเหมือนเดิม)
+	local back = Instance.new("Frame")
+	back.Name = "Back"
+	back.BackgroundColor3 = f.BackgroundColor3
+	back.BorderSizePixel = 0
+	back.AnchorPoint = Vector2.new(0, if top then 1 else 0)
+	back.Position = UDim2.fromScale(0, 0.5)
+	back.Size = UDim2.fromScale(1, 2.5)
+	back.Parent = f
 	return f
 end
 local lidTop = lid(true)
@@ -54,11 +69,17 @@ grade.Name = "DrowsyGrade"
 grade.Parent = Lighting
 
 -- เปิดตา = 0, ปิดสนิท = 1 (หนังตาบน/ล่างมาเจอกันกลางจอ)
-local function setLids(closed: number, time: number, style: Enum.EasingStyle?)
+-- อาการหลอน (ตาจะหลับ ฯลฯ) หรี่ได้สุดแค่ LID_MAX (ผู้ใช้เลือกระดับนี้ 2026-11-03: ยังเห็นทางพอเล่นต่อได้)
+-- force = ปิดได้สนิท (ใช้ตอนตาย: client/DeathScreen ผ่าน _G.HauntLids)
+local LID_MAX = 0.62
+local function setLids(closed: number, time: number, style: Enum.EasingStyle?, force: boolean?)
+	if not force then
+		closed = math.min(closed, LID_MAX)
+	end
 	local info = TweenInfo.new(time, style or Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	-- หนังตาสูง 0.62 ของจอ (ขอบจาง 30%): ปิดสนิทเลื่อนมาถึง 0.75 ส่วนทึบทับกันกลางจอพอดี
-	TweenService:Create(lidTop, info, { Position = UDim2.fromScale(0, closed * 0.75) }):Play()
-	TweenService:Create(lidBottom, info, { Position = UDim2.fromScale(0, 1 - closed * 0.75) }):Play()
+	TweenService:Create(lidTop, info, { Position = UDim2.fromScale(0.5, closed * 0.75) }):Play()
+	TweenService:Create(lidBottom, info, { Position = UDim2.fromScale(0.5, 1 - closed * 0.75) }):Play()
 end
 
 -- ---------------------------------------------------------------- กล้อง: สัปหงก / เขย่า (ซ้อนหลังกล้องปกติทุกเฟรม)
@@ -102,32 +123,29 @@ local function drowsy(seconds: number)
 	task.spawn(function()
 		TweenService:Create(blur, TweenInfo.new(1.2), { Size = 10 }):Play()
 		TweenService:Create(grade, TweenInfo.new(1.2), { Brightness = -0.12, Saturation = -0.45, Contrast = 0.1 }):Play()
-		-- ปรือหนักขึ้นทีละรอบ: ครึ่งตา -> เกือบปิด -> ปิดสนิท (หัวตก) แล้วสะดุ้งลืมตา
-		local beats = { { 0.45, 0.9, 6 }, { 0.72, 1.0, 11 }, { 1.0, 1.1, 18 } }
-		local per = math.max(1.2, (seconds - 1) / #beats)
+		-- ปรือหนักขึ้นทีละรอบ: ครึ่งตา -> เกือบปิด -> ปิดสนิท แล้วสะดุ้งลืมตา
+		-- (ไม่บังคับกล้องก้มลง/เอียง: ผู้ใช้ให้เอาออก 2026-11-03 — อาการอยู่ที่หนังตา เบลอ มืดลงเท่านั้น)
+		local beats = { { 0.4, 1.4 }, { 0.55, 1.5 }, { LID_MAX, 1.6 } }
+		local per = math.max(2.2, (seconds - 1) / #beats)
 		for _, b in ipairs(beats) do
 			if not live() then
 				return
 			end
 			setLids(b[1], b[2])
-			TweenService:Create(nodValue, TweenInfo.new(b[2], Enum.EasingStyle.Sine), { Value = b[3] }):Play()
-			TweenService:Create(rollValue, TweenInfo.new(b[2], Enum.EasingStyle.Sine), { Value = (math.random() - 0.5) * 6 }):Play()
 			task.wait(b[2] + 0.25)
 			if not live() then
 				return
 			end
 			-- พยายามลืมตา (ไม่สุด)
-			setLids(b[1] * 0.35, per - b[2] - 0.25)
-			TweenService:Create(nodValue, TweenInfo.new(per - b[2] - 0.25, Enum.EasingStyle.Sine), { Value = b[3] * 0.4 }):Play()
-			task.wait(math.max(0.3, per - b[2] - 0.25))
+			local back = math.max(0.3, per - b[2] - 0.25)
+			setLids(b[1] * 0.45, back)
+			task.wait(back)
 		end
 		if not live() then
 			return
 		end
 		-- สะดุ้งตื่น
 		setLids(0, 0.18, Enum.EasingStyle.Quad)
-		TweenService:Create(nodValue, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Value = 0 }):Play()
-		TweenService:Create(rollValue, TweenInfo.new(0.25), { Value = 0 }):Play()
 		shakeUntil, shakeAmp = os.clock() + 0.35, 1.2
 		TweenService:Create(blur, TweenInfo.new(1.5), { Size = 0 }):Play()
 		TweenService:Create(grade, TweenInfo.new(1.5), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
@@ -148,11 +166,9 @@ end
 local function heavy(seconds: number)
 	setLids(0.22, 1.2)
 	TweenService:Create(grade, TweenInfo.new(1), { Saturation = -0.6, Brightness = -0.05 }):Play()
-	TweenService:Create(nodValue, TweenInfo.new(1.5, Enum.EasingStyle.Sine), { Value = 5 }):Play()
 	task.delay(seconds, function()
 		setLids(0, 1.5)
 		TweenService:Create(grade, TweenInfo.new(1.5), { Saturation = 0, Brightness = 0 }):Play()
-		TweenService:Create(nodValue, TweenInfo.new(1.5, Enum.EasingStyle.Sine), { Value = 0 }):Play()
 	end)
 end
 
@@ -202,3 +218,8 @@ local function clear()
 end
 player.CharacterAdded:Connect(clear)
 _G.ClearHauntEffects = clear
+-- client/DeathScreen: ตาริบหรี่แล้วปิดสนิทตอนตาย (closed 0..1, วินาที)
+_G.HauntLids = function(closed: number, time: number)
+	drowsyToken += 1 -- หยุดอาการตาจะหลับที่ค้างอยู่
+	setLids(closed, time, Enum.EasingStyle.Sine, true)
+end

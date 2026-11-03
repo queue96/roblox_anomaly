@@ -158,6 +158,44 @@ A["export_clip_data"]("male", M + "/roblox/human_base/human_base_anims.json")
 
 ---
 
+## 5.5 ท่าอารมณ์ หน้าตา และท่าที่เล่นจากข้อมูล (ไม่ต้องอัปโหลด animation)
+
+API อยู่ที่ `src/shared/HumanEmotes.luau` เรียกจาก server (ทุกคนเห็น) หรือ client ก็ได้:
+
+```lua
+local HumanEmotes = require(ReplicatedStorage.Shared.HumanEmotes)
+HumanEmotes.Play(npc, "laugh")        -- วนจนสั่งหยุด / Play(npc, "sad", 4) = 4 วิแล้วหยุดเอง
+HumanEmotes.Stop(npc)                 -- คืนท่าเดิม 0.3 วิ
+HumanEmotes.SetFace(npc, "cry")       -- ค้างหน้านี้ / SetFace(npc, nil) = หน้าปกติ
+HumanEmotes.SetWalkLegs(npc, speed)   -- ขา+สะโพกเดิน ส่วนบนเต้นต่อ (0 = เต้นเต็มตัว)
+```
+
+| ท่า (`EMOTES`) | | หน้า (`FACES`) | |
+|---|---|---|---|
+| `laugh` | หัวเราะ (คู่หน้า `squint`) | `blink` | หลับตา (ใช้กะพริบตาอัตโนมัติ) |
+| `cheer` | ดีใจ ชูกำปั้น กระโดดเบาๆ | `squint` | ตาหรี่ ยิ้มเห็นฟัน |
+| `startle` | ตกใจ (เล่นครั้งเดียวแล้วค้าง) | `dead` | ตาย ตาลอยสีเทา หน้าซีด |
+| `sad` | เสียใจ ปาดน้ำตา (คู่ `cry`) | `cry` | ร้องไห้ น้ำตาไหล ปากเบ้ |
+| `angry` | โกรธ เขย่ากำปั้น กระทืบเท้า (คู่ `angry`) | `ghost` | ผีหลอก ตาถลน ปากอ้าดำ (ผิวผีทั้งตัว) |
+| | | `ghost_cry` | ผีร้องไห้ ตาแดงช้ำ น้ำตาเลือดไหลยาว ปากเบ้คร่ำครวญ (ผิวผีทั้งตัว) |
+| `hurt_lying` | นอนเจ็บจากอุบัติเหตุ (คู่ `injured`) | `angry` | โกรธ คิ้วขมวด เห็นฟัน |
+| `dead_lying` | นอนตาย (คู่ `dead`) | `injured` | หัวแตก เลือดไหล ตาช้ำ + เลือดที่แขนซ้าย |
+
+- **ทำไมไม่อัปโหลด:** ท่าเหล่านี้เล่นด้วย `client/HumanEmotesRunner` ที่เขียน `Bone.Transform` ทับท่าของ Animator (แบบเดียวกับ HeadTurn) จากข้อมูล `src/shared/HumanClipData.luau`
+- **แก้/เพิ่มท่า:** แก้ `c_<ชื่อ>` ใน `build_anims.py` (ใส่ชื่อใน `EMOTES`, ท่าเล่นครั้งเดียวใส่ `ONCE`) → bake + `export_clip_data` → `python tools/blender/clips_to_luau.py <anims.json>`
+  - ตัวแปลงใช้ท่าพักของกระดูก Roblox ใน `tools/studio/human_base_rbx_rest.json` (นำเข้า rig ใหม่ต้องวัดใหม่ด้วย `HumanAnimImport.restFrames`)
+  - `SUBSETS` ใน `clips_to_luau.py` = คลิปที่เอาแค่บางกระดูก: `walk` (สะโพก+ขา สำหรับคนเต้นตามขบวน), `carry_gallon_r` (แขนขวาถือแกลลอน)
+- **ท่านอน:** หมุนกระดูก `root` −90° (หงาย) — RootPart ของ NPC ยังตั้งอยู่ ตัวที่เห็นนอนบนพื้นตรงจุดที่ยืน
+- **หน้าตา:** `build_skin.py` `FACES` + `make_face_textures` วาด texture ผิวทั้งแผ่นต่อ 1 หน้า → `human_base/faces/human_base_face_<หน้า>_Color.png` (+ `faces_preview.png`)
+  - รัน: `faces_char("male")` (ดู `--faces` ท้ายไฟล์)
+  - ในเกมสลับ `SurfaceAppearance` ของ BodyHead/Body/Skin_* เป็นชุดใน `src/shared/HumanFaceSets.model.json` (Rojo) ทำในแต่ละเครื่องตาม attribute เดียวกัน
+  - ภาพอัปโหลดแล้ว (2026-11-03) ID อยู่ใน `human_base/faces/face_ids.json` และ model.json — วาดหน้าใหม่ต้องอัปโหลดใหม่แล้วแก้ทั้งสองที่
+  - ภาพในเครื่อง (`rbxasset://`) ใช้กับ SurfaceAppearance ใน Roblox ไม่ได้ (ผิวเป็นสีเทา) runner จึงสลับเฉพาะชุดที่ติด attribute `Uploaded = true` (สคริปต์ในเกมอ่าน `ColorMap` ไม่ได้)
+  - คืนหน้าปกติด้วยชุด `normal` (ผิวมาตรฐาน human_base) ใน model.json เดียวกัน: สคริปต์ในเกม Clone ผิวเดิมของ NPC ไม่ได้ (ได้ nil) และย้ายตัวเดิมกลับแล้วไม่ติด
+    ⚠️ NPC ที่ server เปลี่ยนผิวเป็นแบบอื่น (เช่นผิวผี) ถ้าตั้งหน้าแล้วคืน จะกลับเป็นผิวมาตรฐาน — ตัวแบบนั้นอย่าใช้ SetFace หรือใช้หน้า `ghost`
+- **กะพริบตา:** ทุกตัวที่หน้าปกติ (NPC จาก HumanNPC ติด tag `HumanEmote` + ตัวผู้เล่น) กะพริบเองทุก 2–6 วิ เฉพาะตัวที่อยู่ใกล้กล้อง 60 studs; ปิดด้วย attribute `NoBlink`
+- **ถือของมือขวา + ไฟฉายมือซ้ายพร้อมกัน:** ItemSlots / HUDController ย้าย Tool เข้า/ออก Character เอง (ไม่ใช้ `EquipTool` ที่เก็บของอื่นทั้งหมด); ขนมตาลบนใบตอง = ท่า `hold_tray_r` (มือขวาแบหงาย), แกลลอน = `carry_gallon_r` (ทั้งสองเล่นจาก runner)
+
 ## 6. ทดสอบใน Studio ผ่าน MCP (เคล็ดลับ)
 
 - **Rojo เขียนเข้า Studio ไม่ได้ระหว่าง Play:** ถ้าแก้ไฟล์ตอนที่ Play อยู่ สคริปต์ใน Studio อาจค้างครึ่งเดียว (เคยเกิดกับ CoreLoop: มีโค้ดใหม่แต่ไม่มีค่าคงที่ → error)
@@ -210,3 +248,5 @@ A["export_clip_data"]("male", M + "/roblox/human_base/human_base_anims.json")
 - ท่าเต้นต้องสุภาพ, ระวังการวางตำแหน่งชายหญิง, ท่ายืนขาห้ามขยับ, กล้องห้ามทะลุโมเดล, UI ธีมเดียวกับ HUD (ฟอนต์ SpecialElite) ไม่มี emoji
 - เสียงใหม่ที่เจ้าของให้มา: ความดัง 50% ถ้าไม่ได้บอกอย่างอื่น
 - ท่าใหม่: build ใน Studio แล้วให้เจ้าของ publish ทับ ID เดิม
+- **แก้ของที่อัปโหลดแล้ว (ท่า model ภาพ) ต้องอัปทับ ID เดิมเสมอ ห้ามอัปเป็น asset ใหม่ (รกคลังของเจ้าของ)** — เครื่องมือ `upload_image` ของ Studio MCP สร้าง asset ใหม่ทุกครั้ง ใช้ได้เฉพาะของใหม่จริงๆ ถ้าเป็นภาพเดิมที่แก้ ให้แจ้งเจ้าของก่อน
+  ID ที่มีอยู่: `src/shared/HumanAnimIds.luau`, `human_base/faces/face_ids.json`, `src/shared/HumanFaceSets.model.json`

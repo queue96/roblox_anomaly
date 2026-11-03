@@ -175,6 +175,8 @@ local gui = new("ScreenGui", {
 	AutoLocalize = false,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, localPlayer:WaitForChild("PlayerGui"))
+-- จอเตี้ย (โน้ตบุ๊ก 14 นิ้ว) ย่อ HUD ตามความสูงจอ (shared/UiFit ค่าเดียวกันทุกกล่อง)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui)
 
 -- ขอบจอมืด (Vignette) จาก 4 ด้าน
 for _, side in ipairs({ { "Top", 90, UDim2.new(1, 0, 0.22, 0), UDim2.fromScale(0, 0) }, { "Bottom", 270, UDim2.new(1, 0, 0.3, 0), UDim2.fromScale(0, 0.7) }, { "Left", 0, UDim2.new(0.18, 0, 1, 0), UDim2.fromScale(0, 0) }, { "Right", 180, UDim2.new(0.18, 0, 1, 0), UDim2.fromScale(0.82, 0) } }) do
@@ -771,14 +773,20 @@ local function toggleFlashlightEquip()
 	if not hum or hum.Health <= 0 then
 		return
 	end
+	-- ล้มตาย/ล้มนอน (ตัวถูกยึด): หยิบไฟฉายขึ้นมือไม่ได้ (ไม่ค้างท่าถือตอนนอน)
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root and root.Anchored and not hum.Sit and game:GetService("Lighting"):GetAttribute("Cutscene") ~= true then
+		return
+	end
 	local tool, isEquipped = findFlashlight()
 	if not tool then
 		return
 	end
+	-- ไฟฉายอยู่มือซ้าย: ย้ายเข้า/ออกตัวเอง ไม่ใช้ EquipTool (ไม่ให้ไปเก็บขนม/แกลลอนในมือขวา)
 	if isEquipped then
-		hum:UnequipTools()
+		tool.Parent = localPlayer:FindFirstChildOfClass("Backpack")
 	else
-		hum:EquipTool(tool)
+		tool.Parent = char
 	end
 	updateFlashlightSlot()
 end

@@ -591,7 +591,7 @@ local function playNeckBreath(side: string?)
 	end
 	snd.RollOffMinDistance = 1.5
 	snd.RollOffMaxDistance = 12
-	local targetVol = snd.Volume
+	local targetVol = snd.Volume * 0.3 -- เสียงกระซิบ/หายใจที่สุ่มมาเบาเหลือ 30% (เดิมดังเกินไป)
 	snd.Volume = 0
 	if snd.TimeLength > 5 then
 		snd.TimePosition = math.random() * math.max(0, snd.TimeLength - 4.5)

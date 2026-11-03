@@ -206,6 +206,7 @@ LanguageModule.Dialogues = {
 	-- คัทซีนเปิดคืน / จบคืน (พี่ชายเจ้าของร้าน)
 	Intro_Brother_1 = { th = "คืนนี้เฝ้าร้านให้พี่หน่อยนะ พี่มีธุระในเมือง", en = "Mind the shop for me tonight, okay? I've got business in town." },
 	Intro_Player_1 = { th = "ได้เลยพี่ ไว้ใจได้", en = "Sure thing. Leave it to me." },
+	Intro_Player_2 = { th = "อ้าวเห้ย...", en = "Whoa, hey..." }, -- ลมพัดแผงร้านปิดลงเอง
 	Intro_Brother_2 = { th = "เปิดร้านให้แล้วนะ อย่าลืมเอาขนมไปถวายศาลพระภูมิล่ะ", en = "Shop's open. Don't forget to offer sweets at the spirit house." },
 	Intro_Brother_3 = { th = "ใครมาดึกๆ ดูให้ดีก่อนเติมนะ... ไปละ", en = "If anyone shows up late, take a good look before you fill them up... I'm off." },
 	Outro_Brother_1 = { th = "เมื่อคืนเป็นไงบ้าง เฝ้าไหวไหม?", en = "So how was last night? Hold up alright?" },
@@ -362,10 +363,10 @@ LanguageModule.UI = {
 	Tut_Flashlight = { th = "ไฟดับมืดตื้อ... กด [1] เปิดไฟฉายก่อน", en = "It's pitch dark... press [1] to turn on your flashlight." },
 	Tut_OpenShop = { th = "เดินไปที่เชือกหลังโต๊ะ แล้วกด [E] ดึงเปิดแผงร้าน", en = "Go to the rope behind the counter and press [E] to raise the shutter." },
 	Tut_Generator = { th = "ไฟร้านยังดับ: ไปที่เครื่องปั่นไฟข้างร้าน กด [E] แล้วกดตามจังหวะจนเครื่องติด", en = "Still no power: go to the generator beside the shop, press [E], and follow the rhythm until it starts." },
-	Tut_TakeCan = { th = "ตู้ยังไม่มีน้ำมัน: หยิบแกลลอนแดงมุมหลังร้าน กด [E]", en = "The pumps are empty: take the red jerry can in the back corner of the shop with [E]." },
+	Tut_TakeCan = { th = "ตู้ยังไม่มีน้ำมัน: หยิบแกลลอนมุมหลังร้าน กด [E]", en = "The pumps are empty: take the jerry can in the back corner of the shop with [E]." },
 	Tut_FillCan = { th = "ไปที่ถังน้ำมันหลังร้าน กด [E] ค้างตักน้ำมันใส่แกลลอน", en = "Go to the fuel drum behind the shop and hold [E] to fill the can." },
 	Tut_Pour = { th = "กลับมาที่ตู้น้ำมันหน้าร้าน กด [F] ค้างเทน้ำมันใส่ตู้ (ตู้หมดเมื่อไหร่ทำแบบนี้อีก)", en = "Back at the pumps, hold [F] to pour the fuel in (repeat whenever a pump runs dry)." },
-	Tut_Offer = { th = "กด [2] ถือขนมไทย ไปที่ศาลพระภูมิ กด [E] ค้างถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Press [2] for the Thai sweets, go to the spirit house and hold [E] to offer them (protection timer is top-right)." },
+	Tut_Offer = { th = "หยิบขนมไทยที่ถาดบนเคาน์เตอร์ [E] ไปที่ศาลพระภูมิ กด [E] ค้างถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Take the Thai sweets from the tray on the counter [E], go to the spirit house and hold [E] to offer them (protection timer is top-right)." },
 	Tut_Ghosts = { th = "ลูกค้ามาแล้วกด [G] ค้างพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน", en = "When customers arrive, hold [G] to pray and see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside." },
 	RackName = { th = "แผงน้ำมันขวด", en = "Bottle Rack" },
 	StartRefuel = { th = "ตู้กับแผงยังไม่มีน้ำมัน! หยิบแกลลอนในร้าน ไปตักที่ถังหลังร้านมาเติมก่อนลูกค้ามา", en = "The pumps and bottle rack are empty! Grab the jerry can, fill it at the drum behind the shop, and refuel before customers arrive." },
@@ -378,8 +379,14 @@ LanguageModule.UI = {
 	SpiritHouseName = { th = "ศาลพระภูมิ", en = "Spirit House" },
 	ShrineHungry = { th = "ศาลพระภูมิยังไม่ได้รับของถวาย... รีบเอาขนมไปถวายก่อนจะมีเรื่อง", en = "The spirit house has no offering... bring sweets before something happens." },
 	ShrineCursed = { th = "ศาลไม่คุ้มครองแล้ว... เอาขนมไปถวายเดี๋ยวนี้!", en = "The shrine no longer protects you... offer sweets now!" },
+	PrepOver = { th = "หมดเวลาเตรียมร้าน ลูกค้าเริ่มมาแล้ว!", en = "Prep time is over - customers are coming!" },
 	ShrineTimer = { th = "ศาลคุ้มครองอีก", en = "Shrine protects for" },
 	ShrineTimerSoon = { th = "ใกล้หมด! ไปถวายขนม", en = "Running out! Offer sweets" },
+	-- ช่วงเตรียมร้านก่อนลูกค้ามา (client/ItemSlots)
+	PrepTitle = { th = "เตรียมร้าน ลูกค้ามาใน", en = "Get ready - customers in" },
+	PrepOffer = { th = "ถวายขนมศาล", en = "Offer sweets" },
+	PrepPower = { th = "ติดเครื่องปั่นไฟ", en = "Start generator" },
+	PrepFuel = { th = "เติมน้ำมันตู้", en = "Refuel pumps" },
 	ShrineTimerCursed = { th = "ศาลไม่คุ้มครอง! ถวายขนม", en = "Unprotected! Offer sweets" },
 	ShrineOffered = { th = "ถวายขนมแล้ว ศาลคุ้มครองไปอีกพัก", en = "Sweets offered. The shrine will protect you for a while." },
 	-- สรุปผลจบคืน

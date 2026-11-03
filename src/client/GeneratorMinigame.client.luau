@@ -251,18 +251,28 @@ local function onShock(from: Vector3?)
 	end
 end
 
+-- แถบเต็ม = เครื่องติดแล้ว: ไม่มีวงรอบใหม่อีก (ระหว่างรอหน้าจอปิด 1.4 วินาที เดิมวงเด้งขึ้นมาให้กดอีกรอบ)
+local function stopRounds()
+	nextCheck = math.huge
+	checking = false
+	ring.Visible = false
+end
+
 remote.OnClientEvent:Connect(function(what: string, value: any)
 	if what == "open" then
 		title.Text = "Generator - starting..."
 		setOpen(true)
 		barFill.Size = UDim2.new(if type(value) == "number" then value else 0, 0, 1, 0)
 	elseif what == "progress" then
-		fillTo(if type(value) == "number" then value else 0)
+		local v = if type(value) == "number" then value else 0
+		fillTo(v)
+		if v >= 1 then
+			stopRounds()
+		end
 	elseif what == "done" then
 		title.Text = "Generator running - lights are back"
 		fillTo(1)
-		checking = false
-		ring.Visible = false
+		stopRounds()
 		task.delay(1.4, function()
 			setOpen(false)
 		end)

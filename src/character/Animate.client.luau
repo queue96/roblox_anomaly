@@ -193,10 +193,11 @@ RunService:BindToRenderStep("VillagerBodyYaw", Enum.RenderPriority.Camera.Value 
 		return
 	end
 	local free = not root.Anchored and hum.WalkSpeed > 0 and not hum.Sit and hum.Health > 0
-	-- คัทซีน (CutsceneController ตั้ง Lighting.Cutscene): กล้องอยู่ไกลตัว -> ตัวหันตามทางเดินเอง ไม่หันตามกล้อง
+	-- คัทซีน (CutsceneController ตั้ง Lighting.Cutscene): กล้องอยู่ไกลตัว -> CutsceneController หมุนตัวไปทางที่เดินเอง
+	-- (ปิด AutoRotate: RotationType ของผู้เล่นเป็น CameraRelative ถ้าเปิด ตัวจะหันตามกล้องคัทซีน เดินเฉียงข้าง)
 	local cutscene = game:GetService("Lighting"):GetAttribute("Cutscene") == true
-	if cutscene and not hum.AutoRotate then
-		hum.AutoRotate = true
+	if cutscene and hum.AutoRotate then
+		hum.AutoRotate = false
 	end
 	if not free or cutscene then
 		headYaw, headPitch = 0, 0
@@ -268,7 +269,7 @@ RunService:BindToRenderStep("VillagerBodyVisible", Enum.RenderPriority.Camera.Va
 			-- (ไม่ซ่อน = เห็นไฟฉายจริงลอยอยู่อีกอัน ที่จุดเชื่อม VillagerGrip ของเซิร์ฟเวอร์)
 			local hide = if outside
 				then (p.Name == "HumanoidRootPart" or p.Name == "RootPart" or p.Name == "Head")
-				else (hiddenInFpp(p.Name) or p:FindFirstAncestorOfClass("Tool") ~= nil)
+				else (hiddenInFpp(p.Name) or (p:FindFirstAncestorOfClass("Tool") ~= nil and p:FindFirstAncestorOfClass("Tool").Name == "FrogFlashlight"))
 			local want = if hide then 1 else 0
 			if p.LocalTransparencyModifier ~= want then
 				p.LocalTransparencyModifier = want
@@ -341,4 +342,6 @@ RunService.Heartbeat:Connect(function(dt)
 	-- พนมมือ = มือว่าง ไม่ถืออะไร
 	setOverlay("pray", praying and not downed)
 	setOverlay("hold_flashlight", flashlight and not praying and not downed)
+	-- ของในมือขวา (client/HeldItems วางของตรงมือ): ท่าเล่นจากข้อมูลใน client/HumanEmotesRunner
+	--   ขนมตาลบนใบตอง = แบมือหงาย (hold_tray_r), แกลลอน = หิ้วข้างตัว (carry_gallon_r) / ไฟฉายมือซ้ายพร้อมกันได้
 end)

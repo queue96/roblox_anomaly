@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 
 local Pedestrian = {}
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
+local JerryCan = require(script.Parent:WaitForChild("JerryCan"))
 
 local templates = ServerStorage:WaitForChild("VehicleTemplates")
 
@@ -140,13 +141,20 @@ local HUMAN_LEFT_HAND = Vector3.new(-1.41, 2.97, -0.25)
 -- (เดิมใช้ตำแหน่งกระดูกมือ = ข้อมือ ด้ามร่มจึงแทงทะลุมือ) เปลี่ยนท่า/มือใน build_anims.py แล้วต้องวัดใหม่
 local HUMAN_RIGHT_HAND = Vector3.new(1.19, 3.99, -1.5)
 local HUMAN_UMBRELLA_UP = Vector3.new(-0.159, 0.984, -0.083)
+-- แกลลอนน้ำมัน (โมเดลเดียวกับในร้าน server/JerryCan) ใน Model ชื่อ "Gallon" กลางคานหูหิ้วอยู่ที่ hand (เทียบ pivot)
+local function addGallon(m: Model, hand: Vector3): Model
+	local g = Instance.new("Model")
+	g.Name = "Gallon"
+	JerryCan.Build(g, CFrame.new(hand - JerryCan.GRIP))
+	g.Parent = m
+	return g
+end
+
 local function buildHuman(opts: { [string]: any }): Model
 	local m = HumanNPC.Build(opts)
 	if opts.gallon then
-		local h = HUMAN_LEFT_HAND
-		part(m, "Gallon", Vector3.new(0.5, 1.15, 0.95), CFrame.new(h.X, h.Y - 0.8, h.Z + 0.1), Color3.fromRGB(222, 220, 205), Enum.Material.SmoothPlastic)
-		part(m, "GallonCap", Vector3.new(0.2, 0.28, 0.28), CFrame.new(h.X, h.Y - 0.13, h.Z - 0.15) * CFrame.Angles(0, 0, DEG(90)), Color3.fromRGB(170, 30, 25), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-		part(m, "GallonHandle", Vector3.new(0.14, 0.14, 0.6), CFrame.new(h.X, h.Y - 0.15, h.Z + 0.25), Color3.fromRGB(222, 220, 205), Enum.Material.SmoothPlastic)
+		-- แกลลอนเปล่า (มาซื้อน้ำมัน) แบบเดียวกับในร้าน: หูหิ้วอยู่ในกำมือซ้าย ฝาหันไปข้างหน้า
+		addGallon(m, HUMAN_LEFT_HAND)
 	end
 	if opts.umbrella then
 		local h = HUMAN_RIGHT_HAND
@@ -240,12 +248,9 @@ function Pedestrian.Build(opts: { umbrella: boolean?, gallon: boolean?, shirt: C
 		rightUpper.Color = shirt
 	end
 
-	-- แกลลอนน้ำมันพลาสติกขาวขุ่น ฝาแดง
-	local gallon: Part? = nil
+	-- แกลลอนน้ำมัน (server/JerryCan) หูหิ้วอยู่ที่มือซ้าย
 	if opts.gallon then
-		gallon = part(m, "Gallon", Vector3.new(0.5, 1.15, 0.95), CFrame.new(-1.3, 1.05, 0.05), Color3.fromRGB(222, 220, 205), Enum.Material.SmoothPlastic)
-		part(m, "GallonCap", Vector3.new(0.2, 0.28, 0.28), CFrame.new(-1.3, 1.72, -0.2) * CFrame.Angles(0, 0, DEG(90)), Color3.fromRGB(170, 30, 25), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-		part(m, "GallonHandle", Vector3.new(0.14, 0.14, 0.6), CFrame.new(-1.3, 1.7, 0.2), Color3.fromRGB(222, 220, 205), Enum.Material.SmoothPlastic)
+		addGallon(m, Vector3.new(-1.3, 1.85, 0))
 	end
 	if opts.umbrella then
 		Pedestrian.AddUmbrella(m, Vector3.new(0.15, 7.7, -0.45), grip, opts.umbrellaColor)
@@ -270,8 +275,11 @@ function Pedestrian.Build(opts: { umbrella: boolean?, gallon: boolean?, shirt: C
 			addSwing(leftArm:FindFirstChild(n), CFrame.new(-1.3, 5.25, 0), -1, 0.35)
 		end
 	end
-	for _, n in ipairs({ "Gallon", "GallonCap", "GallonHandle" }) do
-		addSwing(m:FindFirstChild(n), CFrame.new(-1.3, 5.25, 0), -1, 0.35)
+	local gallon = m:FindFirstChild("Gallon")
+	if gallon then
+		for _, d in ipairs(gallon:GetChildren()) do
+			addSwing(d, CFrame.new(-1.3, 5.25, 0), -1, 0.35)
+		end
 	end
 	if opts.pants then
 		local legs = src:FindFirstChild("Legs")

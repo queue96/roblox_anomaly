@@ -393,6 +393,27 @@ def c_carry_gallon(P, t, st, s):
     hand(P, "L", "fist")
     P.rot("shoulder.L", -3)
 
+def c_carry_gallon_r(P, t, st, s):
+    """the same carry in the RIGHT hand (the player: left hand keeps the flashlight). Played in game from data
+    (src/shared/HumanClipData.luau, right arm bones only) over walk / idle"""
+    arm(P, "R", raise_=-22, fwd=4, bend=6, wrist=0)
+    hand(P, "R", "fist")
+    P.rot("shoulder.R", -3)
+
+TRAY_ROLL = 80    # forearm roll (its joint limit) + hand roll 40 (clamped): palm up, palm normal . up = 0.87
+# (palm side measured as the side the fingertips curl to in a fist; an earlier sweep took the thumb side and came out
+#  palm DOWN in game)
+def c_hold_tray_r(P, t, st, s):
+    """one opened khanom tan on a piece of banana leaf resting on the open RIGHT palm (แบมือ): elbow by the side,
+    forearm forward and level, palm up, fingers flat and together. Played in game from data
+    (src/shared/HumanClipData.luau, right arm bones only) over walk / idle"""
+    br = math.sin(2*math.pi*t)
+    arm(P, "R", raise_=-24, fwd=22 + 1.0*br, bend=82, wrist=-8, twist=0)
+    P.rot("forearm.R", 0, TRAY_ROLL, -82)
+    P.rot("hand.R", -8, 40, 0)
+    hand(P, "R", "wai")      # fingers straight and together: a flat palm
+    P.rot("shoulder.R", -2)
+
 def c_hold_flashlight(P, t, st, s):
     """flashlight in the LEFT hand (the umbrella goes in the right): forearm forward at chest height, beam ahead,
     a slow sweep. Praying puts it away: hands must be empty for a wai"""
@@ -548,6 +569,82 @@ def c_ghost_dance(P, t, st, s):
     for sd, k in (("L", v[6]), ("R", v[8])):
         P.rot("thigh." + sd, 4 + 8*(k - 0.3), 0, 4); P.rot("shin." + sd, -8 - 14*k); P.rot("foot." + sd, -38); P.rot("toe." + sd, -20)
 
+# ---------------------------------------------------------------- emotes (อารมณ์): played in game from data, not uploaded
+# (tools/blender/clips_to_luau.py -> src/shared/HumanClipData.luau -> shared/HumanEmotes on Bone.Transform)
+# ONCE = play one time and hold the last pose (the rest loop)
+def c_laugh(P, t, st, s):
+    """หัวเราะ: เอนหลัง เงยหน้า ไหล่และอกกระเพื่อมถี่ๆ ตามเสียงหัวเราะ มือซ้ายกุมท้อง มือขวาตบต้นขา"""
+    ph = 2*math.pi*t; ha = abs(math.sin(ph*6))
+    P.rot("spine", -6 - 3*ha); P.rot("chest", -4 - 2*ha); P.both("shoulder", 3*ha)
+    P.rot("neck", -6); P.rot("head", -14 - 6*ha, 8*math.sin(ph), 4*math.sin(ph*2))
+    arm(P, "L", raise_=-30, fwd=55, bend=95, wrist=10, twist=20); hand(P, "L", "relax")
+    slap = beat(t, 2, 2.5)
+    arm(P, "R", raise_=-25 + 30*(1 - slap), fwd=25 + 15*(1 - slap), bend=25 + 35*(1 - slap), wrist=-10); hand(P, "R", "relax")
+    legs_bounce(P, 6 + 4*ha); P.lift("hips", -hip_drop(6 + 4*ha, s))
+
+def c_cheer(P, t, st, s):
+    """ดีใจ: ชูกำปั้นสองข้างขึ้นลง กระโดดเบาๆ เงยหน้ายิ้ม"""
+    ph = 2*math.pi*t; b = 0.5 - 0.5*math.cos(ph*2)
+    legs_bounce(P, 12*(1 - b)); P.lift("hips", -hip_drop(12*(1 - b), s))
+    P.lift("root", 0.05*s*max(0.0, math.sin(ph*2)))
+    P.rot("spine", -4*b); P.rot("chest", -4*b); P.rot("neck", -4*b); P.rot("head", -10*b, 0, 5*math.sin(ph))
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=30 + 40*b, fwd=55 - 15*b, bend=85 - 45*b, wrist=0); hand(P, sd, "fist")
+
+def c_startle(P, t, st, s):
+    """ตกใจ (ONCE): สะดุ้งถอยหลัง ยกมือสองข้างขึ้นกันหน้า หัวผงะ แล้วค้างไว้ตัวสั่นเล็กน้อย"""
+    k = sm(0.0, 0.06, t); tr = math.sin(2*math.pi*t*20)*sm(0.06, 0.2, t)
+    P.rot("spine", -10*k); P.rot("chest", -6*k + 1.2*tr); P.rot("neck", -8*k); P.rot("head", -10*k, 3*tr)
+    P.both("shoulder", 10*k)
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=-25 + 55*k, fwd=10 + 50*k, bend=20 + 75*k + 3*tr, wrist=-30*k); hand(P, sd, "wong")
+    legs_bounce(P, 14*k); P.lift("hips", -hip_drop(14*k, s))
+
+def c_sad(P, t, st, s):
+    """เสียใจ: ก้มหน้า ไหล่ห่อ ตัวสะอื้นเป็นจังหวะ มือขวายกปาดน้ำตา"""
+    ph = 2*math.pi*t; sob = max(0.0, math.sin(ph*3))**2
+    P.rot("spine", 10 + 2*sob); P.rot("chest", 8 + 3*sob); P.both("shoulder", -4 + 5*sob)
+    P.rot("neck", 14); P.rot("head", 16 + 3*sob, 6*math.sin(ph))
+    wipe = sm(0.30, 0.45, t)*(1 - sm(0.70, 0.85, t))
+    arm(P, "R", raise_=-25 + 55*wipe, fwd=20 + 50*wipe, bend=20 + 105*wipe, wrist=10*wipe, twist=20*wipe); hand(P, "R", "relax")
+    arm(P, "L", raise_=-28, fwd=10, bend=18); hand(P, "L", "relax")
+    P.both("thigh", 2, 0, 2); P.both("shin", -3)
+
+def c_angry(P, t, st, s):
+    """โกรธ: โน้มตัวไปหน้า ไหล่ยก กำหมัดขวาเขย่าชี้หน้า มือซ้ายกำแน่นข้างตัว กระทืบเท้า"""
+    ph = 2*math.pi*t; sh = math.sin(ph*8)
+    P.rot("spine", 8); P.rot("chest", 6); P.both("shoulder", 6)
+    P.rot("neck", 4); P.rot("head", 6 + 2*sh, 5*math.sin(ph))
+    arm(P, "R", raise_=20 + 6*sh, fwd=50, bend=70 + 8*sh, wrist=-10); hand(P, "R", "fist")
+    arm(P, "L", raise_=-22, fwd=12, bend=40); hand(P, "L", "fist")
+    stomp = beat(t, 2, 3)
+    P.rot("thigh.L", 2 + 22*stomp, 0, 3); P.rot("shin.L", -3 - 25*stomp); P.rot("thigh.R", 2, 0, 2); P.rot("shin.R", -3)
+
+def c_hurt_lying(P, t, st, s):
+    """นอนเจ็บจากอุบัติเหตุ: นอนหงาย เข่าซ้ายชัน บิดตัวช้าๆ มือซ้ายกุมสีข้าง มือขวาไขว่คว้า หัวส่าย"""
+    ph = 2*math.pi*t; w = math.sin(ph); w2 = math.sin(ph*2 + 0.7)
+    P.rot("root", -90); P.lift("root", 0.11*s)
+    P.rot("hips", 0, 8*w, 4*w)
+    P.rot("spine", 6 + 4*w2, -4*w); P.rot("chest", 6 + 3*w2)
+    P.rot("neck", 10); P.rot("head", 8 + 6*w2, 30*w, 6*w)
+    P.rot("thigh.L", 45 + 15*w, 0, 6); P.rot("shin.L", -80 - 10*w); P.rot("foot.L", 20)
+    P.rot("thigh.R", 10 - 6*w, 0, 8); P.rot("shin.R", -20 + 8*w); P.rot("foot.R", 30)
+    arm(P, "L", raise_=-20, fwd=55, bend=105 + 8*w2, wrist=10); hand(P, "L", "relax")
+    arm(P, "R", raise_=30 + 10*w2, fwd=0, bend=30 + 15*w, wrist=-10); hand(P, "R", "wong" if w2 > 0.6 else "relax")
+
+def c_dead_lying(P, t, st, s):
+    """นอนตาย: นอนหงายนิ่ง แขนขากางไม่เป็นระเบียบ หัวพับไปข้างหนึ่ง (ไม่ขยับ)"""
+    P.rot("root", -90); P.lift("root", 0.11*s)
+    P.rot("hips", 0, 0, 3); P.rot("spine", -2); P.rot("chest", -2)
+    P.rot("neck", -4, 20); P.rot("head", -6, 35, 8)
+    P.rot("thigh.L", 4, 0, 14); P.rot("shin.L", -10); P.rot("foot.L", 40)
+    P.rot("thigh.R", 8, 0, 6); P.rot("shin.R", -25); P.rot("foot.R", 35)
+    arm(P, "L", raise_=35, fwd=0, bend=20, wrist=-10); hand(P, "L", "relax", 0.6)
+    arm(P, "R", raise_=10, fwd=8, bend=45); hand(P, "R", "relax", 0.8)
+
+EMOTES = ["laugh", "cheer", "startle", "sad", "angry", "hurt_lying", "dead_lying"]
+ONCE = {"startle"}
+
 CLIPS = {   # name: (fn, frames for the adult man)
     "idle": (c_idle, 96),
     "walk": (c_walk, 34),
@@ -582,6 +679,16 @@ CLIPS = {   # name: (fn, frames for the adult man)
     "ride_moto": (c_ride_moto, 90),
     "ride_bicycle": (c_ride_bicycle, 30),
     "drive_tuktuk": (c_drive_tuktuk, 90),
+    # emotes (อารมณ์)
+    "laugh": (c_laugh, 72),
+    "cheer": (c_cheer, 48),
+    "startle": (c_startle, 60),
+    "sad": (c_sad, 120),
+    "angry": (c_angry, 60),
+    "hurt_lying": (c_hurt_lying, 150),
+    "dead_lying": (c_dead_lying, 8),
+    "carry_gallon_r": (c_carry_gallon_r, 30),
+    "hold_tray_r": (c_hold_tray_r, 60),
 }
 FIXED_TEMPO = {"idle", "ramwong", "wan_rock", "wan_bounce", "wan_point", "wan_cool", "wan_hands_up", "wan_hip_shake",
                "wan_low_bounce", "ghost_dance"}
@@ -599,7 +706,7 @@ def add_anims(char):
         rig.animation_data.action = act
         n = max(8, round(frames*(st["slow"] if name not in FIXED_TEMPO else 1.0)))
         for f in range(n + 1):
-            fn(P, (f % n)/n, st, s); P.key(f + 1)
+            fn(P, f/n if name in ONCE else (f % n)/n, st, s); P.key(f + 1)   # ONCE: ends on its last pose
         act.frame_range = (1, n + 1)
         try: act.use_cyclic = True
         except AttributeError: pass

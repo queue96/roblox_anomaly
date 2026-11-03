@@ -96,24 +96,26 @@ local gui = new("ScreenGui", {
 	DisplayOrder = 5,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, localPlayer:WaitForChild("PlayerGui"))
+-- จอเตี้ย (โน้ตบุ๊ก 14 นิ้ว) ย่อตามความสูงจอ (shared/UiFit ค่าเดียวกันทุกกล่อง)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui)
 
 -- ปุ่มตั้งค่า (ขนาดกะทัดรัด โทนดาร์กหม่นคุมธีมเดียวกับ HUD มุมขวาล่าง)
 local gear = new("TextButton", {
 	Name = "SettingsButton",
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -16, 0, 14),
-	Size = UDim2.new(0, 0, 0, 24),
+	Size = UDim2.new(0, 0, 0, 32),
 	AutomaticSize = Enum.AutomaticSize.X,
 	BackgroundColor3 = Color3.fromRGB(16, 14, 12),
 	BackgroundTransparency = 0.25,
 	BorderSizePixel = 0,
 	FontFace = FONT_BODY,
-	TextSize = 13,
+	TextSize = 16,
 	TextColor3 = C.Dim,
 	AutoButtonColor = false,
 }, gui)
 new("UICorner", { CornerRadius = UDim.new(0, 2) }, gear)
-new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, gear)
+new("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, gear)
 new("UIStroke", { Color = Color3.fromRGB(70, 64, 54), Thickness = 1, Transparency = 0.25, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gear)
 local gearOpen = false
 gear.MouseEnter:Connect(function()

@@ -1,5 +1,6 @@
 -- DeathScreen.client.luau
--- แพ้ (ธูปดับหมด): ตัวละครล้มนอนตาย (Server ทำ), ควบคุมไม่ได้, กล้องค่อยๆ ลอยขึ้นมองร่างตัวเอง, จอแดง
+-- แพ้ (ธูปดับหมด): ตัวละครล้มนอนตาย (Server ทำ), ควบคุมไม่ได้, ตาริบหรี่แล้วปิดสนิท แล้วลืมตาออกพร้อมกล้อง
+-- แพนถอยขึ้นมองร่างตัวเอง, จอแดง
 -- แล้วถาม "เริ่มคืนใหม่ไหม?" [เริ่มใหม่] [กลับ Lobby (Teleport)]  ใครกดเริ่มใหม่ก่อนนับทั้งร้าน
 -- เกิดใหม่ (Server LoadCharacter) แล้วจอนี้หายไปเอง
 
@@ -169,6 +170,104 @@ deathMusic.Looped = true
 deathMusic:SetAttribute("SoundCategory", "Music")
 deathMusic.Parent = SoundService
 
+-- ---------------------------------------------------------------- ศพให้เห็นบนจอตัวเอง
+-- เกมนี้มุมมองบุคคลที่หนึ่ง: Roblox ซ่อนตัวเราเองบนจอเรา (LocalTransparencyModifier = 1) แม้กล้องถอยออกไปแล้ว
+-- -> ตอนจอตายบังคับให้เห็นตัวเองทุกเฟรม + ไฟสลัวเหนือร่าง (ไฟดับ/กลางคืนมืดจนมองไม่เห็นศพ)
+local RunService = game:GetService("RunService")
+local corpseConn: boolean? = nil
+local corpseLight: Instance? = nil
+local function showCorpse(char: Model, root: BasePart)
+	-- (หลังสคริปต์กล้อง/บุคคลที่หนึ่งทุกตัว ไม่ให้ถูกตั้งกลับเป็นซ่อน)
+	RunService:UnbindFromRenderStep("DeathCorpseVisible")
+	RunService:BindToRenderStep("DeathCorpseVisible", Enum.RenderPriority.Last.Value + 10, function()
+		for _, d in ipairs(char:GetDescendants()) do
+			if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+				d.LocalTransparencyModifier = 0
+			end
+		end
+	end)
+	corpseConn = true
+	if corpseLight then
+		corpseLight:Destroy()
+	end
+	local a = Instance.new("Attachment")
+	a.Name = "CorpseLight"
+	a.WorldPosition = root.Position + Vector3.new(0.6, 3.5, 1.2)
+	a.Parent = Workspace.Terrain
+	local l = Instance.new("PointLight")
+	l.Color = Color3.fromRGB(255, 190, 170)
+	l.Brightness = 0
+	l.Range = 9
+	l.Shadows = true
+	l.Parent = a
+	TweenService:Create(l, TweenInfo.new(2.5), { Brightness = 1.6 }):Play()
+	corpseLight = a
+end
+local function hideCorpse()
+	if corpseConn then
+		RunService:UnbindFromRenderStep("DeathCorpseVisible")
+		corpseConn = nil
+	end
+	if corpseLight then
+		corpseLight:Destroy()
+		corpseLight = nil
+	end
+end
+
+-- ---------------------------------------------------------------- ซ่อน HUD ที่ใช้ไม่ได้แล้วตอนตาย
+-- เหลือแค่จอตาย + ปุ่มตั้งค่า (SettingsGui) ไม่ให้ข้อความ/ปุ่มเกมทับศพ (ผู้ใช้ขอ 2026-11-03)
+-- ไม่แตะค่าตั้งค่า ShowHUD ของผู้เล่น: ปิด ScreenGui ชั่วคราวแล้วคืนค่าเดิมตอนชุบ/เกิดใหม่
+local HIDE_ON_DEATH = { "PumpHUD", "ItemSlots", "Tutorial", "PrayerHUD", "BookGui", "GeneratorMinigame", "GeneratorShock" }
+local NO_RESTORE = { GeneratorMinigame = true, GeneratorShock = true } -- หน้าจอชั่วคราว: ตายแล้วปิดทิ้ง ไม่เปิดคืน
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local hiddenGuis: { [ScreenGui]: boolean } = {}
+local hudHidden = false
+local settingsOrder: number? = nil
+local function hideHud()
+	hudHidden = true
+	-- ปุ่มตั้งค่าอยู่เหนือจอแดง/ขอบดำของจอตาย (ยังกดได้ ไม่หม่น)
+	local sg = localPlayer.PlayerGui:FindFirstChild("SettingsGui")
+	if sg and sg:IsA("ScreenGui") then
+		settingsOrder = settingsOrder or sg.DisplayOrder
+		sg.DisplayOrder = gui.DisplayOrder + 5
+	end
+	ProximityPromptService.Enabled = false
+	task.spawn(function()
+		-- ปิดซ้ำเรื่อยๆ ระหว่างตาย (สคริปต์ HUD บางตัวเปิดตัวเองกลับตอนสถานะเปลี่ยน)
+		while hudHidden do
+			for _, name in ipairs(HIDE_ON_DEATH) do
+				local g = localPlayer.PlayerGui:FindFirstChild(name)
+				if g and g:IsA("ScreenGui") and g.Enabled then
+					if hiddenGuis[g] == nil then
+						hiddenGuis[g] = true
+					end
+					g.Enabled = false
+				end
+			end
+			ProximityPromptService.Enabled = false
+			task.wait(0.2)
+		end
+	end)
+end
+local function showHud()
+	if not hudHidden then
+		return
+	end
+	hudHidden = false
+	local sg = localPlayer.PlayerGui:FindFirstChild("SettingsGui")
+	if sg and sg:IsA("ScreenGui") and settingsOrder then
+		sg.DisplayOrder = settingsOrder
+	end
+	settingsOrder = nil
+	for g in pairs(hiddenGuis) do
+		if g.Parent and not NO_RESTORE[g.Name] then
+			g.Enabled = true
+		end
+	end
+	table.clear(hiddenGuis)
+	ProximityPromptService.Enabled = true
+end
+
 -- ---------------------------------------------------------------- เปิด / ปิดจอตาย
 local dead = false
 local pulseToken = 0
@@ -178,6 +277,7 @@ local function showDeath()
 		return
 	end
 	dead = true
+	hideHud()
 	-- ถ้าผีกำลังหลอกเต็มจออยู่ (ธูปดอกสุดท้าย) ให้หลอกจบก่อนค่อยขึ้นจอตาย
 	local scare = localPlayer.PlayerGui:FindFirstChild("Jumpscare") :: ScreenGui?
 	local t0 = os.clock()
@@ -188,6 +288,19 @@ local function showDeath()
 	local ctl = controls()
 	if ctl then
 		ctl:Disable()
+	end
+	-- ตาริบหรี่ (ลืม-ปิดไม่สุด 2-3 ครั้ง) แล้วปิดสนิท -> ตอนมืดย้ายกล้องไปชิดร่าง -> ลืมตาออกพร้อมแพนกล้องถอยขึ้น
+	-- ให้เห็นว่าตัวเองนอนตายอยู่ (หนังตามาจาก client/HauntEffects)
+	local lids = _G.HauntLids
+	if lids then
+		for _, step in ipairs({ { 0.5, 0.5 }, { 0.3, 0.35 }, { 0.7, 0.6 }, { 0.45, 0.35 }, { 0.85, 0.7 }, { 0.7, 0.4 }, { 1, 0.9 } }) do
+			lids(step[1], step[2])
+			task.wait(step[2] + 0.12)
+			if not dead then
+				return
+			end
+		end
+		task.wait(0.8)
 	end
 	gui.Enabled = true
 	deathMusic.Volume = DEATH_MUSIC_VOLUME
@@ -201,29 +314,30 @@ local function showDeath()
 	for _, t in ipairs({ title, message, ask }) do
 		t.TextTransparency = 1
 	end
-	TweenService:Create(red, TweenInfo.new(1.2), { BackgroundTransparency = 0.6 }):Play()
-	TweenService:Create(edge, TweenInfo.new(1.5), { BackgroundTransparency = 0 }):Play()
-	-- กล้องค่อยๆ ลอยขึ้นมองร่างที่นอนอยู่
+	-- กล้อง: เริ่มชิดร่าง (ตอนตายังปิด) แล้วค่อยๆ แพนถอยขึ้นมองร่างที่นอนอยู่
 	local cam = Workspace.CurrentCamera
 	local char = localPlayer.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if cam and root then
-		task.delay(0.9, function()
-			if not dead then
-				return
-			end
-			cam.CameraType = Enum.CameraType.Scriptable
-			local p = root.Position
-			-- ลอยขึ้นเหนือร่าง แต่ไม่ทะลุหลังคา/ชายคา (ยิงหาเพดานก่อน)
-			local params = RaycastParams.new()
-			params.FilterType = Enum.RaycastFilterType.Exclude
-			params.FilterDescendantsInstances = { char :: Instance }
-			local hit = Workspace:Raycast(p, Vector3.new(0, 10, 0), params)
-			-- ไม่ลอยสูง (หลังคาสังกะสีบางชิ้นยิงไม่โดน ถ้าลอยสูงกล้องจะจมในหลังคาจนจอขาว)
-			local up = if hit then math.clamp((hit.Position.Y - p.Y) - 0.8, 2.5, 4.5) else 4.5
-			TweenService:Create(cam, TweenInfo.new(3.5, Enum.EasingStyle.Sine), { CFrame = CFrame.lookAt(p + Vector3.new(1.2, up, 2.4), p) }):Play()
-		end)
+	if char and root then
+		showCorpse(char, root)
 	end
+	if cam and root then
+		cam.CameraType = Enum.CameraType.Scriptable
+		local p = root.Position
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { char :: Instance }
+		-- ไม่ลอยสูง (หลังคาสังกะสีบางชิ้นยิงไม่โดน ถ้าลอยสูงกล้องจะจมในหลังคาจนจอขาว)
+		local hit = Workspace:Raycast(p, Vector3.new(0, 10, 0), params)
+		local up = if hit then math.clamp((hit.Position.Y - p.Y) - 0.8, 2.5, 4.5) else 4.5
+		cam.CFrame = CFrame.lookAt(p + Vector3.new(0.3, 1.2, 0.6), p)
+		TweenService:Create(cam, TweenInfo.new(4.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { CFrame = CFrame.lookAt(p + Vector3.new(1.2, up, 2.4), p) }):Play()
+	end
+	if lids then
+		lids(0, 2.2)
+	end
+	TweenService:Create(red, TweenInfo.new(1.2), { BackgroundTransparency = 0.6 }):Play()
+	TweenService:Create(edge, TweenInfo.new(1.5), { BackgroundTransparency = 0 }):Play()
 	task.delay(1.2, function()
 		TweenService:Create(title, TweenInfo.new(1.4), { TextTransparency = 0 }):Play()
 		TweenService:Create(message, TweenInfo.new(1.8), { TextTransparency = 0 }):Play()
@@ -253,8 +367,13 @@ local function hideDeath()
 		return
 	end
 	dead = false
+	hideCorpse()
+	showHud()
 	pulseToken += 1
 	gui.Enabled = false
+	if _G.HauntLids then -- (ชุบชีวิตระหว่างตากำลังปิด: ลืมตา)
+		_G.HauntLids(0, 0.3)
+	end
 	local fade = TweenService:Create(deathMusic, TweenInfo.new(0.8), { Volume = 0 })
 	fade.Completed:Once(function()
 		if not dead then

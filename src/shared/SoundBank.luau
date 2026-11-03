@@ -1064,7 +1064,9 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 		local snd = Instance.new("Sound")
 		snd.Name = "Dialogue_" .. genderKey
 		snd.SoundId = uploadedId
-		snd.Volume = 0.58
+		-- เสียงกระซิบไร้ตัวตน (ศาลไม่คุ้มครอง / สวดเรียกผี) เบาเหลือ 30% ของเสียงพากย์ปกติ
+		local whisper = type(speakerInfo) == "table" and speakerInfo.ghost == "WhisperSpeaker"
+		snd.Volume = if whisper then 0.58 * 0.3 else 0.58
 		snd.PlaybackSpeed = prof.uploadedSpeed or 1.04 -- ชดเชยสปีดให้ไฟล์ที่อัปโหลดไว้แล้วพูดกระชับ ไม่ยืด โดยไม่ต้องอัปโหลดใหม่!
 		snd.RollOffMode = Enum.RollOffMode.InverseTapered
 		snd.RollOffMinDistance = 7

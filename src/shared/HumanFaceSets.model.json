@@ -1,0 +1,122 @@
+{
+ "className": "Folder",
+ "children": [
+  {
+   "name": "normal",
+   "className": "SurfaceAppearance",
+   "attributes": {
+    "Uploaded": true
+   },
+   "properties": {
+    "ColorMap": "rbxassetid://97129306610044",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   }
+  },
+  {
+   "name": "blink",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://113320019507050",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "squint",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://90123351793995",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "dead",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://88079501500316",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "cry",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://128115008189120",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "ghost",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://129950928893142",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "angry",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://84037905827547",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "injured",
+   "className": "SurfaceAppearance",
+   "properties": {
+    "ColorMap": "rbxassetid://127938374689136",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   },
+   "attributes": {
+    "Uploaded": true
+   }
+  },
+  {
+   "name": "ghost_cry",
+   "className": "SurfaceAppearance",
+   "attributes": {
+    "Uploaded": true
+   },
+   "properties": {
+    "ColorMap": "rbxassetid://85133452370743",
+    "NormalMap": "rbxassetid://102225885173657",
+    "RoughnessMap": "rbxassetid://115151233187430",
+    "AlphaMode": "Overlay"
+   }
+  }
+ ]
+}

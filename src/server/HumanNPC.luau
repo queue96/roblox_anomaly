@@ -204,6 +204,8 @@ function HumanNPC.Build(opts: { [string]: any }): Model
 		skirt = outfit.skirt == true,
 		dance = opts.dance,
 	}
+	-- ท่าอารมณ์ / หน้าตา / กะพริบตา (shared/HumanEmotes, client/HumanEmotesRunner)
+	game:GetService("CollectionService"):AddTag(m, "HumanEmote")
 	return m
 end
 

@@ -261,6 +261,8 @@ local function buildVehicle(n: number, at: CFrame): Model?
 	D.humanizeDriver(v, look)
 	v:SetAttribute("Template", v.Name)
 	v.Name = "BrotherVehicle"
+	-- StreamingEnabled: ส่งรถทั้งคันให้ทุกเครื่องทันที (ไม่งั้นชิ้นรถ/คนขับค่อยๆ โผล่ระหว่างคัทซีน)
+	v.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	v.Parent = Workspace
 	-- เสียงเครื่องยนต์ (มอไซค์ / ตุ๊กตุ๊ก = เสียงมอไซค์, เก๋ง/กระบะ = ดีเซล) ดังกว่าลูกค้านิดหน่อยให้เด่นในคัทซีน
 	local moto = string.find(string.lower(tpl.Name), "moto") ~= nil or tpl.Name == "ThaiTukTuk"
@@ -315,6 +317,7 @@ end
 local function walkerAt(cf: CFrame): Model
 	local w = D.Pedestrian.Build(BROTHER_LOOK)
 	w.Name = "BrotherWalker"
+	w.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	w:PivotTo(cf)
 	w.Parent = Workspace
 	return w
@@ -460,6 +463,48 @@ local function points()
 	}
 end
 
+-- กล้องตั้งนิ่งริมถนนฝั่งตรงข้ามร้าน เลยจุดจอดไปนิด หันมองรถที่วิ่งเข้ามา (แพนตามแบบนุ่มๆ ฝั่ง Client)
+-- เดิมเป็นกล้องวิ่งตามข้างรถ: ตำแหน่งรถมาจาก server เป็นช่วงๆ กล้องที่ติดรถจึงสั่นทั้งภาพ โดยเฉพาะเครื่องสเปกต่ำ
+local function roadsideShot(P: any, stopPos: Vector3, v: Model): { [string]: any }
+	local spot = stopPos - P.shopDir * 9 + P.road * 7
+	return { mode = "lookat", pos = ground(spot) + Vector3.new(0, 3.2, 0), target = v, look = Vector3.new(0, 2.2, 0), fov = 50, smooth = 4 }
+end
+
+-- ---------------------------------------------------------------- โหลดฉากก่อนเล่น
+-- (เคยเห็นโมเดลรถ/พี่ชาย/ร้านค่อยๆ โผล่ช่วงต้นคัทซีน: StreamingEnabled ยังส่งฉากรอบจุดคัทซีนไม่ครบ + mesh/texture ยังโหลดไม่เสร็จ)
+-- Server ขอส่งฉากรอบจุดที่กล้องจะไป -> Client โหลด mesh/texture ของรถ+พี่ชาย (ContentProvider:PreloadAsync)
+-- -> ตอบ "preloaded" -> ค่อยเริ่มคัทซีน (จอยังดำอยู่ระหว่างนี้) ไม่เกิน PRELOAD_MAX วิ
+local PRELOAD_MAX = 15
+local preloaded: { [Player]: number } = {}
+local function preloadScene(t: number, models: { Instance }, spots: { Vector3 })
+	for _, p in ipairs(active()) do
+		task.spawn(function()
+			for _, pos in ipairs(spots) do
+				pcall(function()
+					p:RequestStreamAroundAsync(pos, 10)
+				end)
+			end
+			if p.Parent then
+				remote:FireClient(p, "preload", models, t)
+			end
+		end)
+	end
+	local t0 = os.clock()
+	while os.clock() - t0 < PRELOAD_MAX do
+		local all = true
+		for _, p in ipairs(active()) do
+			if preloaded[p] ~= t then
+				all = false
+			end
+		end
+		if all or token ~= t then
+			return
+		end
+		task.wait(0.1)
+	end
+	warn("[Cutscene] โหลดฉากไม่ครบใน " .. PRELOAD_MAX .. " วิ เริ่มคัทซีนเลย")
+end
+
 -- ---------------------------------------------------------------- Intro
 local function introBody(t: number)
 	local P = points()
@@ -475,31 +520,37 @@ local function introBody(t: number)
 	for i, p in ipairs(players) do
 		pin(p, v, spots[math.min(i, #spots)] or CFrame.new(0, 4, 1.6), true, pillionClip(v))
 	end
+	-- พี่ชายตอนเดิน: สร้างไว้ก่อน (ซ่อนใต้ดิน) ให้โหลดพร้อมรถ ตอนลงรถค่อยย้ายมาวาง
+	local bro = walkerAt(CFrame.new(startPos - Vector3.new(0, 200, 0)))
+	preloadScene(t, { v, bro }, { startPos, stopPos, D.shutterDoor.Position })
+	if not alive(t) then
+		return v, bro
+	end
 	fire("start", "intro")
-	-- 1) ขี่มาตามถนนตอนเย็น: กล้องตามข้างรถ
-	fire("cam", { mode = "track", target = v, offset = Vector3.new(-9, 3.5, 5), look = Vector3.new(0, 2.5, -2), smooth = 6 })
+	-- 1) ขี่มาตามถนนตอนเย็น: กล้องตั้งริมถนนฝั่งตรงข้ามร้าน แพนตามรถ (ไม่วิ่งตามรถ: เครื่องสเปกต่ำเห็นภาพกระตุก)
+	fire("cam", roadsideShot(P, stopPos, v))
 	if not run(t, function()
 		D.driveTo(v, stopPos - P.road * 9, false, 18)
 		D.driveTo(v, stopPos, true, 18)
 	end) then
-		return v
+		return v, bro
 	end
 	-- 2) จอดหน้าร้าน คุยกัน
 	local drvHead = headOf(driverOf(v))
 	local vp = v:GetPivot()
 	fire("cam", { mode = "fixed", pos = vp:PointToWorldSpace(Vector3.new(7, 4.2, -7)), look = vp:PointToWorldSpace(Vector3.new(0, 4, 0.6)), fov = 50 })
 	if not wait_(t, 1.0) then
-		return v
+		return v, bro
 	end
 	if not say(t, "Intro_Brother_1", BROTHER, drvHead, 3.4) then
-		return v
+		return v, bro
 	end
 	local first = active()[1]
 	if not first then
-		return v
+		return v, bro
 	end
 	if not say(t, "Intro_Player_1", { player = first.DisplayName }, playerHead(first), 2.6) then
-		return v
+		return v, bro
 	end
 	-- 3) ลงจากรถ: ผู้เล่นยืนหน้าร้าน พี่ชายลงเดิน
 	fire("say", nil)
@@ -510,7 +561,7 @@ local function introBody(t: number)
 		pin(p, nil, CFrame.lookAt(pos, pos + P.shopDir), false)
 	end
 	showDriver(v, false)
-	local bro = walkerAt(CFrame.lookAt(ground(vp.Position + P.shopDir * 2.2 - P.road * 1.2), ground(vp.Position + P.shopDir * 6)))
+	bro:PivotTo(CFrame.lookAt(ground(vp.Position + P.shopDir * 2.2 - P.road * 1.2), ground(vp.Position + P.shopDir * 6)))
 	-- 4) พี่ชายเดินอ้อมไปหลังร้าน (กล้องกว้างหน้าร้าน)
 	fire("cam", { mode = "fixed", pos = Vector3.new(P.stop.X + 10, P.stop.Y + 6, P.stop.Z - 10), look = Vector3.new(P.sideX + 4, P.stop.Y + 3, P.stop.Z + 10), fov = 55 })
 	local corner = Vector3.new(P.sideX, P.stop.Y, P.stop.Z + 6)
@@ -610,10 +661,52 @@ local function introBody(t: number)
 			return
 		end
 	end
-	if not wait_(t, 0.8) then
+	if not wait_(t, 0.5) then
+		return
+	end
+	-- 8) ลมกรรโชกพัดเข้าหน้าร้าน (เสียงลม ฝุ่น ใบไม้ปลิว กล้องสั่น) จนแผงสังกะสีหล่นปิดเอง -> ผู้เล่นหันไปมอง "อ้าวเห้ย..."
+	--    กล้องในร้าน มองข้ามหัวผู้เล่นไปที่แผงหน้าร้าน
+	local door = D.shutterDoor.Position
+	-- กล้องอยู่หลังผู้เล่น (ฝั่งในร้าน) มองข้ามไหล่ไปที่แผง: เห็นทั้งคนและแผงที่ปิดลง
+	local sum, cnt = Vector3.zero, 0
+	for _, p in ipairs(active()) do
+		local r = rootOf(p)
+		if r then
+			sum += r.Position
+			cnt += 1
+		end
+	end
+	local mid = if cnt > 0 then sum / cnt else Vector3.new(P.aisleX + 1.5, y, P.counterBack + 1.8)
+	local away = Vector3.new(mid.X - door.X, 0, mid.Z - door.Z)
+	away = if away.Magnitude > 0.1 then away.Unit else P.shopDir
+	-- (ถอยห่างพอ: กล้องโหมด fixed ค่อยๆ ดันเข้าหาจุดมอง ~2.5 studs) เยื้องข้างนิดให้หัวไม่บังแผง
+	local side = away:Cross(Vector3.yAxis)
+	local camPos = Vector3.new(mid.X, if cnt > 0 then mid.Y + 3.2 else y + 6, mid.Z) + away * 6 - side * 1.6
+	fire("cam", { mode = "fixed", pos = camPos, look = Vector3.new(door.X, y + 3.4, door.Z), fov = 58 })
+	if not wait_(t, 0.6) then
+		return
+	end
+	fire("gust", door, P.shopDir)
+	if not wait_(t, 1.1) then
 		return
 	end
 	D.resetShutter() -- แผงสังกะสีปิดลงหลังผู้เล่นเข้าร้าน (ถ้ายังไม่มีใครข้ามไปดึงเชือกเปิดร้านจริงแล้ว)
+	fire("shake", 0.45, 0.6)
+	-- ทุกคนหันไปทางแผงที่ปิดลง
+	for _, p in ipairs(active()) do
+		local r = rootOf(p)
+		if r then
+			pin(p, nil, CFrame.lookAt(r.Position, Vector3.new(door.X, r.Position.Y, door.Z)), false)
+		end
+	end
+	if not wait_(t, 0.7) then
+		return
+	end
+	local who = active()[1]
+	if who and not say(t, "Intro_Player_2", { player = who.DisplayName }, playerHead(who), 2.2) then
+		return
+	end
+	fire("say", nil)
 	fire("sunset", 3.5)
 	if not wait_(t, 2.8) then
 		return
@@ -759,7 +852,7 @@ local function outroBody(t: number)
 	if not v then
 		return
 	end
-	fire("cam", { mode = "track", target = v, offset = Vector3.new(-8, 3.5, -9), look = Vector3.new(0, 2.5, 0), smooth = 6 })
+	fire("cam", roadsideShot(P, stopPos, v))
 	if not run(t, function()
 		D.driveTo(v, stopPos - P.road * 9, false, 18)
 		D.driveTo(v, stopPos, true, 18)
@@ -856,8 +949,12 @@ end
 function Cutscene.Init(deps: { [string]: any })
 	D = deps
 	remote = deps.remote("Cutscene")
-	remote.OnServerEvent:Connect(function(p: Player, action: any)
-		if action == "ready" then
+	remote.OnServerEvent:Connect(function(p: Player, action: any, arg: any)
+		if action == "preloaded" then
+			if type(arg) == "number" then
+				preloaded[p] = arg
+			end
+		elseif action == "ready" then
 			ready[p] = true
 			-- ไม่มีคัทซีนรอให้ดู (เข้ามากลางคืน / คัทซีนเล่นไปแล้ว): บอกให้ Client เอาจอดำออก
 			if not introWaiting then
@@ -883,6 +980,7 @@ function Cutscene.Init(deps: { [string]: any })
 	end)
 	Players.PlayerRemoving:Connect(function(p)
 		ready[p] = nil
+		preloaded[p] = nil
 		participants[p] = nil
 		skipped[p] = nil
 		follow[p] = nil

@@ -110,7 +110,10 @@ local CONFIG = {
 	CanPourTime = 2.5, -- กดค้างเทใส่ตู้
 
 	-- ขนมถวายศาลพระภูมิ (2026-11-03): ไม่ถวาย = ศาลไม่คุ้มครอง โดนหลอกไม่หยุด
-	OfferingGrace = 60, -- เปิดร้านแล้วมีเวลาเท่านี้ก่อนต้องถวายครั้งแรก
+	-- ช่วงเตรียมร้าน (2026-11-03): ดึงเชือกเปิดร้านแล้วนับถอยหลังเท่านี้ก่อนลูกค้าคนแรกมา (ถวายขนม ติดไฟ เติมน้ำมัน)
+	PrepTime = 60,
+	-- ศาลคุ้มครองตอนต้นคืน (นับจากเปิดร้าน): ยังไม่ถวายเมื่อครบเวลานี้ = ศาลไม่คุ้มครอง (ไม่เกิน PrepTime)
+	OfferingGrace = 45,
 	OfferingDuration = 150, -- ถวาย 1 ครั้งคุ้มครองนานเท่านี้
 	OfferingWarn = 25, -- เหลือเวลาคุ้มครองเท่านี้ เตือนทุกคน
 	CurseEvery = { 9, 16 }, -- ศาลไม่คุ้มครอง: อาการแปลกๆ ทุกๆ
@@ -169,6 +172,9 @@ local SummaryRemote = remote("Summary") -- C->S ("continue") กด "เฝ้�
 -- ล้มคว่ำหน้าลงพื้น (ทำฝั่ง Server ทุกคนเห็นเหมือนกัน) ยึดตัวไว้ เดินไม่ได้ จนกว่าจะเกิดใหม่
 -- คว่ำ ไม่ใช่หงาย: ตัวละครไม่มีหน้าตาตอนตาย นอนหงายแล้วเห็นหน้าปกติ ดูไม่เหมือนตาย
 local Prayer = require(script.Parent:WaitForChild("Prayer"))
+local ShrineHand = require(script.Parent:WaitForChild("ShrineHand"))
+local JerryCan = require(script.Parent:WaitForChild("JerryCan"))
+local HumanEmotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HumanEmotes"))
 local CollisionGroups = require(script.Parent:WaitForChild("CollisionGroups"))
 local function collapse(player: Player)
 	Prayer.Stop(player) -- ล้มแล้วเลิกพนมมือ
@@ -178,8 +184,23 @@ local function collapse(player: Player)
 	if not (root and hum) then
 		return
 	end
-	-- ของในมือ (ไฟฉาย ฯลฯ) เก็บเข้ากระเป๋า: ไม่ค้างท่าถือ / ไม่มีไฟฉายลอยค้างตอนกล้องจอตายมองร่าง
+	-- ของในมือ (ไฟฉาย แกลลอน ขนม) เก็บเข้ากระเป๋า: ยกเลิกท่าถือ / ไม่มีของลอยค้างตอนกล้องจอตายมองร่าง
 	hum:UnequipTools()
+	-- ระหว่างนอนอยู่ หยิบของขึ้นมือใหม่ไม่ได้ (กันกดปุ่มช่องของตอนตาย) จนกว่าจะลุก (standUp / เกิดใหม่)
+	local guard: RBXScriptConnection
+	guard = char.ChildAdded:Connect(function(c)
+		if not root.Anchored or not char.Parent then
+			guard:Disconnect()
+			return
+		end
+		if c:IsA("Tool") then
+			task.defer(function()
+				if root.Anchored and c.Parent == char then
+					c.Parent = player:FindFirstChildOfClass("Backpack")
+				end
+			end)
+		end
+	end)
 	hum.WalkSpeed = 0
 	hum.JumpPower = 0
 	hum.JumpHeight = 0
@@ -871,37 +892,104 @@ local function propPart(parent: Instance, name: string, size: Vector3, cf: CFram
 	return p
 end
 
--- แกลลอนน้ำมันพลาสติกแดง (ใช้ทั้งเป็นของวางในร้านและเป็น Handle ของ Tool) จุดกลาง = กลางตัวแกลลอน
-local function buildCan(parent: Instance, cf: CFrame): Part
-	local body = propPart(parent, "Handle", Vector3.new(0.55, 1.15, 0.95), cf, Color3.fromRGB(170, 34, 26))
-	propPart(parent, "CanGrip", Vector3.new(0.18, 0.18, 0.6), cf * CFrame.new(0, 0.66, 0.08), Color3.fromRGB(150, 28, 22))
-	propPart(parent, "CanSpout", Vector3.new(0.28, 0.18, 0.18), cf * CFrame.new(0, 0.62, -0.38) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(230, 200, 40), nil, Enum.PartType.Cylinder)
-	return body
-end
+-- แกลลอนน้ำมัน (ใช้ทั้งเป็นของวางในร้านและเป็น Handle ของ Tool) — ทรง/คราบ/เปลือกน้ำมัน อยู่ใน server/JerryCan
+local buildCan = JerryCan.Build
 
--- จานขนมไทย (ขนมชั้น ทองหยอด ลูกชุบ) จุดกลาง = กลางจาน
-local DESSERT_COLORS = { Color3.fromRGB(80, 170, 90), Color3.fromRGB(240, 190, 40), Color3.fromRGB(230, 100, 140), Color3.fromRGB(245, 240, 225), Color3.fromRGB(240, 150, 50) }
-local function buildDessert(parent: Instance, cf: CFrame, plateName: string?): Part
-	local plate = propPart(parent, plateName or "Handle", Vector3.new(0.12, 1.3, 1.3), cf * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(200, 196, 186), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-	for i = 1, 5 do
-		local a = (i / 5) * math.pi * 2
-		local pos = Vector3.new(math.cos(a) * 0.32, 0.14, math.sin(a) * 0.32)
-		if i % 2 == 0 then
-			propPart(parent, "Sweet" .. i, Vector3.new(0.24, 0.24, 0.24), cf * CFrame.new(pos), DESSERT_COLORS[i], Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-		else
-			propPart(parent, "Sweet" .. i, Vector3.new(0.3, 0.16, 0.22), cf * CFrame.new(pos) * CFrame.Angles(0, a, 0), DESSERT_COLORS[i])
+-- ขนมตาลห่อใบตองวางบนใบตอง (ไม่มีขัน/จาน): จุดอ้างอิง = กลางใต้แผ่นใบตอง (วางบนพื้นผิวได้เลย)
+--   ห่อทรงสูงยอดพับแหลม 3 ห่อเรียงด้านหลัง + ห่อที่แกะแล้วด้านหน้า (เนื้อขนมตาลเหลืองส้ม โรยมะพร้าวขูด)
+--   ชิ้นชื่อขึ้นต้นด้วย "Sweet" = ขนม (มือผีที่ศาล ShrineHand หยิบไปเฉพาะชิ้นพวกนี้ ใบตองรองวางอยู่ต่อ)
+-- ถ้านำเข้า LeafSweets.fbx ไว้ที่ ServerStorage.ImportedProps.LeafSweets (Model: LeafTray, OpenWrap, SweetCake, Wrapped;
+-- pivot = กลางใต้ใบตอง) จะใช้โมเดลนั้นแทน — ชิ้นที่ถือ/ถวายไม่เอา Wrapped (ห่อที่ยังไม่แกะอยู่ที่จุดหยิบ)
+local LEAF = Color3.fromRGB(78, 128, 52)
+local LEAF_LIGHT = Color3.fromRGB(104, 152, 62)
+local function wedge(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): WedgePart
+	local w = Instance.new("WedgePart")
+	w.Name = name
+	w.Size = size
+	w.CFrame = cf
+	w.Color = color
+	w.Material = Enum.Material.SmoothPlastic
+	w.Anchored = true
+	w.CanCollide = false
+	w.CastShadow = false
+	w.Parent = parent
+	return w
+end
+local function buildLeafSweets(parent: Instance, cf: CFrame, leafName: string?, wrapped: boolean?): BasePart
+	local imported = ServerStorage:FindFirstChild("ImportedProps") and ServerStorage.ImportedProps:FindFirstChild("LeafSweets")
+	if imported and imported:IsA("Model") and imported:FindFirstChild("LeafTray") then
+		local m = imported:Clone()
+		local leaf = m:FindFirstChild("LeafTray") :: BasePart
+		local rel = m:GetPivot()
+		for _, d in ipairs(m:GetChildren()) do
+			if d:IsA("BasePart") and (wrapped or d.Name ~= "Wrapped") then
+				d.CFrame = cf * rel:ToObjectSpace(d.CFrame)
+				d.Anchored = true
+				d.CanCollide = false
+				d.Parent = parent
+			end
 		end
+		leaf.Name = leafName or "Handle"
+		m:Destroy()
+		return leaf
 	end
-	return plate
+	-- แผ่นใบตอง: สี่เหลี่ยมกลาง + ปลายแหลมสองด้าน (ลิ่ม) + เส้นกลางใบ (ชิ้นเดียวที่แกะแล้ว = ใบเล็กลง)
+	local k = if wrapped then 1 else 0.55
+	local leaf = propPart(parent, leafName or "Handle", Vector3.new(1.0 * k, 0.04, 0.78 * k), cf * CFrame.new(0, 0.02, 0), LEAF)
+	for _, sg in ipairs({ -1, 1 }) do
+		local tipCF = cf * CFrame.new(sg * 0.68 * k, 0.02, 0) * CFrame.Angles(0, if sg > 0 then math.rad(-90) else math.rad(90), 0)
+		wedge(parent, "LeafTipA", Vector3.new(0.39 * k, 0.04, 0.36 * k), tipCF * CFrame.new(0.195 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(90)), LEAF)
+		wedge(parent, "LeafTipB", Vector3.new(0.39 * k, 0.04, 0.36 * k), tipCF * CFrame.new(-0.195 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-90)), LEAF)
+	end
+	propPart(parent, "LeafRib", Vector3.new(1.5 * k, 0.045, 0.03), cf * CFrame.new(0, 0.022, 0), LEAF_LIGHT)
+	-- ขนมตาลชิ้นที่แกะแล้ว (ชิ้นที่ถือ/ถวาย): ใบตองห่อคลี่ + เนื้อขนมตาล + มะพร้าวขูด
+	--   ใบตองห่อไม่ขึ้นต้นด้วย "Sweet" = มือผีหยิบไปแค่ชิ้นขนม ใบตองวางอยู่ที่เดิม
+	local open = cf * CFrame.new(0, 0.05, if wrapped then -0.2 else 0) * CFrame.Angles(0, math.rad(25), 0)
+	propPart(parent, "OpenWrap", Vector3.new(0.46, 0.025, 0.3), open, LEAF_LIGHT)
+	-- ขนมตาลก้อนกลม (ทรงกลมอย่างเดียว) โรยมะพร้าวขูดบนหัว
+	propPart(parent, "Sweet_Cake", Vector3.new(0.24, 0.24, 0.24), open * CFrame.new(0, 0.13, 0), Color3.fromRGB(244, 168, 44), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	for n = 1, 5 do
+		propPart(parent, "Sweet_Coconut" .. n, Vector3.new(0.09, 0.025, 0.02), open * CFrame.new((n - 3) * 0.025, 0.25, (n % 2 - 0.5) * 0.04) * CFrame.Angles(0, math.rad(n * 47), 0), Color3.fromRGB(246, 244, 236), Enum.Material.Fabric)
+	end
+	if not wrapped then
+		return leaf
+	end
+	-- ถาดที่หยิบ: ห่อขนมตาลที่ยังไม่แกะ 3 ห่อ ตั้งเรียงด้านหลังของใบ (ฝั่ง +Z) — วางอยู่ที่เดิม ไม่ได้หยิบติดมือไป
+	local WRAP = { Color3.fromRGB(104, 150, 62), Color3.fromRGB(88, 136, 54), Color3.fromRGB(116, 160, 70) }
+	for i = 1, 3 do
+		local base = cf * CFrame.new((i - 2) * 0.26, 0.04 + 0.15, 0.14) * CFrame.Angles(0, math.rad((i - 2) * 10), 0)
+		local col = WRAP[i]
+		propPart(parent, "Wrapped" .. i, Vector3.new(0.22, 0.3, 0.17), base, col)
+		local roof = 0.2
+		wedge(parent, "Wrapped" .. i .. "_TopL", Vector3.new(0.22, roof, 0.085), base * CFrame.new(0, 0.15 + roof / 2, -0.0425), col)
+		wedge(parent, "Wrapped" .. i .. "_TopR", Vector3.new(0.22, roof, 0.085), base * CFrame.new(0, 0.15 + roof / 2, 0.0425) * CFrame.Angles(0, math.rad(180), 0), col)
+		propPart(parent, "Wrapped" .. i .. "_Pin", Vector3.new(0.3, 0.025, 0.025), base * CFrame.new(0, 0.15 + roof * 0.45, 0), Color3.fromRGB(205, 186, 140))
+	end
+	return leaf
 end
 
-local function makeTool(name: string, build: (Instance, CFrame) -> Part, grip: CFrame): Tool
+-- จุดมือในท่าถือ เทียบ HumanoidRootPart (สะโพก 3.08 เหนือพื้น) — ค่าจาก server/Pedestrian (HUMAN_LEFT_HAND / HUMAN_RIGHT_HAND)
+local HELD_REST: { [string]: CFrame } = {
+	FuelCan = CFrame.new(1.41, 2.97 - 3.08 - 0.79, -0.25), -- ท่า carry_gallon_r มือขวาห้อยข้างตัว (หูแกลลอนในกำมือ)
+	ThaiDessert = CFrame.new(0.9, 3.4 - 3.08, -1.2), -- ท่า hold_tray_r มือขวาแบหงายหน้าท้อง ใบตองขนมบนฝ่ามือ
+}
+
+local function makeTool(name: string, build: (Instance, CFrame) -> Part, grip: CFrame, scale: number?): Tool
 	local tool = Instance.new("Tool")
 	tool.Name = name
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
 	tool.Grip = grip
 	local handle = build(tool, CFrame.new())
+	if scale and scale ~= 1 then -- ย่อรอบจุดอ้างอิง (จุดที่มือกำอยู่กับที่)
+		for _, d in ipairs(tool:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Size *= scale
+				d.CFrame = CFrame.new(d.Position * scale) * d.CFrame.Rotation
+			end
+		end
+	end
+	tool:SetAttribute("GripOffset", handle.CFrame) -- Handle เทียบจุดอ้างอิงของ build (client/HeldItems ใช้วางของในมือ)
 	for _, d in ipairs(tool:GetDescendants()) do
 		if d:IsA("BasePart") then
 			d.Anchored = false
@@ -910,6 +998,28 @@ local function makeTool(name: string, build: (Instance, CFrame) -> Part, grip: C
 		end
 	end
 	weldAll(tool, handle)
+	-- ตัวผู้เล่นชาวบ้านไม่มีแขน RightHand ให้ Roblox จับ Tool (ของร่วงพื้น/มองไม่เห็นในมือ):
+	-- ถืออยู่ = เชื่อม Handle กับ HumanoidRootPart (Weld "VillagerGrip") ที่ตำแหน่งมือในท่าถือ
+	-- แต่ละเครื่องเลื่อน C0 ให้ตรงกระดูกมือจริงทุกเฟรม (client/HeldItems) — ค่าตรงนี้แค่ตำแหน่งตั้งต้น
+	local rest = HELD_REST[name] or CFrame.new(0, 0, -1.5)
+	tool:GetPropertyChangedSignal("Parent"):Connect(function()
+		local old = handle:FindFirstChild("VillagerGrip")
+		local char = tool.Parent
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not (char and root and char:FindFirstChild("RootPart")) then
+			if old then
+				old:Destroy()
+			end
+			return
+		end
+		local w = (old or Instance.new("Weld")) :: Weld
+		w.Name = "VillagerGrip"
+		w.Part0 = root
+		w.Part1 = handle
+		w.C0 = rest
+		w.C1 = CFrame.new()
+		w.Parent = handle
+	end)
 	return tool
 end
 
@@ -924,6 +1034,12 @@ local function findTool(player: Player, name: string): Tool?
 	return if t and t:IsA("Tool") then t else nil
 end
 
+-- ต้องถืออยู่ในมือ (ไม่ใช่แค่อยู่ในกระเป๋า)
+local function heldTool(player: Player, name: string): Tool?
+	local t = player.Character and player.Character:FindFirstChild(name)
+	return if t and t:IsA("Tool") then t else nil
+end
+
 local function giveTool(player: Player, tool: Tool)
 	local bp = player:FindFirstChildOfClass("Backpack")
 	if bp then
@@ -935,10 +1051,7 @@ end
 
 local function setCanFull(tool: Tool, full: boolean)
 	tool:SetAttribute("Full", full)
-	local h = tool:FindFirstChild("Handle") :: BasePart?
-	if h then
-		h.Color = if full then Color3.fromRGB(190, 40, 30) else Color3.fromRGB(150, 60, 50)
-	end
+	JerryCan.SetFull(tool, full) -- เต็ม = น้ำมันชมพูแดงทะลุพลาสติก, เปล่า = ขาว
 end
 
 -- ชั้นวางแกลลอนในร้าน (มุมหลังร้านฝั่งซ้าย) + ถาดขนมบนโต๊ะเคาน์เตอร์
@@ -954,7 +1067,7 @@ if not canSpot then
 	local m = Instance.new("Model")
 	m.Name = "FuelCanSpot"
 	local floor = floorBelow(Vector3.new(shackCF.Position.X - shackSize.X / 2 + 3.5, rejectRope.Position.Y, shackCF.Position.Z + shackSize.Z / 2 - 4), { m })
-	local body = buildCan(m, CFrame.new(floor + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, math.rad(30), 0))
+	local body = buildCan(m, CFrame.new(floor + Vector3.new(0, 0.43, 0)) * CFrame.Angles(0, math.rad(30), 0))
 	body.Name = "CanBody"
 	m.PrimaryPart = body
 	m.Parent = interactive
@@ -962,7 +1075,11 @@ if not canSpot then
 end
 local canSpotPart = ((canSpot :: Instance):IsA("BasePart") and canSpot or (canSpot :: Model).PrimaryPart or (canSpot :: Instance):FindFirstChildWhichIsA("BasePart", true)) :: BasePart
 local takeCanPrompt = setupPrompt("TakeCanPrompt", canSpot :: Instance, canSpotPart, 0, "Take", "Jerry Can")
-takeCanPrompt.MaxActivationDistance = 8
+-- หยิบของในร้าน: ต้องเดินเข้าไปถึงตัวของ (ไม่กดจากหลังร้าน/ทะลุผนัง: client/PromptFacing เช็กผนังบัง + เลือกปุ่มที่ใกล้สุด)
+local TAKE_RANGE = 5
+takeCanPrompt.MaxActivationDistance = TAKE_RANGE
+takeCanPrompt:SetAttribute("Range", TAKE_RANGE)
+takeCanPrompt:SetAttribute("HideIfHasTool", "FuelCan") -- มีแกลลอนอยู่แล้ว ไม่ขึ้นปุ่มหยิบเพิ่ม
 takeCanPrompt.Enabled = true
 
 local drums: { BasePart } = {}
@@ -983,8 +1100,9 @@ end
 for _, drum in ipairs(drums) do
 	local fp = setupPrompt("FillCanPrompt", drum, drum, CONFIG.CanFillTime, "Fill Can", "Fuel Drum")
 	fp.Enabled = true
+	fp:SetAttribute("NeedsTool", "FuelCan") -- ต้องถือแกลลอนในมือก่อน
 	fp.Triggered:Connect(function(player)
-		local can = findTool(player, "FuelCan")
+		local can = heldTool(player, "FuelCan")
 		if not can or can:GetAttribute("Full") then
 			Notice:FireClient(player, "NeedCan", 3)
 			return
@@ -999,6 +1117,7 @@ local pourPetrolPrompt = setupPrompt("PourPetrolPrompt", gasPump, pumpBody, CONF
 local pourDieselPrompt = setupPrompt("PourDieselPrompt", dieselPump :: Model, dieselBody, CONFIG.CanPourTime, "Pour Diesel", "Diesel Pump")
 -- ปุ่มเทใช้ F (ปุ่ม E ของตู้เป็นปุ่มเติมให้ลูกค้า อยู่ชิ้นเดียวกัน)
 for _, pp in ipairs({ pourPetrolPrompt, pourDieselPrompt }) do
+	pp:SetAttribute("NeedsTool", "FuelCan")
 	pp.KeyboardKeyCode = Enum.KeyCode.F
 	pp.GamepadKeyCode = Enum.KeyCode.ButtonB
 	pp.UIOffset = Vector2.new(0, 72)
@@ -1009,7 +1128,7 @@ local function updatePourPrompts()
 	publishState()
 end
 local function pour(player: Player, diesel: boolean)
-	local can = findTool(player, "FuelCan")
+	local can = heldTool(player, "FuelCan")
 	if not (can and can:GetAttribute("Full")) then
 		Notice:FireClient(player, "NeedCan", 3)
 		return
@@ -1047,7 +1166,8 @@ if rackModel then
 		end
 	end
 	local rackPart = (rackModel:FindFirstChild("Rack") or rackModel:FindFirstChildWhichIsA("BasePart", true)) :: BasePart
-	fillRackPrompt = setupPrompt("FillRackPrompt", rackModel, rackPart, CONFIG.CanPourTime, "Fill Bottles", "Bottle Rack")
+	fillRackPrompt = setupPrompt("FillRackPrompt", rackModel, rackPart, CONFIG.CanPourTime, "Fill Bottles", "Bottle Rack");
+	(fillRackPrompt :: ProximityPrompt):SetAttribute("NeedsTool", "FuelCan")
 end
 local function setRackFilled(on: boolean)
 	rackFilled = on
@@ -1060,7 +1180,7 @@ local function setRackFilled(on: boolean)
 end
 if fillRackPrompt then
 	fillRackPrompt.Triggered:Connect(function(player)
-		local can = findTool(player, "FuelCan")
+		local can = heldTool(player, "FuelCan")
 		if rackFilled then
 			return
 		end
@@ -1079,7 +1199,7 @@ takeCanPrompt.Triggered:Connect(function(player)
 	if findTool(player, "FuelCan") then
 		return
 	end
-	local can = makeTool("FuelCan", buildCan, CFrame.new(0, -0.6, 0.1))
+	local can = makeTool("FuelCan", buildCan, CFrame.new(0, -0.79, -0.15))
 	setCanFull(can, false)
 	giveTool(player, can)
 end)
@@ -1112,18 +1232,21 @@ if not tray then
 	local counter = shack:FindFirstChild("CounterTable", true) :: BasePart?
 	local top = if counter then counter.Position + Vector3.new(2.6, counter.Size.Y / 2, 0) else floorBelow(shackCF.Position + Vector3.new(2, 0, 0), {}) + Vector3.new(0, 3, 0)
 	top = floorBelow(top + Vector3.new(0, 1.5, 0), { m })
-	local plate = buildDessert(m, CFrame.new(top + Vector3.new(0, 0.07, 0)), "TrayPlate")
+	local plate = buildLeafSweets(m, CFrame.new(top), "TrayPlate", true)
 	m.PrimaryPart = plate
 	m.Parent = interactive
 	tray = m
 end
 local trayPart = ((tray :: Instance):IsA("BasePart") and tray or (tray :: Model).PrimaryPart or (tray :: Instance):FindFirstChildWhichIsA("BasePart", true)) :: BasePart
 local takeDessertPrompt = setupPrompt("TakeDessertPrompt", tray :: Instance, trayPart, 0, "Take sweets", "Sweets tray")
-takeDessertPrompt.MaxActivationDistance = 8
+takeDessertPrompt.MaxActivationDistance = TAKE_RANGE
+takeDessertPrompt:SetAttribute("Range", TAKE_RANGE)
+takeDessertPrompt:SetAttribute("HideIfHasTool", "ThaiDessert")
 takeDessertPrompt.Enabled = true
 local function giveDessert(player: Player)
 	if not findTool(player, "ThaiDessert") then
-		giveTool(player, makeTool("ThaiDessert", buildDessert, CFrame.new(0, 0, 0.3)))
+		-- ขนมตาลชิ้นที่แกะแล้วบนใบตอง วางบนฝ่ามือที่แบหงาย (ย่อ 75% ไม่บังจอมุมบุคคลที่ 1)
+		giveTool(player, makeTool("ThaiDessert", buildLeafSweets, CFrame.new(), 0.75))
 	end
 end
 takeDessertPrompt.Triggered:Connect(giveDessert)
@@ -1132,10 +1255,11 @@ local shrineBody = (spirit:FindFirstChild("SpiritHouseOnStilts") or spirit:FindF
 local offerPrompt = setupPrompt("OfferDessertPrompt", spirit, shrineBody, 1.0, "Offer sweets", "Spirit House")
 offerPrompt.MaxActivationDistance = 11
 offerPrompt:SetAttribute("Range", 11)
+offerPrompt:SetAttribute("NeedsTool", "ThaiDessert") -- ต้องถือขนมในมือก่อน
 offerPrompt.Enabled = true
 local offeredPlate: Model? = nil
 offerPrompt.Triggered:Connect(function(player)
-	local d = findTool(player, "ThaiDessert")
+	local d = heldTool(player, "ThaiDessert")
 	if not d then
 		Notice:FireClient(player, "ShrineHungry", 4)
 		return
@@ -1152,36 +1276,48 @@ offerPrompt.Triggered:Connect(function(player)
 	if offeredPlate then
 		offeredPlate:Destroy()
 	end
-	local inc = spirit:FindFirstChild("Incense2") :: BasePart?
-	if inc then
+	-- ขนมตาลบนใบตองวางบนแท่นหน้าศาลข้างกระถางธูป (ย่อ 80% ให้พอดีศาล) แล้วสักพักมือผียื่นออกมาหยิบขนมเข้าไปในศาล
+	do
 		local m = Instance.new("Model")
 		m.Name = "OfferedSweets"
-		local base = floorBelow(inc.Position + shrineBody.CFrame.LookVector * 0.5 + Vector3.new(0, 0.2, 0), { m, inc })
-		buildDessert(m, CFrame.new(base + Vector3.new(0, 0.07, 0)) * CFrame.new(0.45, 0, 0), "Plate")
+		local _, spot = ShrineHand.Spots(spirit, shrineBody)
+		local base = floorBelow(spot + Vector3.new(0, 0.6, 0), { m, spirit:FindFirstChild("Incense1") :: Instance, spirit:FindFirstChild("Incense2") :: Instance, spirit:FindFirstChild("Incense3") :: Instance })
+		if base.Y < spot.Y - 1.5 then
+			base = spot - Vector3.new(0, 0.4, 0) -- ทะลุรูของ collision ลงไปถึงพื้น: วางระดับระเบียงศาลแทน
+		end
+		local _, ry = shrineBody.CFrame:ToOrientation()
+		buildLeafSweets(m, CFrame.new(base) * CFrame.Angles(0, ry, 0), "LeafTray")
 		for _, part in ipairs(m:GetDescendants()) do
 			if part:IsA("BasePart") then
-				part.Size *= 0.5
-				part.CFrame = CFrame.new(base + (part.Position - base) * 0.5) * part.CFrame.Rotation
+				part.Size *= 0.8 -- ขนมชิ้นเดียวบนใบตอง ย่อนิดหน่อยให้พอดีแท่นหน้าศาล
+				part.CFrame = CFrame.new(base + (part.Position - base) * 0.8) * part.CFrame.Rotation
 			end
 		end
 		m.Parent = spirit
 		offeredPlate = m
+		ShrineHand.Take(m, spirit, shrineBody, nil, function(at: BasePart): Sound?
+			-- เสียงตอนมือผีออกมาหยิบขนม (ดัง 50% ของไฟล์) ShrineHand เฟดลงเองถ้าหยิบจบก่อนเสียงจบ
+			local s = Instance.new("Sound")
+			s.Name = "GhostTakeSound"
+			s.SoundId = "rbxassetid://75963826001031"
+			s.Volume = 0.5
+			s.RollOffMode = Enum.RollOffMode.InverseTapered
+			s.RollOffMinDistance = 6
+			s.RollOffMaxDistance = 40
+			s.Parent = at
+			s.Ended:Connect(function()
+				s:Destroy()
+			end)
+			s:Play()
+			return s
+		end)
 	end
 	SoundBank.PlayOneShot("CoinTinDrop1", shrineBody, 40, 1.2)
 	Notice:FireAllClients("ShrineOffered", 4)
 	remotes:SetAttribute("Cursed", false)
 	print("🍡 [" .. player.Name .. "] ถวายขนมศาลพระภูมิ คุ้มครองอีก " .. CONFIG.OfferingDuration .. " วิ")
 end)
--- เกิดใหม่: ได้ขนม 1 จานติดตัวทุกครั้ง (ช่อง [2])
-Players.PlayerAdded:Connect(function(p)
-	p.CharacterAdded:Connect(function()
-		task.wait(1)
-		giveDessert(p)
-	end)
-end)
-for _, p in ipairs(Players:GetPlayers()) do
-	task.spawn(giveDessert, p)
-end
+-- เกิดใหม่/ตื่นมา: ไม่มีขนมติดตัว ต้องไปหยิบที่ถาดขนมในร้านเอง (ผู้ใช้ขอ 2026-11-03)
 
 local function cursed(): boolean
 	return remotes:GetAttribute("ShopOpen") == true and not gameOver and os.clock() > offeringUntil
@@ -2126,14 +2262,17 @@ local function followVehicle(v: Model, people: { { m: Model, offset: CFrame, dan
 	local alive = true
 	local t0 = os.clock()
 	local lastPos = v:GetPivot().Position
-	local conn = RunService.Heartbeat:Connect(function()
+	local speed = 0 -- ความเร็วขบวน (studs/วิ, เฉลี่ยนุ่มๆ) -> ขาเดินของคนเต้น
+	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not v.Parent then
 			return
 		end
 		local t = os.clock() - t0
 		local piv = v:GetPivot()
-		local moving = (piv.Position - lastPos).Magnitude > 0.01
+		local step = (piv.Position - lastPos).Magnitude
+		local moving = step > 0.01
 		lastPos = piv.Position
+		speed += ((if dt > 0 then step / dt else 0) - speed) * math.min(1, dt * 4)
 		for i, pp in ipairs(people) do
 			if pp.m.Parent then
 				local ph = t * 6 + i * 1.3
@@ -2148,6 +2287,8 @@ local function followVehicle(v: Model, people: { { m: Model, offset: CFrame, dan
 				local a = if moving or pp.dance then math.sin(ph) * 0.5 else 0
 				if pp.dance and HumanNPC.Is(pp.m) then
 					a = 1
+					-- ขบวนเคลื่อน: ขา/สะโพกเดินจริง ตัว หัว แขนเต้นต่อ (client/HumanEmotesRunner)
+					HumanEmotes.SetWalkLegs(pp.m, if speed > 0.3 then speed else 0)
 				end
 				Pedestrian.Pose(pp.m, a)
 			end
@@ -2980,6 +3121,7 @@ local function waitForShopOpen()
 	shopOpened = false
 	updateShutterPrompts()
 	remotes:SetAttribute("ShopOpen", false)
+	remotes:SetAttribute("PrepLeft", nil)
 	-- ไฟร้านดับตั้งแต่ก่อนคัทซีน (เครื่องปั่นไฟยังไม่ติด): คัทซีนเย็นเห็นร้านไฟปิด เข้ากลางคืนก็มืดต่อ
 	-- (Client จำค่าแสงตอนเริ่มคัทซีน = ค่าไฟดับ แล้วคืนค่านี้ตอนจบ) ตัดแบบเงียบ: ไม่มีเสียงกระแทกตอนโหลดเข้าเกม
 	Power.Cut(true)
@@ -3005,8 +3147,8 @@ local function waitForShopOpen()
 	if not isShutterOpen then
 		openShutter()
 	end
-	-- ต้องถวายขนมศาลภายในเวลานี้ (เตือนตั้งแต่ต้นคืน)
-	offeringUntil = os.clock() + CONFIG.OfferingGrace
+	-- ต้องถวายขนมศาลภายในเวลานี้ (เตือนตั้งแต่ต้นคืน) ระหว่างช่วงเตรียมร้าน
+	offeringUntil = os.clock() + math.min(CONFIG.OfferingGrace, CONFIG.PrepTime)
 	offeringWarned = false
 	GameState:FireAllClients("Playing")
 	-- ตู้/แผงยังว่าง: บอกให้ไปเอาน้ำมันหลังร้านมาเติมก่อนลูกค้ามา
@@ -3020,6 +3162,17 @@ local function waitForShopOpen()
 			Notice:FireAllClients("ShrineHungry", 6)
 		end
 	end)
+	-- ช่วงเตรียมร้าน: ลูกค้ายังไม่มา (spawnerLoop เริ่มหลังฟังก์ชันนี้คืนค่า) นับถอยหลังบน HUD (client/ItemSlots)
+	--   PrepLeft = วินาทีที่เหลือ, PrepOffered = ถวายขนมแล้วหรือยัง (ไฟ = ReplicatedStorage.PowerOn, น้ำมัน = PetrolLevel/DieselLevel)
+	local prepEnd = os.clock() + CONFIG.PrepTime
+	while os.clock() < prepEnd and not gameOver do
+		remotes:SetAttribute("PrepLeft", math.ceil(prepEnd - os.clock()))
+		remotes:SetAttribute("PrepOffered", stats.offerings > 0)
+		task.wait(0.25)
+	end
+	remotes:SetAttribute("PrepLeft", nil)
+	Notice:FireAllClients("PrepOver", 5)
+	print("🚦 หมดเวลาเตรียมร้าน ลูกค้าเริ่มมา" .. (if stats.offerings == 0 then " (ยังไม่ถวายขนม: ศาลไม่คุ้มครอง)" else ""))
 end
 
 -- ผู้เล่นที่เข้ามาตอนร้านยังปิด (ไม่มีคัทซีนเล่นอยู่) ให้เห็นข้อความรอเปิดร้านด้วย

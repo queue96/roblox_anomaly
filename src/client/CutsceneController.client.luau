@@ -4,6 +4,7 @@
 --   กล้อง (ตามคำสั่ง "cam" จาก Server), แถบดำบน-ล่าง, ซับไตเติล + เสียงพากย์, จอดำ, แสงเย็นใกล้ค่ำ / เช้ามืด
 --   ข้ามได้: Enter / ปุ่ม B (จอย) / แตะปุ่ม "ข้าม" -> ส่ง "skip" ไป Server แล้วคืนกล้องทันที
 --   จบคืนแบบชนะ: หลังคัทซีน (หรือข้าม) ขึ้นหน้าสรุปผล: ใครเติมไปเท่าไหร่ เจอผีกี่ตัว ได้ค่าเฝ้าร้านกี่บาท
+local ContentProvider = game:GetService("ContentProvider")
 local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -246,11 +247,17 @@ local cam = { mode = "fixed" } :: { [string]: any }
 local camStart = 0
 local smoothCF: CFrame? = nil
 local hiddenGuis: { ScreenGui } = {}
+-- เดินตามคำสั่ง "walkto": หันตัวไปทางที่เดินเอง (เดิมตัวหันตามทิศกล้อง/ทิศเดิม เดินเฉียงข้าง)
+local walkTarget: Vector3? = nil
+-- กล้องสั่น ("shake" จาก Server / ลมกรรโชก)
+local shakeUntil, shakeMag, shakeLen = 0, 0, 1
 
+local lookSmooth: Vector3? = nil
 local function setCam(spec: { [string]: any })
 	cam = spec
 	camStart = os.clock()
 	smoothCF = nil
+	lookSmooth = nil
 	local c = Workspace.CurrentCamera
 	if c then
 		c.FieldOfView = spec.fov or 60
@@ -276,16 +283,28 @@ local function update(dt: number)
 		local base = CFrame.new(piv.Position) * yaw
 		cf = CFrame.lookAt(base:PointToWorldSpace(cam.offset or Vector3.new(-8, 4, 6)), base:PointToWorldSpace(cam.look or Vector3.zero))
 	elseif cam.mode == "lookat" and cam.pos and cam.target and cam.target.Parent then
-		cf = CFrame.lookAt(cam.pos, cam.target:GetPivot().Position + (cam.look or Vector3.zero))
+		-- กล้องนิ่ง หันตามเป้า: เป้าเลื่อนนุ่มๆ (ตำแหน่งรถ/คนจาก server มาเป็นช่วงๆ ถ้าหันตามตรงๆ ภาพจะกระตุก)
+		local want = cam.target:GetPivot().Position + (cam.look or Vector3.zero)
+		lookSmooth = if lookSmooth then lookSmooth:Lerp(want, math.clamp(dt * (cam.smooth or 5), 0, 1)) else want
+		cf = CFrame.lookAt(cam.pos, lookSmooth :: Vector3)
 	end
 	if cf then
-		if smoothCF and cam.smooth then
+		if smoothCF and cam.smooth and cam.mode ~= "lookat" then
 			smoothCF = smoothCF:Lerp(cf, math.clamp(dt * cam.smooth, 0, 1))
 		else
 			smoothCF = cf
 		end
-		c.CFrame = smoothCF :: CFrame
+		local out = smoothCF :: CFrame
+		local left = shakeUntil - os.clock()
+		if left > 0 then
+			local k = shakeMag * math.clamp(left / shakeLen, 0, 1)
+			local n = os.clock() * 31
+			out *= CFrame.new(math.noise(n, 0.3) * k * 0.35, math.noise(n, 1.7) * k * 0.35, 0)
+				* CFrame.Angles(math.noise(n, 4.1) * k * 0.05, math.noise(n, 7.3) * k * 0.05, math.noise(n, 9.9) * k * 0.08)
+		end
+		c.CFrame = out
 	end
+
 	-- ตัวเองต้องเห็นในคัทซีน (มุมมองบุคคลที่ 1 ซ่อนตัวเองไว้)
 	local char = player.Character
 	if char then
@@ -296,6 +315,33 @@ local function update(dt: number)
 		end
 	end
 end
+
+-- เดินตามคำสั่ง "walkto" เอง: Humanoid:Move ไปทางเป้าทุกเฟรม + หันตัวไปทางที่เดิน
+-- (Humanoid:MoveTo + AutoRotate ใช้ไม่ได้: RotationType ของผู้เล่นค้างเป็น CameraRelative (สคริปต์แก้ไม่ได้)
+--  ตัวจึงหันตามกล้องคัทซีน เดินเฉียงข้าง และการหมุนตัวเองทุกเฟรมทำให้ MoveTo หยุด)
+RunService.PreSimulation:Connect(function(dt)
+	if not walkTarget then
+		return
+	end
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not (active and root and hum) or root.Anchored then
+		walkTarget = nil
+		if hum then
+			hum:Move(Vector3.zero)
+		end
+		return
+	end
+	local flat = Vector3.new(walkTarget.X - root.Position.X, 0, walkTarget.Z - root.Position.Z)
+	if flat.Magnitude < 0.6 then
+		walkTarget = nil
+		hum:Move(Vector3.zero)
+		return
+	end
+	hum:Move(flat.Unit)
+	root.CFrame = root.CFrame:Lerp(CFrame.lookAt(root.Position, root.Position + flat), math.clamp(dt * 10, 0, 1))
+end)
 
 local function hideOtherGuis(hide: boolean)
 	if hide then
@@ -554,6 +600,7 @@ local function endCutscene(kind: string)
 		return
 	end
 	active = nil
+	walkTarget = nil
 	RunService:UnbindFromRenderStep("CutsceneCamera")
 	subtitle.Visible = false
 	-- หยุดเดินที่คัทซีนสั่งไว้ (ยังเดินไม่ถึงตอนจบ = เดินข้างไปเองหลังกล้องกลับมาที่ตา)
@@ -612,6 +659,72 @@ ContextActionService:BindAction("CutsceneSkip", function(_, state)
 	return Enum.ContextActionResult.Pass
 end, false, Enum.KeyCode.Return, Enum.KeyCode.KeypadEnter, Enum.KeyCode.ButtonB)
 
+-- ลมกรรโชกพัดเข้าหน้าร้าน (คัทซีนเปิดคืน ก่อนแผงปิด): เสียงลม ฝุ่นลูกรัง ใบไม้ปลิวเข้าร้าน กล้องสั่น
+local GUST_SOUNDS = { "rbxassetid://85728429011413", "rbxassetid://137418155440140" }
+local LEAF_TEXTURE = "rbxassetid://71802157290225" -- แผ่นใบไทร (MapBuilder ใช้อยู่แล้ว)
+local function playGust(at: Vector3?, dir: Vector3?)
+	if typeof(at) ~= "Vector3" then
+		return
+	end
+	local d = if typeof(dir) == "Vector3" and dir.Magnitude > 0 then dir.Unit else Vector3.new(0, 0, 1)
+	local snd = Instance.new("Sound")
+	snd.Name = "CutsceneGust"
+	snd.SoundId = GUST_SOUNDS[math.random(#GUST_SOUNDS)]
+	snd.Volume = 1.1
+	snd.Parent = game:GetService("SoundService")
+	snd:Play()
+	task.delay(4, function()
+		TweenService:Create(snd, TweenInfo.new(1), { Volume = 0 }):Play()
+		task.wait(1.1)
+		snd:Destroy()
+	end)
+	-- แผ่นปล่อยฝุ่น/ใบไม้: อยู่นอกร้านหน้าแผง หันไปทางในร้าน (Front = ทิศลม)
+	local src = Instance.new("Part")
+	src.Name = "CutsceneGustEmitter"
+	src.Anchored = true
+	src.CanCollide = false
+	src.CanQuery = false
+	src.CanTouch = false
+	src.Transparency = 1
+	src.Size = Vector3.new(9, 5, 0.2)
+	src.CFrame = CFrame.lookAt(at - d * 5 + Vector3.new(0, -0.5, 0), at - d * 5 + Vector3.new(0, -0.5, 0) + d)
+	local dust = Instance.new("ParticleEmitter")
+	dust.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	dust.Color = ColorSequence.new(Color3.fromRGB(150, 118, 86), Color3.fromRGB(110, 92, 74))
+	dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 4.5) })
+	dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	dust.Lifetime = NumberRange.new(1.0, 1.8)
+	dust.Speed = NumberRange.new(16, 26)
+	dust.SpreadAngle = Vector2.new(18, 10)
+	dust.Rotation = NumberRange.new(0, 360)
+	dust.RotSpeed = NumberRange.new(-60, 60)
+	dust.Rate = 70
+	dust.LightEmission = 0
+	dust.Parent = src
+	local leaves = Instance.new("ParticleEmitter")
+	leaves.Texture = LEAF_TEXTURE
+	leaves.Color = ColorSequence.new(Color3.fromRGB(150, 140, 90), Color3.fromRGB(110, 90, 50))
+	leaves.Size = NumberSequence.new(0.55)
+	leaves.Lifetime = NumberRange.new(1.2, 2.2)
+	leaves.Speed = NumberRange.new(18, 30)
+	leaves.SpreadAngle = Vector2.new(25, 20)
+	leaves.Rotation = NumberRange.new(0, 360)
+	leaves.RotSpeed = NumberRange.new(-400, 400)
+	leaves.Acceleration = Vector3.new(0, -6, 0)
+	leaves.Rate = 28
+	leaves.Parent = src
+	src.Parent = Workspace
+	dust:Emit(25)
+	leaves:Emit(10)
+	shakeMag, shakeLen = 0.25, 1.4
+	shakeUntil = os.clock() + shakeLen
+	task.delay(1.0, function() -- หยุดก่อนแผงหล่นปิด (ฝุ่นไม่ทะลุแผง)
+		dust.Enabled = false
+		leaves.Enabled = false
+	end)
+	game:GetService("Debris"):AddItem(src, 4.5)
+end
+
 remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 	if kind == "start" then
 		startCutscene(a)
@@ -642,8 +755,51 @@ remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 		-- เดินตัวเองไปจุดนี้ (Server สั่งผ่าน Client เพราะตัวละครเป็นของ Client)
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if hum and typeof(a) == "Vector3" and active then -- คัทซีนจบ/ข้ามแล้ว = ไม่เดินตามคำสั่งเก่า
-			hum:MoveTo(a)
+			walkTarget = a
 		end
+	elseif kind == "preload" then
+		-- โหลด mesh/texture ของรถพี่ชาย + พี่ชาย + ตัวเรา ให้เสร็จก่อนคัทซีนเริ่ม (Server รอคำตอบ "preloaded")
+		local token = b
+		task.spawn(function()
+			local list = {}
+			if type(a) == "table" then
+				for _, m in ipairs(a) do
+					if typeof(m) == "Instance" then
+						table.insert(list, m)
+					end
+				end
+			end
+			if player.Character then
+				table.insert(list, player.Character)
+			end
+			-- รถส่งมาแบบ Persistent: รอให้ชิ้นส่วนมาครบสักครู่ (จำนวนชิ้นหยุดเพิ่ม)
+			local last, still = -1, 0
+			for _ = 1, 30 do
+				local n = 0
+				for _, m in ipairs(list) do
+					n += #m:GetDescendants()
+				end
+				if n == last then
+					still += 1
+					if still >= 3 then
+						break
+					end
+				else
+					still = 0
+				end
+				last = n
+				task.wait(0.1)
+			end
+			pcall(function()
+				ContentProvider:PreloadAsync(list)
+			end)
+			remote:FireServer("preloaded", token)
+		end)
+	elseif kind == "shake" then
+		shakeMag, shakeLen = a or 0.5, b or 0.6
+		shakeUntil = os.clock() + shakeLen
+	elseif kind == "gust" then
+		playGust(a, b)
 	elseif kind == "end" then
 		endCutscene(a)
 	elseif kind == "summary" then
