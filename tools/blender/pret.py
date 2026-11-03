@@ -8,7 +8,7 @@
 #   subdivide 1 ระดับ แล้วดัดผิวให้เป็นหนังหุ้มกระดูก: ซี่โครงบาน ท้องตอบ แขนขาคอดกลางท่อน เข่า/ศอก/ข้อเท้าปูดเป็นปุ่มนูนใต้หนัง
 #   ลายผิว (ร่องซี่โครง ไหปลาร้า กระดูกสันหลัง ผิวแห้งแตก เส้นเลือด เล็บ หน้า) วาดลง texture ด้วย numpy ในพิกัด 3 มิติ (วิธีเดียวกับกระหัง)
 # ชิ้น: Body, Eyes (ลูกตาโปน), Tongue (ลิ้นยาว กระดูก Tongue1-6 ห้อยตามแรงโน้มถ่วงทุกเฟรม), Hair (ผมยุ่งสั้นแค่ต้นคอ),
-#       Cloth (ผ้านุ่งจงกระเบน: ผ้าพันสะโพกสั้นถึงเป้า + ขากางเกง 2 ข้างแยกตามต้นขาแต่ละข้าง ปมที่สะโพกซ้าย ชายผ้า 2 ชาย)
+#       Cloth (ผ้าขาวม้านุ่งจงกระเบนแบบกระหัง: ผืนเดียวพันแนบสะโพก ข้างสั้น หน้า-หลังร่นถึงเป้า ปมที่สะโพกซ้าย ชายผ้า 2 ชาย)
 # rig = HumanRig เดิม + Tongue1..Tongue6 (ลูกของ head) · weight ไม่เกิน 4 กระดูกต่อจุด
 # ท่า (30 fps): Idle (121 เฟรม วนลูป), TallSlowWalk (97 วนลูป), Shriek (91 ครั้งเดียว) · ตรวจการทะลุทุกเฟรมทุกท่า (check_clips)
 # texture ชุดเดียว 1024 ใช้ร่วมทุกชิ้น (atlas)
@@ -517,16 +517,21 @@ def add_tongue_bones(rig):
         rig.data.bones[f"Tongue{k + 1}"].use_deform = True
 
 
-# ---------------------------------------------------------------- ผ้านุ่งจงกระเบน
-# ส่วนบน: ผ้าพันสะโพกแนบตัว (ยิง ray หาผิวรอบตัวแบบกระหัง) ขอบล่างต่ำกว่าเป้านิดเดียว ชายบานคลุมโคนขากางเกง
-# ส่วนล่าง: ขากางเกง 2 ข้าง แต่ละข้างพันรอบต้นขาของตัวเอง ห่างผิว ~3 ซม. ผูกกับต้นขาข้างนั้น = ก้าวยาวแค่ไหนขาก็ไม่ทะลุผ้า
-#         โคนขากางเกงสอดอยู่ใต้ผ้าพันสะโพก (ไม่มีรอยต่อให้เห็น) · ผ้าเก่าซีด ชายขาดแหว่ง
+# ---------------------------------------------------------------- ผ้าขาวม้านุ่งจงกระเบน (แบบเดียวกับผ้าขาวม้าของกระหัง)
+# ผ้าผืนเดียวพันแนบสะโพกตามรูปตัว (ยิง ray หาผิวรอบตัว) ข้างสั้นคลุมต้นขาบน หน้า-หลังร่นขึ้นถึงเป้า (ชายลอดหว่างขาไปเหน็บ)
+# ปมที่สะโพกซ้าย ชายผ้า 2 ชายห้อย · น้ำหนักทุกจุดผสมจากผิวที่อยู่ใต้ผ้า (hips / spine / ต้นขา) = ผ้างอตามตัวพอดี ขายาวก้าวแล้วไม่ทะลุ
 CLOTH = {}
-W_AZ, W_N = 48, 9
-LEG_AZ, LEG_N = 28, 9
+SK_AZ, SK_N = 48, 12
+
+
+def kb_bottom(a):
+    """ขอบล่างที่มุม a (วัดจากหน้า -Y ไปทางซ้ายตัวละคร +X): ข้างสั้นแค่ 28% ของต้นขา หน้า-หลังร่นถึงเป้า"""
+    side = CLOTH["side"] + 0.02 * math.sin(3 * a + 0.7) + 0.012 * math.sin(7 * a + 2.1)
+    return side + (CLOTH["crotch"] - 0.02 - side) * math.cos(a) ** 6
 
 
 def hull_radius(bvh, zs, az, yc, reach):
+    """ผิวนอกสุดของตัวที่แต่ละมุม (ยิง ray จากนอกเข้าหาแกน) ช่องหว่างขาเชื่อมข้ามเหมือนผ้าพันขึง"""
     out = []
     for z, a in zip(zs, az):
         c = Vector((0, yc, z))
@@ -550,171 +555,93 @@ def hull_radius(bvh, zs, az, yc, reach):
     return out
 
 
-def leg_frame(rig, side):
-    b = rig.data.bones["thigh." + side]
-    h, t = Vector(b.head_local), Vector(b.tail_local)
-    d = (t - h).normalized()
-    e1 = (Vector((1, 0, 0)) - d * d.x).normalized()
-    e2 = d.cross(e1).normalized()
-    return h, t, d, e1, e2
-
-
-def thigh_r(bvh, c, dirv, default):
-    hit = bvh.ray_cast(c, dirv, 0.14)[0]
-    return (hit - c).length if hit is not None else default
-
-
 def build_cloth(body, rig, bvh):
-    rnd = random.Random(5)
+    rnd = random.Random(3)
     me = body.data
     P = np.array([tuple(v.co) for v in me.vertices])
     hz = rig.data.bones["hips"].head_local.z
     mid = P[(np.abs(P[:, 0]) < 0.012) & (P[:, 2] < hz)]
-    crotch = float(mid[:, 2].min())
+    th = rig.data.bones["thigh.L"]
     top = torso_z(1.0)
-    hem_w = crotch - 0.05
     yc = 0.01 * TORSO_K["u"]
-    CLOTH.update(top=top, crotch=crotch, hem_w=hem_w)
-    bm = bmesh.new()
-    comp = {}
-    # ---- ผ้าพันสะโพก
-    az = [2 * math.pi * i / W_AZ for i in range(W_AZ)]
-    jag = [rnd.uniform(-0.018, 0.008) for _ in az]
-    tears = {rnd.randrange(W_AZ) for _ in range(3)}
+    CLOTH.update(top=top, crotch=float(mid[:, 2].min()), side=th.head_local.z - 0.28 * (th.head_local - th.tail_local).length, yc=yc)
+    az = [2 * math.pi * i / SK_AZ for i in range(SK_AZ)]
+    jag = [rnd.uniform(-0.02, 0.008) for _ in az]                     # ชายผ้าลุ่ยไม่เสมอกัน
+    tears = {rnd.randrange(SK_AZ) for _ in range(4)}                  # รอยขาดแหว่ง
     grid, prev = [], None
-    for j in range(W_N):
-        f = j / (W_N - 1)
-        zs = [top + (hem_w + (jag[i] + (0.05 if i in tears else 0.0)) * (j == W_N - 1) - top) * f for i in range(W_AZ)]
+    for j in range(SK_N):
+        f = j / (SK_N - 1)
+        zs = [top + (kb_bottom(a) + (jag[i] + (0.045 if i in tears else 0.0)) * (j == SK_N - 1) - top) * f for i, a in enumerate(az)]
         rr = hull_radius(bvh, zs, az, yc, 0.36)
         rr = [max(r, prev[i]) if prev else r for i, r in enumerate(rr)]
         prev = rr
         row = []
         for i, a in enumerate(az):
-            fold = 0.008 * f * math.sin(5 * a + 1.3) + 0.005 * f * math.sin(11 * a + 0.4)
-            band = 0.008 if j <= 1 else 0.0                 # ขอบเอวม้วนพับ
-            r = rr[i] + 0.016 + band + 0.05 * f * f + fold   # ชายล่างบานคลุมโคนขากางเกง
+            fold = 0.011 * f * math.sin(5 * a + 1.3) + 0.006 * f * math.sin(11 * a + 0.4) + 0.004 * math.sin(17 * a + 0.9) * f
+            band = 0.009 if j <= 1 else 0.0                              # ขอบเอวม้วนพับ
+            r = rr[i] + 0.016 + band + 0.025 * f * f + fold
             row.append(Vector((math.sin(a) * r, yc - math.cos(a) * r, zs[i])))
         grid.append(row)
-    comp["waist"] = slab(bm, grid, True, 0.008)
-    # ---- ขากางเกง 2 ข้าง
-    for side in ("L", "R"):
-        h, t, d, e1, e2 = leg_frame(rig, side)
-        L = (t - h).length
-        a0 = (h.z - (crotch + 0.07)) / (h.z - t.z)             # โคน: เหนือเป้า สอดใต้ผ้าพันสะโพก
-        a1 = 0.42                                              # ชาย: 42% ของต้นขา
-        CLOTH["leg_" + side] = (a0, a1)
-        bs = [2 * math.pi * i / LEG_AZ for i in range(LEG_AZ)]
-        jagl = [rnd.uniform(-0.02, 0.01) for _ in bs]
-        tl = {rnd.randrange(LEG_AZ) for _ in range(2)}
-        rows, prevr = [], None
-        for j in range(LEG_N):
-            f = j / (LEG_N - 1)
-            al = [a0 + (a1 - a0) * f + ((jagl[i] - (0.05 if i in tl else 0.0)) / L if j == LEG_N - 1 else 0.0) for i in range(LEG_AZ)]
-            dirs = [e1 * math.cos(b_) + e2 * math.sin(b_) for b_ in bs]
-            rr = [thigh_r(bvh, h + d * (al[i] * L), dirs[i], None) for i in range(LEG_AZ)]
-            ok = [r for r in rr if r is not None]
-            med = sorted(ok)[len(ok) // 2] if ok else 0.06
-            rr = [min(r, med * 1.8) if r is not None else med for r in rr]      # ray ที่เลยไปโดนขาหนีบ/ขาอีกข้าง
-            rr = [(rr[i - 1] + 2 * rr[i] + rr[(i + 1) % LEG_AZ]) / 4 for i in range(LEG_AZ)]
-            if prevr:
-                rr = [max(r, 0.88 * p) for r, p in zip(rr, prevr)]                # ผ้าค่อยๆ สอบตามต้นขา
-            prevr = rr
-            row = []
-            for i, b_ in enumerate(bs):
-                fold = 0.006 * math.sin(4 * b_ + (1.0 if side == "L" else 2.3)) * f
-                inner = max(0.0, -dirs[i].x * (1 if side == "L" else -1))        # ด้านในขา (ขาหนีบ) เผื่อมากกว่า
-                row.append(h + d * (al[i] * L) + dirs[i] * (rr[i] + 0.026 + 0.012 * inner * (1 - f) + 0.01 * f + fold))
-            rows.append(row)
-        comp["leg_" + side] = slab(bm, rows, True, 0.008)
-        CLOTH["leg_grid_" + side] = rows
-    # ---- ปมผ้าที่สะโพกซ้ายค่อนหน้า + ชายผ้า 2 ชายห้อยข้างนอกขากางเกงซ้าย
-    i = int(round(R(64) / (2 * math.pi) * W_AZ)) % W_AZ
-    p = grid[2][i]
-    dout = Vector((p.x, p.y - yc, 0)).normalized()
-    kp = p + dout * 0.04
-    before = set(bm.faces)
-    sph = bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=7, radius=1.0)
+    bm = bmesh.new()
+    skirt = slab(bm, grid, True, 0.008)
+
+    def on_skirt(a, z, out=0.0):
+        f = min(max((top - z) / (top - kb_bottom(a)), 0.0), 1.0)
+        i = int(round(a / (2 * math.pi) * SK_AZ)) % SK_AZ
+        p = grid[min(int(round(f * (SK_N - 1))), SK_N - 1)][i]
+        d = Vector((p.x, p.y - yc, 0)).normalized()
+        return Vector((p.x, p.y, z)) + d * out, d
+    # ปมผ้าที่สะโพกซ้ายค่อนหน้า
+    kz = top - 0.06
+    kp, kd = on_skirt(R(62), kz, 0.035)
+    sph = bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1.0)
     for v in sph["verts"]:
         c = v.co.copy()
         n = 1 + 0.18 * math.sin(3 * c.x + 2 * c.z) + 0.1 * math.sin(5 * c.y)
-        v.co = kp + Vector((c.x * 0.06, c.y * 0.045, c.z * 0.05)) * n
-    knot = [f for f in bm.faces if f not in before]
-    h, t, d, e1, e2 = leg_frame(rig, "L")
-    Lt = (t - h).length
-    a_knot = (h.z - (kp.z - 0.12)) / (h.z - t.z)
-    tails = []
-    for (b0, b1, a_end, w0, w1, wave) in ((R(-35), R(-10), 0.55, 0.12, 0.09, 0.03), (R(15), R(40), 0.48, 0.10, 0.07, 0.04)):
+        v.co = kp + Vector((c.x * 0.055, c.y * 0.042, c.z * 0.048)) * n
+    # ชายผ้า 2 ชายจากปม: ชายหนึ่งห้อยหน้าต้นขา อีกชายสะบัดออกไปด้านข้างค่อนหลัง (ปลายลุ่ย)
+    for (a0, a1, z1, w0, w1, wave) in ((R(58), R(42), CLOTH["side"] - 0.07, 0.11, 0.09, 0.03),
+                                       (R(72), R(100), CLOTH["side"] + 0.03, 0.09, 0.07, 0.04)):
         rows = []
-        K = 10
+        K = 12
         for k in range(K + 1):
-            q = k / K
-            if q < 0.25:                                     # จากปมลงมาตามผ้าพันสะโพก
-                c = kp.lerp(kp + Vector((0, 0, -0.12)), q / 0.25) + dout * 0.02
-                nrm = dout
-            else:
-                u_ = (q - 0.25) / 0.75
-                bb = b0 + (b1 - b0) * u_
-                a = a_knot + (a_end - a_knot) * u_
-                cc = h + d * (a * Lt)
-                dirv = e1 * math.cos(bb) + e2 * math.sin(bb)
-                c = cc + dirv * ((thigh_r(bvh, cc, dirv, None) or 0.06) + 0.07 + 0.02 * u_ + wave * math.sin(u_ * 6 + b0 * 3) * u_)
-                nrm = dirv
-            side_v = d.cross(nrm).normalized()
-            w = w0 + (w1 - w0) * q
+            t = k / K
+            a = a0 + (a1 - a0) * t
+            z = kz - 0.01 + (z1 - kz + 0.01) * t
+            c, d = on_skirt(a, max(z, kb_bottom(a) + 0.01), 0.03 + 0.05 * t * t)
+            c.z = z
+            sv = Vector((0, 0, 1)).cross(d).normalized()
+            c = c + d * wave * math.sin(t * 7 + a0 * 3) * t
+            w = w0 + (w1 - w0) * t
+            tw = 0.5 * t
+            u = (sv * math.cos(tw) + d * math.sin(tw)) * w / 2
             fr = Vector((0, 0, -0.03)) if k == K else Vector()
-            rows.append([c - side_v * w / 2 + fr, c, c + side_v * w / 2])
-        tails += slab(bm, rows, False, 0.007)
-    comp["knot"] = knot + tails
-    bm.verts.index_update()
+            rows.append([c - u + fr, c, c + u])
+        slab(bm, rows, False, 0.007)
     bm.faces.index_update()
-    tail_v = set(v.index for f in tails for v in f.verts)
-    leg_v = {s: set(v.index for f in comp["leg_" + s] for v in f.verts) for s in ("L", "R")}
-    comp_faces = {k: sorted(f.index for f in fs) for k, fs in comp.items()}
-    # ---- น้ำหนัก: ผ้าพันสะโพกติด hips (ชายล่างตามต้นขานิดๆ) · ขากางเกงตามต้นขาข้างนั้นเกือบเต็ม · ชายผ้าตามต้นขาซ้าย
-    # ขากางเกงใช้น้ำหนักเดียวกับผิวขาจุดที่ใกล้ที่สุด (ขาข้างเดียวกัน) = ผ้าขยับตามผิวพอดีทุกท่า ผิวไม่โผล่ทะลุ
+    CLOTH["faces"] = {"waist": sorted(f.index for f in skirt)}
+    # น้ำหนัก: ผสมจากผิวใต้ผ้า (4 จุดใกล้สุด ถ่วงตามระยะ) เฉพาะ hips / spine / ต้นขา
     from mathutils.kdtree import KDTree
+    keep = ("hips", "spine", "thigh.L", "thigh.R")
     gname = {g.index: g.name for g in body.vertex_groups}
-    kd = {}
-    for s in ("L", "R", "C"):
-        idx = [v.index for v in me.vertices if s == "C" or v.co.x * (1 if s == "L" else -1) > 0.005]
-        t_ = KDTree(len(idx))
-        for i_ in idx:
-            t_.insert(me.vertices[i_].co, i_)
-        t_.balance()
-        kd[s] = t_
-
-    def skin_w(p, s):
-        acc = {}
-        for co, i_, dist in kd[s].find_n(p, 4):
-            k_ = 1.0 / max(dist, 1e-4)
-            for g in me.vertices[i_].groups:
-                n_ = gname[g.group]
-                acc[n_] = acc.get(n_, 0.0) + g.weight * k_
-        top4 = sorted(acc.items(), key=lambda t: -t[1])[:4]
-        tot = sum(w for _, w in top4) or 1.0
-        return {n_: w / tot for n_, w in top4}
+    vw = [{gname[g.group]: g.weight for g in v.groups if gname.get(g.group) in keep} for v in me.vertices]
+    kd = KDTree(len(me.vertices))
+    for v in me.vertices:
+        kd.insert(v.co, v.index)
+    kd.balance()
 
     def groups(p, idx):
-        for s in ("L", "R"):
-            if idx in leg_v[s]:
-                return skin_w(p, s)
-        if idx in tail_v:
-            w = 0.9 * sm(kp.z - 0.05, kp.z - 0.25, p.z)
-            return {"hips": 1 - w, "thigh.L": w}
-        f = 0.4 * sm(crotch + 0.1, hem_w, p.z)
-        s = sm(-0.07, 0.07, p.x)
-        w = {"hips": 1 - f, "thigh.L": f * s, "thigh.R": f * (1 - s)}
-        k = sm(crotch + 0.06, crotch + 0.16, p.z)              # ผ้าพันสะโพกช่วงบนตามผิว (ปุ่มกระดูกสะโพกนูนตอนก้าวไม่ทะลุ)
-        if k > 0:
-            sw = skin_w(p, "C")
-            w = {n_: (1 - k) * w.get(n_, 0.0) + k * sw.get(n_, 0.0) for n_ in set(w) | set(sw)}
-            top4 = sorted(w.items(), key=lambda t: -t[1])[:4]
-            tot = sum(x for _, x in top4)
-            w = {n_: x / tot for n_, x in top4}
-        return w
+        acc = {}
+        for co, i_, dist in kd.find_n(p, 6):
+            k_ = 1.0 / max(dist, 1e-4) ** 2
+            for n_, w_ in vw[i_].items():
+                acc[n_] = acc.get(n_, 0.0) + w_ * k_
+        if not acc:
+            return {"hips": 1.0}
+        tot = sum(acc.values())
+        return {n_: w_ / tot for n_, w_ in acc.items()}
     ob = new_obj("Cloth", bm, rig, groups)
-    CLOTH["faces"] = comp_faces
-    log(f"cloth: top {top:.2f} crotch {crotch:.2f} waist hem {hem_w:.2f} leg tubes {CLOTH['leg_L'][0]:.2f}..{CLOTH['leg_L'][1]:.2f} of thigh")
+    log(f"cloth: top {top:.2f} crotch {CLOTH['crotch']:.2f} side hem {CLOTH['side']:.2f}")
     return ob
 
 
@@ -1177,27 +1104,35 @@ def paint_hair(P):
 
 
 def paint_cloth(P):
-    """ผ้าจงกระเบนเก่า: ชมพูซีดจนเกือบเทา ด่างแดดเผา คราบดิน ชายผ้าเปื้อนโคลนดำ ขอบขาดลุ่ย คราบเลือดเก่า ลายทอหยาบ"""
+    """ผ้าขาวม้าเก่า: ลายตารางแดงอิฐซีดจนเกือบน้ำตาล ด่างแดดเผา คราบดิน คราบเลือดเก่าดำคล้ำ ชายผ้าเปื้อนโคลน ขอบลุ่ยดำ ลายทอหยาบ"""
     n = len(P)
     X, Y, Z = P[:, 0], P[:, 1], P[:, 2]
+    yc = CLOTH["yc"]
+    az = np.arctan2(X, -(Y - yc))
+    u = az * 0.22                                               # ระยะตามรอบตัว (ม.)
     c = np.empty((n, 3), np.float32)
-    c[:] = np.array([150, 104, 106], np.float32) / 255
-    f1 = fbm(P, (4, 4, 4), 4, 81)
-    c = mix(c, (176, 134, 130), sstep(0.4, 0.7, f1) * 0.6)
-    c = mix(c, (156, 142, 124), sstep(0.6, 0.78, fbm(P, (2, 2, 2), 2, 82)) * 0.6)
+    c[:] = np.array([84, 40, 30], np.float32) / 255            # แดงอิฐซีดหม่นเกือบน้ำตาล
+    for coord, off in ((u, 0.0), (Z, 0.017)):
+        ph = np.mod(coord + off, 0.085) / 0.085
+        c = mix(c, (54, 24, 19), ((ph > 0.06) & (ph < 0.32)).astype(np.float32) * 0.6)    # แถบตารางกว้างแดงคล้ำ
+        c = mix(c, (38, 18, 16), ((ph > 0.60) & (ph < 0.65)).astype(np.float32) * 0.7)    # เส้นเข้ม
+        c = mix(c, (118, 98, 72), ((ph > 0.74) & (ph < 0.77)).astype(np.float32) * 0.4) # เส้นด้ายขาวหม่น
+    fade = fbm(P, (2.5, 2.5, 2.5), 3, 82)
+    c = mix(c, (92, 74, 56), sstep(0.5, 0.75, fade) * 0.5)                              # ซีดแดดเผาเป็นด่าง
     dirt = fbm(P, (7, 7, 7), 4, 83)
-    c = mix(c, (80, 60, 48), sstep(0.5, 0.75, dirt) * 0.65)
-    hw, hl = CLOTH["hem_w"], CLOTH["hem_l"]
-    waist = Z > hw - 0.015
-    mud = np.maximum(sstep(hw + 0.07, hw, Z) * waist, sstep(hl + 0.09, hl, Z) * (Z < hl + 0.12))
-    c = mix(c, (52, 40, 32), mud * (0.45 + 0.4 * dirt))
-    edge = np.maximum(sstep(hw + 0.02, hw - 0.01, Z) * waist, sstep(hl + 0.025, hl - 0.01, Z) * (Z < hl + 0.12))
-    c = mix(c, (34, 26, 22), edge * 0.8)
-    stain = sstep(0.68, 0.8, fbm(P, (11, 11, 11), 3, 84))
-    c = mix(c, (60, 30, 26), stain * 0.5)
-    weave = 0.5 + 0.25 * np.sin(X * 900) + 0.25 * np.sin(Z * 900)
-    c *= (0.9 + 0.2 * weave)[:, None]
-    return c, 0.88 + 0.1 * dirt, (weave - 0.5) * 0.4 + (dirt - 0.5) * 0.5
+    c = mix(c, (44, 32, 24), sstep(0.42, 0.72, dirt) * 0.8)
+    blood = sstep(0.7, 0.8, fbm(P, (9, 9, 9), 3, 84)) * sstep(0.4, 0.6, vnoise(P, (30, 30, 30), 85))
+    c = mix(c, (46, 12, 10), blood * 0.85)                                                 # คราบเลือดแห้ง
+    bot = np.array([kb_bottom(a) for a in az], np.float32)
+    f = (CLOTH["top"] - Z) / np.maximum(CLOTH["top"] - bot, 0.05)
+    c = mix(c, (44, 32, 24), sstep(0.7, 0.97, f) * (0.5 + 0.4 * dirt))                     # ชายผ้าเปื้อนโคลน
+    c = mix(c, (26, 18, 14), sstep(0.95, 1.02, f) * 0.85)                                  # ขอบลุ่ยดำ
+    c = mix(c, (40, 28, 22), sstep(0.06, 0.0, f) * 0.5)                                    # ขอบเอวคราบเหงื่อไคล
+    weave = 0.5 + 0.25 * np.sin(u * 1300) + 0.25 * np.sin(Z * 1300)
+    c *= (0.88 + 0.24 * weave)[:, None]
+    fray = lines(P, (120, 120, 120), 0.05, 86) * sstep(0.85, 1.0, f)
+    c = mix(c, (24, 16, 12), fray * 0.7)
+    return c, 0.86 + 0.1 * dirt - blood * 0.2, (weave - 0.5) * 0.5 + (dirt - 0.5) * 0.4 - fray * 0.4
 
 
 def paint_tongue(P):
@@ -1652,15 +1587,13 @@ def cloth_poke(rig, V, vp, CV, CF, cf):
     n, deep = 0, 0.0
     pb = rig.pose.bones
     mw = rig.matrix_world
-    for key, bone, parts in (("waist", "hips", ("torso", "legL", "legR")), ("leg_L", "thigh.L", ("legL",)), ("leg_R", "thigh.R", ("legR",))):
+    for key, bone, parts in (("waist", "hips", ("torso", "legL", "legR")),):
         fl = [CF[i] for i in cf[key]]
         bvh = BVHTree.FromPolygons([tuple(v) for v in CV], fl, all_triangles=False)
         b = pb[bone]
         h, t = np.array(mw @ b.head), np.array(mw @ b.tail)
         cz = CV[np.unique(np.array([i for f in fl for i in f]))]
         z0, z1 = cz[:, 2].min() + 0.02, cz[:, 2].max() - 0.02
-        if key != "waist":
-            z1 = min(z1, CLOTH["hem_w"] - 0.01)                # เหนือนี้ผ้าพันสะโพกคลุมอยู่ (ตรวจในรอบ waist)
         sel = np.isin(vp, parts) & (V[:, 2] > z0) & (V[:, 2] < z1)
         for p in V[sel]:
             if key == "waist":
@@ -1932,7 +1865,6 @@ def main():
     add_tongue_bones(rig)
     tongue = new_obj("Tongue", tbm, rig, tgroups)
     cloth = build_cloth(body, rig, bvh)
-    CLOTH["hem_l"] = min(min(p.z for p in CLOTH["leg_grid_" + s][-1]) for s in "LR")
     objs = [body, hair, cloth, tongue, eyes]
     for o in objs:
         o.hide_render = False
