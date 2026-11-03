@@ -4,7 +4,7 @@
 --   1) ต้องเดินเข้าไปใกล้ในระยะของปุ่ม (attribute Range ถ้า server ตั้งไว้ ไม่งั้นใช้ MaxActivationDistance เดิม)
 --   2) ปุ่มที่ server ติด NeedsFacing: ต้องหันกล้องไปทางวัตถุนั้นด้วย
 --   3) ห้ามกดทะลุผนัง: ยิง ray จากกล้องไปหาวัตถุ ถ้าชนอย่างอื่นที่ทึบก่อน (ผนัง ชั้นวาง) = กดไม่ได้
---   4) ขึ้นปุ่มแค่อันเดียว: วัตถุที่ใกล้ที่สุด (ปุ่มหลายอันบนวัตถุเดียวกัน เช่น ตู้น้ำมัน E/F ขึ้นพร้อมกันได้)
+--   4) ขึ้นปุ่มแค่อันเดียว: วัตถุที่ใกล้ที่สุด (ปุ่มหลายอันบนวัตถุเดียวกันขึ้นพร้อมกันได้ ยกเว้นถือของที่ปุ่ม NeedsTool ต้องใช้ = ขึ้นแต่ปุ่มนั้น)
 --   5) ของในมือ: attribute NeedsTool = ต้องถือ Tool ชื่อนี้อยู่ในมือก่อน (ถวายขนม / ตัก-เท-เติมน้ำมันด้วยแกลลอน)
 --                HideIfHasTool = มี Tool ชื่อนี้แล้ว (ในมือหรือกระเป๋า) ไม่ต้องขึ้นปุ่มหยิบอีก
 -- ทำฝั่ง client โดยตั้ง MaxActivationDistance ของปุ่มในเครื่องนี้ (0 = กดไม่ได้) server ยังเช็กซ้ำตอนกดเสมอ
@@ -186,11 +186,19 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 	-- รอบสอง: เปิดเฉพาะปุ่มของวัตถุที่ใกล้ที่สุด (ปุ่มอื่นบนชิ้นเดียวกันเปิดด้วย)
+	-- ทุกปุ่มใช้ E: ถ้าวัตถุนั้นมีปุ่มที่ต้องถือของ (เช่นเทแกลลอนใส่ตู้) และถือของอยู่ = ขึ้นแต่ปุ่มนั้น ไม่ให้ E กดซ้อนกับปุ่มเติมให้ลูกค้า
 	local bestParent = best and best.Parent
+	local toolFirst = false
+	for p in pairs(ok) do
+		if p.Parent == bestParent and p:GetAttribute("NeedsTool") ~= nil then
+			toolFirst = true
+			break
+		end
+	end
 	for p, info in pairs(prompts) do
 		local attr = p:GetAttribute("Range")
 		local range = if type(attr) == "number" then attr else info.base
-		local on = ok[p] == true and p.Parent == bestParent
+		local on = ok[p] == true and p.Parent == bestParent and (not toolFirst or p:GetAttribute("NeedsTool") ~= nil)
 		setRange(p, info, if on then range else 0)
 	end
 end)

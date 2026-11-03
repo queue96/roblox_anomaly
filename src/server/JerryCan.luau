@@ -261,10 +261,12 @@ function JerryCan.Build(parent: Instance, cf: CFrame): Part
 	return body :: Part
 end
 
-function JerryCan.SetFull(container: Instance, full: boolean)
+-- color = สีน้ำมันในแกลลอน (ไม่ใส่ = ชมพูแดงเบนซิน, ดีเซลส่งสีเขียวมา)
+function JerryCan.SetFull(container: Instance, full: boolean, color: Color3?)
 	for _, d in ipairs(container:GetDescendants()) do
 		if d:IsA("BasePart") and d:GetAttribute("CanFuelShell") then
 			d.Transparency = if full then 0.45 else 1
+			d.Color = color or CAN_FULL
 		end
 	end
 end

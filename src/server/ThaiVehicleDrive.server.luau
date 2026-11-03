@@ -1,6 +1,6 @@
 -- ThaiVehicleDrive.server.luau
 -- ขับรถไทยที่วางด้วย MapBuilder.SpawnThaiVehicle() (tag "PlayerVehicle")
---   กด F ที่รถเพื่อขึ้นนั่ง (หรือเดินชนเบาะ), นั่ง VehicleSeat แล้วกด W/S เร่ง-ถอย, A/D เลี้ยว, L เปิด/ปิดไฟหน้า, Space ลงจากรถ
+--   กด E ที่รถเพื่อขึ้นนั่ง (หรือเดินชนเบาะ), นั่ง VehicleSeat แล้วกด W/S เร่ง-ถอย, A/D เลี้ยว, E เปิด/ปิดไฟหน้า, Space ลงจากรถ
 -- ขับแบบ arcade: LinearVelocity (แนวราบ) + AlignOrientation (หันตามพวงมาลัย เอียงตามพื้นใต้ล้อไม่เกิน 22° ไม่พลิกคว่ำ)
 -- รถลอยบนลูกบอลลื่นที่ล้อ (Colliders.Skid*) ล้อเป็น Motor6D หมุนตามความเร็ว ล้อหน้าเลี้ยวตามพวงมาลัย
 -- รถลูกค้าของ CoreLoop (Clone แล้ว anchored ไม่มี tag) ไม่ถูกสคริปต์นี้แตะ
@@ -114,12 +114,12 @@ local function setup(m: Model)
 		local r, g, b = string.match(c, "(%d+),(%d+),(%d+)")
 		table.insert(ledColors, Color3.fromRGB(tonumber(r) :: number, tonumber(g) :: number, tonumber(b) :: number))
 	end
-	-- ปุ่มไฟหน้า (คนขับกด L)
+	-- ปุ่มไฟหน้า (คนขับกด E)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "HeadlightPrompt"
 	prompt.ActionText = "Lights"
 	prompt.ObjectText = m.Name
-	prompt.KeyboardKeyCode = Enum.KeyCode.L
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = 7
 	prompt.RequiresLineOfSight = false
@@ -136,14 +136,14 @@ local function setup(m: Model)
 	seat:GetPropertyChangedSignal("Occupant"):Connect(function()
 		prompt.Enabled = seat.Occupant ~= nil
 	end)
-	-- ปุ่มขึ้นรถทุกที่นั่ง (กด F) เผื่อพื้นรถสูงจนเดินชนเบาะไม่ถึง ซ่อนเมื่อมีคนนั่ง
+	-- ปุ่มขึ้นรถทุกที่นั่ง (กด E) เผื่อพื้นรถสูงจนเดินชนเบาะไม่ถึง ซ่อนเมื่อมีคนนั่ง
 	for _, s in ipairs(m:GetDescendants()) do
 		if s:IsA("Seat") or s:IsA("VehicleSeat") then
 			local sitPrompt = Instance.new("ProximityPrompt")
 			sitPrompt.Name = "SitPrompt"
 			sitPrompt.ActionText = if s:IsA("VehicleSeat") then "Drive" else "Sit"
 			sitPrompt.ObjectText = m.Name
-			sitPrompt.KeyboardKeyCode = Enum.KeyCode.F
+			sitPrompt.KeyboardKeyCode = Enum.KeyCode.E
 			sitPrompt.HoldDuration = 0
 			sitPrompt.MaxActivationDistance = 9
 			sitPrompt.RequiresLineOfSight = false

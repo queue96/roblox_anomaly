@@ -1,13 +1,15 @@
 --!strict
 -- SceneryGhostWatch.client.luau
 -- ผีฉาก (server/AnomalyManager.ShowScenery: ผีตานีหลังกอกล้วย / หุ่นไล่กาใกล้ร้าน / เงาหลังต้นไทร) โผล่ให้เห็นเฉยๆ นานๆ ครั้ง
---   เห็นครั้งแรก (อยู่ในจอ ไม่มีอะไรบัง ไม่ไกลเกิน) = เสียงตกใจ 1 ครั้งต่อการโผล่ 1 รอบ
+--   พนมมือจนตาทิพย์เปิด แล้วหันไปเห็น (อยู่ในจอ ไม่มีอะไรบัง ไม่ไกลเกิน) = เสียงตกใจ 1 ครั้งต่อการโผล่ 1 รอบ
+--     ไม่ได้สวดแล้วหันไปเจอ = ไม่มีเสียง (ของในฉากตอนปกติ เช่นหุ่นไล่กากลางทุ่ง ไม่ติด tag จึงไม่มีเสียงอยู่แล้ว)
 --   มองค้างนาน (ผีอยู่กลางจอต่อเนื่อง STARE วินาที) = ผีพุ่งใส่หน้า เฉพาะคนที่มอง (client/JumpscareController _G.LocalJumpscare)
 --     แล้วผีหายไปจากจอของคนนั้น (คนอื่นยังเห็นอยู่จนหมดเวลา)
 -- ผีที่มากับลูกค้า (เติมน้ำมัน / เติมลม ฯลฯ) ไม่มีเสียงตอนเจอ: ผู้เล่นต้องสังเกตเอง
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
@@ -82,10 +84,7 @@ local function sting()
 	s.Name = "SceneryGhostSting"
 	s.SoundId = SIGHT_ID
 	s.Volume = SIGHT_VOLUME
-	local sfx = SoundService:FindFirstChild("SFX")
-	if sfx and sfx:IsA("SoundGroup") then
-		s.SoundGroup = sfx
-	end
+	s:SetAttribute("SoundCategory", "Music") -- ดังตอนพนมมือเท่านั้น: ไม่โดน PrayMuffle (กลุ่ม SFX อู้อี้ตอนสวด)
 	s.Parent = SoundService
 	s:Play()
 	s.Ended:Once(function()
@@ -110,6 +109,12 @@ local function hideLocally(m: Instance)
 	end
 end
 
+-- ตาทิพย์เปิดอยู่ (PrayerController ตั้ง attribute Open บน Lighting.PrayerSight)
+local function sightOpen(): boolean
+	local grade = Lighting:FindFirstChild("PrayerSight")
+	return player:GetAttribute("Praying") == true and grade ~= nil and grade:GetAttribute("Open") == true
+end
+
 local acc = 0
 RunService.RenderStepped:Connect(function(dt)
 	acc += dt
@@ -120,7 +125,7 @@ RunService.RenderStepped:Connect(function(dt)
 	acc = 0
 	local cam = Workspace.CurrentCamera
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	if not cam or not hum or hum.Health <= 0 or game:GetService("Lighting"):GetAttribute("Cutscene") == true then
+	if not cam or not hum or hum.Health <= 0 or Lighting:GetAttribute("Cutscene") == true then
 		return
 	end
 	local live: { [string]: boolean } = {}
@@ -147,7 +152,7 @@ RunService.RenderStepped:Connect(function(dt)
 		local p = focusPoint(m)
 		local off = p and visibility(cam, m, p)
 		if off then
-			if not w.stung then
+			if not w.stung and sightOpen() then
 				w.stung = true
 				sting()
 			end

@@ -1053,9 +1053,13 @@ local function giveTool(player: Player, tool: Tool)
 	end
 end
 
-local function setCanFull(tool: Tool, full: boolean)
+-- fuel = "Petrol" (ถังแดง -> ตู้หลอดแดงเท่านั้น) | "Diesel" (ถังน้ำเงิน -> ตู้ดีเซลเขียวเท่านั้น)
+local CAN_DIESEL = Color3.fromRGB(110, 190, 90)
+local function setCanFull(tool: Tool, full: boolean, fuel: string?)
 	tool:SetAttribute("Full", full)
-	JerryCan.SetFull(tool, full) -- เต็ม = น้ำมันชมพูแดงทะลุพลาสติก, เปล่า = ขาว
+	tool:SetAttribute("Fuel", if full then fuel else nil)
+	-- เต็ม = น้ำมันทะลุพลาสติก (เบนซินชมพูแดง / ดีเซลเขียว), เปล่า = ขาว
+	JerryCan.SetFull(tool, full, if fuel == "Diesel" then CAN_DIESEL else nil)
 end
 
 -- ชั้นวางแกลลอนในร้าน (มุมหลังร้านฝั่งซ้าย) + ถาดขนมบนโต๊ะเคาน์เตอร์
@@ -1086,23 +1090,25 @@ takeCanPrompt:SetAttribute("Range", TAKE_RANGE)
 takeCanPrompt:SetAttribute("HideIfHasTool", "FuelCan") -- มีแกลลอนอยู่แล้ว ไม่ขึ้นปุ่มหยิบเพิ่ม
 takeCanPrompt.Enabled = true
 
-local drums: { BasePart } = {}
+-- ถังหลังร้าน 1:1 กับตู้หน้าร้าน: ถังแดง (FuelDrum_Red) = เบนซิน -> ตู้หลอดแดงเท่านั้น, ถังน้ำเงิน (FuelDrum) = ดีเซล -> ตู้ดีเซลเขียวเท่านั้น
+local drums: { { part: BasePart, fuel: string? } } = {}
 do
 	local yard = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("ImportedYardProps")
-	for _, n in ipairs({ "FuelDrum", "FuelDrum_Red" }) do
-		local d = yard and yard:FindFirstChild(n)
+	for _, pair in ipairs({ { "FuelDrum_Red", "Petrol" }, { "FuelDrum", "Diesel" } }) do
+		local d = yard and yard:FindFirstChild(pair[1])
 		if d and d:IsA("BasePart") then
-			table.insert(drums, d)
+			table.insert(drums, { part = d, fuel = pair[2] })
 		end
 	end
 	if #drums == 0 then
-		-- ไม่มีถังในฉาก: วางถังสำรองหลังร้าน
+		-- ไม่มีถังในฉาก: วางถังสำรองหลังร้าน (ถังเดียว เทได้ทั้ง 2 ตู้)
 		local pos = floorBelow(Vector3.new(shackCF.Position.X - shackSize.X / 2 + 5, shackCF.Position.Y + 6, shackCF.Position.Z + shackSize.Z / 2 + 3), {})
-		table.insert(drums, propPart(interactive, "FuelDrum", Vector3.new(3, 2.4, 2.4), CFrame.new(pos + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(40, 70, 120), Enum.Material.Metal, Enum.PartType.Cylinder))
+		table.insert(drums, { part = propPart(interactive, "FuelDrum", Vector3.new(3, 2.4, 2.4), CFrame.new(pos + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(40, 70, 120), Enum.Material.Metal, Enum.PartType.Cylinder), fuel = nil })
 	end
 end
-for _, drum in ipairs(drums) do
-	local fp = setupPrompt("FillCanPrompt", drum, drum, CONFIG.CanFillTime, "Fill Can", "Fuel Drum")
+for _, entry in ipairs(drums) do
+	local drum, fuel = entry.part, entry.fuel
+	local fp = setupPrompt("FillCanPrompt", drum, drum, CONFIG.CanFillTime, "Fill Can", if fuel == "Petrol" then "Petrol Drum" elseif fuel == "Diesel" then "Diesel Drum" else "Fuel Drum")
 	fp.Enabled = true
 	fp:SetAttribute("NeedsTool", "FuelCan") -- ต้องถือแกลลอนในมือก่อน
 	fp.Triggered:Connect(function(player)
@@ -1111,25 +1117,45 @@ for _, drum in ipairs(drums) do
 			Notice:FireClient(player, "NeedCan", 3)
 			return
 		end
-		setCanFull(can, true)
+		setCanFull(can, true, fuel)
 		SoundBank.PlayOneShot("FuelGlugLoop", drum, 45, 1.6)
-		print("🛢️ [" .. player.Name .. "] ตักน้ำมันใส่แกลลอน")
+		print("🛢️ [" .. player.Name .. "] ตักน้ำมัน " .. tostring(fuel) .. " ใส่แกลลอน")
 	end)
 end
 
 local pourPetrolPrompt = setupPrompt("PourPetrolPrompt", gasPump, pumpBody, CONFIG.CanPourTime, "Pour Fuel", "Petrol Pump")
 local pourDieselPrompt = setupPrompt("PourDieselPrompt", dieselPump :: Model, dieselBody, CONFIG.CanPourTime, "Pour Diesel", "Diesel Pump")
--- ปุ่มเทใช้ F (ปุ่ม E ของตู้เป็นปุ่มเติมให้ลูกค้า อยู่ชิ้นเดียวกัน)
+-- ปุ่มเทใช้ E เหมือนทุกปุ่ม: ถือแกลลอนอยู่ = ขึ้นแต่ปุ่มเท (client/PromptFacing ซ่อนปุ่มเติมให้ลูกค้าบนตู้เดียวกัน)
 for _, pp in ipairs({ pourPetrolPrompt, pourDieselPrompt }) do
 	pp:SetAttribute("NeedsTool", "FuelCan")
-	pp.KeyboardKeyCode = Enum.KeyCode.F
-	pp.GamepadKeyCode = Enum.KeyCode.ButtonB
-	pp.UIOffset = Vector2.new(0, 72)
 end
 local function updatePourPrompts()
 	pourPetrolPrompt.Enabled = petrolLevel < CONFIG.PourBelow
 	pourDieselPrompt.Enabled = dieselLevel < CONFIG.PourBelow
 	publishState()
+end
+-- แผงน้ำมันขวดหน้าร้าน (ShackDressing.FuelBottleRack): ประกอบฉากเท่านั้น ไม่ได้ขาย / ไม่มีปุ่มเติม
+-- ขวดตามสีตู้: ว่างตอนเริ่มคืนเหมือนตู้ เทแกลลอนใส่ตู้หลอด = ขวดแดง (FuelRed) เต็ม, ตู้ดีเซล = ขวดเขียว (FuelGreen) เต็ม
+local rackModel = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("FuelBottleRack", true)
+local function rackPart(name: string): BasePart?
+	local part = rackModel and rackModel:FindFirstChild(name)
+	if part and part:IsA("BasePart") then
+		if part:GetAttribute("BaseT") == nil then
+			part:SetAttribute("BaseT", part.Transparency)
+		end
+		return part
+	end
+	return nil
+end
+local rackRed, rackGreen = rackPart("FuelRed"), rackPart("FuelGreen")
+local function showRack(part: BasePart?, on: boolean)
+	if part then
+		part.Transparency = if on then (part:GetAttribute("BaseT") or 0) else 1
+	end
+end
+local function setRackFilled(petrolOn: boolean, dieselOn: boolean?)
+	showRack(rackRed, petrolOn)
+	showRack(rackGreen, if dieselOn == nil then petrolOn else dieselOn)
 end
 local function pour(player: Player, diesel: boolean)
 	local can = heldTool(player, "FuelCan")
@@ -1137,14 +1163,22 @@ local function pour(player: Player, diesel: boolean)
 		Notice:FireClient(player, "NeedCan", 3)
 		return
 	end
+	-- 1:1 ถังกับตู้: แกลลอนจากถังแดงเทได้แค่ตู้หลอด, ถังน้ำเงินเทได้แค่ตู้ดีเซล (ถังสำรองไม่มีชนิด = เทได้ทั้งคู่)
+	local fuel = can:GetAttribute("Fuel")
+	if fuel ~= nil and fuel ~= (if diesel then "Diesel" else "Petrol") then
+		Notice:FireClient(player, if diesel then "WrongCanDiesel" else "WrongCanPetrol", 4)
+		return
+	end
 	setCanFull(can, false)
 	SoundBank.PlayOneShot("FuelGlugLoop", if diesel then dieselBody else pumpBody, 50, 2.0)
 	if diesel then
 		dieselLevel = 1
 		setDieselLevel(1, 2.5)
+		showRack(rackGreen, true)
 	else
 		petrolLevel = 1
 		setFuelLevel(1, 2.5)
+		showRack(rackRed, true)
 	end
 	updatePourPrompts()
 	print("⛽ [" .. player.Name .. "] เทน้ำมันใส่ตู้ " .. (if diesel then "ดีเซล" else "หลอด") .. " เต็มแล้ว")
@@ -1155,49 +1189,6 @@ end)
 pourDieselPrompt.Triggered:Connect(function(player)
 	pour(player, true)
 end)
--- แผงน้ำมันขวดหน้าร้าน (ShackDressing.FuelBottleRack): น้ำมันในขวด = mesh FuelRed / FuelGreen
--- ว่างตอนเริ่มคืน (ซ่อนน้ำมัน) เอาแกลลอนเต็มมาเติมที่แผง = ขวดเต็ม
-local rackModel = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("FuelBottleRack", true)
-local rackFuel: { BasePart } = {}
-local rackFilled = true
-local fillRackPrompt: ProximityPrompt? = nil
-if rackModel then
-	for _, n in ipairs({ "FuelRed", "FuelGreen" }) do
-		local part = rackModel:FindFirstChild(n)
-		if part and part:IsA("BasePart") then
-			part:SetAttribute("BaseT", part.Transparency)
-			table.insert(rackFuel, part)
-		end
-	end
-	local rackPart = (rackModel:FindFirstChild("Rack") or rackModel:FindFirstChildWhichIsA("BasePart", true)) :: BasePart
-	fillRackPrompt = setupPrompt("FillRackPrompt", rackModel, rackPart, CONFIG.CanPourTime, "Fill Bottles", "Bottle Rack");
-	(fillRackPrompt :: ProximityPrompt):SetAttribute("NeedsTool", "FuelCan")
-end
-local function setRackFilled(on: boolean)
-	rackFilled = on
-	for _, part in ipairs(rackFuel) do
-		part.Transparency = if on then (part:GetAttribute("BaseT") or 0) else 1
-	end
-	if fillRackPrompt then
-		fillRackPrompt.Enabled = not on
-	end
-end
-if fillRackPrompt then
-	fillRackPrompt.Triggered:Connect(function(player)
-		local can = heldTool(player, "FuelCan")
-		if rackFilled then
-			return
-		end
-		if not (can and can:GetAttribute("Full")) then
-			Notice:FireClient(player, "NeedCan", 3)
-			return
-		end
-		setCanFull(can, false)
-		SoundBank.PlayOneShot("FuelGlugLoop", (fillRackPrompt :: ProximityPrompt).Parent :: BasePart, 45, 2.0)
-		setRackFilled(true)
-		print("🍾 [" .. player.Name .. "] เติมน้ำมันขวดบนแผงเต็มแล้ว")
-	end)
-end
 
 takeCanPrompt.Triggered:Connect(function(player)
 	if findTool(player, "FuelCan") then
@@ -3139,6 +3130,16 @@ Cutscene.Init({
 			closeShutter()
 		end
 	end,
+	-- คัทซีนจบเริ่ม: แผงต้องเปิดอยู่เสมอ (ทันที ไม่มีเสียง) แล้วค่อยปิดตามฉาก — เดิมถ้าแผงปิดอยู่ตอนชนะ (ปิดใส่ผี / admin ชนะก่อนเปิดร้าน) ฉากปิดร้านไม่มีอะไรขยับ
+	showShutterOpen = function()
+		if shutterTweening then
+			return
+		end
+		local p = shutterDoor.Position
+		shutterDoor.Position = Vector3.new(p.X, openY, p.Z)
+		isShutterOpen = true
+		updateShutterPrompts()
+	end,
 	-- เช้าแล้ว ปิดร้าน
 	closeShop = function()
 		if isShutterOpen and not shutterTweening then
@@ -3175,8 +3176,12 @@ local function waitForShopOpen()
 	if not shopOpened then
 		GameState:FireAllClients("Waiting") -- "ไปดึงเชือกเปิดแผงเพื่อเริ่มคืนนี้"
 	end
-	while not shopOpened do
+	-- admin กด "ชนะทันที" ก่อนเปิดร้าน (เงินถึงเป้าแล้ว) = ไม่ต้องรอดึงเชือก ลูปหลักเข้าคัทซีนเช้าเลย
+	while not shopOpened and money < CONFIG.TargetMoney do
 		task.wait(0.2)
+	end
+	if not shopOpened then
+		return
 	end
 	remotes:SetAttribute("ShopOpen", true)
 	if not isShutterOpen then
@@ -3200,7 +3205,7 @@ local function waitForShopOpen()
 	-- ช่วงเตรียมร้าน: ลูกค้ายังไม่มา (spawnerLoop เริ่มหลังฟังก์ชันนี้คืนค่า) นับถอยหลังบน HUD (client/ItemSlots)
 	--   PrepLeft = วินาทีที่เหลือ, PrepOffered = ถวายขนมแล้วหรือยัง (ไฟ = ReplicatedStorage.PowerOn, น้ำมัน = PetrolLevel/DieselLevel)
 	local prepEnd = os.clock() + CONFIG.PrepTime
-	while os.clock() < prepEnd and not gameOver do
+	while os.clock() < prepEnd and not gameOver and money < CONFIG.TargetMoney do -- (admin ชนะทันทีระหว่างเตรียมร้าน = จบช่วงเตรียมเลย)
 		remotes:SetAttribute("PrepLeft", math.ceil(prepEnd - os.clock()))
 		remotes:SetAttribute("PrepOffered", stats.offerings > 0)
 		task.wait(0.25)

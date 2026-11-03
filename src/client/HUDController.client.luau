@@ -44,6 +44,10 @@ end
 local function ui(key: string): string
 	return LanguageModule.GetUI(key, lang())
 end
+-- มือถือ (จอสัมผัส ไม่มีคีย์บอร์ด): คำแนะนำมินิเกมบอก "แตะ / Tap" แทน [Space]
+local function mgKey(key: string): string
+	return if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then key .. "_Touch" else key
+end
 
 print("✅ [Client] ยินดีต้อนรับสู่ปั๊มหลอดท้ายทุ่ง:", localPlayer.Name, "| ภาษา:", lang())
 
@@ -291,7 +295,7 @@ local dialog = new("Frame", {
 	Name = "Dialogue",
 	ZIndex = 5,
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -50), -- เหนือช่องไฟฉายกะทัดรัด ไม่บังกลางจอ
+	Position = UDim2.new(0.5, 0, 1, -74), -- เหนือแถบช่องไอเทม (ItemSlots สูง 46 + ขอบ 12) ไม่บังกลางจอ
 	Size = UDim2.new(0.52, 0, 0, 48),
 	BackgroundColor3 = C.Ink,
 	BackgroundTransparency = DIALOG_BG_TRANSPARENCY,
@@ -1097,9 +1101,9 @@ local function openMinigame(stationType: string)
 	mgCloseBtn.Text = ui("MG_CancelHint")
 	if stationType == "fuel" or stationType == "diesel" then
 		mgTitle.Text = ui(if stationType == "diesel" then "MG_DieselTitle" else "MG_FuelTitle")
-		mgFuelHint.Text = ui("MG_FuelHint")
+		mgFuelHint.Text = ui(mgKey("MG_FuelHint"))
 		mgFuelHint.TextColor3 = C.Dim
-		mgFuelBtn.Text = ui("MG_FuelBtn")
+		mgFuelBtn.Text = ui(mgKey("MG_FuelBtn"))
 		mgFuelLevel = 0
 		mgFuelFill.Size = UDim2.fromScale(1, 0)
 		local isBlood = (remotes:GetAttribute("Anomaly") == "Anomaly_BloodFuel") and (localPlayer:GetAttribute("Praying") == true)
@@ -1112,9 +1116,9 @@ local function openMinigame(stationType: string)
 		mgAirView.Visible = false
 	else
 		mgTitle.Text = ui("MG_AirTitle")
-		mgAirHint.Text = ui("MG_AirHint")
+		mgAirHint.Text = ui(mgKey("MG_AirHint"))
 		mgAirHint.TextColor3 = C.Dim
-		mgAirBtn.Text = ui("MG_AirBtn")
+		mgAirBtn.Text = ui(mgKey("MG_AirBtn"))
 		mgAirHits = 0
 		mgAirNeedlePos = 0.08
 		mgAirNeedleDir = 1
@@ -1151,7 +1155,7 @@ local function tryAirStrike()
 		if mgAirHits >= MG_AIR_NEEDED then
 			finishMinigameSuccess("air")
 		else
-			mgAirHint.Text = ui("MG_AirHint")
+			mgAirHint.Text = ui(mgKey("MG_AirHint"))
 			mgAirHint.TextColor3 = Color3.fromRGB(225, 190, 110)
 			randomizeAirTarget()
 		end
@@ -1231,6 +1235,11 @@ local cachedDeathOverlay: GuiObject? = nil
 
 local function isAnyModalOpen(): boolean
 	if mouseUnlocked or lobbyBtn.Visible or mgFrame.Visible then
+		return true
+	end
+	-- หน้าสรุปผลหลังชนะ (client/CutsceneController) = ต้องใช้เมาส์กดปุ่ม
+	local summary = playerGui:FindFirstChild("Summary")
+	if summary and summary:IsA("ScreenGui") and summary.Enabled then
 		return true
 	end
 	if not cachedBookWin or not cachedBookWin.Parent then
@@ -1493,7 +1502,6 @@ local PROMPTS = {
 	FillCanPrompt = { "FillCan", "DrumName" },
 	PourPetrolPrompt = { "PourPetrol", "GasPump" },
 	PourDieselPrompt = { "PourDiesel", "DieselPump" },
-	FillRackPrompt = { "FillRack", "RackName" },
 	TakeDessertPrompt = { "TakeDessert", "DessertTray" },
 	OfferDessertPrompt = { "OfferDessert", "SpiritHouseName" },
 	StartGeneratorPrompt = { "StartGenerator", "GeneratorName" },

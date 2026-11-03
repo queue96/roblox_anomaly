@@ -344,12 +344,14 @@ if radioPart then
 		tunePrompt = Instance.new("ProximityPrompt")
 		tunePrompt.Name = "TuneRadioPrompt"
 		tunePrompt.ObjectText = "Radio"
-		tunePrompt.KeyboardKeyCode = Enum.KeyCode.R
+		tunePrompt.KeyboardKeyCode = Enum.KeyCode.E
 		tunePrompt.HoldDuration = 0.2
 		tunePrompt.MaxActivationDistance = 8
 		tunePrompt.RequiresLineOfSight = false
 		tunePrompt.Parent = radioPart
 	end
+	-- ทุกปุ่มในเกมใช้ E (ปุ่มที่บันทึกค้างในไฟล์ place อาจยังเป็น R)
+	(tunePrompt :: ProximityPrompt).KeyboardKeyCode = Enum.KeyCode.E
 	updateRadioPromptText()
 	tunePrompt.Triggered:Connect(function()
 		if radioUserOn then

@@ -249,6 +249,7 @@ local smoothCF: CFrame? = nil
 local hiddenGuis: { ScreenGui } = {}
 -- เดินตามคำสั่ง "walkto": หันตัวไปทางที่เดินเอง (เดิมตัวหันตามทิศกล้อง/ทิศเดิม เดินเฉียงข้าง)
 local walkTarget: Vector3? = nil
+local walkQueue: { Vector3 } = {} -- จุดถัดไปของ "walkpath"
 -- กล้องสั่น ("shake" จาก Server / ลมกรรโชก)
 local shakeUntil, shakeMag, shakeLen = 0, 0, 1
 
@@ -316,9 +317,12 @@ local function update(dt: number)
 	end
 end
 
--- เดินตามคำสั่ง "walkto" เอง: Humanoid:Move ไปทางเป้าทุกเฟรม + หันตัวไปทางที่เดิน
+-- เดินตามคำสั่ง "walkto" / "walkpath" เอง: Humanoid:Move ไปทางเป้าทุกเฟรม + หันตัวไปทางที่เดิน
 -- (Humanoid:MoveTo + AutoRotate ใช้ไม่ได้: RotationType ของผู้เล่นค้างเป็น CameraRelative (สคริปต์แก้ไม่ได้)
 --  ตัวจึงหันตามกล้องคัทซีน เดินเฉียงข้าง และการหมุนตัวเองทุกเฟรมทำให้ MoveTo หยุด)
+-- walkpath: เดินผ่านทุกจุดต่อเนื่องไม่หยุดที่มุม (ถึงใกล้จุดกลางทาง = เลี้ยวไปจุดถัดไปเลย) เหมือนพี่ชายเดิน
+local PASS_DIST = 1.4 -- จุดกลางทาง: เข้าใกล้เท่านี้ก็เลี้ยวต่อ
+local STOP_DIST = 0.6 -- จุดสุดท้าย
 RunService.PreSimulation:Connect(function(dt)
 	if not walkTarget then
 		return
@@ -328,19 +332,30 @@ RunService.PreSimulation:Connect(function(dt)
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	if not (active and root and hum) or root.Anchored then
 		walkTarget = nil
+		table.clear(walkQueue)
 		if hum then
 			hum:Move(Vector3.zero)
 		end
 		return
 	end
 	local flat = Vector3.new(walkTarget.X - root.Position.X, 0, walkTarget.Z - root.Position.Z)
-	if flat.Magnitude < 0.6 then
-		walkTarget = nil
-		hum:Move(Vector3.zero)
-		return
+	local lastPoint = #walkQueue == 0
+	if flat.Magnitude < (if lastPoint then STOP_DIST else PASS_DIST) then
+		if lastPoint then
+			walkTarget = nil
+			hum:Move(Vector3.zero)
+			return
+		end
+		local nxt = table.remove(walkQueue, 1) :: Vector3
+		walkTarget = nxt
+		flat = Vector3.new(nxt.X - root.Position.X, 0, nxt.Z - root.Position.Z)
+		if flat.Magnitude < 0.05 then
+			return
+		end
 	end
 	hum:Move(flat.Unit)
-	root.CFrame = root.CFrame:Lerp(CFrame.lookAt(root.Position, root.Position + flat), math.clamp(dt * 10, 0, 1))
+	-- หันตัวนุ่มๆ (ช้ากว่าเดิม ไม่สะบัดตอนเลี้ยวมุม)
+	root.CFrame = root.CFrame:Lerp(CFrame.lookAt(root.Position, root.Position + flat), math.clamp(dt * 6, 0, 1))
 end)
 
 local function hideOtherGuis(hide: boolean)
@@ -403,6 +418,15 @@ local function showSummary()
 	sg.AutoLocalize = false
 	sg.DisplayOrder = 70
 	sg.Parent = player.PlayerGui
+	-- หน้าสรุปขึ้น = ปลดล็อกเมาส์ให้กดปุ่มได้ทันที (มุมมองบุคคลที่ 1 ล็อกเมาส์กลางจอจนกว่าจะมีปุ่ม Modal)
+	-- เคอร์เซอร์โชว์จาก HUDController.isAnyModalOpen (เห็น ScreenGui "Summary") · ปิดหน้าสรุป = ลบทิ้งพร้อม sg
+	local modal = Instance.new("TextButton")
+	modal.Name = "SummaryMouseModal"
+	modal.Size = UDim2.fromOffset(0, 0)
+	modal.BackgroundTransparency = 1
+	modal.Text = ""
+	modal.Modal = true
+	modal.Parent = sg
 	summaryGui = sg
 	local dim = Instance.new("Frame")
 	dim.Size = UDim2.fromScale(1, 1)
@@ -436,7 +460,7 @@ local function showSummary()
 		o += 1
 		return o
 	end
-	label(panel, "🌅 " .. ui("SummaryTitle"), 28, C.Gold, { LayoutOrder = nextOrder() })
+	label(panel, ui("SummaryTitle"), 28, C.Gold, { LayoutOrder = nextOrder() })
 	local baht = ui("Baht")
 	local function stat(key: string, value: string)
 		local row = Instance.new("Frame")
@@ -487,7 +511,7 @@ local function showSummary()
 	for _, p in ipairs(d.players or {}) do
 		local me = p.userId == player.UserId
 		row({
-			(if me then "▶ " else "") .. tostring(p.name),
+			tostring(p.name), -- แถวตัวเองเป็นสีทอง (ไม่ใส่สัญลักษณ์/emoji)
 			tostring(p.fills),
 			string.format("%d %s", p.earned, baht),
 			tostring(p.ghosts),
@@ -542,7 +566,7 @@ local function showSummary()
 		nextBtn.TextColor3 = C.Dim
 		nextBtn.BackgroundTransparency = 0.5
 	end)
-	button("🏯 " .. ui("Quit"), C.Blood, function()
+	button(ui("Quit"), C.Blood, function()
 		deathChoice:FireServer("quit")
 	end)
 	votesLbl = label(panel, "", 13, C.Dim, { LayoutOrder = nextOrder() })
@@ -601,6 +625,7 @@ local function endCutscene(kind: string)
 	end
 	active = nil
 	walkTarget = nil
+	table.clear(walkQueue)
 	RunService:UnbindFromRenderStep("CutsceneCamera")
 	subtitle.Visible = false
 	-- หยุดเดินที่คัทซีนสั่งไว้ (ยังเดินไม่ถึงตอนจบ = เดินข้างไปเองหลังกล้องกลับมาที่ตา)
@@ -751,10 +776,21 @@ remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 		if g then
 			TweenService:Create(g, TweenInfo.new(t), { TintColor = Color3.fromRGB(200, 170, 190), Brightness = -0.05 }):Play()
 		end
+	elseif kind == "walkpath" then
+		-- ทั้งเส้นทางทีเดียว: เดินต่อเนื่องผ่านทุกจุด (Server แค่คอยดู/วาร์ปถ้าติด)
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if hum and type(a) == "table" and #a > 0 and active then
+			table.clear(walkQueue)
+			for i = 2, #a do
+				table.insert(walkQueue, a[i])
+			end
+			walkTarget = a[1]
+		end
 	elseif kind == "walkto" then
 		-- เดินตัวเองไปจุดนี้ (Server สั่งผ่าน Client เพราะตัวละครเป็นของ Client)
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if hum and typeof(a) == "Vector3" and active then -- คัทซีนจบ/ข้ามแล้ว = ไม่เดินตามคำสั่งเก่า
+			table.clear(walkQueue)
 			walkTarget = a
 		end
 	elseif kind == "preload" then

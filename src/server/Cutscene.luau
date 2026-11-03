@@ -379,12 +379,65 @@ local function ground(p: Vector3): Vector3
 	return Vector3.new(p.X, D.groundAt(p), p.Z)
 end
 
--- ผู้เล่นเดินเอง (Humanoid:MoveTo) ทีละจุด หมดเวลาก็วาร์ปไปจุดนั้น
-local function walkPlayers(players: { Player }, path: { Vector3 }, spread: number)
+-- กล้องไม่โดนฉากบัง: ลองตำแหน่งตามลำดับ เลือกอันแรกที่มองเห็นจุดเป้าหมายโล่งๆ (ไม่มีตู้ปั๊ม/เสา/ผนังทึบขวาง และกล้องไม่ฝังในของ)
+-- ignore = ตัวละคร/รถในฉากที่ไม่นับว่าบัง
+local function clearCamPos(candidates: { Vector3 }, target: Vector3, ignore: { Instance }): Vector3
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	-- ตัวผู้เล่นไม่ชน/ray ไม่โดน: เช็กระยะจากเส้นสายตาเอง (ยืนขวางกลางเฟรม = นับว่าบัง)
+	local list = table.clone(ignore)
+	local bodies: { Vector3 } = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character then
+			table.insert(list, p.Character)
+			local r = p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if r then
+				table.insert(bodies, r.Position)
+			end
+		end
+	end
+	for _, pos in ipairs(candidates) do
+		local skip = table.clone(list)
+		local blocked = false
+		local seg = pos - target
+		for _, b in ipairs(bodies) do
+			local t = math.clamp((b - target):Dot(seg) / seg:Dot(seg), 0, 1)
+			local near = target + seg * t
+			if t > 0.08 and t < 0.95 and Vector3.new(b.X - near.X, 0, b.Z - near.Z).Magnitude < 1.4 then
+				blocked = true
+				break
+			end
+		end
+		for _ = 1, if blocked then 0 else 8 do
+			params.FilterDescendantsInstances = skip
+			local hit = Workspace:Raycast(target, pos - target, params)
+			if not hit then
+				break
+			end
+			-- ของโปร่งใส (กำแพงล่องหน แสง) ไม่นับว่าบัง — ของประกอบฉากทึบแม้ CanCollide ปิด (ตู้ปั๊ม ใบกล้วย) นับว่าบัง
+			if hit.Instance.Transparency > 0.6 then
+				table.insert(skip, hit.Instance)
+			else
+				blocked = true
+				break
+			end
+		end
+		if not blocked then
+			return pos
+		end
+	end
+	return candidates[1]
+end
+
+-- ผู้เล่นเดินเองทั้งเส้นทางต่อเนื่อง (Client "walkpath") ไม่ถึงปลายทางในเวลาที่ควรก็วาร์ปไปปลายทาง
+-- คืนฟังก์ชัน allArrived(): true เมื่อทุกคนเดินถึงปลายทางแล้ว (หรือวาร์ปไปแล้ว / หลุดออกจากเกม) ไว้ตัดไปช็อตถัดไปทันที
+local function walkPlayers(players: { Player }, path: { Vector3 }, spread: number): () -> boolean
+	local pending = #players
 	for i, p in ipairs(players) do
 		task.spawn(function()
 			local root, hum = rootOf(p)
 			if not (root and hum) then
+				pending -= 1
 				return
 			end
 			follow[p] = nil
@@ -392,22 +445,33 @@ local function walkPlayers(players: { Player }, path: { Vector3 }, spread: numbe
 			hum.Sit = false
 			-- เดินเรียงแถวตามทาง (ออกตัวห่างกันทีละนิด) แล้วค่อยกระจายยืนข้างกันที่จุดสุดท้าย
 			task.wait((i - 1) * 0.6)
-			for k, pt in ipairs(path) do
-				local last = k == #path
-				local target = if last then pt + Vector3.new(((i - 1) % 3) * spread, 0, math.floor((i - 1) / 3) * spread) else pt
-				-- ตัวผู้เล่นเป็นของ Client: สั่ง MoveTo ฝั่ง Server แล้วไม่เดิน -> ให้ Client เดินตัวเอง (Server คอยดู/วาร์ปถ้าติด)
-				remote:FireClient(p, "walkto", target)
-				hum:MoveTo(target)
-				local t0 = os.clock()
-				while p.Parent and root.Parent and (Vector3.new(root.Position.X - target.X, 0, root.Position.Z - target.Z)).Magnitude > 1.5 do
-					if os.clock() - t0 > 7 then
-						root.CFrame = CFrame.new(target + Vector3.new(0, 3, 0)) * (root.CFrame - root.CFrame.Position)
-						break
-					end
-					task.wait(0.1)
-				end
+			-- ส่งทางทั้งเส้นให้ Client เดินต่อเนื่องทีเดียว (เดิมส่งทีละจุด: Client หยุดที่ทุกมุมรอ Server สั่งจุดถัดไป
+			-- + Server สั่ง hum:MoveTo ชนกับ Client -> เดินกระตุกเป็นช่วงๆ ไม่ลื่นเหมือนพี่ชาย)
+			local route = table.clone(path)
+			route[#route] = path[#path] + Vector3.new(((i - 1) % 3) * spread, 0, math.floor((i - 1) / 3) * spread)
+			remote:FireClient(p, "walkpath", route)
+			-- Server แค่คอยดู: ไม่ถึงปลายทางในเวลาที่ควร (ระยะรวม / ความเร็วเดิน + 4 วิ) = วาร์ปไปปลายทาง
+			local total, prev = 0, root.Position
+			for _, pt in ipairs(route) do
+				total += (Vector3.new(pt.X - prev.X, 0, pt.Z - prev.Z)).Magnitude
+				prev = pt
 			end
+			local final = route[#route]
+			local limit = total / math.max(hum.WalkSpeed, 4) + 4
+			local t0 = os.clock()
+			-- ถึง = ห่างปลายทางไม่เกิน 0.9 (Client หยุดที่ 0.6) ตัวหยุดแล้วจริง ไม่ตัดช็อตตอนยังก้าวอยู่
+			while p.Parent and root.Parent and (Vector3.new(root.Position.X - final.X, 0, root.Position.Z - final.Z)).Magnitude > 0.9 do
+				if os.clock() - t0 > limit then
+					root.CFrame = CFrame.new(final + Vector3.new(0, 3, 0)) * (root.CFrame - root.CFrame.Position)
+					break
+				end
+				task.wait(0.1)
+			end
+			pending -= 1
 		end)
+	end
+	return function()
+		return pending <= 0
 	end
 end
 
@@ -620,37 +684,70 @@ local function introBody(t: number)
 		end
 	end
 	-- กล้องฝั่งถนน (ฝั่งร้านมีตู้ปั๊มบัง) มองข้ามรถไปหาพี่ชาย
-	fire("cam", { mode = "lookat", pos = vp:PointToWorldSpace(Vector3.new(-7, 4.5, -4)), target = bro, look = Vector3.new(0, 4.6, 0), fov = 42 })
+	-- ตั้งตามทิศโลก (ถนน/ร้าน) ไม่ใช่ทิศรถ: รถบางคันจอดหันกลับด้าน กล้องเลยไปฝังอยู่ในตู้ปั๊ม/หลังเสา
+	local broHead = headOf(bro)
+	local headPos = if broHead then broHead.Position else bp + Vector3.new(0, 4.6, 0)
+	-- รถนับว่าบังด้วย (รถคันใหญ่/ซาเล้งหลังคาสูงเคยบังหน้าพี่ชาย) -> มีมุมสูงข้ามหลังคารถสำรองไว้
+	local camAt = clearCamPos({
+		ground(bp - P.shopDir * 8 - P.road * 3) + Vector3.new(0, 5, 0),
+		ground(bp - P.road * 7 - P.shopDir * 1) + Vector3.new(0, 4.5, 0),
+		ground(bp - P.shopDir * 8 + P.road * 3) + Vector3.new(0, 5, 0),
+		ground(bp - P.shopDir * 7 - P.road * 2) + Vector3.new(0, 7.5, 0),
+		ground(bp - P.shopDir * 6) + Vector3.new(0, 9, 0),
+	}, headPos, { bro })
+	fire("cam", { mode = "lookat", pos = camAt, target = bro, look = Vector3.new(0, 4.6, 0), fov = 42 })
 	if not say(t, "Intro_Brother_3", BROTHER, headOf(bro), 3.0) then
 		return v, bro
 	end
 	bro:Destroy()
 	showDriver(v, true)
-	local shopFront = Vector3.new(P.stop.X, P.stop.Y, P.stop.Z) + P.shopDir * 9
-	fire("cam", { mode = "lookat", pos = shopFront + Vector3.new(0, 4, 0), target = v, look = Vector3.new(0, 2, 0), fov = 55 })
+	-- กล้องมองพี่ชายขี่ออก: ตั้งฝั่งถนน (ตรงข้ามร้าน) — ผู้เล่นยืนฝั่งร้านของรถ รถจึงอยู่หน้าผู้เล่นตลอดทาง ไม่โดนตัวผู้เล่นบัง
+	-- (เดิมกล้องอยู่ระหว่างรถกับตู้ปั๊ม = ผู้เล่นยืนขวางกลางเฟรม / เดิมกว่านั้นฝังอยู่ในตู้ปั๊ม)
+	local stopG = Vector3.new(P.stop.X, P.stop.Y, P.stop.Z)
+	local vAim = v:GetPivot().Position + Vector3.new(0, 2, 0)
+	local driveCam = clearCamPos({
+		stopG - P.shopDir * 9 - P.road * 4 + Vector3.new(0, 4.5, 0),
+		stopG - P.shopDir * 8 + P.road * 2 + Vector3.new(0, 4, 0),
+		stopG - P.shopDir * 7 + P.road * 7 + Vector3.new(0, 4, 0),
+	}, vAim, { v })
+	fire("cam", { mode = "lookat", pos = driveCam, target = v, look = Vector3.new(0, 2, 0), fov = 55 })
 	if not run(t, function()
 		D.driveTo(v, ground(D.exitPoint.Position), false, 20)
 	end) then
 		return v
 	end
 	v:Destroy()
-	-- 7) ผู้เล่นเดินเข้าร้าน (กล้องนอกร้านเห็นเดินเข้าไปจนถึงข้างใน) -> แผงประตูปิดลง -> ตะวันตกดิน -> กลางคืน
+	-- 7) ผู้เล่นเดินเข้าร้าน (กล้องในร้านมุมหลังร้าน มองออกไปทางประตู เห็นผู้เล่นเดินเข้ามาหากล้อง) -> แผงประตูปิดลง -> ตะวันตกดิน -> กลางคืน
 	--    ร้านปิดอยู่ตอนเริ่มเล่น: ผู้เล่นดึงเชือกเปิดร้านเองเพื่อเริ่มคืน (เหมือนเดิม)
 	local ps = active()
-	fire("cam", { mode = "fixed", pos = Vector3.new(P.stop.X + 5, P.stop.Y + 4.5, P.stop.Z - 10), look = Vector3.new(P.aisleX + 5, P.stop.Y + 3.5, D.shutterDoor.Position.Z + 4), fov = 60 })
+	do
+		-- กล้องเริ่มในร้านเลย (ไม่ถ่ายจากนอกร้าน): หลังร้านฝั่งขวาของทางเดิน สูงต่ำกว่าคานหลังคา มองไปที่ช่องประตูฝั่งทางเดิน
+		local shackCF, shackSize = D.shack:GetBoundingBox()
+		local backZ = shackCF.Position.Z + shackSize.Z / 2
+		local doorway = Vector3.new(P.aisleX - 0.7, P.stop.Y + 3.5, D.shutterDoor.Position.Z - 1.2)
+		local inCam = clearCamPos({
+			Vector3.new(P.aisleX + 6.8, P.stop.Y + 6, backZ - 5.5),
+			Vector3.new(P.aisleX + 8.8, P.stop.Y + 6.5, backZ - 7.5),
+			Vector3.new(P.aisleX - 1.2, P.stop.Y + 6, backZ - 5.5),
+		}, doorway, {})
+		fire("cam", { mode = "fixed", pos = inCam, look = doorway, fov = 60 })
+	end
 	-- เดินเข้าทางเดินซ้ายเรียงแถว อ้อมปลายโต๊ะไปยืนหลังโต๊ะ (ไม่เดินทะลุ/ติดโต๊ะ)
 	local y = P.stop.Y
 	-- จบที่หลังโต๊ะฝั่งทางเดิน (ไม่เดินต่อไปกลางร้าน: ตอนคัทซีนจบแล้วยังเดินไม่ถึง ตัวจะเดินข้างตามกล้อง)
 	local path = table.clone(P.doorPath)
 	path[#path] = Vector3.new(P.aisleX + 1.5, y, P.counterBack + 1.8)
 	walkPlayers(ps, path, 1.8)
-	-- รอจนทุกคนเข้าไปหลังแผงจริง (ไม่เกิน 9 วิ walkPlayers วาร์ปให้ถ้าติด)
+	-- รอจนทุกคนเดินถึงหลังโต๊ะจริง (ไม่ใช่แค่พ้นแผง: เดิมช็อตถัดไปเริ่มตอนผู้เล่นยังอยู่ปากประตู กล้องที่ถอยหลังผู้เล่นเลยหลุดออกนอกผนัง)
+	-- ไม่เกิน 12 วิ (walkPlayers วาร์ปให้ถ้าติด)
+	local finalSpot = path[#path]
+	local reach = if #active() > 1 then 6 else 1.8 -- หลายคนยืนกระจายรอบจุดสุดท้าย (spread 1.8 ต่อคน)
 	local t0 = os.clock()
-	while os.clock() - t0 < 9 do
+	while os.clock() - t0 < 12 do
 		local all = true
 		for _, p in ipairs(active()) do
 			local root = rootOf(p)
-			if root and not D.insideShop(root.Position) then
+			if root and (not D.insideShop(root.Position) or Vector3.new(root.Position.X - finalSpot.X, 0, root.Position.Z - finalSpot.Z).Magnitude > reach) then
 				all = false
 			end
 		end
@@ -682,6 +779,22 @@ local function introBody(t: number)
 	-- (ถอยห่างพอ: กล้องโหมด fixed ค่อยๆ ดันเข้าหาจุดมอง ~2.5 studs) เยื้องข้างนิดให้หัวไม่บังแผง
 	local side = away:Cross(Vector3.yAxis)
 	local camPos = Vector3.new(mid.X, if cnt > 0 then mid.Y + 3.2 else y + 6, mid.Z) + away * 6 - side * 1.6
+	-- กล้องต้องเริ่มในร้านเสมอ (เดิมผู้เล่นยืนชิดผนังซ้าย กล้องถอยหลังผู้เล่น 6 studs เลยไปอยู่นอกผนังแล้วค่อยดันเข้ามา)
+	-- บีบให้อยู่ในกล่องเพิง ห่างผนัง 2.5 studs แล้วเลือกจุดที่มองเห็นแผงโล่งๆ (มีจุดหลังร้านสำรอง)
+	do
+		local shackCF, shackSize = D.shack:GetBoundingBox()
+		local function inside(p: Vector3): Vector3
+			local lp = shackCF:PointToObjectSpace(p)
+			local hx, hz = shackSize.X / 2 - 2.5, shackSize.Z / 2 - 2.5
+			return shackCF:PointToWorldSpace(Vector3.new(math.clamp(lp.X, -hx, hx), lp.Y, math.clamp(lp.Z, -hz, hz)))
+		end
+		local backZ = shackCF.Position.Z + shackSize.Z / 2
+		camPos = clearCamPos({
+			inside(camPos),
+			inside(Vector3.new(mid.X + 3, y + 6, backZ - 6)),
+			inside(Vector3.new(P.aisleX + 6.8, y + 6, backZ - 5.5)),
+		}, Vector3.new(door.X, y + 3.4, door.Z), {})
+	end
 	fire("cam", { mode = "fixed", pos = camPos, look = Vector3.new(door.X, y + 3.4, door.Z), fov = 58 })
 	if not wait_(t, 0.6) then
 		return
@@ -813,6 +926,16 @@ local function outroBody(t: number)
 	local P = points()
 	local players = active()
 	local n = math.max(1, #players)
+	-- แผงหน้าร้านต้องเปิดอยู่ตอนเริ่ม (แล้วค่อยปิดลงในข้อ 1)
+	D.showShutterOpen()
+	-- รถพี่ชาย: สร้างไว้ตั้งแต่ต้นคัทซีน (จอดรอที่จุดเกิดไกลๆ) ให้ส่งถึงทุกเครื่องก่อนถึงช็อตขี่มารับ
+	-- (เดิมสร้างตอนจะถ่ายพอดี Client ยังไม่มีรถ = กล้องหาเป้าไม่เจอ ค้างมุมเดิม ไม่จับที่พี่ชาย)
+	local startPos = ground(D.spawnPoint.Position)
+	local stopPos = ground(P.stop + P.shopDir * 0.5)
+	local v = buildVehicle(n, CFrame.lookAt(startPos, startPos + P.road))
+	if not v then
+		return
+	end
 	-- 1) เช้ามืด ผู้เล่นยืนหลังโต๊ะดึงเชือกปิดร้าน (คนแรกดึง คนอื่นยืนข้างๆ หลังโต๊ะ) กล้องหน้าร้านเห็นแผงเลื่อนลงมาบัง
 	local floorY = D.Pedestrian.FloorAt(P.ropeStand, {}) + 3
 	for i, p in ipairs(players) do
@@ -845,14 +968,14 @@ local function outroBody(t: number)
 		pin(p, nil, CFrame.lookAt(pos, pos - P.shopDir), false)
 	end
 	fire("fade", false, 0.6)
-	-- 2) พี่ชายขี่รถกลับมา
-	local startPos = ground(D.spawnPoint.Position)
-	local stopPos = ground(P.stop + P.shopDir * 0.5)
-	local v = buildVehicle(n, CFrame.lookAt(startPos, startPos + P.road))
-	if not v then
-		return
+	-- 2) พี่ชายขี่รถกลับมา: กล้องริมถนนหันตามหัวพี่ชาย (คนขับ) ไม่ใช่กลางรถ
+	local shot = roadsideShot(P, stopPos, v)
+	local broHead = headOf(driverOf(v))
+	if broHead then
+		shot.target = broHead
+		shot.look = Vector3.new(0, -0.3, 0)
 	end
-	fire("cam", roadsideShot(P, stopPos, v))
+	fire("cam", shot)
 	if not run(t, function()
 		D.driveTo(v, stopPos - P.road * 9, false, 18)
 		D.driveTo(v, stopPos, true, 18)
@@ -863,9 +986,13 @@ local function outroBody(t: number)
 	local vp = v:GetPivot()
 	local meet = ground(vp.Position + P.shopDir * 3.2)
 	fire("cam", { mode = "fixed", pos = Vector3.new(P.sideX - 9, P.stop.Y + 5, P.stop.Z - 4), look = Vector3.new(P.sideX + 2, P.stop.Y + 3, P.stop.Z + 14), fov = 60 })
-	walkPlayers(active(), { Vector3.new(P.sideX, meet.Y, P.backZ), Vector3.new(P.sideX, meet.Y, P.stop.Z + 6), meet }, 2.2)
-	if not wait_(t, 7.5) then
-		return v
+	-- เดินถึงหน้ารถแล้วหยุดปุ๊บ = ตัดไปช็อตคุยกันเลย (เดิมรอตายตัว 7.5 วิ ยืนนิ่งรอนาน) ไม่เกิน 12 วิ
+	local arrived = walkPlayers(active(), { Vector3.new(P.sideX, meet.Y, P.backZ), Vector3.new(P.sideX, meet.Y, P.stop.Z + 6), meet }, 2.2)
+	local walkT0 = os.clock()
+	while not arrived() and os.clock() - walkT0 < 12 do
+		if not wait_(t, 0.1) then
+			return v
+		end
 	end
 	-- 4) คุยกัน
 	for _, p in ipairs(active()) do
@@ -894,8 +1021,15 @@ local function outroBody(t: number)
 	for i, p in ipairs(active()) do
 		pin(p, v, spots[math.min(i, #spots)] or CFrame.new(0, 4, 1.6), true, pillionClip(v))
 	end
-	local shopFront = Vector3.new(P.stop.X, P.stop.Y, P.stop.Z) + P.shopDir * 9
-	fire("cam", { mode = "lookat", pos = shopFront + Vector3.new(-3, 4, 0), target = v, look = Vector3.new(0, 2, 0), fov = 55 })
+	-- กล้องหน้าร้านมองรถขี่ออก: เดิมตั้งที่ StopPoint + 9 ทางร้าน = ฝังอยู่ในตู้ปั๊ม -> ยืนระหว่างรถกับตู้ปั๊มแทน (เลือกมุมที่ไม่โดนบัง)
+	local stopG = Vector3.new(P.stop.X, P.stop.Y, P.stop.Z)
+	local vAim = v:GetPivot().Position + Vector3.new(0, 2, 0)
+	local shopFront = clearCamPos({
+		stopG + P.shopDir * 5 + P.road * 4 + Vector3.new(0, 4, 0),
+		stopG + P.shopDir * 5 - P.road * 6 + Vector3.new(0, 4, 0),
+		stopG + P.shopDir * 4.5 - P.road * 2 + Vector3.new(0, 4.5, 0),
+	}, vAim, { v })
+	fire("cam", { mode = "lookat", pos = shopFront, target = v, look = Vector3.new(0, 2, 0), fov = 55 })
 	if not run(t, function()
 		task.delay(3.5, function()
 			if alive(t) then
