@@ -1,6 +1,7 @@
 # กระหัง (Krahang) — ผีชายผอมดำ ใช้กระด้งสองใบเป็นปีก สากตำข้าวเป็นขาที่สาม — Blender headless
 # รัน (PowerShell):
 #   powershell -ExecutionPolicy Bypass -File tools\blender\run_headless.ps1 -Script tools\blender\krahang.py -Out C:\tmp\krahang.txt
+# ลองท่า/รูปทรงเร็วๆ: ตั้ง env KRAHANG_QUICK=<โฟลเดอร์> (ข้าม bake/export ใช้ texture เดิม เขียนภาพตัวอย่างลงโฟลเดอร์นั้น)
 # ต้นแบบ: ตัวชายผอม assets/models/human_base/human_base_thin.blend (rig 52 กระดูก + weight + joint limits เดิม)
 #   Body        ผิวเดิม ปรับให้ซี่โครงบานและท้องตอบ ผิวคล้ำแห้งเหี่ยว ซี่โครง เส้นเอ็น หน้าแยกเขี้ยว (วาดลง texture)
 #   Hair        ผมดำยาวยุ่ง ปลิวไปด้านหลัง (สร้างด้วย Build/Head ของ human_base/build_hair.py) ผูกกับ head
@@ -31,6 +32,7 @@ TEX = 1024
 STUDS_PER_M = 3.5         # same as the human pipeline (man 1.80 m = 6.3 studs)
 R = math.radians
 LOG = []
+QUICK = os.environ.get("KRAHANG_QUICK", "")   # folder: quick pose check only (see main)
 
 def log(*a):
     s = " ".join(str(x) for x in a); LOG.append(s); print(s)
@@ -85,14 +87,39 @@ def build_hair(body, rig):
     H = HAIR; h = H["Head"](body, rig); s = h.s
     b = H["Build"](h, ["HairBlack"]); rnd = random.Random(7)
     front = lambda th: math.exp(-(math.degrees(math.atan2(math.sin(th), math.cos(th)))/48.0)**2)
-    base = H["sym"]([(0, -0.10), (60, -0.20), (100, -0.34), (180, -0.46)])
-    wild = lambda th, ph: max(0.012, 0.030 + 0.024*H["noise"].noise(h.dir(th, ph)*5.0))
-    b.shell(H["GHOST_AZ"], True, H["POLE"], H["GHOST_LINE"], wild,
+    # the shell is only a thin dark base on the scalp (a thick one read as a cap); the volume is all in the locks
+    base = H["sym"]([(0, -0.06), (60, -0.10), (100, -0.16), (180, -0.22)])
+    thin = lambda th, ph: max(0.004, 0.008 + 0.006*H["noise"].noise(h.dir(th, ph)*7.0))
+    b.shell(H["GHOST_AZ"], True, H["POLE"], H["GHOST_LINE"], thin,
             hem=lambda th: base(th) + (0.6 - base(th))*front(th),
-            flare=lambda th: H["sym"]([(0, 0.03), (90, 0.08), (180, 0.07)])(th)*(1 - front(th)),
-            tip=0.016, rows=8, drop_rows=7, clear=0.012, jitter=0.08, jitter_f=9.0)
-    back = -h.F; n = 0
-    while n < 52:                                       # long locks blown back (down-back at rest = straight back in flight)
+            flare=lambda th: H["sym"]([(0, 0.01), (90, 0.03), (180, 0.03)])(th)*(1 - front(th)),
+            tip=0.008, rows=8, drop_rows=4, clear=0.008, jitter=0.10, jitter_f=13.0)
+    back = -h.F
+    # messy top: flat clumps rooted all over the crown that lie back along the scalp, lift off it and split apart,
+    # a few flyaways stand up; the hairline gets short tufts brushed up and back
+    n = 0
+    while n < 70:
+        th = rnd.uniform(-math.pi, math.pi); ph = rnd.uniform(R(28), R(88))
+        if abs(th) < R(50) and ph < R(40): continue
+        root = h.on(th, ph, 0.004); d = h.dir(th, ph)
+        w = back - d*back.dot(d) + h.L*rnd.uniform(-0.5, 0.5)
+        if w.length < 1e-3: w = -h.F
+        w.normalize()
+        fly = rnd.random() < 0.18
+        L = rnd.uniform(0.10, 0.20)*s if not fly else rnd.uniform(0.06, 0.11)*s
+        lift = rnd.uniform(0.004, 0.022)*s if not fly else rnd.uniform(0.03, 0.06)*s
+        side = w.cross(d).normalized(); ph0 = rnd.uniform(0, 6.3); amp = rnd.uniform(0.004, 0.012)*s
+        pts = []; k = 6
+        for i in range(k + 1):
+            t = i/k; p = root + w*L*t + side*amp*math.sin(ph0 + t*5.0)*t
+            q = h.C + (p - h.C).normalized()*(h.scalp((p - h.C).normalized()) + 0.004*s)   # follow the round of the skull
+            p = q + (q - h.C).normalized()*lift*t**1.6 + Vector((0, 0, -0.04*L*t*t))
+            pts.append(h.push(p, 0.004) if i else p)
+        r0 = rnd.uniform(0.010, 0.017)*s*(0.6 if fly else 1.0)
+        b.tube(pts, [r0*(1 - 0.8*(i/k)**1.2) if i < k else 0.0 for i in range(k + 1)], sides=4, flat=0.35)
+        n += 1
+    n = 0
+    while n < 52:                                      # long locks blown back (down-back at rest = straight back in flight)
         th = rnd.uniform(-math.pi, math.pi); ph = rnd.uniform(R(-25), R(70))
         if abs(th) < R(60) and ph < R(55): continue      # keep the face clear
         d = h.dir(th, ph); dh = Vector((d.x, d.y, 0)); root = h.on(th, ph, 0.012)
@@ -107,6 +134,13 @@ def build_hair(body, rig):
         r0 = rnd.uniform(0.018, 0.030)*s
         b.tube(pts, [r0*(1 - 0.75*(i/k)**1.3) if i < k else 0.0 for i in range(k + 1)], sides=5, flat=0.45)
         n += 1
+    for dth in range(-46, 47, 8):                       # hairline tufts swept up and back off the forehead
+        th = R(dth + rnd.uniform(-3, 3)); ph = H["GHOST_LINE"](th) + R(rnd.uniform(2, 8))
+        pts = [h.on(th, ph, 0.003)]
+        for i in range(1, 5):
+            t = i/4; p = h.on(th + R(rnd.uniform(-5, 5))*t, ph + R(30)*t, 0.006 + 0.014*t*t)
+            pts.append(p)
+        b.tube(pts, [0.010*s, 0.009*s, 0.007*s, 0.004*s, 0.0], sides=4, flat=0.4)
     ob = b.finish("Hair", rig)
     return ob, h
 
@@ -633,11 +667,19 @@ def paint_sak(P, m):
     worn = np.exp(-((t - 0.5)/0.14)**2)                          # polished dark waist where he sits and grips
     c = mix(c, (44, 28, 18), worn*0.5)
     end = sstep(0.93, 1.0, t) + sstep(0.04, 0.0, t)                # pounding end: pale, split, crushed fibres
-    cr = lines(u, (60, 60, 6), 0.05, 102)
-    c = mix(c, (120, 100, 72), end*0.6); c = mix(c, (24, 16, 10), cr*0.7)
+    # dry checks: hairline splits running with the grain, in clusters, more towards the ends, few on the worn waist
+    patch = sstep(0.45, 0.70, fbm(u, (30, 30, 2.5), 2, 104))*(1 - 0.8*worn) + end*0.6
+    cr = lines(u, (150, 150, 7), 0.018, 102)*np.clip(patch, 0, 1)
+    cr = np.maximum(cr, lines(u, (280, 280, 16), 0.014, 105)*0.6*np.clip(patch - 0.2, 0, 1))
+    r = np.hypot(q[:, 0], q[:, 1])                                  # end grain: short radial splits out from the heart
+    rad = lines(np.stack([np.cos(ang)*0.04, np.sin(ang)*0.04, r*0.4], 1), (420, 420, 30), 0.02, 106)
+    cap = sstep(0.975, 0.99, t) + sstep(0.025, 0.01, t)
+    cr = np.maximum(cr, rad*cap*0.9)
+    pore = sstep(0.82, 0.92, vnoise(u, (900, 900, 120), 107))*0.5
+    c = mix(c, (120, 100, 72), end*0.6); c = mix(c, (30, 20, 12), cr*0.75); c = mix(c, (40, 26, 16), pore*0.5)
     g = fbm(P, (7, 7, 7), 3, 103); c = mix(c, (30, 24, 18), sstep(0.5, 0.8, g)*0.5)
     rough = 0.62 - worn*0.2 + end*0.2
-    return c, rough, (grain - 0.5)*0.6 - cr*0.8
+    return c, rough, (grain - 0.5)*0.6 - cr*0.5 - pore*0.2
 
 def paint(maps, rig, body, hd, fm):
     pos, nrm, ids = maps["pos"], maps["nrm"], maps["id"]
@@ -739,10 +781,18 @@ def ride(P, rig, pitch, tilt=6.0):
     """the pestle stays level under him (nose up `tilt`) whatever the body pitch; it is bound to the hips"""
     wrot(P, rig, "sak", rx(-pitch - tilt))
 
-def straddle(P, pitch, fwd=40.0, kick=0.0, spread=16.0):
-    """thighs astride the pestle, `fwd` degrees below level-forward in the world, knees tucked back"""
+SHIN_RIDE, FOOT_RIDE, TOE_RIDE = -125.0, -6.0, -6.0
+
+def shins(P, a):
+    """knee bend past the base rig's -95 joint limit (P.rot clamps to the limit it read; add_anims widens the constraint)"""
+    for sd in ("L", "R"): P.frame["shin." + sd] = ("rot", [R(a), 0.0, 0.0])
+
+def straddle(P, pitch, fwd=66.0, kick=0.0, spread=5.0):
+    """gripping the pestle: thighs `fwd` degrees forward of hanging straight down (in the world) and close in, so the
+    knees squeeze its sides; shins folded up back like a jockey's; feet left almost neutral (bent hard, the ankle
+    weights turn the foot into a boot)"""
     P.rot("thigh.L", pitch + fwd + kick, 0, spread); P.rot("thigh.R", pitch + fwd - kick, 0, spread)
-    P.both("shin", -95); P.both("foot", -40); P.both("toe", -15)
+    shins(P, SHIN_RIDE); P.both("foot", FOOT_RIDE); P.both("toe", TOE_RIDE)
 
 def wing(P, rig, side, raise_, fwd, bend, feather, swing=0.0):
     sg = 1 if side == "L" else -1
@@ -765,10 +815,10 @@ def c_flapfly(P, rig, t):
     P.rot("spine", -4 - 3*c); P.rot("chest", -3 - 3*c)
     head_up(P, 0.45 + 0.1*c)
     for side in ("L", "R"):
-        wing(P, rig, side, 58 + 48*c, -10 + 14*c, 12 + 30*up, 70*up, swing=0)
+        wing(P, rig, side, 42 + 34*c, -16 + 6*c, 12 + 30*up, 70*up, swing=0)   # top low and forward: baskets clear the head and hair
     P.both("shoulder", 10 + 10*c, 0, 0)
     claw(P)
-    straddle(P, pitch, 40, kick=4*c)
+    straddle(P, pitch, 66, kick=4*c)
     ride(P, rig, pitch, 6 + 3*math.cos(2*math.pi*(s - 0.25)))
 
 def c_glide(P, rig, t):
@@ -780,7 +830,7 @@ def c_glide(P, rig, t):
         wing(P, rig, side, 50 + 5*math.sin(a)*k, -14, 12, 12 + 4*math.sin(a + 0.4)*k)
     P.both("shoulder", 14, 0, 0)
     claw(P)
-    straddle(P, pitch, 38, kick=3*math.sin(a))
+    straddle(P, pitch, 64, kick=3*math.sin(a))
     ride(P, rig, pitch, 4 + 2*math.sin(a + 1.0))
 
 def crouch(P, rig, lean=20.0):
@@ -813,11 +863,11 @@ def c_land(P, rig, t):
     P.rot("spine", -6*(1 - k) + 12*k); P.rot("chest", -4*(1 - k) + 8*k); head_up(P, 0.5*(1 - k) + 0.7*k)
     flap = math.cos(2*math.pi*min(t/0.55, 1)*1.5)*(1 - k)          # a last braking beat of the baskets
     for side in ("L", "R"):
-        wing(P, rig, side, (50 + 40*flap)*(1 - k) + 8*k, -14*(1 - k) + 28*k, 12*(1 - k) + 40*k, 12*(1 - k) + 80*k, swing=10*k)
+        wing(P, rig, side, (42 + 34*flap)*(1 - k) + 8*k, -16*(1 - k) + 28*k, 12*(1 - k) + 40*k, 12*(1 - k) + 80*k, swing=10*k)
     P.both("shoulder", 14*(1 - k), 0, 0)
     claw(P)
-    P.both("thigh", (lean + 38)*(1 - k) + 98*k, 0, 16 + 2*k)
-    P.both("shin", -95); P.both("foot", -40*(1 - k) + 22*k); P.both("toe", -15*(1 - k) + 30*k)
+    P.both("thigh", (lean + 64)*(1 - k) + 98*k, 0, 5*(1 - k) + 18*k)
+    shins(P, SHIN_RIDE*(1 - k) - 95*k); P.both("foot", FOOT_RIDE*(1 - k) + 22*k); P.both("toe", TOE_RIDE*(1 - k) + 30*k)
     ride(P, rig, lean, 4*(1 - k) + PERCH_TILT*k)
 
 def c_peek(P, rig, t):
@@ -827,7 +877,7 @@ def c_peek(P, rig, t):
     jerk = math.exp(-((t - 0.62)/0.03)**2)                        # one sudden twitch of the head per loop
     P.rot("neck", 30, 10*math.sin(a), 12*math.sin(a + 0.5) + 18*jerk); P.rot("head", 28, 14*math.sin(a), 20*jerk)
     for side, k in (("L", 1), ("R", -1)):                         # claws hooked on the roof edge, baskets forward
-        wing(P, rig, side, 12, -55 - 5*math.sin(a)*k, 50, 85, swing=-20)
+        wing(P, rig, side, 30 - 12*(k < 0), -40 - 5*math.sin(a)*k, 50, 85, swing=-28)   # right one lower: the head and hair lean that way
     claw(P, 1.4)
     ride(P, rig, lean, PERCH_TILT)
 
@@ -835,6 +885,8 @@ CLIPS = {"FlapFly": (c_flapfly, 30, False), "Glide": (c_glide, 90, False),
          "LandOnRoof": (c_land, 45, True), "PeekOverEdge": (c_peek, 120, False)}
 
 def add_anims(rig):
+    for sd in ("L", "R"):                       # riding folds the knee past the base rig's -95 (the constraint clamps keys too)
+        c = next(c for c in rig.pose.bones["shin." + sd].constraints if c.type == 'LIMIT_ROTATION'); c.min_x = R(SHIN_RIDE - 5)
     P = AN["Poser"](rig)
     if not rig.animation_data: rig.animation_data_create()
     tmp = bpy.data.actions.new("_tmp"); rig.animation_data.action = tmp
@@ -891,6 +943,57 @@ def check(rig, objs):
     body = bpy.data.objects["Body"]; bz = [v.co.z for v in body.data.vertices]
     log(f"total {tot} tris; body height {max(bz) - min(bz):.3f} m = {(max(bz) - min(bz))*STUDS_PER_M:.2f} studs; "
         f"rest bounds z {min(zs):.2f}..{max(zs):.2f} m")
+
+ARM = ("shoulder", "upper_arm", "forearm", "hand", "thumb", "index", "middle", "ring", "pinky")
+TRUNK = ("hips", "spine", "chest", "neck", "head", "thigh", "shin")
+
+def _part_bvh(o, dg, keep):
+    """BVH of the evaluated mesh, only the faces whose every vertex passes keep(vertex of the rest mesh)"""
+    e = o.evaluated_get(dg); me = e.to_mesh(); mw = e.matrix_world
+    ok = [keep(v) for v in o.data.vertices]
+    verts = [mw @ v.co for v in me.vertices]
+    faces = [tuple(p.vertices) for p in me.polygons if all(ok[i] for i in p.vertices)]
+    e.to_mesh_clear()
+    return BVHTree.FromPolygons(verts, faces) if faces else None
+
+def clip_check(rig, step=2):
+    """per clip: frames where an arm passes into the trunk / head / legs, or a basket into the body, the other basket,
+    the pestle or the hair (the basket's own forearm and hand don't count: it is strapped to them)"""
+    ob = bpy.data.objects; body = ob["Body"]; sc = bpy.context.scene
+    grp = {g.index: g.name for g in body.vertex_groups}
+    def main_bone(v):
+        g = max(v.groups, key=lambda g: g.weight, default=None)
+        return grp.get(g.group, "") if g else ""
+    def is_(prefixes, side=None):
+        def f(v):
+            n = main_bone(v); b, _, s = n.partition(".")
+            return any(b.startswith(p) for p in prefixes) and (side is None or s == side)
+        return f
+    trunk = is_(TRUNK); everything = lambda v: True; legs = is_(("thigh", "shin", "foot", "toe"))
+    bad = {}
+    for name in CLIPS:
+        a = bpy.data.actions[name]; rig.animation_data.action = a; f0, f1 = (int(x) for x in a.frame_range)
+        hits = []; grip = []
+        for f in range(f0, f1 + 1, step):
+            sc.frame_set(f); dg = bpy.context.evaluated_depsgraph_get()
+            T = _part_bvh(body, dg, trunk); msg = []
+            S = _part_bvh(ob["Sak"], dg, everything); grip.append(len(_part_bvh(body, dg, legs).overlap(S)))
+            for s in ("L", "R"):
+                A = _part_bvh(body, dg, is_(ARM, s))
+                n = len(A.overlap(T)); msg += [f"arm.{s}>trunk {n}"] if n else []
+                K = _part_bvh(ob["Kradong." + s], dg, everything)
+                o = "R" if s == "L" else "L"
+                for lab, other in (("body", _part_bvh(body, dg, lambda v, s=s: not is_(ARM, s)(v))),
+                                   ("kradong." + o, _part_bvh(ob["Kradong." + o], dg, everything)) if s == "L" else ("", None),
+                                   ("sak", _part_bvh(ob["Sak"], dg, everything)), ("hair", _part_bvh(ob["Hair"], dg, everything))):
+                    if other is None: continue
+                    n = len(K.overlap(other)); msg += [f"kradong.{s}>{lab} {n}"] if n else []
+            if msg: hits.append(f"f{f}: " + ", ".join(msg))
+        bad[name] = hits
+        log(f"clip check {name}: {len(hits)} of {len(range(f0, f1 + 1, step))} frames touch; legs on the pestle "
+            f"(face pairs, contact is fine, hundreds = sunk in) min {min(grip)} max {max(grip)}")
+        for h in hits[:12]: log("   ", h)
+    return bad
 
 # ---------------------------------------------------------------- previews
 def preview_scene():
@@ -984,6 +1087,9 @@ def main():
     hair.name = "Hair"
     fm = face_marks(body, hd); log("face", {k: (round(v, 3) if isinstance(v, float) else v) for k, v in fm.items()}, "s", round(hd.s, 3))
     for o in objs: atlas_uv(o)
+    if QUICK:                                   # pose / shape check: old textures, no export, previews to QUICK
+        global PREV; PREV = QUICK; make_material(objs); rig.data.pose_position = 'POSE'
+        add_anims(rig); check(rig, objs); clip_check(rig); previews(rig, objs); return
     maps = bake_maps(objs, rig)
     col, rough, hgt = paint(maps, rig, body, hd, fm)
     save_png(down(col), os.path.join(M, NAME + "_Color.png"))
@@ -997,6 +1103,7 @@ def main():
     lim = AN["limit_weights"](); log("weights trimmed", lim)
     made = add_anims(rig); log("clips", made)
     check(rig, objs)
+    clip_check(rig)
     export_all(rig, objs)
     previews(rig, objs)
     for o in list(bpy.data.objects):
