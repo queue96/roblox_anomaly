@@ -416,6 +416,22 @@ LanguageModule.UI = {
 	Baht = { th = "บาท", en = "฿" },
 	Times = { th = "ครั้ง", en = "x" },
 	Units = { th = "ตัว", en = "" },
+	-- สะพานไฟ / นั่งยอง / ผีใหญ่บุกประชิด (server/BigEvents)
+	BreakerOff = { th = "สับสะพานไฟลง (ดับไฟร้าน)", en = "Kill the lights" },
+	BreakerOn = { th = "สับสะพานไฟขึ้น (เปิดไฟ)", en = "Lights on" },
+	BreakerName = { th = "สะพานไฟ", en = "Breaker Switch" },
+	Crouch = { th = "นั่งยอง", en = "Crouch" },
+	Big_Krasue_Warn = { th = "แสงไฟผีลอยมาจากเถียงนา... สับสะพานไฟในเพิงดับไฟร้าน แล้วนั่งยอง [C] อย่าขยับ!", en = "A ghost light drifts in from the rice hut... kill the lights at the breaker in the shed, then crouch [C] and don't move!" },
+	Big_Pret_Warn = { th = "เสียงหวีดยาวมาจากถนน... เปรตกำลังมา ดับไฟร้าน ปิดไฟฉาย แล้วนั่งยอง [C] นิ่งๆ", en = "A long shriek from the road... a Pret is coming. Kill the shop lights, switch off flashlights, crouch [C] and stay still." },
+	Big_Funeral_Warn = { th = "ขบวนแห่ศพไร้เสียงกำลังมา... ปิดแผงร้าน ดับไฟ แล้วนั่งยอง [C] รอให้ผ่านไป", en = "A silent funeral procession approaches... close the shutter, kill the lights, crouch [C] and let it pass." },
+	Big_Pop_Warn = { th = "มีใครเดินกระตุกมาทางร้าน... ปิดแผงร้าน ดับไฟ แล้วยืนนิ่งๆ ห้ามขยับ", en = "Something twitches its way toward the shop... close the shutter, kill the lights and stand perfectly still." },
+	Big_Danger = { th = "มันมาถึงแล้ว... อย่าขยับ", en = "It's here... don't move." },
+	Big_Pass = { th = "มันผ่านไปแล้ว... ลุกขึ้น [C] แล้วสับสะพานไฟขึ้นได้", en = "It's gone... stand up [C] and turn the lights back on." },
+	Big_Fail_Lights = { th = "ไฟร้านยังเปิดอยู่... มันเห็นเราแล้ว", en = "The shop lights were on... it saw us." },
+	Big_Fail_Shutter = { th = "แผงร้านยังเปิดอยู่... มันเห็นเราแล้ว", en = "The shutter was open... it saw us." },
+	Big_Fail_Move = { th = "คุณขยับ... มันเห็นคุณแล้ว", en = "You moved... it saw you." },
+	Big_Fail_Crouch = { th = "คุณไม่ได้นั่งยอง... มันเห็นคุณแล้ว", en = "You weren't crouching... it saw you." },
+	Big_Fail_Flashlight = { th = "ไฟฉายของคุณยังเปิดอยู่... มันเห็นคุณแล้ว", en = "Your flashlight was on... it saw you." },
 }
 
 -- ป้ายชื่อที่ลอยตามวัตถุในฉาก (ObjectLabels.client) ชื่อสั้น สุภาพ ไม่อธิบาย
@@ -458,6 +474,10 @@ LanguageModule.BookOrder = {
 	"Anomaly_Krasue",
 	"Anomaly_TaKhon",
 	"Anomaly_MirrorGhost",
+	"Big_Krasue",
+	"Big_Pret",
+	"Big_Funeral",
+	"Big_Pop",
 	"Anomaly_MonkRadio",
 	"Anomaly_BloodFuel",
 	"Anomaly_NoUmbrella",
@@ -494,6 +514,22 @@ LanguageModule.Book = {
 	Anomaly_MirrorGhost = {
 		th = { "ผีในกระจกมองข้าง", "ผู้หญิงผมยาวนั่งซ้อนท้าย ค่อยๆ หันไปมองกระจกมองข้าง คนขับไม่เคยรู้ว่ามีเธออยู่" },
 		en = { "Ghost in the Side Mirror", "A long-haired woman rides pillion and slowly turns to the side mirror. The rider never knew she was there." },
+	},
+	Big_Krasue = {
+		th = { "แสงไฟผีกระสือ", "ดวงไฟส้มเขียวลอยจากเถียงนามาที่เพิง ดับไฟร้านแล้วนั่งยองนิ่งๆ จนมันลอยกลับไป" },
+		en = { "Krasue Light", "An orange-green light floats from the rice hut to the shed. Kill the lights and crouch still until it drifts away." },
+	},
+	Big_Pret = {
+		th = { "เปรตเดินผ่าน", "เงาขายาวสูงเท่าต้นตาลเดินผ่านหน้าร้าน ห้ามเปิดไฟหรือไฟฉายใส่ นั่งยองนิ่งๆ" },
+		en = { "Passing Pret", "A shadow as tall as a palm tree walks past the shop. No lights, no flashlights. Crouch and stay still." },
+	},
+	Big_Funeral = {
+		th = { "ขบวนแห่ศพไร้เสียง", "คนชุดขาวลอยผ่านถนนดินในหมอก ปิดแผงร้าน ดับไฟ แล้วนั่งยองรอจนขบวนผ่านไป" },
+		en = { "Silent Funeral Procession", "White-clad mourners glide down the dirt road. Close the shutter, kill the lights and crouch until they pass." },
+	},
+	Big_Pop = {
+		th = { "ปอบเคาะแผง", "ผีปอบมาเคาะแผงสังกะสีหน้าร้าน ปิดแผง ดับไฟ แล้วยืนนิ่งๆ ห้ามขยับ" },
+		en = { "Phi Pop at the Shutter", "A Phi Pop knocks on the tin shutter. Close it, kill the lights and stand perfectly still." },
 	},
 	Anomaly_MonkRadio = {
 		th = { "วิทยุสวดศพ", "วิทยุในร้านเปลี่ยนเป็นเสียงพระสวดเอง แต่ลูกค้ากลับชมว่าเพลงเพราะ" },

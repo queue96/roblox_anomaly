@@ -87,14 +87,33 @@ function Power.IsOn(): boolean
 	return powerOn
 end
 
--- silent = ไม่มีเสียงคัตเอาต์ตัด (ตอนเริ่มคืน: ไฟดับรอสตาร์ทเครื่องอยู่แล้ว ไม่ให้ได้ยินเสียงกระแทกตอนโหลดเข้าเกม)
-function Power.Cut(silent: boolean?)
-	if not powerOn then
+-- สะพานไฟในเพิง (InteractiveProps.CutoutSwitch): สับลง = ไฟร้านดับทั้งหมด สับขึ้น = ไฟกลับมา (ถ้าเครื่องปั่นไฟเดินอยู่)
+--   ไม่เกี่ยวกับไฟดับ (เครื่องปั่นไฟ): ใช้หลบผีใหญ่ (server/BigEvents) ReplicatedStorage attribute "BreakerOn"
+local breakerOn = true
+local dark = false
+ReplicatedStorage:SetAttribute("BreakerOn", true)
+
+-- ไฟร้านติดอยู่จริง (เครื่องปั่นไฟเดิน + สะพานไฟสับขึ้น)
+function Power.LightsOn(): boolean
+	return powerOn and breakerOn
+end
+
+-- มืด: เก็บค่าเดิมของ Lighting และหลอดไฟไว้ แล้วดับ / สว่าง: คืนค่าที่เก็บไว้
+local function setDark(on: boolean)
+	if on == dark then
 		return
 	end
-	powerOn = false
-	progress = 0
-	ReplicatedStorage:SetAttribute("PowerOn", false)
+	dark = on
+	if not on then
+		for _, s in ipairs(saved) do
+			local inst: any = s.inst
+			if inst.Parent then
+				inst[s.prop] = s.value
+			end
+		end
+		table.clear(saved)
+		return
+	end
 	table.clear(saved)
 	local L: any = Lighting
 	for prop, v in pairs(DARK) do
@@ -113,6 +132,17 @@ function Power.Cut(silent: boolean?)
 			end
 		end
 	end
+end
+
+-- silent = ไม่มีเสียงคัตเอาต์ตัด (ตอนเริ่มคืน: ไฟดับรอสตาร์ทเครื่องอยู่แล้ว ไม่ให้ได้ยินเสียงกระแทกตอนโหลดเข้าเกม)
+function Power.Cut(silent: boolean?)
+	if not powerOn then
+		return
+	end
+	powerOn = false
+	progress = 0
+	ReplicatedStorage:SetAttribute("PowerOn", false)
+	setDark(true)
 	if runSound then
 		runSound:Stop()
 	end
@@ -152,13 +182,7 @@ function Power.Restore()
 	end
 	powerOn = true
 	ReplicatedStorage:SetAttribute("PowerOn", true)
-	for _, s in ipairs(saved) do
-		local inst: any = s.inst
-		if inst.Parent then
-			inst[s.prop] = s.value
-		end
-	end
-	table.clear(saved)
+	setDark(not breakerOn)
 	setNeon(true)
 	startRunSound()
 	if prompt then
@@ -258,7 +282,60 @@ GenRemote.OnServerEvent:Connect(function(p: Player, what: any)
 	end
 end)
 
+local breakerPrompt: ProximityPrompt? = nil
+local leverRest: CFrame? = nil
+local function breakerParts(): (BasePart?, BasePart?)
+	local props = Workspace:FindFirstChild("InteractiveProps")
+	local sw = props and props:FindFirstChild("CutoutSwitch") :: BasePart?
+	return sw, sw and sw:FindFirstChild("CutoutSwitch_Lever") :: BasePart?
+end
+
+function Power.BreakerOn(): boolean
+	return breakerOn
+end
+
+function Power.SetBreaker(on: boolean, silent: boolean?)
+	if on == breakerOn then
+		return
+	end
+	breakerOn = on
+	ReplicatedStorage:SetAttribute("BreakerOn", on)
+	setDark(not (powerOn and breakerOn))
+	local sw, lever = breakerParts()
+	if lever and leverRest then
+		-- คันโยกพับลงเมื่อสับลง
+		lever.CFrame = if on then leverRest else leverRest * CFrame.Angles(math.rad(-70), 0, 0)
+	end
+	if sw and not silent then
+		SoundBank.PlayAtPosition("PowerOffClunk", sw.Position, 90, 2)
+	end
+	if breakerPrompt then
+		breakerPrompt:SetAttribute("LightsOff", not on)
+	end
+end
+
 function Power.Start(active: () -> boolean)
+	local sw, lever = breakerParts()
+	if lever then
+		leverRest = lever.CFrame
+	end
+	if sw then
+		local bp = Instance.new("ProximityPrompt")
+		bp.Name = "BreakerPrompt"
+		bp.ActionText = "Lights Off"
+		bp.ObjectText = "Breaker Switch"
+		bp.KeyboardKeyCode = Enum.KeyCode.E
+		bp.HoldDuration = 0.15
+		bp.MaxActivationDistance = 8
+		bp.RequiresLineOfSight = false
+		bp.Parent = sw
+		breakerPrompt = bp
+		bp.Triggered:Connect(function()
+			Power.SetBreaker(not breakerOn)
+		end)
+	else
+		warn("[Power] ไม่เจอ InteractiveProps.CutoutSwitch")
+	end
 	local gp = genPart()
 	if powerOn then
 		startRunSound() -- เริ่มเกมไฟติดอยู่: ได้ยินเครื่องเดินตั้งแต่แรก

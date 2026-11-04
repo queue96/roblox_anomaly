@@ -109,6 +109,59 @@ hum.Running:Connect(function(s)
 	speedNow = s
 end)
 
+-- ---------------------------------------------------------------- นั่งยอง (C / ปุ่มบนจอมือถือ)
+-- หลบผีใหญ่ (server/BigEvents): ตัวต่ำลง เดินไม่ได้ ท่านั่ง เซิร์ฟเวอร์รู้ผ่าน Remotes.Crouch -> player attribute "Crouching"
+local ContextActionService = game:GetService("ContextActionService")
+local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
+local CROUCH_DROP = 1.3
+local crouching = false
+local standHip = hum.HipHeight
+local standSpeed = hum.WalkSpeed
+local crouchRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Crouch", 10) :: RemoteEvent?
+local function setCrouch(on: boolean)
+	if on == crouching then
+		return
+	end
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if on and (hum.Health <= 0 or hum.Sit or (root and root.Anchored)) then
+		return
+	end
+	crouching = on
+	if on then
+		standHip = hum.HipHeight
+		standSpeed = hum.WalkSpeed
+		hum.HipHeight = standHip - CROUCH_DROP
+		hum.WalkSpeed = 0
+	else
+		hum.HipHeight = standHip
+		-- ระหว่างนั่งถูกอย่างอื่นตั้งความเร็วใหม่ (โดนช็อต ฯลฯ) = ไม่ทับ
+		if hum.WalkSpeed == 0 then
+			hum.WalkSpeed = standSpeed
+		end
+	end
+	if crouchRemote then
+		crouchRemote:FireServer(on)
+	end
+end
+ContextActionService:BindAction("VillagerCrouch", function(_, state)
+	if state == Enum.UserInputState.Begin then
+		setCrouch(not crouching)
+	end
+	return Enum.ContextActionResult.Sink
+end, true, Enum.KeyCode.C, Enum.KeyCode.ButtonB)
+ContextActionService:SetTitle("VillagerCrouch", LanguageModule.GetUI("Crouch", player:GetAttribute("Lang")))
+player:GetAttributeChangedSignal("Lang"):Connect(function()
+	ContextActionService:SetTitle("VillagerCrouch", LanguageModule.GetUI("Crouch", player:GetAttribute("Lang")))
+end)
+hum.Died:Connect(function()
+	ContextActionService:UnbindAction("VillagerCrouch")
+end)
+char.AncestryChanged:Connect(function()
+	if not char.Parent then
+		ContextActionService:UnbindAction("VillagerCrouch")
+	end
+end)
+
 -- ---------------------------------------------------------------- ท่าซ้อน
 local overlayOn: { [string]: boolean } = {}
 local holdingFlashlight = false
@@ -328,6 +381,13 @@ RunService.Heartbeat:Connect(function(dt)
 		if idle and idle.TimePosition ~= 0 then
 			idle.TimePosition = 0
 		end
+	elseif crouching then
+		-- ถูกยึดตัว / นั่งรถ ระหว่างนั่งยอง = ลุกขึ้น
+		if hum.Sit or (root and root.Anchored) then
+			setCrouch(false)
+		end
+		setTurnStep(false)
+		setBase("sit")
 	elseif hum.Sit or state == Enum.HumanoidStateType.Seated then
 		-- ท่านั่งเฉพาะ (Server ตั้ง attribute SitClip): ซ้อนมอไซค์ในคัทซีน = "ride_moto" ขากางคร่อมเบาะ ไม่หนีบเข่าแบบนั่งเก้าอี้
 		local clip = hum:GetAttribute("SitClip")
@@ -347,6 +407,7 @@ RunService.Heartbeat:Connect(function(dt)
 	local praying = player:GetAttribute("Praying") == true
 	-- พนมมือ: ท่าก้มหัว จมูกเลื่อนมาหน้ากล้อง -> ดันกล้องไปข้างหน้าและลงตามหัวที่ก้ม
 	-- CameraOffset อยู่ในกรอบของตัว: ตาตามหัวที่หัน/เอน (eyeFollowHead)
+	-- (นั่งยอง: กล้องต่ำลงเองตาม HipHeight ที่ลดลง)
 	hum:SetAttribute("EyeOffset", eyeFollowHead(if praying then EYE_PRAY else EYE))
 	local flashlight = char:FindFirstChild("FrogFlashlight") ~= nil
 	-- ล้มตาย: ยกเลิกท่าถือ/พนมมือทั้งหมดด้วย (downed ด้านบน)

@@ -1507,19 +1507,23 @@ local PROMPTS = {
 	StartGeneratorPrompt = { "StartGenerator", "GeneratorName" },
 	-- วิทยุ: ปุ่มเปลี่ยนเปิด/ปิดตาม attribute "RadioOn" ที่เซิร์ฟเวอร์ตั้ง (AnomalyManager)
 	TuneRadioPrompt = { "RadioOn", "RadioName", "RadioOff" },
+	-- สะพานไฟ: attribute "LightsOff" (server/Power) -> ปุ่มเปิดไฟกลับ
+	BreakerPrompt = { "BreakerOff", "BreakerName", "BreakerOn", "LightsOff" },
 }
 local trackedPrompts: { [ProximityPrompt]: boolean } = {}
 local function localizePrompt(p: Instance)
 	local keys = PROMPTS[p.Name]
 	if keys and p:IsA("ProximityPrompt") then
+		-- keys[3] = ข้อความตอน attribute keys[4] (ไม่ใส่ = "RadioOn") เป็นจริง
+		local attr = keys[4] or "RadioOn"
 		if not trackedPrompts[p] and keys[3] then
-			p:GetAttributeChangedSignal("RadioOn"):Connect(function()
+			p:GetAttributeChangedSignal(attr):Connect(function()
 				localizePrompt(p)
 			end)
 		end
 		trackedPrompts[p] = true
 		p.AutoLocalize = false
-		p.ActionText = ui(if keys[3] and p:GetAttribute("RadioOn") then keys[3] else keys[1])
+		p.ActionText = ui(if keys[3] and p:GetAttribute(attr) then keys[3] else keys[1])
 		p.ObjectText = ui(keys[2])
 	end
 end

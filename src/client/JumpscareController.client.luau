@@ -59,6 +59,11 @@ local FX = {
 	Scenery_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30), sounds = { { "Sting2", 1 }, { "Scream", 0.9, 0.1 } } },
 	Scenery_Krahang = { focus = "rigged", tint = Color3.fromRGB(80, 50, 10), sounds = { { "Sting", 1 }, { "Crows", 0.8, 0.05, 2 } } },
 	Scenery_Funeral = { focus = "rigged", tint = Color3.fromRGB(200, 200, 190), sounds = { { "Bells", 1 }, { "Sting2", 1, 0.1 } }, extra = "grey" },
+	-- ผีใหญ่บุกประชิด (server/BigEvents): source = กลุ่มผีที่กำลังเดินอยู่
+	Big_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0), sounds = { { "Sting", 1 }, { "Scream", 1, 0.05 } } },
+	Big_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30), sounds = { { "Sting2", 1 }, { "Scream", 1, 0.1 } } },
+	Big_Funeral = { focus = "rigged", tint = Color3.fromRGB(200, 200, 190), sounds = { { "Bells", 1 }, { "Scream", 0.9, 0.1 } }, extra = "grey" },
+	Big_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10), sounds = { { "Sting", 1 }, { "Laugh", 1, 0.1 } } },
 	Anomaly_TaKhon = { focus = "rider", tint = Color3.fromRGB(130, 0, 0), sounds = { { "Sting", 1 }, { "Laugh", 0.9, 0.15 } } },
 	Anomaly_MirrorGhost = { focus = "passenger", tint = Color3.fromRGB(40, 60, 70), sounds = { { "Sting2", 1 }, { "Crying", 0.8, 0.1 } } },
 	Anomaly_BloodFuel = { focus = "head", tint = Color3.fromRGB(150, 0, 0), sounds = { { "Glug", 1 }, { "Sting", 1, 0.15 } }, extra = "blood" },
