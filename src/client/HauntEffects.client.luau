@@ -22,12 +22,14 @@ gui.ResetOnSpawn = false
 gui.DisplayOrder = 40 -- เหนือ HUD ใต้ jumpscare / จอตาย
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- หนังตาเป็นวงรีกว้างกว่าจอ (ขอบเป็นแนวโค้งแบบเปลือกตา ไม่ใช่แถบดำตรงแบบจอหนัง) สีน้ำตาลแดงเข้ม
--- (แสงลอดหนังตา) ให้แยกออกจากฉากกลางคืนที่มืดอยู่แล้ว — เดิมแถบดำตรงกลืนกับความมืด ดูไม่ออกว่าตาจะหลับ
+-- หนังตาเป็นวงรีกว้างกว่าจอ (ขอบเป็นแนวโค้งแบบเปลือกตา ไม่ใช่แถบดำตรงแบบจอหนัง)
+-- สีดำโปร่งๆ ขอบจางยาว (เบลอ) — ผู้ใช้ 2026-11-04: ไม่เอาสีแดงทึบ
+local LID_ALPHA = 0.18 -- หนังตาโปร่งนิดๆ ยังเห็นภาพลางๆ
 local function lid(top: boolean): Frame
 	local f = Instance.new("Frame")
 	f.Name = if top then "LidTop" else "LidBottom"
-	f.BackgroundColor3 = Color3.fromRGB(26, 8, 6)
+	f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	f.BackgroundTransparency = LID_ALPHA
 	f.BorderSizePixel = 0
 	f.AnchorPoint = Vector2.new(0.5, if top then 1 else 0)
 	f.Position = UDim2.fromScale(0.5, if top then 0 else 1)
@@ -41,7 +43,8 @@ local function lid(top: boolean): Frame
 	g.Rotation = if top then 90 else 270
 	g.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(0.7, 0),
+		NumberSequenceKeypoint.new(0.45, 0.05),
+		NumberSequenceKeypoint.new(0.8, 0.55),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	g.Parent = f
@@ -50,6 +53,7 @@ local function lid(top: boolean): Frame
 	local back = Instance.new("Frame")
 	back.Name = "Back"
 	back.BackgroundColor3 = f.BackgroundColor3
+	back.BackgroundTransparency = LID_ALPHA
 	back.BorderSizePixel = 0
 	back.AnchorPoint = Vector2.new(0, if top then 1 else 0)
 	back.Position = UDim2.fromScale(0, 0.5)
@@ -123,10 +127,11 @@ local function drowsy(seconds: number)
 	task.spawn(function()
 		TweenService:Create(blur, TweenInfo.new(1.2), { Size = 10 }):Play()
 		TweenService:Create(grade, TweenInfo.new(1.2), { Brightness = -0.12, Saturation = -0.45, Contrast = 0.1 }):Play()
-		-- ปรือหนักขึ้นทีละรอบ: ครึ่งตา -> เกือบปิด -> ปิดสนิท แล้วสะดุ้งลืมตา
+		-- กะพริบปรือ 2 ครั้ง แล้วสุ่ม: ลืมตาหยุดแค่นั้น / หลับ (ปิดค้างครู่หนึ่ง) แล้วสะดุ้งตื่น
+		-- (ผู้ใช้ 2026-11-04: กะพริบแค่ 2 ครั้ง เดิม 3 ครั้งหนักขึ้นเรื่อยๆ)
 		-- (ไม่บังคับกล้องก้มลง/เอียง: ผู้ใช้ให้เอาออก 2026-11-03 — อาการอยู่ที่หนังตา เบลอ มืดลงเท่านั้น)
-		local beats = { { 0.4, 1.4 }, { 0.55, 1.5 }, { LID_MAX, 1.6 } }
-		local per = math.max(2.2, (seconds - 1) / #beats)
+		local beats = { { 0.4, 1.3 }, { 0.5, 1.4 } }
+		local per = math.max(2.0, (seconds - 1) / (#beats + 1))
 		for _, b in ipairs(beats) do
 			if not live() then
 				return
@@ -144,7 +149,15 @@ local function drowsy(seconds: number)
 		if not live() then
 			return
 		end
-		-- สะดุ้งตื่น
+		if math.random() < 0.5 then
+			-- หลับ: หนังตาปิดลงช้าๆ ค้างไว้ครู่หนึ่ง
+			setLids(LID_MAX, 1.6)
+			task.wait(1.6 + math.max(0.8, per - 1.6))
+			if not live() then
+				return
+			end
+		end
+		-- สะดุ้งตื่น / ลืมตา
 		setLids(0, 0.18, Enum.EasingStyle.Quad)
 		shakeUntil, shakeAmp = os.clock() + 0.35, 1.2
 		TweenService:Create(blur, TweenInfo.new(1.5), { Size = 0 }):Play()

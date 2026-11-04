@@ -266,10 +266,8 @@ local function setCam(spec: { [string]: any })
 end
 
 -- ---------------------------------------------------------------- ของบังกล้อง
--- หลายคนในคัทซีน: ตัวผู้เล่นคนอื่น (หรือตัวเอง) ที่ยืน/นั่งขวางระหว่างกล้องกับจุดที่กล้องมอง
--- และชิ้นตัวรถที่บังหน้าคนพูด -> จางลงเฉพาะเครื่องนี้ (LocalTransparencyModifier) แล้วค่อยๆ คืนเมื่อพ้นแนว
-local OCC_ALPHA = 0.7 -- ความจางของตัวที่บัง
-local OCC_RADIUS = 1.5 -- ระยะห่างจากเส้นสายตา (แนวราบ) ที่นับว่าบัง
+-- ชิ้นตัวรถที่บังหน้าคนพูด -> จางลงเฉพาะเครื่องนี้ (LocalTransparencyModifier) แล้วค่อยๆ คืนเมื่อพ้นแนว
+local OCC_ALPHA = 0.7 -- ความจางของชิ้นรถที่บัง
 local occluding = {} :: { [Instance]: boolean } -- ตัวละคร/ชิ้นรถที่กำลังบังอยู่เฟรมนี้
 local fadeLevel: { [Instance]: number } = {} -- ความจางปัจจุบันของแต่ละตัว (ค่อยๆ เลื่อนเข้าหาเป้า)
 
@@ -308,35 +306,7 @@ local function fadeOccluders(dt: number, from: Vector3, focus: Vector3?)
 		local seg = focus - from
 		local len2 = seg:Dot(seg)
 		if len2 > 1 then
-			-- ตัวผู้เล่นทุกคน + หุ่นทดสอบหลายคน (CutsceneDummy: Studio เท่านั้น ดู Cutscene.luau)
-			local bodies: { Model } = {}
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p.Character then
-					table.insert(bodies, p.Character)
-				end
-			end
-			for _, m in ipairs(Workspace:GetChildren()) do
-				if m:IsA("Model") and m:GetAttribute("CutsceneDummy") then
-					table.insert(bodies, m)
-				end
-			end
-			for _, ch in ipairs(bodies) do
-				local root = ch and ch:FindFirstChild("HumanoidRootPart") :: BasePart?
-				local head = ch and ch:FindFirstChild("Head") :: BasePart?
-				if root then
-					local b = root.Position
-					-- ตัวที่กล้องกำลังมอง (หัว/ตัวอยู่ใกล้จุดมอง) ไม่นับว่าบัง
-					local subject = (head and (head.Position - focus).Magnitude < 2.5) or (b - focus).Magnitude < 2.5
-					local t = (b - from):Dot(seg) / len2
-					if not subject and t > 0.02 and t < 0.9 then
-						local near = from + seg * t
-						local flat = Vector3.new(b.X - near.X, 0, b.Z - near.Z).Magnitude
-						if flat < OCC_RADIUS and near.Y > b.Y - 3.2 and near.Y < b.Y + 2.6 then
-							occluding[ch :: Model] = true
-						end
-					end
-				end
-			end
+			-- (ตัวละครที่ยืนขวางกล้องไม่ทำให้จางแล้ว: ผู้ใช้ 2026-11-04 ไม่ให้มีช่วงตัวจางในคัทซีน)
 			-- ตัวรถ (หลังคา/กระจก/ข้างรถ) ที่บังคนพูด: ยิงจากกล้องไปจุดมอง เฉพาะชิ้นรถ (ไม่รวมคนขับ)
 			if vehicle then
 				occParams.FilterDescendantsInstances = { vehicle }
