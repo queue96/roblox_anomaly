@@ -51,6 +51,17 @@ GHOSTS = {
                                     clips=["coffin_walk", "ghost_glide"]),
     "ghost_dancer": dict(char="female", outfit="ghost_dancer", hair=None, skin="SkinGhost", face="porcelain",
                          clips=["dancer_dance", "dancer_idle"]),                     # ผีนางรำ (ref: art_refs/body/ghost_dancer_ref.jpg)
+    # props: rigid pieces of the ghost on one bone (PROPS); allow: body-part pairs that touch by design (palms pressed together)
+    "ghost_shroud": dict(char="male", outfit="ghost_shroud", hair=None, skin="SkinWithered", props=["jaw_tie"],
+                         allow=[("hand.L", "hand.R")], clips=["shroud_idle", "shroud_glide"]),     # 29: ศพห่อผ้าขาว ตราสัง
+    "ghost_child": dict(char="child", outfit="ghost_child", hair="child_short", skin="SkinGhost",
+                        clips=["ghost_idle", "ghost_glide"]),                        # ผีเด็ก
+    "ghost_mae_nak": dict(char="female", outfit="ghost_nak", hair="ghost_long", skin="SkinGhost", props=["baby"],
+                          stretch=("forearm.R", "hand.R"), clips=["nak_cradle", "nak_reach"]),    # แม่นาค: อุ้มลูก / แขนยืด
+    "ghost_kuman_thong": dict(char="child", outfit="ghost_kuman", hair="juk", skin="SkinGold",
+                              clips=["kuman_sit", "kuman_giggle", "run"]),           # กุมารทอง
+    "ghost_ta_khon": dict(char="male", outfit="mohom", hair=None, skin="Skin", props=["ta_khon_mask"],
+                          clips=["ride_moto", "mask_tilt"]),                         # 8: คนขับใส่หน้ากากผีตาโขน เลือดซึมจากตา
 }
 
 # ---------------------------------------------------------------- clips (build_anims.py conventions: left-side degrees)
@@ -162,12 +173,97 @@ def c_dancer_idle(P, t, st, s):
              R=(-16, 40, 72, 34, -10, "wong"), L=(-18, 38, 76, 30, 10, "jeeb"))
     dancer_pose(P, d, s, br=br)
 
+def shroud_body(P, t, s, glide):
+    """ศพลุก: floating upright and stiff like a body laid out, hands pressed together on the chest (wai, as the corpse
+    is tied with ตราสัง), head bowed, the whole body swaying slowly as one piece; toes hang down"""
+    ph = 2*math.pi*t
+    P.lift("root", 0.10*s + 0.03*s*math.sin(ph))
+    P.rot("hips", 2 + 3*glide, 4*math.sin(ph)*glide, 2.5*math.sin(ph))
+    P.rot("spine", 3 + 3*glide, 0, 1.0*math.sin(ph + 0.4)); P.rot("chest", 2, 0, 0.6*math.sin(ph + 0.7))
+    twitch = sm(0.62, 0.64, t) - sm(0.68, 0.80, t)
+    P.rot("neck", 10, 0, 3*math.sin(ph)); P.rot("head", 14 + 4*twitch, 10*twitch, 4*math.sin(ph + 0.9) - 8*twitch)
+    for sd in ("L", "R"):
+        arm(P, sd, **AN["PRAY_ARM"]); hand(P, sd, "wai")
+    for sd, off in (("L", 0.0), ("R", 0.0)):
+        P.rot("thigh." + sd, 2 + 3*math.sin(ph + off)*glide, 0, 0); P.rot("shin." + sd, -4)
+        P.rot("foot." + sd, -40); P.rot("toe." + sd, -15)
+
+def c_shroud_idle(P, t, st, s): shroud_body(P, t, s, 0.0)
+def c_shroud_glide(P, t, st, s): shroud_body(P, t, s, 1.0)
+
+# แม่นาค: the left arm holds the swaddled baby across the belly (angles found by cradle_search: forearm level across the
+# front, clear of the sabai and the belly); the baby (prop) rides the chest bone, so the arm and it keep together
+NAK_CRADLE = dict(raise_=-24, fwd=46, bend=100, wrist=-6, twist=26)
+NAK_STRETCH = 0.42            # metres (x s) the forearm and the hand each slide out along the arm at full reach
+def nak_body(P, t, s, rock=1.0):
+    ph = 2*math.pi*t
+    P.lift("root", 0.04*s + 0.015*s*math.sin(ph*2))
+    P.rot("hips", 2, 0, 3.5*rock*math.sin(ph)); P.rot("spine", 6, 0, -2.0*rock*math.sin(ph)); P.rot("chest", 4)
+    arm(P, "L", **NAK_CRADLE); hand(P, "L", "relax", 0.7)
+    for sd in ("L", "R"):
+        P.rot("thigh." + sd, 2, 0, 1); P.rot("shin." + sd, -6); P.rot("foot." + sd, -34); P.rot("toe." + sd, -16)
+
+def c_nak_cradle(P, t, st, s):
+    """กล่อมลูก: floating low, rocking the baby from side to side, head bowed over it, the right arm hanging, swaying"""
+    ph = 2*math.pi*t
+    nak_body(P, t, s)
+    P.rot("neck", 16, -6, 4*math.sin(ph)); P.rot("head", 18, -10 + 4*math.sin(ph + 0.6), 6*math.sin(ph))
+    lo = math.degrees(P.lim.get("upper_arm.R", (math.radians(-35),)*6)[0]) + 3
+    P.rot("upper_arm.R", lo + 8, 0, -5 - 4*math.sin(ph - 0.9)); P.rot("forearm.R", 0, 0, -14)
+    hand(P, "R", "relax")
+
+def c_nak_reach(P, t, st, s):
+    """แขนยืด: still holding the baby, she looks up, raises the right arm straight forward and it stretches out to
+    about twice its length (forearm and hand slide out along the arm), the fingers clawing, holds, then draws back"""
+    ph = 2*math.pi*t
+    up = sm(0.08, 0.26, t)*(1 - sm(0.84, 0.98, t)); out = sm(0.24, 0.50, t)*(1 - sm(0.72, 0.90, t))
+    nak_body(P, t, s, rock=1 - up)
+    P.rot("neck", 16 - 18*up, -6*(1 - up), 0); P.rot("head", 18 - 26*up, -10*(1 - up) + 4*up*math.sin(ph*3), 0)
+    lo = math.degrees(P.lim.get("upper_arm.R", (math.radians(-35),)*6)[0]) + 3
+    arm(P, "R", raise_=(lo + 8)*(1 - up) + 40*up, fwd=8 + 72*up, bend=14*(1 - up) + 2*up, wrist=-10*up)
+    hand(P, "R", "claw" if out > 0.3 else "relax")
+    if out > 0.3:                  # clawing: fingers curled at the tips, spread
+        for f, sp in (("index", -8), ("middle", -2), ("ring", 4), ("pinky", 10)):
+            P.rot(f"{f}_01.R", -20, 0, sp); P.rot(f"{f}_02.R", -45); P.rot(f"{f}_03.R", -40)
+    d = NAK_STRETCH*s*out
+    P.frame["forearm.R@loc"] = ("loc", Vector((0, d, 0))); P.frame["hand.R@loc"] = ("loc", Vector((0, d, 0)))
+
+def c_kuman_sit(P, t, st, s):
+    """กุมารทองบนหิ้ง: sitting on the shelf edge, legs hanging, hands on the knees, still as a statue; then the head
+    turns by itself to look at the player, holds, and turns back (StatueHeadTurn)"""
+    look = sm(0.30, 0.42, t)*(1 - sm(0.80, 0.92, t))
+    P.both("thigh", 88, 0, 6); P.both("shin", -86); P.both("foot", 4)
+    P.rot("spine", 2); P.rot("chest", 1)
+    P.rot("neck", 2, 16*look, 0); P.rot("head", -4*look, 24*look, 3*look)
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=-24, fwd=44, bend=40, wrist=-6); hand(P, sd, "relax", 0.8)
+
+def c_kuman_giggle(P, t, st, s):
+    """หัวเราะคิกคัก: standing, hands on the belly, shoulders bobbing in quick giggles, head tilting, little bounces"""
+    ph = 2*math.pi*t; gg = abs(math.sin(ph*5))*(0.6 + 0.4*math.sin(ph))
+    P.rot("spine", 4 + 2*gg); P.rot("chest", 3 + 2*gg); P.both("shoulder", 4*gg)
+    P.rot("neck", 4, 0, 6*math.sin(ph)); P.rot("head", 6 - 6*gg, 10*math.sin(ph), 10*math.sin(ph))
+    for sd in ("L", "R"):
+        arm(P, sd, raise_=-26, fwd=30, bend=58 + 6*gg, wrist=4); hand(P, sd, "relax")
+    legs_bounce(P, 6*gg); P.lift("hips", -hip_drop(6*gg, s))
+
+def c_mask_tilt(P, t, st, s):
+    """คนขับใส่หน้ากากผีตาโขน: riding, the masked head turns slowly to the player at the side, tilts over, holds
+    the stare, then jerks back to the road"""
+    AN["c_ride_moto"](P, t, st, s)
+    look = sm(0.15, 0.40, t)*(1 - sm(0.82, 0.86, t))
+    P.rot("neck", -6 + 4*look, 18*look, 6*look); P.rot("head", -6 + 6*look, 30*look, 18*look)
+
 NEW_CLIPS = {"pillion_hug": (c_pillion_hug, 120), "pillion_look": (c_pillion_look, 180), "tani_peek": (c_tani_peek, 150),
-             "coffin_walk": (c_coffin_walk, 60), "dancer_dance": (c_dancer_dance, 360), "dancer_idle": (c_dancer_idle, 150)}
+             "coffin_walk": (c_coffin_walk, 60), "dancer_dance": (c_dancer_dance, 360), "dancer_idle": (c_dancer_idle, 150),
+             "shroud_idle": (c_shroud_idle, 150), "shroud_glide": (c_shroud_glide, 90), "nak_cradle": (c_nak_cradle, 150),
+             "nak_reach": (c_nak_reach, 150), "kuman_sit": (c_kuman_sit, 180), "kuman_giggle": (c_kuman_giggle, 90),
+             "mask_tilt": (c_mask_tilt, 150)}
 FIXED_TEMPO = {"dancer_dance", "pillion_hug", "pillion_look"}
 
-def make_clips(char, clips, headless=False):
-    """only the ghost's own clips stay in the file (the 40 human clips are dropped)"""
+def make_clips(char, clips, headless=False, stretch=()):
+    """only the ghost's own clips stay in the file (the 40 human clips are dropped); `stretch`: bones that also get
+    location keys (they slide out along their parent: แม่นาค's arm), in every clip so the others hold them at rest"""
     rig = bpy.data.objects["HumanRig"]; st = AN["STYLE"][char]
     s = (rig.data.bones["head"].tail_local.z - rig.data.bones["hips"].head_local.z)/(1.818 - 0.880)
     for a in list(bpy.data.actions): bpy.data.actions.remove(a)
@@ -180,6 +276,7 @@ def make_clips(char, clips, headless=False):
         n = max(8, round(frames*(1.0 if name in FIXED_TEMPO or name in AN["FIXED_TEMPO"] else st["slow"])))
         for f in range(n + 1):
             fn(P, (f % n)/n, st, s); P.key(f + 1)
+            for bn in stretch: rig.pose.bones[bn].keyframe_insert("location", frame=f + 1, group=bn)
         act.frame_range = (1, n + 1)
         try: act.use_cyclic = True
         except AttributeError: pass
@@ -456,6 +553,385 @@ def porcelain_face(body, rig, char, s):
     ni = bpy.data.images.load(out); nd.image = ni
     body.data.materials[0] = nm
 
+# ---------------------------------------------------------------- props (rigid pieces on one bone) and the gold skin
+def head_frame(body, rig):
+    """the head frame of build_skin / porcelain_face: C = centre of the head's bounding box, U = up the head bone,
+    F = forward (-Y) square to U, L = U x F (the character's left)"""
+    b = CL["Body"](body, rig)
+    hv = b.co[b.w[:, b.names.index("head")] > 0.99]; C = (hv.min(0) + hv.max(0))/2
+    hb = rig.data.bones["head"]; rw = rig.matrix_world
+    U = np.array((rw @ hb.tail_local - rw @ hb.head_local).normalized())
+    F = np.array((0, -1.0, 0)) - U*(-U[1]); F /= np.linalg.norm(F); L = np.cross(U, F)
+    return b, Vector(C), Vector(U), Vector(F), Vector(L), hv
+
+def uv_meta(char):
+    d = json.load(open(os.path.join(CL["char_dir"](char), CL["NAMES"][char] + "_uv.json")))
+    return {k: v for k, v in d.items() if k != "uv"}
+
+def _face(msh, ids, uvs, out):
+    """a face wound so its normal points along `out`"""
+    P_ = [msh.v[i] for i in ids]; n = (P_[1] - P_[0]).cross(P_[2] - P_[0])
+    if n.dot(out) < 0: ids, uvs = list(ids)[::-1], list(uvs)[::-1]
+    msh.face(ids, uvs)
+
+def _grid_faces(msh, rows, uvs, out_fn, wrap=False):
+    """quads between rows of vertex ids (rows[i][j]); uvs[i][j] per corner; out_fn(i, j) = outward direction"""
+    for i in range(len(rows) - 1):
+        n = len(rows[i]) - (0 if wrap else 1)
+        for j in range(n):
+            j2 = (j + 1) % len(rows[i])
+            _face(msh, [rows[i][j], rows[i + 1][j], rows[i + 1][j2], rows[i][j2]],
+                  [uvs[i][j], uvs[i + 1][j], uvs[i + 1][j + 1 if wrap else j2], uvs[i][j + 1 if wrap else j2]], out_fn(i, j))
+
+def jaw_tie(body, rig, char, s):
+    """ผ้าผูกคาง of a laid-out body: a white cloth band from the top of the head, down in front of the ears and
+    under the chin, bound to the head. Its loop tilts forward at the bottom so it passes under the jaw, not the neck."""
+    b, C, U, F, L, hv = head_frame(body, rig); s = b.s
+    c0 = C + F*0.042*s - U*0.010*s                                   # in front of the ears
+    n = 48; w = 0.044*s; th = 0.0035*s
+    dirs, rad = [], []
+    for k in range(n):
+        ph = 2*math.pi*k/n
+        tilt = math.radians(16 + 22*(1 - math.cos(ph))/2)                  # 16 deg back at the top, 38 forward under the chin
+        up = U*math.cos(tilt) - F*math.sin(tilt)
+        d = (up*math.cos(ph) + L*math.sin(ph)).normalized(); dirs.append(d)
+        best = 0.0
+        for off in np.linspace(-w*0.6, w*0.6, 7):                        # over the width of the band
+            nrm_ = L.cross(up).normalized(); o = c0 + nrm_*off
+            hit = b.bvh.ray_cast(o, d, 0.4*s)                               # leaving the head from inside
+            if hit[0] is not None: best = max(best, (hit[0] - o).dot(d))
+            if abs(math.sin(ph)) > 0.5:                                    # the sides: clear of the ears too
+                hit = b.bvh.ray_cast(o + d*0.16*s, -d, 0.16*s)
+                if hit[0] is not None: best = max(best, (hit[0] - o).dot(d))
+        rad.append(best + (0.008 + 0.006*(1 - math.cos(ph))/2)*s)
+    rad = [max(rad[k], (rad[k - 1] + rad[(k + 1) % n])/2) for k in range(n)]
+    P = [c0 + d*r for d, r in zip(dirs, rad)]
+    msh = CL["Mesh"](); W = {"head": 1.0}; rows = [[], [], [], []]; acc = [0.0]
+    for k in range(n): acc.append(acc[-1] + (P[(k + 1) % n] - P[k]).length)
+    for k in range(n):
+        T = (P[(k + 1) % n] - P[k - 1]).normalized(); Nb = T.cross(dirs[k]).normalized()
+        for r_, (o, din) in enumerate(((Nb*(-w/2), 0), (Nb*(w/2), 0), (Nb*(w/2), th), (Nb*(-w/2), th))):
+            rows[r_].append(msh.vert(P[k] + o - dirs[k]*din, W))
+    def uv(r_, k): return (acc[k]/CL["TILE"], 1.0 if r_ in (1, 2) else 0.0)
+    for k in range(n):
+        k2 = (k + 1) % n; kk = k + 1; out = dirs[k]
+        _face(msh, [rows[0][k], rows[1][k], rows[1][k2], rows[0][k2]], [uv(0, k), uv(1, k), uv(1, kk), uv(0, kk)], out)
+        _face(msh, [rows[3][k], rows[2][k], rows[2][k2], rows[3][k2]], [uv(0, k), uv(1, k), uv(1, kk), uv(0, kk)], -out)
+        Nb = (P[k2] - P[k - 1]).cross(dirs[k]).normalized()
+        _face(msh, [rows[1][k], rows[2][k], rows[2][k2], rows[1][k2]], [uv(1, k)]*2 + [uv(1, kk)]*2, Nb)
+        _face(msh, [rows[0][k], rows[3][k], rows[3][k2], rows[0][k2]], [uv(0, k)]*2 + [uv(0, kk)]*2, -Nb)
+    pat = "ghost_sabai_white"
+    mat = CL["tex_material"]("Cloth_" + pat, os.path.join(CL["TEX"], pat))
+    return msh.to_object("Prop_JawTie", rig, mat, fix_normals=False)
+
+def _posed_trees(objs, deps):
+    out = []
+    for o in objs:
+        V, F_, _ = _mesh(o, deps); out.append(BVHTree.FromPolygons(V, F_))
+    return out
+
+def baby(body, rig, char, s, clip="nak_cradle"):
+    """แม่นาค's baby: a swaddled bundle lying on her left forearm (at frame 1 of `clip`), pushed forward / up until it is
+    1.2 cm clear of her arm, body, clothes and hair; bound to the chest bone (the cradling arm moves with the chest)"""
+    sc = bpy.context.scene; mw = rig.matrix_world; pb = rig.pose.bones
+    rig.animation_data.action = bpy.data.actions[clip]; sc.frame_set(1); bpy.context.view_layer.update()
+    deps = bpy.context.evaluated_depsgraph_get()
+    e = mw @ pb["forearm.L"].head; wr = mw @ pb["hand.L"].head
+    ax = (e - wr).normalized()                                       # the head end lies towards the elbow
+    side = ax.cross(Vector((0, 0, 1))).normalized(); upv = side.cross(ax).normalized()
+    if upv.z < 0: upv = -upv; side = -side
+    A, R1, R2 = 0.19*s, 0.080*s, 0.070*s
+    nr, ns_ = 14, 16
+    def shape(c):
+        pts = []
+        for i in range(nr + 1):
+            th = math.pi*i/nr; rr = math.sin(th)
+            for j in range(ns_):
+                ph = 2*math.pi*j/ns_
+                pts.append(c + ax*A*math.cos(th) + (side*R1*math.cos(ph) + upv*R2*math.sin(ph))*rr*(1 + 0.06*math.cos(2*th)))
+        return pts
+    objs = [o for o in bpy.data.objects if o.type == 'MESH' and not o.hide_render and (o.name == "Body" or o.name.startswith(("Cloth_", "Hair_")))]
+    trees = _posed_trees(objs, deps)
+    c = (e + wr)/2 + upv*(0.035*s + R2 + 0.012*s)
+    for it in range(80):
+        worst = 9.0
+        for p in shape(c):
+            for tr in trees:
+                loc, nrm, _, d = tr.find_nearest(p, 0.05)
+                if loc is None: continue
+                d = d if (p - loc).dot(nrm) > 0 else -d
+                worst = min(worst, d)
+        if worst > 0.012*s: break
+        c = c + Vector((0, -0.005*s, 0.0015*s))                       # forward (away from the body), a little up
+    # build at the posed place, then move into the rest pose of the chest bone
+    Mp = mw @ pb["chest"].matrix; Mr = mw @ rig.data.bones["chest"].matrix_local; T = Mr @ Mp.inverted()
+    msh = CL["Mesh"](); W = {"chest": 1.0}; pts = shape(c)
+    ids = [[msh.vert(T @ pts[i*ns_ + j], W) for j in range(ns_)] for i in range(nr + 1)]
+    cc = T @ c
+    for i in range(nr):
+        for j in range(ns_):
+            j2 = (j + 1) % ns_
+            q = [ids[i][j], ids[i + 1][j], ids[i + 1][j2], ids[i][j2]]
+            quv = [(j/ns_, i/nr), (j/ns_, (i + 1)/nr), ((j + 1)/ns_, (i + 1)/nr), ((j + 1)/ns_, i/nr)]
+            ctr = sum((msh.v[x] for x in q), Vector())/4
+            _face(msh, q, quv, ctr - cc)
+    # texture: u round the bundle (0.25 = up), v from the head end (0) to the feet (1)
+    N_ = 256; xx = (np.arange(N_) + 0.5)/N_; X, Y = np.meshgrid(xx, xx)
+    wrapb = ((Y*5 + X*1.0) % 1.0)
+    col = np.ones((N_, N_, 3))*np.array((0.74, 0.68, 0.56))*(0.86 + 0.14*wrapb)[..., None]
+    col = CL["mix"](col, (0.45, 0.40, 0.32), CL["sstep"](0.06, 0.0, wrapb)*0.7)
+    col = CL["mix"](col, CL["DIRT"], 0.45*CL["sstep"](0.55, 0.8, CL["fbm"](X*6, Y*6, oct=3, seed=150, period=6)))
+    col = CL["mix"](col, CL["BLOOD_OLD"], 0.8*CL["sstep"](0.72, 0.76, CL["fbm"](X*5, Y*5, oct=3, seed=151, period=5)))
+    fx, fy = (X - 0.25)/0.10, (Y - 0.10)/0.075; face = np.hypot(fx, fy)            # the little face, looking up
+    col = CL["mix"](col, (0.10, 0.08, 0.07), CL["sstep"](1.35, 1.1, face))           # hood shadow
+    col = CL["mix"](col, (0.56, 0.60, 0.62), CL["sstep"](1.05, 0.9, face))           # grey-blue dead skin
+    for sx in (-1, 1):
+        col = CL["mix"](col, (0.12, 0.10, 0.12), (np.abs(fy + 0.15) < 0.10)*(np.abs(fx - sx*0.38) < 0.22))   # closed eyes
+    col = CL["mix"](col, (0.25, 0.10, 0.12), np.hypot(fx/0.25, (fy - 0.45)/0.10) < 1)  # mouth
+    hgt = 0.0006*wrapb - 0.0004*(face < 1.0)
+    base = os.path.join(GH, "nak_baby"); os.makedirs(GH, exist_ok=True)
+    CL["save_png"](col, base + "_Color.png", False); CL["save_png"](CL["normal_from_height"](hgt, 700, 700, wrap=True), base + "_Normal.png", True)
+    CL["save_png"](np.clip(0.85 - 0.2*(face < 1), 0, 1), base + "_Roughness.png", True)
+    ob = msh.to_object("Prop_Baby", rig, CL["tex_material"]("NakBaby", base), fix_normals=False)
+    sc.frame_set(1)
+    return ob
+
+def ta_khon_mask(body, rig, char, s):
+    """หน้ากากผีตาโขน (ref: art_refs/ghosts/phi_ta_khon): a painted face plate over the whole face, pointed below the
+    chin, with a long curved nose, the หวด (rice-steamer basket) flaring up on top, patchwork cloth round the back of
+    the head; blood seeping from the eye holes and running down the face. Bound to `head`; texture ta_khon_mask_*."""
+    b, C, U, F, L, hv = head_frame(body, rig); s = b.s; meta = uv_meta(char)
+    hcrown = float(max((Vector(p) - C).dot(U) for p in hv))
+    chin, ey, my = meta["chin_h"], meta["eye_h"], meta["mouth_h"]
+    Hmin, Hcap = chin - 0.13*s, hcrown - 0.03*s
+    def hbot(a):
+        aa = abs(a); r40, r110 = math.radians(40), math.radians(110)
+        if aa < r40: return chin - 0.13*s*(1 - aa/r40)
+        if aa < r110: return chin + 0.040*s*CL["sst"](r40, r110, aa)
+        return chin + 0.040*s + 0.015*s*CL["sst"](r110, math.pi, aa)
+    def dir_(a): return F*math.cos(a) + L*math.sin(a)
+    hs = np.linspace(chin, hcrown + 0.02*s, 44)
+    nA, nV = 48, 26; A = np.linspace(-math.pi, math.pi, nA + 1)[:-1]
+    prof = {}
+    for a in A:                                      # outermost skin (ears included) along each direction and height,
+        d = dir_(a); rs = []                         # over the width of the column (an ear can sit between two)
+        for h in hs:
+            o = C + U*h; best = 0.0
+            for da in (-0.07, -0.035, 0.0, 0.035, 0.07):
+                d_ = dir_(a + da); hit = b.bvh.ray_cast(o + d_*0.3*s, -d_, 0.3*s)
+                if hit[0] is not None: best = max(best, (hit[0] - o).dot(d))
+            rs.append(best)
+        prof[a] = np.array(rs)
+    def r_at(a, h):
+        rs = prof[a]; k = hs >= min(h, hs[-1]) - 1e-9
+        k &= hs <= max(h, chin) + 0.03*s
+        base_ = float(rs[k].max()) if k.any() else float(rs.max())
+        return base_ + 0.022*s + 0.016*s*CL["sst"](chin, chin - 0.13*s, h)*max(0.0, math.cos(a))   # the point leans out
+    R = np.array([[r_at(a, hbot(a) + (Hcap - hbot(a))*j/(nV - 1)) for a in A] for j in range(nV)])
+    R = np.maximum(R, (np.roll(R, 1, 1) + np.roll(R, -1, 1))/2)      # no dents between the columns
+    msh = CL["Mesh"](); W = {"head": 1.0}; INNER = (0.75, 0.955)
+    def hj(i, j): return hbot(A[i]) + (Hcap - hbot(A[i]))*j/(nV - 1)
+    outer = [[msh.vert(C + U*hj(i, j) + dir_(A[i])*R[j, i], W) for i in range(nA)] for j in range(nV)]
+    inner = [[msh.vert(C + U*hj(i, j) + dir_(A[i])*(R[j, i] - 0.006*s), W) for i in range(nA)] for j in range(nV)]
+    VM = 0.64
+    def uvo(j, i): return ((A[i % nA] + (2*math.pi if i == nA else 0))/(2*math.pi) + 0.5, VM*(hj(i % nA, j) - Hmin)/(Hcap - Hmin))
+    uvO = [[uvo(j, i) for i in range(nA + 1)] for j in range(nV)]; uvI = [[INNER]*(nA + 1) for _ in range(nV)]
+    _grid_faces(msh, outer, uvO, lambda j, i: dir_(A[i]), wrap=True)
+    _grid_faces(msh, inner, uvI, lambda j, i: -dir_(A[i]), wrap=True)
+    for i in range(nA):                                               # rim along the bottom edge
+        i2 = (i + 1) % nA
+        _face(msh, [outer[0][i], outer[0][i2], inner[0][i2], inner[0][i]], [uvO[0][i], uvO[0][i + 1], INNER, INNER], -U)
+    # the top closed under the basket: a dome over the crown, each ring clear of the skull at its height
+    prev, prev_r = outer[-1], R[-1]
+    for hk in np.linspace(Hcap, hcrown + 0.020*s, 5)[1:]:
+        rr = []
+        for i, a in enumerate(A):
+            k = hs >= hk - 0.004*s; r0 = (float(prof[a][k].max()) if k.any() else 0.0) + 0.022*s
+            rr.append(min(max(r0, 0.25*prev_r[i]), prev_r[i]))
+        ring = [msh.vert(C + U*hk + dir_(A[i])*rr[i], W) for i in range(nA)]
+        for i in range(nA):
+            i2 = (i + 1) % nA
+            _face(msh, [prev[i], prev[i2], ring[i2], ring[i]], [INNER]*4, U + dir_(A[i])*0.3)
+        prev, prev_r = ring, np.array(rr)
+    ctop = msh.vert(C + U*(hcrown + 0.026*s), W)
+    for i in range(nA):
+        _face(msh, [prev[i], prev[(i + 1) % nA], ctop], [INNER]*3, U)
+    # หวด: flaring basket on top, a lathe round the head axis, walls with a rim at the top
+    rb = float(R[-1].max()) + 0.004*s; z0 = Hcap - 0.012*s
+    bprof = [(rb, 0.0), (rb + 0.012*s, 0.05*s), (0.130*s, 0.11*s), (0.180*s, 0.17*s), (0.225*s, 0.225*s), (0.245*s, 0.245*s)]
+    nb_ = 40; Bo, Bi = [], []
+    for r_, z_ in bprof:
+        Bo.append([msh.vert(C + U*(z0 + z_) + dir_(2*math.pi*k/nb_)*r_, W) for k in range(nb_)])
+        Bi.append([msh.vert(C + U*(z0 + z_ + 0.002*s) + dir_(2*math.pi*k/nb_)*(r_ - 0.007*s), W) for k in range(nb_)])
+    uvB = [[(k/nb_, 0.66 + 0.24*q/(len(bprof) - 1)) for k in range(nb_ + 1)] for q in range(len(bprof))]
+    def bout(q, k):
+        a = 2*math.pi*k/nb_; dr = bprof[min(q + 1, len(bprof) - 1)][0] - bprof[q][0]; dz = bprof[min(q + 1, len(bprof) - 1)][1] - bprof[q][1]
+        return dir_(a)*dz - U*dr if (dr or dz) else dir_(a)
+    _grid_faces(msh, Bo, uvB, bout, wrap=True)
+    _grid_faces(msh, Bi, [[INNER]*(nb_ + 1) for _ in bprof], lambda q, k: -bout(q, k), wrap=True)
+    for k in range(nb_):
+        k2 = (k + 1) % nb_
+        _face(msh, [Bo[-1][k], Bo[-1][k2], Bi[-1][k2], Bi[-1][k]], [uvB[-1][k], uvB[-1][k + 1], INNER, INNER], U)
+        _face(msh, [Bo[0][k], Bo[0][k2], Bi[0][k2], Bi[0][k]], [INNER]*4, -U)
+    # the long nose: from the bridge, down and out, the end curling forward
+    j0 = int(round((meta["tip_h"] + 0.010*s - hbot(0.0))/(Hcap - hbot(0.0))*(nV - 1)))
+    i0 = int(np.argmin(np.abs(A)))
+    nb0 = C + U*hj(i0, j0) + F*(R[j0, i0] + 0.004*s)             # the base ring stands on the plate, clear of the nose
+    npts = [nb0 + F*(0.022*s*t + 0.030*s*t*t + 0.020*s*CL["sst"](0.7, 1.0, t)) - U*(0.19*s*t) for t in np.linspace(0, 1, 11)]
+    nrad = [0.017*s*(1 - t)**0.7 + 0.0035*s for t in np.linspace(0, 1, 11)]
+    nk = 8; NR = []
+    for q, p in enumerate(npts):
+        T = (npts[min(q + 1, 10)] - npts[max(q - 1, 0)]).normalized(); n1 = L; n2 = T.cross(L).normalized()
+        NR.append([msh.vert(p + (n1*math.cos(2*math.pi*k/nk) + n2*math.sin(2*math.pi*k/nk))*nrad[q]*(1.0 if k % 4 else 1.0), W) for k in range(nk)])
+    uvN = [[(0.5*k/nk, 0.92 + 0.06*q/10) for k in range(nk + 1)] for q in range(11)]
+    _grid_faces(msh, NR, uvN, lambda q, k: (msh.v[NR[q][k]] - npts[q]), wrap=True)
+    tipv = msh.vert(npts[-1] + (npts[-1] - npts[-2]).normalized()*0.004*s, W)
+    for k in range(nk): _face(msh, [NR[-1][k], NR[-1][(k + 1) % nk], tipv], [uvN[-1][k], uvN[-1][k + 1], (0.25, 0.985)], npts[-1] - npts[-2])
+    # ---- texture
+    N_ = 1024; xx = (np.arange(N_) + 0.5)/N_; Uu, Vv = np.meshgrid(xx, xx)
+    mix, sst_, fbm = CL["mix"], CL["sstep"], CL["fbm"]
+    col = np.zeros((N_, N_, 3)); hgt = np.zeros((N_, N_)); rgh = np.full((N_, N_), 0.6)
+    GOLD = (0.78, 0.60, 0.24); RED = (0.66, 0.08, 0.06); BLK = (0.03, 0.025, 0.02)
+    # helmet: a round the head (0 = front), h up the head axis
+    a = (Uu - 0.5)*2*math.pi; h = Hmin + Vv/VM*(Hcap - Hmin); hel = Vv <= VM + 0.004
+    RFm = float(np.median(R[nV//2, np.abs(A) < 0.6])); X = a*RFm; Y = h; aa = np.abs(a)
+    hb_ = np.vectorize(hbot)(a)
+    c = np.ones((N_, N_, 3))*np.array((0.87, 0.84, 0.75))*(0.90 + 0.12*fbm(X*40, Y*40, oct=3, seed=160))[..., None]
+    # patchwork cloth round the back of the head
+    back = aa > math.radians(104)
+    band = np.floor((Y - Hmin)/(0.032*s) + 0.25*np.sin(a*3)).astype(int) % 6
+    pal = np.array([(0.62, 0.09, 0.08), (0.80, 0.66, 0.12), (0.84, 0.82, 0.76), (0.12, 0.20, 0.50), (0.16, 0.42, 0.20), (0.06, 0.06, 0.07)])
+    pc = pal[band]*(0.80 + 0.15*fbm(X*30, Y*30, oct=2, seed=161))[..., None]
+    pc = mix(pc, (0.92, 0.90, 0.85), (np.abs(((Y - Hmin)/(0.032*s) + 0.25*np.sin(a*3)) % 1.0 - 0.02) < 0.03)*(np.sin(X*900) > 0))   # stitches
+    c = np.where(back[..., None], pc, c)
+    c = mix(c, GOLD, (np.abs(aa - math.radians(104)) < 0.035)*0.95); c = mix(c, BLK, (np.abs(aa - math.radians(104)) < 0.008))
+    # eye holes, slanted up at the outer corners, black rimmed, red round them
+    ex, ey_m = 0.036*s, ey + 0.004*s
+    E = np.hypot((np.abs(X) - ex)/(0.020*s), (Y - ey_m - 0.30*(np.abs(X) - ex))/(0.0085*s))
+    c = mix(c, RED, (E < 1.75)*(aa < 1.3)); c = mix(c, BLK, (E < 1.30)*(aa < 1.3)); c = mix(c, (0.01, 0.01, 0.01), (E < 1.0)*(aa < 1.3))
+    hgt -= 0.0010*(E < 1.0)*(aa < 1.3)
+    # flame brows over the eyes, gold edged
+    xf = np.abs(X) - ex; zf = Y - (ey_m + 0.010*s)
+    hf = 0.058*s*np.clip(1 - (xf/(0.032*s))**2, 0, 1)*(0.45 + 0.55*np.abs(np.cos(xf/(0.0085*s)*math.pi)))
+    fl_o = (zf > -0.004*s)*(zf < hf + 0.004*s)*(np.abs(xf) < 0.034*s)*(aa < 1.3)
+    fl = (zf > 0)*(zf < hf)*(np.abs(xf) < 0.031*s)*(aa < 1.3)
+    c = mix(c, GOLD, fl_o*(E > 1.75)); c = mix(c, RED, fl*(E > 1.75))
+    # the grin: red mouth from cheek to cheek, white fangs top and bottom, black lips, gold round it
+    yu = my + 0.012*s + 5.0*X**2/s; yl = my - 0.042*s + 3.5*X**2/s; inm = (np.abs(X) < 0.088*s)*(aa < 1.3)
+    mouth = inm*(Y < yu)*(Y > yl)
+    c = mix(c, GOLD, inm*(Y < yu + 0.009*s)*(Y > yl - 0.009*s)); c = mix(c, BLK, inm*(Y < yu + 0.003*s)*(Y > yl - 0.003*s))
+    c = mix(c, (0.30, 0.02, 0.02), mouth); c = mix(c, RED, mouth*(Y > (yu + yl)/2 - 0.006*s)*(Y < (yu + yl)/2 + 0.006*s))
+    pt = 0.011*s; tri = 1 - np.abs(2*((X/pt) % 1.0) - 1)
+    fang_u = np.exp(-((np.abs(X) - 0.034*s)/(0.006*s))**2); fang_l = np.exp(-((np.abs(X) - 0.058*s)/(0.006*s))**2)
+    tu = mouth*(Y > yu - 0.011*s*tri - 0.022*s*fang_u); tl = mouth*(Y < yl + 0.009*s*tri + 0.018*s*fang_l)
+    c = mix(c, (0.95, 0.93, 0.86), tu | tl); hgt += 0.0004*(tu | tl)
+    # gold scroll curls on the cheeks and the forehead
+    for cx, cy, rr in ((0.075*s, ey - 0.035*s, 0.022), (0.0, ey + 0.075*s, 0.020), (0.055*s, chin - 0.04*s, 0.020)):
+        dd = np.hypot(np.abs(X) - cx, Y - cy)
+        cur = (dd < rr*s)*(np.abs(np.sin(dd/(0.005*s)*math.pi + np.arctan2(Y - cy, np.abs(X) - cx))) < 0.25)*(aa < 1.3)
+        c = mix(c, GOLD, cur*(E > 1.75)*~fl_o*~(inm*(Y < yu + 0.009*s)*(Y > yl - 0.009*s)))
+    # gold and black border along the lower edge
+    edg = (Y - hb_) < 0.009*s
+    c = mix(c, GOLD, edg*~back); c = mix(c, BLK, ((Y - hb_) < 0.003*s)*~back)
+    # age: dirt, cracked paint, chips showing the grey wood under it
+    cr = np.abs(fbm(X*55, Y*55, oct=3, seed=162) - 0.5) < 0.008
+    c = mix(c, (0.20, 0.17, 0.12), cr*0.7*~back); hgt -= 0.0003*cr
+    chip = sst_(0.70, 0.73, fbm(X*30, Y*30, oct=3, seed=163))*~back
+    c = mix(c, (0.45, 0.40, 0.32), chip*0.85); hgt -= 0.0002*chip
+    c = mix(c, CL["DIRT"], 0.35*sst_(0.55, 0.80, fbm(X*9, Y*9, oct=3, seed=164)))
+    # blood seeping from the eyes: soaked round the lower rim, runs down the face with drops at the ends
+    rnd = np.random.RandomState(8); wet = np.zeros((N_, N_))
+    for sx in (-1, 1):
+        wet = np.maximum(wet, (E > 0.95)*(E < 2.1)*(Y < ey_m)*(np.abs(X - sx*ex) < 0.024*s)*(aa < 1.3)*0.9)
+        for k in range(5):
+            x0 = sx*(ex + rnd.uniform(-0.016, 0.016)*s); y0 = ey_m - 0.006*s; Lk = rnd.uniform(0.05, 0.16)*s; ph0 = rnd.uniform(0, 6)
+            xk = x0 + 0.004*s*np.sin((y0 - Y)/(0.018*s) + ph0)
+            wk = 0.0028*s*(1 - 0.45*np.clip((y0 - Y)/Lk, 0, 1))
+            st = (np.abs(X - xk) < wk)*(Y < y0)*(Y > y0 - Lk)*(aa < 1.3)
+            drop = np.hypot(X - (x0 + 0.004*s*math.sin(Lk/(0.018*s) + ph0)), Y - (y0 - Lk)) < 0.0045*s
+            wet = np.maximum(wet, np.maximum(st, drop*(aa < 1.3)).astype(float))
+    tone = fbm(X*60, Y*60, oct=2, seed=165)
+    c = mix(c, CL["BLOOD_OLD"], wet*0.9); c = mix(c, (0.42, 0.02, 0.03), wet*sst_(0.35, 0.65, tone)*0.85)
+    rgh = rgh - 0.35*wet; hgt += 0.0002*wet
+    rgh = np.where(back, 0.85, rgh)
+    col = np.where(hel[..., None], c, col)
+    # basket: red over woven bamboo, a gold band of scrolls round the middle, gold rim
+    bk = (Vv > 0.655)*(Vv < 0.905); th_ = Uu*2*math.pi; q = (Vv - 0.66)/0.24
+    wv = np.sin(th_*90)*np.sin(q*60); cb = np.ones((N_, N_, 3))*np.array(RED)*(0.85 + 0.1*wv)[..., None]
+    orn, mo = CL["brocade"](Uu*28, q*5, GOLD, np.array(RED))
+    cb = np.where(((q > 0.35)*(q < 0.75))[..., None], orn, cb)
+    cb = mix(cb, BLK, (np.abs(q - 0.35) < 0.012) | (np.abs(q - 0.75) < 0.012)); cb = mix(cb, GOLD, q > 0.93)
+    cb = mix(cb, CL["DIRT"], 0.30*sst_(0.55, 0.8, fbm(Uu*20, q*6, oct=3, seed=166, period=20)))
+    col = np.where(bk[..., None], cb, col); hgt += 0.00025*wv*bk; rgh = np.where(bk, 0.75, rgh)
+    # nose: red with gold rings, a gold tip
+    nz = (Vv > 0.915)*(Vv < 0.985)*(Uu < 0.505); qn = (Vv - 0.92)/0.06
+    cn = np.ones((N_, N_, 3))*np.array(RED); cn = mix(cn, GOLD, (np.sin(qn*50) > 0.6) | (qn > 0.88))
+    col = np.where(nz[..., None], cn, col)
+    ins = ~(hel | bk | nz)
+    col = np.where(ins[..., None], np.array((0.17, 0.11, 0.07))*(0.85 + 0.15*np.sin(Uu*800)*np.sin(Vv*800))[..., None], col)
+    base = os.path.join(GH, "ta_khon_mask"); os.makedirs(GH, exist_ok=True)
+    CL["save_png"](col, base + "_Color.png", False); CL["save_png"](CL["normal_from_height"](hgt, 1400, 1400), base + "_Normal.png", True)
+    CL["save_png"](np.clip(rgh, 0.2, 1.0), base + "_Roughness.png", True)
+    return msh.to_object("Prop_TaKhonMask", rig, CL["tex_material"]("TaKhonMask", base), fix_normals=False)
+
+PROPS = {"jaw_tie": jaw_tie, "baby": baby, "ta_khon_mask": ta_khon_mask}
+
+def mask_fbx(path=os.path.join(RBX, "PhiTaKhonMask.fbx")):
+    """the mask on its own (current scene: ghost_ta_khon), origin = the head bone's head at rest, to put on any driver:
+    weld it to BodyHead at the head bone"""
+    ob = bpy.data.objects["Prop_TaKhonMask"]; rig = bpy.data.objects["HumanRig"]
+    hp = rig.matrix_world @ rig.data.bones["head"].head_local
+    me = ob.data.copy(); me.transform(Matrix.Translation(-hp) @ ob.matrix_world)
+    st = bpy.data.objects.new("PhiTaKhonMask", me); bpy.context.scene.collection.objects.link(st)
+    bpy.ops.object.select_all(action='DESELECT'); st.select_set(True); bpy.context.view_layer.objects.active = st
+    AN["fbx"](path, use_selection=True, object_types={'MESH'}, global_scale=AN["STUDS_PER_M"], apply_scale_options='FBX_SCALE_NONE',
+              axis_forward='-Z', axis_up='Y', mesh_smooth_type='FACE', path_mode='COPY', embed_textures=False)
+    bpy.data.objects.remove(st, do_unlink=True)
+    return path, tuple(round(x, 4) for x in hp)
+
+def gold_skin(body, rig, char, s):
+    """กุมารทอง: the child's skin turned to the gold leaf of a shrine figure (the shading of the plain skin kept,
+    grime in the creases), black painted eyes and brows, red lips; a metalness map (gold = 1)"""
+    mat = bpy.data.materials["Skin"]; nm = mat.copy(); nm.name = "SkinGold"
+    meta = uv_meta(char)
+    b = CL["Body"](body, rig); uvl = np.zeros((len(body.data.loops), 2)); body.data.uv_layers.active.data.foreach_get("uv", uvl.ravel())
+    Pw, Nn, Fi = CL["raster_body"](b, uvl)
+    hw = b.w[:, b.names.index("head")]; hv = b.co[hw > 0.99]; C = (hv.min(0) + hv.max(0))/2
+    hb = rig.data.bones["head"]; rw = rig.matrix_world
+    U = np.array((rw @ hb.tail_local - rw @ hb.head_local).normalized()); F = np.array((0, -1, 0)) - U*(-U[1]); F /= np.linalg.norm(F)
+    L = np.cross(U, F)
+    d = Pw - C; az = np.arctan2(d @ L, d @ F); X = az*meta["RF"]; Y = d @ U
+    ey, my = meta["eye_h"], meta["mouth_h"]; mix, sm_ = CL["mix"], CL["sstep"]
+    face = (Fi >= 0) & (np.abs(az) < math.radians(85)) & (Y > meta["chin_h"] - 0.01*s) & (Y < meta["top_h"] + 0.05*s)
+    nodes = {bpy.path.abspath(n.image.filepath)[-14:]: n for n in nm.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image}
+    cn = next(n for k, n in nodes.items() if k.endswith("_Color.png")); rn = next(n for k, n in nodes.items() if k.endswith("_Roughness.png"))
+    im = cn.image; a_ = np.empty(im.size[0]*im.size[1]*4, np.float32); im.pixels.foreach_get(a_)
+    col = a_.reshape(im.size[1], im.size[0], 4)[..., :3].astype(np.float64)
+    lum = col.mean(-1); ref = float(np.median(lum[Fi >= 0]))
+    k = np.clip(lum/ref, 0.55, 1.25)
+    gold = np.array((0.83, 0.62, 0.22))*k[..., None]
+    gold = mix(gold, (0.36, 0.24, 0.08), sm_(0.85, 0.6, k)*0.6)                    # grime in the creases
+    gold = mix(gold, (0.95, 0.80, 0.42), 0.25*sm_(0.6, 0.85, CL["fbm"](Pw[..., 0]*25, Pw[..., 1]*25, Pw[..., 2]*25, oct=2, seed=170)))
+    flake = CL["fbm"](Pw[..., 0]*60, Pw[..., 1]*60, Pw[..., 2]*60, oct=2, seed=171) > 0.80             # gold leaf worn off
+    gold = mix(gold, (0.30, 0.20, 0.12), flake*0.45)
+    ex, es = 0.032*s, s*1.06
+    e = np.hypot((np.abs(X) - ex)/(0.0150*es), (Y - ey)/(0.0068*es))
+    brow = (np.abs(Y - (ey + 0.022*s) - 0.15*(np.abs(X) - ex)) < 0.0022*s)*(np.abs(np.abs(X) - ex) < 0.018*s)
+    lip = np.hypot(X/(0.016*s), np.where(Y > my, (Y - my)/(0.005*s), (my - Y)/(0.006*s)))
+    paint = face*((e < 1.0) | brow | (lip < 1.0))
+    gold = mix(gold, (0.02, 0.02, 0.02), face*((e < 1.0) | brow)); gold = mix(gold, (0.85, 0.85, 0.80), face*(np.hypot((np.abs(X) - ex + 0.004*s)/(0.003*s), (Y - ey - 0.002*s)/(0.003*s)) < 1))
+    gold = mix(gold, (0.62, 0.05, 0.05), face*(lip < 1.0))
+    gold = np.where((Fi >= 0)[..., None], gold, col)
+    out = os.path.join(GH, "ghost_kuman_thong_Skin")
+    CL["save_png"](gold, out + "_Color.png", False); cn.image = bpy.data.images.load(out + "_Color.png")
+    r = np.clip(0.38 + 0.25*flake + 0.25*paint, 0, 1); CL["save_png"](r, out + "_Roughness.png", True)
+    ri = bpy.data.images.load(out + "_Roughness.png"); ri.colorspace_settings.name = "Non-Color"; rn.image = ri
+    met = np.where(Fi >= 0, 1.0 - 0.9*flake - paint, 0.0); CL["save_png"](np.clip(met, 0, 1), out + "_Metalness.png", True)
+    mi = bpy.data.images.load(out + "_Metalness.png"); mi.colorspace_settings.name = "Non-Color"
+    mn = nm.node_tree.nodes.new("ShaderNodeTexImage"); mn.image = mi; mn.location = (-500, -150)
+    nm.node_tree.links.new(mn.outputs["Color"], nm.node_tree.nodes["Principled BSDF"].inputs["Metallic"])
+    body.data.materials[0] = nm
+
 # ---------------------------------------------------------------- building one ghost
 def build(name, save=True):
     g = GHOSTS[name]; char = g["char"]
@@ -479,13 +955,19 @@ def build(name, save=True):
     for o in bpy.data.objects:
         if o.name.startswith("Hair_"): o.hide_render = False; o.hide_set(False)
     CL["limit_cloth_weights"](made[g["outfit"]])
-    body.data.materials[0] = bpy.data.materials[g["skin"]]
+    body.data.materials[0] = bpy.data.materials["Skin" if g["skin"] == "SkinGold" else g["skin"]]
     if g["hair"]:              # behind the arms, then over the clothes
         tuck_hair(s); fit_hair()
     if g.get("headless"):
         neck_stump(body, rig, s); blood_skin(body, rig, char, s)
     if g.get("face") == "porcelain": porcelain_face(body, rig, char, s)
-    make_clips(char, g["clips"], g.get("headless", False))
+    if g["skin"] == "SkinGold": gold_skin(body, rig, char, s)
+    if g.get("stretch"):            # a connected bone ignores its location: unhook the sliding ones (rest pose unchanged)
+        bpy.context.view_layer.objects.active = rig; bpy.ops.object.mode_set(mode='EDIT')
+        for bn in g["stretch"]: rig.data.edit_bones[bn].use_connect = False
+        bpy.ops.object.mode_set(mode='OBJECT')
+    make_clips(char, g["clips"], g.get("headless", False), g.get("stretch", ()))
+    for p in g.get("props", []): PROPS[p](body, rig, char, s)
     AN["limit_weights"]()
 
     if save:
@@ -567,6 +1049,7 @@ def check(name, step=3, tol_body=0.015, tol=0.008):
            (thighs through a skirt) or two pieces cutting through each other | prop  crown, nails, wings, tail, stump
            cutting into the body, the hair or the clothes (a nail on its own hand excepted)"""
     g = GHOSTS[name]; rig = bpy.data.objects["HumanRig"]; body = bpy.data.objects["Body"]; sc = bpy.context.scene
+    allow = set(g.get("allow", ()))
     me = body.data; gname = {x.index: x.name for x in body.vertex_groups}
     vreg = []
     for v in me.vertices:
@@ -601,7 +1084,7 @@ def check(name, step=3, tol_body=0.015, tol=0.008):
     cov = sorted(cov & shown)
     cloth = [o for o in bpy.data.objects if o.name.startswith("Cloth_") and not o.hide_render]
     PROP = ("_crown", "_flowers", "_buckle")
-    props = [o for o in cloth if any(o.name.endswith(k) for k in PROP)] + [o for o in bpy.data.objects if o.name == "NeckStump"]
+    props = [o for o in cloth if any(o.name.endswith(k) for k in PROP)] + [o for o in bpy.data.objects if o.name == "NeckStump" or o.name.startswith("Prop_")]
     soft = [o for o in cloth if o not in props]
     hair = [o for o in bpy.data.objects if o.name.startswith("Hair_") and not o.hide_render]
     # hair below the skull only (the scalp layer may touch the head), cloth verts that aren't a shell's turned-in hem
@@ -650,6 +1133,7 @@ def check(name, step=3, tol_body=0.015, tol=0.008):
             trees = {r: BVHTree.FromPolygons(BV, ps) for r, ps in polys.items()}
             rv = {r: {i for p in ps for i in p} for r, ps in polys.items()}
             for a, c in REG_PAIRS:
+                if (a, c) in allow or (c, a) in allow: continue
                 if a in trees and c in trees and trees[a].overlap(trees[c]):
                     d = max(_behind([BV[i] for i in rv[a]], trees[c])[0], _behind([BV[i] for i in rv[c]], trees[a])[0])
                     if d > tol_body: add("body", f"{a}x{c}", d*100)
@@ -693,6 +1177,9 @@ def check(name, step=3, tol_body=0.015, tol=0.008):
                     k = len(tp.overlap(tr))
                     if k > 2: add("prop", f"{o.name[6:]}x{r}", k)
                 for h in hair:
+                    if o.name.startswith("Prop_"):
+                        d, n = _behind(_mesh(h, deps)[0], tp, 0.03)
+                        if n > 4: add("prop", f"hair through {o.name[5:]}", n)
                     if o.name.endswith("_crown"):
                         d, n = _behind(_mesh(h, deps)[0], tp, 0.03)
                         if n > 4: add("prop", "hair through crown", n)
@@ -755,7 +1242,7 @@ def export(name):
     per clip (armature only), the same settings as build_anims.export_model / export_clip"""
     d = os.path.join(RBX, name); os.makedirs(d, exist_ok=True)
     rig = bpy.data.objects["HumanRig"]
-    objs = AN["bound_meshes"](rig) + [o for o in bpy.data.objects if o.name == "NeckStump"]
+    objs = AN["bound_meshes"](rig) + [o for o in bpy.data.objects if o.name == "NeckStump" or o.name.startswith("Prop_")]
     objs = list(dict.fromkeys(objs))
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs + [rig]: o.hide_viewport = False; o.hide_set(False); o.select_set(True)
@@ -835,14 +1322,23 @@ def fist_R():
     return (mw @ pb["hand.R"].head).lerp(mw @ pb["middle_01.R"].head, 0.75)
 
 def all_ghosts(names=None):
-    lines = []
-    for name in names or GHOSTS:
+    """build, check, cut, sheet, export each ghost; check_report.txt keeps the lines of the ghosts not rebuilt"""
+    names = list(names or GHOSTS); new = {}
+    for name in names:
         build(name)
-        rows = check(name); lines.append(report(name, rows))
+        rows = check(name); new[name] = report(name, rows)
         cut_body(name); sheet(name); export(name)
         bpy.ops.file.make_paths_relative(); bpy.ops.wm.save_mainfile()
-    open(os.path.join(GH, "check_report.txt"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    return "\n".join(lines)
+    fp = os.path.join(GH, "check_report.txt"); old = {}
+    if os.path.exists(fp):
+        for ln in open(fp, encoding="utf-8").read().splitlines():
+            if ln.strip(): old.setdefault(ln.split()[0], []).append(ln)
+    out = []
+    for name in GHOSTS:
+        if name in new: out.append(new[name])
+        elif name in old: out += old[name]
+    open(fp, "w", encoding="utf-8").write("\n".join(out) + "\n")
+    return "\n".join(new[n] for n in names)
 
 def compare(name, ref, out, clip="dancer_dance", frame=None):
     """[reference | front | 3/4 | face] side by side, EEVEE, at the reference pose (frame 1 of the dance = pose A)"""
