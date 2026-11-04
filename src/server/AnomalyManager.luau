@@ -12,7 +12,6 @@ local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
@@ -577,6 +576,10 @@ AnomalyManager.Anomalies = {
 			end
 		end,
 	},
+	-- ผีไม่แปลงร่าง เดินมาซื้อทั้งร่างผี (CoreLoop สร้างตัวด้วย AnomalyManager.BuildWalkIn ไม่ต้องแก้อะไรเพิ่ม)
+	Anomaly_GhostWalkIn = {
+		apply = function(_v) end,
+	},
 	-- 7. วิทยุในร้านเปลี่ยนจากเพลงเป็นเสียงพระสวดศพ (ใช้เสียงพระสวดวัดของวิทยุ ไม่เอาเสียงพูดของผู้เล่นมาปน)
 	Anomaly_MonkRadio = {
 		-- คนไม่ได้พนมมือยังได้ยินเพลงวิทยุตามปกติ คนพนมมือได้ยินเสียงสวดศพแทน
@@ -673,184 +676,6 @@ local function fadeParts(root: Instance, t: number, time: number)
 	end
 end
 
--- ---------------------------------------------------------------- ผีฉากแบบมีกระดูก (GhostNPC)
--- สร้างตอนโผล่ ลบตอนหายไป ตำแหน่งอิงผังร้าน (หน้าร้านหันไป -Z ถนนวิ่งตามแกน X ที่ z ~ -10 ทุ่งนาอยู่หน้าร้าน)
---   ghosts = { { name, x, z, clip, lift?, after = { วินาที, ท่าถัดไป }? } }  (หันหน้าไปทางจุดจอดรถ)
---   path   = เดินจาก (x, z) ไป (toX, toZ) ด้วยความเร็ว speed (studs/วินาที) หันหน้าไปทางที่เดิน
---   voice  = preset ใน SoundBank เล่นตอนโผล่ · focus = กระดูกที่จอผีพุ่งใส่หน้า (client) ใช้เล็ง
-type RiggedGhost = { name: string, x: number, z: number, clip: string, lift: number?, after: { any }? }
-type RiggedKind = {
-	ghosts: { RiggedGhost },
-	path: { toX: number, toZ: number, speed: number }?,
-	voice: string?,
-	focus: string?,
-	glow: Color3?,
-	knock: boolean?,
-}
-local RIGGED_SCENERY: { [string]: RiggedKind } = {
-	-- ผีนางรำรำช้าๆ ข้างตุ๊กตานางรำแตกโคนต้นไทร
-	Dancer = { ghosts = { { name = "ghost_dancer", x = -27, z = 19, clip = "dancer_dance" } }, voice = "Ghost_Pop" },
-	-- แม่นาคอุ้มลูกยืนริมคันนาซ้ายหน้าร้าน แล้วยื่นแขนยาวมาทางร้าน
-	MaeNak = {
-		ghosts = { { name = "ghost_mae_nak", x = -46, z = -26, clip = "nak_cradle", after = { 9, "nak_reach" } } },
-		voice = "Ghost_MaeNak",
-	},
-	-- กุมารทองหัวเราะคิกคักข้างศาลพระภูมิ
-	Kuman = { ghosts = { { name = "ghost_kuman_thong", x = -35, z = 9, clip = "kuman_giggle" } }, voice = "Ghost_Kuman_Laugh" },
-	-- ผีเด็กยืนนิ่งริมนาฝั่งตรงข้ามถนน
-	Child = { ghosts = { { name = "ghost_child", x = 24, z = -22, clip = "ghost_idle" } }, voice = "Ghost_Kuman" },
-	-- ศพห่อผ้าขาวลอยตัวตรงข้างเถียงนากลางทุ่ง
-	Shroud = { ghosts = { { name = "ghost_shroud", x = -27, z = -50, clip = "shroud_idle", lift = 0.5 } }, voice = "Ghost_Showtime" },
-	-- กระสือลอยต่ำเหนือนาแถวเถียงนา ไส้เรืองแสง
-	Krasue = {
-		ghosts = { { name = "Krasue", x = -38, z = -47, clip = "Float", lift = 5 } },
-		voice = "Ghost_MaeNak",
-		focus = "Head",
-		glow = Color3.fromRGB(255, 90, 40),
-	},
-	-- ปอบ: แผงปิดอยู่ = มาเคาะแผงหน้าร้าน (KnockShutter) / แผงเปิด = ยืนเลียปากริมถนนฝั่งตรงข้าม
-	Pop = { ghosts = { { name = "Pop", x = 16, z = -21, clip = "LickLips" } }, voice = "Ghost_Pop_Laugh", knock = true },
-	-- เปรตตัวสูงเท่าต้นตาลเดินช้าๆ ผ่านท้ายทุ่ง
-	Pret = {
-		ghosts = { { name = "Pret", x = -70, z = -80, clip = "TallSlowWalk" } },
-		path = { toX = 110, toZ = -80, speed = 4 },
-		voice = "Ghost_Pret",
-	},
-	-- กระหังบินกระพือกระด้งข้ามทุ่งนา
-	Krahang = {
-		ghosts = { { name = "Krahang", x = 100, z = -38, clip = "FlapFly", lift = 16 } },
-		path = { toX = -110, toZ = -38, speed = 11 },
-		voice = "Ghost_Krahang_Laugh",
-	},
-	-- ขบวนคนชุดขาวลอยเรียงแถวผ่านถนนดินหน้าร้าน (ยังไม่มีโลง: ใช้ ghost_glide แทน coffin_walk)
-	Funeral = {
-		ghosts = {
-			{ name = "ghost_funeral_elder_man", x = -60, z = -14, clip = "ghost_glide" },
-			{ name = "ghost_funeral_man", x = -64, z = -14, clip = "ghost_glide" },
-			{ name = "ghost_funeral_woman", x = -68, z = -14, clip = "ghost_glide" },
-			{ name = "ghost_funeral_elder_woman", x = -72, z = -14, clip = "ghost_glide" },
-		},
-		path = { toX = 130, toZ = -14, speed = 4.5 },
-		voice = "Ghost_Showtime",
-	},
-}
-
-local stopWp = Workspace:FindFirstChild("VehicleWaypoints") and Workspace.VehicleWaypoints:FindFirstChild("StopPoint") :: BasePart?
-local shopFront = if stopWp then stopWp.Position else Vector3.new(-4, 2, -7)
-local riggedMoves: { [string]: RBXScriptConnection } = {}
-
-local function shutterClosed(): boolean
-	local door = interactive:FindFirstChild("ShutterDoor") :: BasePart?
-	if not door then
-		return false
-	end
-	local openY = door:GetAttribute("OpenY") or 15.5
-	local closedY = door:GetAttribute("ClosedY") or 6.0
-	return door.Position.Y < (openY + closedY) / 2
-end
-
-local function spawnRigged(kind: string): Model?
-	local def = RIGGED_SCENERY[kind]
-	if not def or not GhostNPC.Has(def.ghosts[1].name) then
-		return nil
-	end
-	local group = Instance.new("Model")
-	group.Name = "SceneryGhost_" .. kind
-	group:SetAttribute("FocusBone", def.focus or "head")
-	local list = def.ghosts
-	local knock = def.knock and shutterClosed()
-	if knock then
-		-- หน้าแผงสังกะสี (หมัดถึงแผงที่ 1.94 studs หน้าตัว) หันเข้าหาแผง
-		local door = interactive:FindFirstChild("ShutterDoor") :: BasePart
-		local x = door.Position.X + 6
-		local z = door.Position.Z - door.Size.Z / 2 - 1.94
-		list = { { name = list[1].name, x = x, z = z, clip = "KnockShutter" } }
-	end
-	local models: { { m: Model, g: RiggedGhost } } = {}
-	for _, g in ipairs(list) do
-		local feet = Vector3.new(g.x, groundAt(Vector3.new(g.x, 10, g.z)) + (g.lift or 0), g.z)
-		local cf
-		if knock then
-			cf = CFrame.lookAt(feet, feet + Vector3.new(0, 0, 1))
-		elseif def.path then
-			cf = CFrame.lookAt(feet, Vector3.new(def.path.toX, feet.Y, def.path.toZ))
-		else
-			cf = CFrame.lookAt(feet, Vector3.new(shopFront.X, feet.Y, shopFront.Z))
-		end
-		local m = GhostNPC.Spawn(g.name, cf, g.clip)
-		if m then
-			m.Parent = group
-			table.insert(models, { m = m, g = g })
-			if g.after then
-				task.delay(g.after[1], function()
-					if m.Parent then
-						GhostNPC.Play(m, g.after[2])
-					end
-				end)
-			end
-		end
-	end
-	if #models == 0 then
-		group:Destroy()
-		return nil
-	end
-	if def.glow then
-		local root = models[1].m:FindFirstChild("RootPart")
-		if root then
-			local light = Instance.new("PointLight")
-			light.Color = def.glow
-			light.Range = 10
-			light.Brightness = 1.5
-			light.Parent = root
-		end
-	end
-	fadeParts(group, 1, 0)
-	group.Parent = anomalyProps
-	fadeParts(group, 0, 2)
-	if def.voice then
-		local root = models[1].m:FindFirstChild("RootPart")
-		if root then
-			SoundBank.PlayOneShot(def.voice, root, 110, 6)
-		end
-	end
-	-- เดินตามทาง: เลื่อนทุกตัวไปทางเดียวกัน เท้าตามพื้น (ตัวลอยยกขึ้นเท่าเดิม)
-	local path = def.path
-	if path and not knock then
-		local start = Vector3.new(list[1].x, 0, list[1].z)
-		local dir = (Vector3.new(path.toX, 0, path.toZ) - start)
-		local total = dir.Magnitude
-		dir = dir.Unit
-		local t0 = os.clock()
-		riggedMoves[kind] = RunService.Heartbeat:Connect(function()
-			local s = math.min((os.clock() - t0) * path.speed, total)
-			for _, e in ipairs(models) do
-				if e.m.Parent then
-					local p = Vector3.new(e.g.x, 0, e.g.z) + dir * s
-					local feet = Vector3.new(p.X, groundAt(Vector3.new(p.X, 10, p.Z)) + (e.g.lift or 0), p.Z)
-					e.m:PivotTo(CFrame.lookAt(feet, feet + dir))
-				end
-			end
-		end)
-	end
-	return group
-end
-
-local function removeRigged(kind: string, m: Instance, fade: number)
-	local conn = riggedMoves[kind]
-	if conn then
-		conn:Disconnect()
-		riggedMoves[kind] = nil
-	end
-	if fade > 0 then
-		fadeParts(m, 1, fade)
-		task.delay(fade + 0.1, function()
-			m:Destroy()
-		end)
-	else
-		m:Destroy()
-	end
-end
-
 -- ซ่อนผีฉากทั้งหมดตอนเริ่ม (เดิมโมเดลค้างโผล่อยู่ในฉาก)
 local function hideAllScenery()
 	if tani then
@@ -865,12 +690,6 @@ local function hideAllScenery()
 	if ghost then
 		ghost:Destroy()
 	end
-	for kind in pairs(RIGGED_SCENERY) do
-		local m = anomalyProps:FindFirstChild("SceneryGhost_" .. kind)
-		if m then
-			removeRigged(kind, m, 0)
-		end
-	end
 	for _, m in pairs(sceneryShown) do
 		CollectionService:RemoveTag(m, SCENERY_TAG)
 	end
@@ -881,16 +700,6 @@ AnomalyManager.SceneryKinds = {
 	"Tani",
 	"Scarecrow",
 	"Shadow",
-	"Dancer",
-	"MaeNak",
-	"Kuman",
-	"Child",
-	"Shroud",
-	"Krasue",
-	"Pop",
-	"Pret",
-	"Krahang",
-	"Funeral",
 }
 
 function AnomalyManager.ShowScenery(kind: string): Instance?
@@ -928,8 +737,6 @@ function AnomalyManager.ShowScenery(kind: string): Instance?
 			end
 		end
 		m = ghost
-	elseif RIGGED_SCENERY[kind] then
-		m = spawnRigged(kind)
 	end
 	if m then
 		showCount += 1
@@ -948,9 +755,7 @@ function AnomalyManager.HideScenery(kind: string)
 		return
 	end
 	CollectionService:RemoveTag(m, SCENERY_TAG)
-	if RIGGED_SCENERY[kind] then
-		removeRigged(kind, m, 1.5)
-	elseif m.Name == "ScarecrowApparition" then
+	if m.Name == "ScarecrowApparition" then
 		fadeParts(m, 1, 1.5)
 		task.delay(1.6, function()
 			m:Destroy()
@@ -974,7 +779,7 @@ local NOT_HUMAN_WALKER = { Anomaly_Krasue = true }
 
 -- ลูกค้าแบบไหนที่ผีตัวนี้เกิดได้ (ใช้ตอน admin เรียกผีเฉพาะตัว): "vehicle" | "walker"
 function AnomalyManager.KindFor(key: string): string
-	if WALKER_RAIN_ONLY[key] then
+	if WALKER_RAIN_ONLY[key] or key == "Anomaly_GhostWalkIn" then
 		return "walker"
 	end
 	return "vehicle"
@@ -999,11 +804,70 @@ function AnomalyManager.RandomFor(kind: string, raining: boolean): string
 		if NOT_HUMAN_WALKER[k] and kind == "walker" and HumanNPC.Available() then
 			ok = false
 		end
+		-- ผีเดินมาทั้งร่าง: CoreLoop สุ่มแยกเอง (WalkInChance)
+		if k == "Anomaly_GhostWalkIn" then
+			ok = false
+		end
 		if ok then
 			table.insert(pool, k)
 		end
 	end
 	return pool[math.random(#pool)]
+end
+
+-- ผีที่เดินมาซื้อทั้งร่าง (ไม่แปลงร่าง): ท่าเดิน / ท่ายืนของแต่ละตัว
+local WALK_IN = {
+	{ name = "Pop", walk = "TwitchWalk", idle = "LickLips" },
+	{ name = "ghost_child", walk = "ghost_glide", idle = "ghost_idle" },
+	{ name = "ghost_shroud", walk = "shroud_glide", idle = "shroud_idle" },
+	{ name = "ghost_funeral_woman", walk = "ghost_glide", idle = "ghost_glide" },
+	{ name = "ghost_kuman_thong", walk = "run", idle = "kuman_giggle" },
+	{ name = "ghost_tani", walk = "ghost_idle", idle = "ghost_idle" },
+}
+
+function AnomalyManager.BuildWalkIn(): Model?
+	local list = {}
+	for _, w in ipairs(WALK_IN) do
+		if GhostNPC.Has(w.name) then
+			table.insert(list, w)
+		end
+	end
+	if #list == 0 then
+		return nil
+	end
+	local w = list[math.random(#list)]
+	local m = GhostNPC.Spawn(w.name, CFrame.new(), w.walk)
+	if not m then
+		return nil
+	end
+	m:SetAttribute("WalkClip", w.walk)
+	m:SetAttribute("IdleClip", w.idle)
+	m:SetAttribute("FocusBone", "head")
+	-- ชิ้นล่องหนตรงหัว (กล่องคำพูดลอยเหนือหัว / CoreLoop.getHead หาชื่อ "Head")
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("Bone") and d.Name == "head" then
+			local h = Instance.new("Part")
+			h.Name = "Head"
+			h.Size = Vector3.new(0.8, 0.8, 0.8)
+			h.Transparency = 1
+			h.Anchored = true
+			h.CanCollide = false
+			h.CanQuery = false
+			h.CanTouch = false
+			h.CFrame = d.WorldCFrame
+			h.Parent = m
+			break
+		end
+	end
+	return m
+end
+
+-- เดิน / หยุด (เฉพาะผีที่เดินมาทั้งร่าง: ตัวอื่นไม่ทำอะไร)
+function AnomalyManager.WalkInMoving(m: Model, moving: boolean)
+	local clip = m:GetAttribute(if moving then "WalkClip" else "IdleClip")
+	if type(clip) == "string" then
+		GhostNPC.Play(m, clip)
+	end
 end
 
 -- จำสีตาหุ่นไล่กาไว้ก่อน (ใช้ตอน reset)

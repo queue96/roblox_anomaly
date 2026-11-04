@@ -425,6 +425,7 @@ LanguageModule.UI = {
 	Big_Pret_Warn = { th = "เสียงหวีดยาวมาจากถนน... เปรตกำลังมา ดับไฟร้าน ปิดไฟฉาย แล้วนั่งยอง [C] นิ่งๆ", en = "A long shriek from the road... a Pret is coming. Kill the shop lights, switch off flashlights, crouch [C] and stay still." },
 	Big_Funeral_Warn = { th = "ขบวนแห่ศพไร้เสียงกำลังมา... ปิดแผงร้าน ดับไฟ แล้วนั่งยอง [C] รอให้ผ่านไป", en = "A silent funeral procession approaches... close the shutter, kill the lights, crouch [C] and let it pass." },
 	Big_Pop_Warn = { th = "มีใครเดินกระตุกมาทางร้าน... ปิดแผงร้าน ดับไฟ แล้วยืนนิ่งๆ ห้ามขยับ", en = "Something twitches its way toward the shop... close the shutter, kill the lights and stand perfectly still." },
+	NightNotOver = { th = "เงินครบแล้ว แต่ยังไม่ถึงรุ่งเช้า... เฝ้าร้านต่ออีกหน่อย", en = "The tin is full, but dawn hasn't come yet... keep watching the shop." },
 	Big_Danger = { th = "มันมาถึงแล้ว... อย่าขยับ", en = "It's here... don't move." },
 	Big_Pass = { th = "มันผ่านไปแล้ว... ลุกขึ้น [C] แล้วสับสะพานไฟขึ้นได้", en = "It's gone... stand up [C] and turn the lights back on." },
 	Big_Fail_Lights = { th = "ไฟร้านยังเปิดอยู่... มันเห็นเราแล้ว", en = "The shop lights were on... it saw us." },
@@ -474,6 +475,8 @@ LanguageModule.BookOrder = {
 	"Anomaly_Krasue",
 	"Anomaly_TaKhon",
 	"Anomaly_MirrorGhost",
+	"Anomaly_GhostWalkIn",
+	"Outage_Shrouds",
 	"Big_Krasue",
 	"Big_Pret",
 	"Big_Funeral",
@@ -514,6 +517,14 @@ LanguageModule.Book = {
 	Anomaly_MirrorGhost = {
 		th = { "ผีในกระจกมองข้าง", "ผู้หญิงผมยาวนั่งซ้อนท้าย ค่อยๆ หันไปมองกระจกมองข้าง คนขับไม่เคยรู้ว่ามีเธออยู่" },
 		en = { "Ghost in the Side Mirror", "A long-haired woman rides pillion and slowly turns to the side mirror. The rider never knew she was there." },
+	},
+	Anomaly_GhostWalkIn = {
+		th = { "ผีเดินมาซื้อเอง", "ไม่แปลงร่างเลย เดินมาทั้งร่างผีแล้วสั่งน้ำมันเหมือนคนปกติ อย่าเติมให้" },
+		en = { "Undisguised Customer", "It doesn't even bother to hide. A ghost walks up and orders fuel like anyone else. Don't serve it." },
+	},
+	Outage_Shrouds = {
+		th = { "ทุ่งศพห่อผ้า", "ไฟดับแล้วพนมมือ จะเห็นศพห่อผ้าขาวยืนนิ่งอยู่เต็มทุ่งรอบร้าน" },
+		en = { "Field of Shrouds", "Pray during a blackout and you'll see shrouded corpses standing all over the fields around the shop." },
 	},
 	Big_Krasue = {
 		th = { "แสงไฟผีกระสือ", "ดวงไฟส้มเขียวลอยจากเถียงนามาที่เพิง ดับไฟร้านแล้วนั่งยองนิ่งๆ จนมันลอยกลับไป" },

@@ -102,7 +102,13 @@ local function start()
 			st.Color = C.Line
 		end)
 		b.Activated:Connect(function()
-			remote:FireServer(if type(cmd) == "function" then cmd() else cmd)
+			local c = if type(cmd) == "function" then cmd() else cmd
+			-- ผีฉากเกิดบนเครื่องตัวเอง (client/SceneryGhosts) ไม่ผ่านเซิร์ฟเวอร์
+			if type(c) == "string" and string.sub(c, 1, 8) == "scenery:" then
+				Players.LocalPlayer:SetAttribute("SceneryTest", string.sub(c, 9) .. ":" .. os.clock())
+				return
+			end
+			remote:FireServer(c)
 		end)
 		return b
 	end
@@ -133,7 +139,7 @@ local function start()
 	button("จอเขย่า", "curse:shake")
 	button("เดินช้า", "curse:slow")
 	button("เดินๆ อยู่ล้ม", "curse:stumble")
-	label("ผีฉาก (โผล่ให้เห็นเฉยๆ มองค้างนาน = พุ่งใส่หน้า)")
+	label("ผีฉาก (เห็นเฉพาะเครื่องตัวเอง มองค้างนาน = พุ่งใส่หน้า)")
 	button("ผีตานีหลังกอกล้วย", "scenery:Tani")
 	button("หุ่นไล่กาใกล้ร้าน", "scenery:Scarecrow")
 	button("เงาหลังต้นไทร", "scenery:Shadow")
@@ -143,10 +149,9 @@ local function start()
 	button("ผีเด็กฝั่งตรงข้าม", "scenery:Child")
 	button("ศพห่อผ้าขาวกลางทุ่ง", "scenery:Shroud")
 	button("กระสือเหนือทุ่งนา", "scenery:Krasue")
-	button("ปอบ (แผงปิด = เคาะแผง)", "scenery:Pop")
+	button("ปอบริมถนน", "scenery:Pop")
 	button("เปรตเดินท้ายทุ่ง", "scenery:Pret")
 	button("กระหังบินข้ามทุ่ง", "scenery:Krahang")
-	button("ขบวนคนชุดขาว", "scenery:Funeral")
 	button("ซ่อนผีฉาก", "scenery:hide")
 	label("ผีใหญ่บุกประชิด (ดับไฟที่สะพานไฟ + นั่งยอง C)")
 	button("แสงไฟผีกระสือ", "big:Krasue")

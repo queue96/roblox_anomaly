@@ -14,6 +14,16 @@ local function templates(): Instance?
 	return ServerStorage:FindFirstChild("GhostTemplates")
 end
 
+-- ผีฉากเกิดฝั่ง client (client/SceneryGhosts: แต่ละคนเห็นคนละตัว คนละเวลา) -> สำเนาแม่แบบไว้ใน ReplicatedStorage.GhostModels
+do
+	local src = templates()
+	if src and not ReplicatedStorage:FindFirstChild("GhostModels") then
+		local copy = src:Clone()
+		copy.Name = "GhostModels"
+		copy.Parent = ReplicatedStorage
+	end
+end
+
 local function ids(): { [string]: any }
 	local shared = ReplicatedStorage:FindFirstChild("Shared")
 	local mod = shared and shared:FindFirstChild("GhostAnimIds")

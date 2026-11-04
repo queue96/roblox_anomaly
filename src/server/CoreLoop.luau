@@ -44,9 +44,11 @@ local CONFIG = {
 	ExpensiveRefuseChance = 0.5, -- ตอบแพง (120) ลูกค้าปกติมีโอกาสไม่เอา
 	ReplyTime = 8, -- วินาทีที่เปิดให้ตอบราคา
 	RejectGhostReward = 50, -- ดึงแผงปิดร้านใส่ผีได้ถูกต้อง
-	GhostFuelPenalty = 100, -- เผลอเติมน้ำมันให้ผี (หักเงิน + ธูปดับ 1 ดอก)
+	-- เผลอเติมน้ำมันให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงินแล้ว ผู้ใช้ 2026-11-04)
 	StartIncense = 3,
-	AnomalyChance = 0.4,
+	AnomalyChance = 0.3, -- (เดิม 0.4 ผีมาถี่เกินไป)
+	WalkInChance = 0.35, -- ผีที่มาเป็นคนเดิน: ไม่แปลงร่าง เดินมาซื้อทั้งร่างผีเลย (เห็นได้ไม่ต้องพนมมือ)
+	MinNight = 900, -- คืนหนึ่งเล่นอย่างน้อยเท่านี้ (วินาที นับจากเปิดร้าน) เงินครบก่อนก็ยังไม่จบ
 	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
 	DecisionTime = 75, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผีและเดินไปตู้)
 	DriveSpeed = 24, -- studs / วินาที
@@ -97,15 +99,15 @@ local CONFIG = {
 	PrayReactAfter = 1.2, -- พนมมือนานเท่านี้ลูกค้าถึงจะสังเกต
 	PrayGhostLineChance = 0.6, -- ผีตอบแบบผี (ที่เหลือแกล้งทำตัวเป็นคนปกติ)
 	PraySummonAfter = 3, -- สวดตอนร้านว่างนานเท่านี้ ถึงจะสุ่มเรียกผี (1 ครั้งต่อการพนมมือ 1 รอบ)
-	PraySummonChance = 0.35,
+	PraySummonChance = 0.25,
 	PraySummonCooldown = 60, -- เรียกผีได้ครั้งเดียวในช่วงนี้ (ทั้งร้าน)
 	PraySummonDuration = { 15, 22 }, -- ผีที่สวดเรียกมาอยู่นานเท่านี้
 	PraySummonGhostNext = 0.5, -- โอกาสที่ลูกค้าคนถัดไป "ตามมา" เป็นผีแน่นอน
 	PraySummonKeys = { "Anomaly_MonkRadio" },
-	SceneryEvery = { 150, 300 }, -- ผีฉาก (ตานี / หุ่นไล่กา / เงาหลังต้นไทร) โผล่ทุกๆ กี่วินาที (สุ่ม) นานๆ ครั้ง
-	SceneryStay = { 25, 40 }, -- โผล่ค้างให้เห็นกี่วินาที
+	-- ผีฉาก (โผล่ให้เห็นเป็นช่วงๆ) อยู่ฝั่ง client แล้ว: client/SceneryGhosts (แต่ละคนเห็นคนละตัว คนละเวลา)
 	-- ผีใหญ่บุกประชิด (server/BigEvents): ดับไฟที่สะพานไฟ + นั่งยองนิ่งๆ ให้ผีผ่านไป
-	BigEvery = { 300, 540 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง
+	BigEvery = { 360, 600 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง
+	BigMax = 2, -- คืนละไม่เกินเท่านี้
 	BigReward = 50, -- รอดได้ทั้งทีม
 
 	-- น้ำมันในตู้ (2026-11-03): เติม 1 ครั้งใช้เท่านี้ของหลอด หมดแล้วต้องเอาแกลลอนในร้านไปตักจากถังหลังร้านมาเท
@@ -504,7 +506,18 @@ local Weather = require(script.Parent:WaitForChild("Weather"))
 local Power = require(script.Parent:WaitForChild("Power"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 -- ผีใหญ่ (server/BigEvents) เก็บในตารางเดียว: ไฟล์นี้ใช้ local ระดับบนสุดเต็มขีดจำกัด 200 ตัวของ Luau แล้ว
-CoreLoop.Big = { mod = require(script.Parent:WaitForChild("BigEvents")), running = false } :: any
+CoreLoop.Big = { mod = require(script.Parent:WaitForChild("BigEvents")), running = false, count = 0 } :: any
+CoreLoop.Linger = require(script.Parent:WaitForChild("GhostLinger")) :: any
+-- คืนนี้: เปิดร้านเมื่อไหร่ (เล่นขั้นต่ำ MinNight) / ใครเจอศพห่อผ้าตอนไฟดับไปแล้ว (นับ 1 อีเวนต์ต่อคืน)
+CoreLoop.Night = { openedAt = math.huge, warned = false, sawSwarm = {} } :: any
+-- ไฟดับแล้วพนมมือ เห็นศพห่อผ้าขาวเต็มทุ่ง (client/SceneryGhosts): ลงสมุดเป็น 1 อีเวนต์ คนละครั้งต่อคืน
+remote("OutageSwarm").OnServerEvent:Connect(function(p: Player)
+	if Power.IsOn() or CoreLoop.Night.sawSwarm[p] then
+		return
+	end
+	CoreLoop.Night.sawSwarm[p] = true
+	AnomalyBook.SurvivedBy(p, "Outage_Shrouds")
+end)
 local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local function pick(list: { any }): any
@@ -696,6 +709,14 @@ local function toggleShutter(wantOpen: boolean, who: string?)
 			end
 		end
 		openShutter()
+		-- ผียังวนอยู่หน้าร้าน (GhostLinger: เคาะแผง / วิ่งรอบร้าน / บนหลังคา): เปิดแผง = โดนหลอกทั้งร้าน
+		if CoreLoop.Linger.Active() then
+			print("👻 เปิดแผงตอนผียังวนอยู่ โดนหลอก")
+			task.delay(0.5, function()
+				local g = CoreLoop.Linger.Stop()
+				TriggerJumpscare:FireAllClients("Linger_Scare", g)
+			end)
+		end
 	else
 		-- ดึงแผงปิดลง
 		closeShutter()
@@ -1447,15 +1468,6 @@ devDecision.Event:Connect(function(choice: string)
 		AnomalyBook.Survived(string.sub(choice, 6)) -- ทดสอบปลดล็อกสมุด
 	elseif choice == "bookreset" then
 		AnomalyBook.Reset()
-	elseif string.sub(choice, 1, 8) == "scenery:" then
-		-- ทดสอบผีฉาก: "scenery:Tani" / "scenery:Scarecrow" / "scenery:Shadow" / "scenery:hide"
-		local k = string.sub(choice, 9)
-		for _, kk in ipairs(AnomalyManager.SceneryKinds) do
-			AnomalyManager.HideScenery(kk)
-		end
-		if k ~= "hide" then
-			AnomalyManager.ShowScenery(k)
-		end
 	elseif string.sub(choice, 1, 4) == "big:" then
 		-- ทดสอบผีใหญ่: "big:Krasue" / "big:Pret" / "big:Funeral" / "big:Pop"
 		task.spawn(CoreLoop.Big.run, string.sub(choice, 5))
@@ -1519,6 +1531,7 @@ devDecision.Event:Connect(function(choice: string)
 		task.spawn(Cutscene.Intro) -- เล่นคัทซีนเปิดคืนซ้ำ (ร้านเปิดอยู่แล้วก็เล่นได้)
 	elseif choice == "win" then
 		money = math.max(money, CONFIG.TargetMoney) -- ลูปเกมจับได้แล้วเข้าคัทซีนเช้า + สรุปผล
+		CoreLoop.Night.openedAt = -math.huge -- admin: ข้ามเวลาเล่นขั้นต่ำ
 		broadcastHUD()
 	else
 		CoreLoop.Decide(choice, "DevDecision")
@@ -1947,6 +1960,15 @@ local function spawnCustomer(kind: string?)
 	if ghost then
 		local anomalyKind = if k == "vehicle" then "vehicle" elseif walking then "walker" else "car"
 		anomaly = if forced then forced else AnomalyManager.RandomFor(anomalyKind, raining)
+		-- ผีบางตัวไม่แปลงร่าง: เดินมาซื้อทั้งร่างผีเลย (คนเดินเท่านั้น)
+		if k == "walker" and (forced == "Anomaly_GhostWalkIn" or (not forced and math.random() < CONFIG.WalkInChance)) then
+			local g = AnomalyManager.BuildWalkIn()
+			if g then
+				v:Destroy()
+				v = g
+				anomaly = "Anomaly_GhostWalkIn"
+			end
+		end
 	end
 	if not walking and anomaly ~= "Anomaly_Krasue" then
 		humanizeDriver(v :: Model)
@@ -2056,8 +2078,10 @@ local function spawnCustomer(kind: string?)
 			local flat = Vector3.new(target.X - v:GetPivot().Position.X, 0, target.Z - v:GetPivot().Position.Z)
 			if flat.Magnitude > 0.5 then
 				if walking then
+					AnomalyManager.WalkInMoving(v, true)
 					Pedestrian.WalkTo(v, target, CONFIG.WalkSpeed)
 					Pedestrian.Face(v, if service == "air" and airBody then airBody.Position else pumpBody.Position)
+					AnomalyManager.WalkInMoving(v, false)
 				else
 					driveTo(v, target, true)
 				end
@@ -2802,10 +2826,9 @@ local function serveCustomer(c: Customer)
 			end
 		end
 		if ghost then
-			-- เติมให้ผี: ธูปดับ 1 ดอก + หักเงิน + ผีหลอก
+			-- เติมให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงิน)
 			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price }, 1.5)
 			incense -= 1
-			money = math.max(0, money - CONFIG.GhostFuelPenalty)
 			refreshIncense()
 			local spiritPart = spirit:FindFirstChildWhichIsA("BasePart", true)
 			if spiritPart then
@@ -2909,6 +2932,12 @@ local function serveCustomer(c: Customer)
 				end
 			end)
 			print("✅ ไล่ผีถูกต้อง +" .. CONFIG.RejectGhostReward .. "฿ รวม " .. money .. " (นอกร้านโดนหลอก " .. #outside .. " คน)")
+			-- บางตัวยังไม่ไป: เคาะแผง / วิ่งรอบร้าน / ขึ้นหลังคา (เปิดแผงระหว่างนี้ = โดนหลอก) ลูกค้าคนถัดไปรอจนผีไป
+			task.delay(if #outside > 0 then GHOST_VANISH_AFTER else 1.8, function()
+				if not gameOver then
+					CoreLoop.Linger.Start()
+				end
+			end)
 		else
 			say(pick({ "Rejected_1", "Rejected_2" }), speaker)
 			print("😤 ปิดร้านใส่ลูกค้าปกติ อดได้เงิน")
@@ -2946,7 +2975,14 @@ local function serveCustomer(c: Customer)
 		if v.Parent then
 			v:Destroy()
 		end
+		-- ผีที่ยังวนอยู่หน้าร้าน (GhostLinger) ไปก่อน ค่อยปล่อยลูกค้าคนถัดไป
+		task.wait(2)
+		local t1 = os.clock()
+		while CoreLoop.Linger.Active() and not gameOver and os.clock() - t1 < 40 do
+			task.wait(0.25)
+		end
 	elseif c.kind == "walker" or c.kind == "bicycle" then
+		AnomalyManager.WalkInMoving(v, true)
 		Pedestrian.WalkTo(v, stopPoint.Position - backDir() * 55, CONFIG.WalkSpeed)
 		v:Destroy()
 	else
@@ -2975,6 +3011,7 @@ local function clearQueue()
 		end
 	end
 	table.clear(shelters)
+	CoreLoop.Linger.Stop()
 	customerTalking = false
 	for _, d in ipairs(Workspace:GetChildren()) do
 		if d.Name == "RoadEvent" or d.Name == "Coyote" or d.Name == "Teen" or d.Name == "Ordinand" or d.Name == "ParadeDancer" then
@@ -3028,46 +3065,17 @@ local function summonByPrayer(p: Player)
 	end)
 end
 
--- ผีฉาก: ไม่เกี่ยวกับลูกค้า โผล่ให้เห็นเฉยๆ นานๆ ครั้งตอนร้านเปิด (AnomalyManager.ShowScenery)
--- เสียงตอนเห็น / มองค้างนาน = ผีพุ่งใส่หน้าคนที่มอง อยู่ที่ client/SceneryGhostWatch
-local sceneryNow: string? = nil
-local function showSceneryGhost(kind: string?)
-	local list = AnomalyManager.SceneryKinds
-	local k = kind or list[math.random(#list)]
-	if sceneryNow then
-		AnomalyManager.HideScenery(sceneryNow)
-	end
-	if AnomalyManager.ShowScenery(k) then
-		sceneryNow = k
-		print("👁️ ผีฉากโผล่: " .. k)
-		task.delay(rand(CONFIG.SceneryStay), function()
-			if sceneryNow == k then
-				AnomalyManager.HideScenery(k)
-				sceneryNow = nil
-			end
-		end)
-	end
-end
-local function sceneryLoop()
-	while true do
-		task.wait(rand(CONFIG.SceneryEvery))
-		if remotes:GetAttribute("ShopOpen") == true and not gameOver and not sceneryNow and not CoreLoop.Big.running then
-			showSceneryGhost()
-		end
-	end
-end
+-- ผีฉาก (โผล่ให้เห็นเป็นช่วงๆ ไม่เกี่ยวกับลูกค้า) อยู่ฝั่ง client: client/SceneryGhosts แต่ละคนเห็นคนละตัว คนละเวลา
 
 -- ผีใหญ่บุกประชิด (server/BigEvents): ผิดกติกา = ธูปดับ 1 ดอก + ผีหลอกคนที่ทำผิด / รอด = ได้เงิน + ปลดสมุด
 function CoreLoop.Big.run(kind: string?)
-	if CoreLoop.Big.running or gameOver then
+	if CoreLoop.Big.running or gameOver or (not kind and CoreLoop.Big.count >= CONFIG.BigMax) then
 		return
 	end
 	local k = kind or CoreLoop.Big.mod.Kinds[math.random(#CoreLoop.Big.mod.Kinds)]
 	CoreLoop.Big.running = true
-	if sceneryNow then
-		AnomalyManager.HideScenery(sceneryNow)
-		sceneryNow = nil
-	end
+	CoreLoop.Big.count += 1
+	remotes:SetAttribute("BigEvent", k) -- client/SceneryGhosts ไม่ปล่อยผีฉากระหว่างนี้
 	print("🌑 ผีใหญ่บุกประชิด: " .. k)
 	local r = CoreLoop.Big.mod.Run(k, {
 		notice = function(key: string, seconds: number, list: { Player }?)
@@ -3104,6 +3112,7 @@ function CoreLoop.Big.run(kind: string?)
 		print("👻 ผีใหญ่จับได้ (" .. tostring(r.team or "player") .. ") ธูปเหลือ " .. incense)
 	end
 	CoreLoop.Big.running = false
+	remotes:SetAttribute("BigEvent", nil)
 end
 
 function CoreLoop.Big.loop()
@@ -3400,7 +3409,6 @@ function CoreLoop.Start()
 	end
 	AnomalyManager.Init()
 	task.spawn(prayerSummonLoop)
-	task.spawn(sceneryLoop)
 	task.spawn(CoreLoop.Big.loop)
 	Weather.Start(function()
 		return remotes:GetAttribute("ShopOpen") == true and not gameOver
@@ -3413,6 +3421,10 @@ function CoreLoop.Start()
 			resetGame()
 			-- (คืนใหม่: ไฟดับรอสตาร์ทเครื่องปั่นไฟ — waitForShopOpen ตัดไฟให้)
 			waitForShopOpen()
+			CoreLoop.Night.openedAt = os.clock()
+			CoreLoop.Night.warned = false
+			table.clear(CoreLoop.Night.sawSwarm)
+			CoreLoop.Big.count = 0
 			task.spawn(spawnerLoop)
 			while not gameOver do
 				local front = queue[1]
@@ -3420,6 +3432,17 @@ function CoreLoop.Start()
 					-- ธูปดับหมด (เติมให้ผีครบ หรือทดสอบ) จบเกม
 					gameOver = true
 					print("💀 ธูปดับครบ 3 ดอก Game Over")
+				elseif money >= CONFIG.TargetMoney and os.clock() - CoreLoop.Night.openedAt < CONFIG.MinNight then
+					-- เงินครบแล้วแต่ยังไม่ถึงรุ่งเช้า (เล่นขั้นต่ำ MinNight): บอกครั้งเดียว แล้วเฝ้าร้านต่อ
+					if not CoreLoop.Night.warned then
+						CoreLoop.Night.warned = true
+						Notice:FireAllClients("NightNotOver", 6)
+					end
+					if front and front.atPump and not front.serving then
+						serveCustomer(front)
+					else
+						task.wait(0.2)
+					end
 				elseif money >= CONFIG.TargetMoney then
 					-- ครบโควตา (หลังลูกค้าคนล่าสุด หรือ admin สั่งชนะ)
 					gameOver = true
