@@ -4,6 +4,7 @@
 --   1. เสียงพร้อมใช้ทันทีจาก Roblox Creator Store (แต่งด้วย EqualizerSoundEffect + PitchShift + Reverb)
 --   2. เสียงจากไฟล์ .wav ที่สังเคราะห์ด้วย tools/audio/generate_sounds.py (ถ้าคุณอัปโหลดไฟล์ใน assets/sounds/ ขึ้น Roblox แล้วเอา rbxassetid:// มาใส่ใน CUSTOM_UPLOADED_IDS ระบบจะสลับไปใช้ไฟล์ที่คุณอัปโหลดทันที!)
 
+local ContentProvider = game:GetService("ContentProvider")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
@@ -1110,7 +1111,7 @@ local function resolveVoiceProfileName(speakerInfo: any, dialogueKey: string): s
 end
 
 -- คิวเสียงพากย์: เล่นทีละประโยค ประโยคใหม่รอให้ประโยคก่อนพูดจบก่อน (ไฟล์พากย์คนจริงยาวกว่าเวลาซับ เลยเคยพูดทับกัน)
-local VOICE_QUEUE_MAX_WAIT = 6 -- รอคิวนานเกินนี้ (วินาที) ทิ้งประโยคนั้นไปเลย ไม่ให้เสียงช้ากว่าเหตุการณ์มากเกิน
+local VOICE_QUEUE_MAX_WAIT = 10 -- รอคิวนานเกินนี้ (วินาที) ทิ้งประโยคนั้นไปเลย ไม่ให้เสียงช้ากว่าเหตุการณ์มากเกิน
 local VOICE_GAP = 0.15 -- เว้นจังหวะหายใจระหว่างประโยค
 local voiceQueue: { { play: () -> Sound?, maxLen: number, t: number } } = {}
 local voiceQueueRunning = false
@@ -1120,7 +1121,11 @@ local function runVoiceQueue()
 	voiceQueueRunning = true
 	while #voiceQueue > 0 do
 		local item = table.remove(voiceQueue, 1)
-		if os.clock() - item.t <= VOICE_QUEUE_MAX_WAIT then
+		if os.clock() - item.t > VOICE_QUEUE_MAX_WAIT then
+			if VOICE_LOG then
+				print("VOICE_DROP|รอคิวนานเกินเลยไม่ได้เล่น")
+			end
+		else
 			local snd = item.play()
 			if snd then
 				local t0 = os.clock()
@@ -1146,6 +1151,35 @@ local function enqueueVoice(play: () -> Sound?, maxLen: number)
 	end
 end
 
+-- โหลดเสียงพากย์ทั้งหมดไว้ตั้งแต่เข้าเกม (ฝั่ง Client): เล่นได้ทันที ไม่ต้องรอดึงไฟล์ตอนลูกค้าพูด
+-- ไฟล์ที่โหลดไม่ขึ้น (Roblox ยังไม่อนุมัติ / ไม่มีสิทธิ์) จำไว้แล้วข้าม ไม่ให้คิวเสียงค้างรอ และขึ้นใน Output ว่าไฟล์ไหน
+local badVoiceIds: { [string]: boolean } = {}
+function SoundBank.PreloadVoices()
+	local folder = Instance.new("Folder")
+	folder.Name = "VoicePreload"
+	folder.Parent = SoundService
+	local list = {}
+	local keyOf: { [string]: string } = {}
+	for key, id in pairs(SoundBank.DialogueUploadedIds) do
+		local s = Instance.new("Sound")
+		s.Name = key
+		s.SoundId = id
+		s.Parent = folder
+		table.insert(list, s)
+		keyOf[id] = key
+	end
+	task.spawn(function()
+		pcall(function()
+			ContentProvider:PreloadAsync(list, function(contentId: string, status: Enum.AssetFetchStatus)
+				if status == Enum.AssetFetchStatus.Failure or status == Enum.AssetFetchStatus.TimedOut then
+					badVoiceIds[contentId] = true
+					warn("[SoundBank] โหลดเสียงพากย์ไม่ขึ้น: " .. tostring(keyOf[contentId]) .. " " .. contentId)
+				end
+			end)
+		end)
+	end)
+end
+
 -- เล่นเสียงพากย์บทสนทนาให้ตรงกับคีย์ประโยค + ตำแหน่ง 3D ของผู้พูด:
 --   - ถ้าเป็นเสียงของ Player: ดังที่ตัว Player เอง และให้ได้ยินเฉพาะเจ้าตัวเท่านั้น (คนอื่นไม่ได้ยินเสียงพากย์ของเรา)
 --   - ถ้าเป็นเสียงของลูกค้า / คนหลบฝน / ขาจร: ดังแบบ 3D ที่ตัวลูกค้า (headPart) คนนั้นจริงๆ!
@@ -1156,7 +1190,6 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 	local localPlr = Players.LocalPlayer
 	local isPlayerLine = (type(speakerInfo) == "table" and speakerInfo.player ~= nil)
 		or string.sub(dialogueKey, 1, 6) == "Player"
-		or string.sub(dialogueKey, 1, 10) == "Pray_Reply"
 
 	local targetParent: Instance? = nil
 	if isPlayerLine then
@@ -1189,6 +1222,9 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 	-- 1. เช็กว่ามีไฟล์เสียงพากย์เฉพาะประโยคนี้ใน DialogueUploadedIds หรือในโฟลเดอร์ ReplicatedStorage.UploadedSounds หรือยัง
 	-- เสียงพากย์คนจริง (ใส่ id ใน DialogueUploadedIds) ดังกว่า / ความเร็วเดิม / เล่นจนจบไฟล์ ต่างจากไฟล์ TTS เดิมใน UploadedSounds
 	local dubbedId = SoundBank.DialogueUploadedIds[genderKey] or SoundBank.DialogueUploadedIds[dialogueKey]
+	if dubbedId and badVoiceIds[dubbedId] then
+		dubbedId = nil
+	end
 	local uploadedId = dubbedId
 		or findInUploadedFolder(genderKey)
 		or findInUploadedFolder(dialogueKey)

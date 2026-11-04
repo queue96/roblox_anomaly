@@ -55,14 +55,14 @@ local CONFIG = {
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
 	-- จังหวะลูกค้า: มาทีละ 1 คัน/คนเท่านั้น (ห้ามมาพร้อมกัน 2 กลุ่ม) -> พอออกไปพ้นแมพแล้ว พักตาม rest วินาที
 	Pacing = {
-		{ kind = "single", weight = 3, count = 1, rest = { 20, 35 } }, -- มาคันเดียว พักให้บรรยากาศเงียบเหงา (เร่งขึ้น 2026-11-04 เดิม 35-55)
-		{ kind = "quiet", weight = 2, count = 1, rest = { 40, 60 } }, -- มาคันเดียว แล้วเงียบไปนาน (เดิม 60-90)
+		{ kind = "single", weight = 3, count = 1, rest = { 15, 25 } }, -- มาคันเดียว พักให้บรรยากาศเงียบเหงา (เร่งขึ้น 2026-11-05 เดิม 20-35)
+		{ kind = "quiet", weight = 2, count = 1, rest = { 30, 45 } }, -- มาคันเดียว แล้วเงียบไปนาน (เดิม 40-60)
 	},
 	FirstWaveDelay = { 12, 18 }, -- หลังเปิดร้าน รอให้เงียบสักพักก่อนคันแรกจะมา (เดิม 18-28)
 	-- ฝนตก: ลูกค้ามาน้อยลงและทิ้งช่วงห่างขึ้น (มาทีละ 1 ราย ไม่ซ้อนกัน)
 	RainPacing = {
-		{ kind = "single", weight = 3, count = 1, rest = { 30, 45 } }, -- (เดิม 45-70)
-		{ kind = "quiet", weight = 2, count = 1, rest = { 50, 70 } }, -- (เดิม 70-100)
+		{ kind = "single", weight = 3, count = 1, rest = { 22, 32 } }, -- (เดิม 30-45)
+		{ kind = "quiet", weight = 2, count = 1, rest = { 38, 52 } }, -- (เดิม 50-70)
 	},
 	WalkerChance = 0.25, -- ลูกค้าเดินมาถือแกลลอน (ปกติ)
 	WalkerChanceRain = 0.5, -- (ฝนตก) เดินกางร่มมา
@@ -1348,7 +1348,6 @@ local function cursed(): boolean
 end
 
 -- อาการตอนศาลไม่คุ้มครอง: สุ่มคนที่ยังยืนอยู่ (ไม่นอนล้ม) โดนทีละ 1 อาการ
-local CURSE_WHISPER = { "Curse_Whisper_1", "Curse_Whisper_2", "Curse_Whisper_3", "Curse_Whisper_4" }
 local slowUntil: { [Player]: number } = {}
 local function curseOne(p: Player, symptom: string?)
 	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -1356,14 +1355,8 @@ local function curseOne(p: Player, symptom: string?)
 	if not (root and hum) or root.Anchored or hum.Health <= 0 then
 		return
 	end
-	local s = symptom or pick({ "drowsy", "drowsy", "shake", "slow", "stumble" })
-	if s == "drowsy" then
-		-- เสียงกระซิบข้างหู + ตาปรือจะหลับ (ฝั่ง Client เห็นเสียงกระซิบแล้วเล่นตาปรือเอง)
-		CustomerSpeech:FireClient(p, pick(CURSE_WHISPER), nil, { ghost = "WhisperSpeaker" }, nil)
-		task.delay(3.4, function()
-			CustomerSpeech:FireClient(p, nil)
-		end)
-	elseif s == "slow" then
+	local s = symptom or pick({ "shake", "slow", "stumble" })
+	if s == "slow" then
 		slowUntil[p] = os.clock() + 8
 		hum.WalkSpeed = CONFIG.CurseSlowSpeed
 		Curse:FireClient(p, "slow", 8)
@@ -1510,6 +1503,34 @@ devDecision.Event:Connect(function(choice: string)
 		if lv == 0 then
 			Notice:FireAllClients("FuelEmpty", 6)
 		end
+	elseif choice == "shopready" then
+		-- admin: จัดร้านให้พร้อมขายทันที: เปิดร้าน + ไฟติด + น้ำมันเต็ม + ถวายขนม + ข้ามเวลาเตรียมร้าน (กดตอนคัทซีน = ทำให้ตอนคัทซีนจบ)
+		shopOpened = true
+		CoreLoop.Night.skipPrep = remotes:GetAttribute("ShopOpen") ~= true or remotes:GetAttribute("PrepLeft") ~= nil -- กดหลังเตรียมร้านแล้ว ไม่ให้ไปข้ามของคืนหน้า
+		task.spawn(function()
+			local t0 = os.clock()
+			while remotes:GetAttribute("ShopOpen") ~= true and os.clock() - t0 < 120 do
+				task.wait(0.2)
+			end
+			if gameOver or remotes:GetAttribute("ShopOpen") ~= true then
+				return
+			end
+			if not isShutterOpen then
+				toggleShutter(true, "Admin")
+			end
+			Power.SetBreaker(true, true)
+			Power.Restore()
+			petrolLevel, dieselLevel = 1, 1
+			setFuelLevel(1, 1)
+			setDieselLevel(1, 1)
+			Items.setRackFilled(true)
+			Items.updatePourPrompts()
+			offeringUntil = os.clock() + CONFIG.OfferingDuration
+			offeringWarned = false
+			remotes:SetAttribute("Cursed", false)
+			stats.offerings = math.max(stats.offerings, 1)
+			remotes:SetAttribute("PrepOffered", true)
+		end)
 	elseif choice == "hungry" then
 		-- ศาลหมดเวลาคุ้มครองทันที (เริ่มอาการแปลกๆ) — ต้องเปิดร้านแล้ว
 		offeringUntil = os.clock() - 1
@@ -2655,7 +2676,6 @@ end
 -- ---------------------------------------------------------------- ลูกค้าทักคนที่พนมมือ
 local PRAY_ASK = { "Pray_Ask_1", "Pray_Ask_2", "Pray_Ask_3", "Pray_Ask_4" }
 local PRAY_GHOST = { "Pray_Ghost_1", "Pray_Ghost_2", "Pray_Ghost_3" }
-local PRAY_REPLY = { "Pray_Reply_1", "Pray_Reply_2", "Pray_Reply_3", "Pray_Reply_4" }
 local PRAY_AFTER = { "Pray_After_1", "Pray_After_2" }
 local PRAY_GHOST_AFTER = { "Pray_GhostAfter_1", "Pray_GhostAfter_2" }
 
@@ -2678,10 +2698,6 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 				local ghostLine = c.ghost and math.random() < CONFIG.PrayGhostLineChance
 				print("🙏 ลูกค้าเห็น [" .. p.Name .. "] พนมมือ" .. (if ghostLine then " (ผีไม่ชอบ)" else ""))
 				say(pick(if ghostLine then PRAY_GHOST else PRAY_ASK), speaker, nil, 2.8)
-				if not alive() then
-					break
-				end
-				say(pick(PRAY_REPLY), { player = p.DisplayName, userId = p.UserId, gender = SoundBank.DetectPlayerGender(p) }, nil, 2.4)
 				if not alive() then
 					break
 				end
@@ -3367,11 +3383,12 @@ local function waitForShopOpen()
 	-- ช่วงเตรียมร้าน: ลูกค้ายังไม่มา (spawnerLoop เริ่มหลังฟังก์ชันนี้คืนค่า) นับถอยหลังบน HUD (client/ItemSlots)
 	--   PrepLeft = วินาทีที่เหลือ, PrepOffered = ถวายขนมแล้วหรือยัง (ไฟ = ReplicatedStorage.PowerOn, น้ำมัน = PetrolLevel/DieselLevel)
 	local prepEnd = os.clock() + CONFIG.PrepTime
-	while os.clock() < prepEnd and not gameOver and money < CONFIG.TargetMoney do -- (admin ชนะทันทีระหว่างเตรียมร้าน = จบช่วงเตรียมเลย)
+	while os.clock() < prepEnd and not gameOver and money < CONFIG.TargetMoney and not CoreLoop.Night.skipPrep do -- (admin ชนะทันทีระหว่างเตรียมร้าน = จบช่วงเตรียมเลย)
 		remotes:SetAttribute("PrepLeft", math.ceil(prepEnd - os.clock()))
 		remotes:SetAttribute("PrepOffered", stats.offerings > 0)
 		task.wait(0.25)
 	end
+	CoreLoop.Night.skipPrep = false
 	remotes:SetAttribute("PrepLeft", nil)
 	Notice:FireAllClients("PrepOver", 5)
 	print("🚦 หมดเวลาเตรียมร้าน ลูกค้าเริ่มมา" .. (if stats.offerings == 0 then " (ยังไม่ถวายขนม: ศาลไม่คุ้มครอง)" else ""))

@@ -23,9 +23,10 @@ local ALLOWED = {
 	rain = true, clear = true, powercut = true,
 	lose = true, -- ทุกคนตาย (แพ้ทั้งร้าน: ธูปหมด)
 	-- 2026-11-03
+	shopready = true, -- จัดร้านพร้อมขายทันที
 	fuelempty = true, fuelfull = true, -- น้ำมันในตู้หมด / เต็ม
 	hungry = true, offer = true, dessert = true, -- ศาลหมดเวลาคุ้มครอง / ถวายแล้ว / แจกขนม
-	["curse:drowsy"] = true, ["curse:shake"] = true, ["curse:slow"] = true, ["curse:stumble"] = true,
+	["curse:shake"] = true, ["curse:slow"] = true, ["curse:stumble"] = true,
 	intro = true, win = true, -- คัทซีนเปิดคืน / ชนะทันที (คัทซีนเช้า + สรุปผล)
 	["scenery:Tani"] = true, ["scenery:Scarecrow"] = true, ["scenery:Shadow"] = true, ["scenery:hide"] = true, -- ผีฉาก
 }

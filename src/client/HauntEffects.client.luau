@@ -1,9 +1,8 @@
 --!nonstrict
 -- HauntEffects.client.luau
 -- อาการหลอนบนจอของผู้เล่นคนนี้ (2026-11-03)
---   * ได้ยินเสียงกระซิบ (CustomerSpeech ที่ผู้พูดเป็น "WhisperSpeaker": สวดเรียกผี / ศาลไม่คุ้มครอง)
---     -> ตาปรือจะหลับ แบบเรื่องเล่า "ธี่หยด": หนังตาบน/ล่างค่อยๆ ปิด-ลืม หนักขึ้นทีละรอบ ภาพเบลอ มืดลง หัวสัปหงก
---   * Remotes.Curse (ศาลพระภูมิไม่ได้รับของถวาย): "drowsy" ตาจะหลับ / "shake" จอเขย่า / "slow" เดินช้า ตัวหนัก / "stumble" สะดุดล้ม
+--   * ล้มเพราะผีปั่นป่วน (Remotes.Curse "downed" / "wake"): ตาปรือค้างจนลุก
+--   * Remotes.Curse (ศาลพระภูมิไม่ได้รับของถวาย): "shake" จอเขย่า / "slow" เดินช้า ตัวหนัก / "stumble" สะดุดล้ม
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -130,8 +129,9 @@ local isDowned = false -- ล้มเพราะผีปั่นป่วน
 -- กะพริบปรือ 2 ครั้ง แล้วปรือค้าง (หนังตาเคลื่อนขึ้นลงช้าๆ) จนเสียงกระซิบหาย ไม่สะดุ้งลืมตากลางคัน
 -- (ผู้ใช้ 2026-11-04: กะพริบ 2 ครั้ง / ตาปรือจนกว่าเสียงกระซิบจะหาย)
 -- (ไม่บังคับกล้องก้มลง/เอียง: ผู้ใช้ให้เอาออก 2026-11-03 — อาการอยู่ที่หนังตา เบลอ มืดลงเท่านั้น)
-local function drowsy(seconds: number, fadeOut: number?)
-	if isDowned then
+-- (ผู้ใช้ 2026-11-05: ตอนพนมมือไม่มีอาการตาจะหลับ) force = ล้มเพราะผีปั่นป่วน
+local function drowsy(seconds: number, fadeOut: number?, force: boolean?)
+	if not force and (isDowned or player:GetAttribute("Praying") == true) then
 		return
 	end
 	drowsyToken += 1
@@ -177,8 +177,6 @@ local function drowsy(seconds: number, fadeOut: number?)
 	end)
 end
 
--- เสียงกระซิบ + ตาปรือ (นิยามด้านล่าง ใช้ใน Remotes.Curse ด้วย)
-local whisperFn: (() -> ())? = nil
 
 local function shake(seconds: number, amp: number?)
 	shakeUntil = os.clock() + seconds
@@ -213,25 +211,30 @@ local function stumble(seconds: number)
 	end)
 end
 
+-- เลิกอาการตาจะหลับที่ค้างอยู่ ลืมตาช้าๆ
+local function openEyes()
+	drowsyToken += 1
+	setLids(0, 1.5)
+	TweenService:Create(blur, TweenInfo.new(1.5), { Size = 0 }):Play()
+	TweenService:Create(grade, TweenInfo.new(1.5), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
+end
+-- เริ่มพนมมือตอนตาปรืออยู่: ลืมตาทันที
+player:GetAttributeChangedSignal("Praying"):Connect(function()
+	if player:GetAttribute("Praying") == true and not isDowned then
+		openEyes()
+	end
+end)
+
 local curseRemote = remotes:WaitForChild("Curse") :: RemoteEvent
 curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	local s = seconds or 4
 	if symptom == "downed" then
 		-- นอนล้มตาปรือจนกว่า server สั่ง "wake" (ผีปั่นป่วนเสร็จ)
-		drowsy(3600)
+		drowsy(3600, nil, true)
 		isDowned = true
 	elseif symptom == "wake" then
 		isDowned = false
-		drowsyToken += 1
-		setLids(0, 1.5)
-		TweenService:Create(blur, TweenInfo.new(1.5), { Size = 0 }):Play()
-		TweenService:Create(grade, TweenInfo.new(1.5), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
-	elseif symptom == "drowsy" then
-		if whisperFn then
-			whisperFn()
-		else
-			drowsy(s)
-		end
+		openEyes()
 	elseif symptom == "shake" then
 		shake(s)
 	elseif symptom == "slow" then
@@ -241,55 +244,7 @@ curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	end
 end)
 
--- เสียงกระซิบธี่หยด (เจ้าของเกมอัปโหลด ~28 วิ) ข้างหูคนเดียว เล่นแค่ WHISPER_LEN วิ เบา 10% ระหว่างนั้นตาปรือจะหลับ
---   ดังเมื่อ: ศาลไม่คุ้มครอง (อาการ drowsy) / สวดเรียกผี (บทพูด WhisperSpeaker) / สุ่มเองนานๆ ครั้งตอนร้านเปิด
---   (ผู้ใช้ 2026-11-04: เอากลับมา หลังเอาออกจากเสียงสุ่มรอบทุ่งเมื่อ 2026-11-03)
-local WHISPER_ID = "rbxassetid://116827997071173"
-local WHISPER_VOLUME = 0.1
-local WHISPER_LEN = 15
-local WHISPER_FADE = 3 -- เฟดเข้า / เฟดออก (วินาที)
-local WHISPER_EVERY = { 240, 480 }
-local whisperUntil = 0
-local function whisper()
-	if os.clock() < whisperUntil or Lighting:GetAttribute("Cutscene") == true then
-		return
-	end
-	whisperUntil = os.clock() + WHISPER_LEN + 1
-	local s = Instance.new("Sound")
-	s.Name = "HauntWhisper"
-	s.SoundId = WHISPER_ID
-	s.Volume = 0
-	s.Parent = game:GetService("SoundService")
-	s:Play()
-	-- ค่อยๆ ดังขึ้น / ค่อยๆ เบาลงจนหาย (ไม่ตัดเข้า-ออกทันที) ตาปรือจนเสียงหายพอดี
-	TweenService:Create(s, TweenInfo.new(WHISPER_FADE, Enum.EasingStyle.Sine), { Volume = WHISPER_VOLUME }):Play()
-	drowsy(WHISPER_LEN, WHISPER_FADE)
-	task.delay(WHISPER_LEN - WHISPER_FADE, function()
-		TweenService:Create(s, TweenInfo.new(WHISPER_FADE, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
-	end)
-	task.delay(WHISPER_LEN + 0.1, function()
-		s:Destroy()
-	end)
-end
-
-whisperFn = whisper
-
-local speechRemote = remotes:WaitForChild("CustomerSpeech") :: RemoteEvent
-speechRemote.OnClientEvent:Connect(function(key: string?, _head: any, who: any)
-	if key and type(who) == "table" and who.ghost == "WhisperSpeaker" then
-		whisper()
-	end
-end)
-
-task.spawn(function()
-	while true do
-		task.wait(WHISPER_EVERY[1] + math.random() * (WHISPER_EVERY[2] - WHISPER_EVERY[1]))
-		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		if remotes:GetAttribute("ShopOpen") == true and hum and hum.Health > 0 then
-			whisper()
-		end
-	end
-end)
+-- (เอาเสียงกระซิบธี่หยด + ตาเบลอแบบอยู่ดีๆ ออกแล้ว ผู้ใช้ 2026-11-05 · ตาปรือเหลือเฉพาะตอนล้มเพราะผีปั่นป่วน)
 
 -- ตาย / เกิดใหม่ / คัทซีน: ล้างอาการ
 local function clear()

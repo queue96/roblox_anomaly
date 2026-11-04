@@ -193,10 +193,6 @@ LanguageModule.Dialogues = {
 	Pray_Ask_2 = { th = "สวดมนต์อยู่เหรอ? ดึกป่านนี้แล้ว", en = "Are you praying? At this hour?" },
 	Pray_Ask_3 = { th = "ขออะไรอยู่ล่ะนั่น?", en = "What are you praying for?" },
 	Pray_Ask_4 = { th = "เห็นอะไรเข้าเหรอ ถึงได้ยืนพนมมือแบบนั้น?", en = "Did you see something? Why are you praying like that?" },
-	Pray_Reply_1 = { th = "ขอให้คืนนี้ขายดีๆ หน่อย", en = "Just praying for good sales tonight." },
-	Pray_Reply_2 = { th = "ขอให้คืนนี้ไม่เจออะไรแปลกๆ", en = "Praying nothing weird shows up tonight." },
-	Pray_Reply_3 = { th = "ไหว้เจ้าที่ไว้ก่อน เดี๋ยวท่านงอน", en = "Paying respect to the land spirit. Don't want to upset it." },
-	Pray_Reply_4 = { th = "นะโม ตัสสะ... เอ่อ เปล่าๆ ไม่มีอะไร", en = "Namo tassa... uh, nothing, never mind." },
 	Pray_After_1 = { th = "ดีๆ ไหว้ไว้ก่อน แถวนี้มันเฮี้ยนจริง", en = "Good idea. This place really is haunted." },
 	Pray_After_2 = { th = "ฮ่าๆ ขอเผื่อกันด้วยนะ", en = "Haha, say one for me too." },
 	Pray_Ghost_1 = { th = "...หยุดสวดเดี๋ยวนี้", en = "...Stop praying. Now." },
@@ -218,10 +214,6 @@ LanguageModule.Dialogues = {
 	Outro_Player_1 = { th = "ผ่านไปได้ด้วยดีพี่... แต่คืนหน้าพี่เฝ้าเองนะ", en = "Got through it fine... but you're taking the next one." },
 	Outro_Brother_2 = { th = "ฮ่าๆ ขึ้นรถ ไปกินข้าวต้มกัน", en = "Haha, hop on. Let's go get some rice soup." },
 	-- ไม่ได้ถวายขนมศาล: ศาลไม่คุ้มครอง
-	Curse_Whisper_1 = { th = "...หิว...", en = "...hungry..." },
-	Curse_Whisper_2 = { th = "...ไม่มีใครเอาอะไรมาให้เลย...", en = "...no one brought me anything..." },
-	Curse_Whisper_3 = { th = "...หลับเถอะ... หลับตาลง...", en = "...sleep... close your eyes..." },
-	Curse_Whisper_4 = { th = "...ข้าอยู่ข้างหลังเอ็ง...", en = "...I'm right behind you..." },
 }
 
 -- ชื่อลูกค้า (แสดงบนหัวกล่องคำพูด จะได้จำกันได้ ผีก็ปลอมใช้ชื่อเดียวกัน)

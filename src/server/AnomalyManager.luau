@@ -372,7 +372,14 @@ if radioPart then
 	end)
 end
 
+-- เสียงสวดในวิทยุ: ดังแป๊บเดียวเหมือนหูแว่ว (ผู้ใช้ 2026-11-05) แล้วกลับมาเป็นเพลงตามเดิม
+local CHANT_SECONDS = 4
+local CHANT_FADE = 1.2
+local CHANT_REPEAT = { 10, 15 } -- ลูกค้าผีวิทยุสวดศพ: แว่วซ้ำเป็นพักๆ ระหว่างยังอยู่ พนมมือตอนไหนก็ยังมีโอกาสได้ยิน
+local chantToken = 0
+
 local function radioNormal()
+	chantToken += 1
 	if radioChant then
 		radioChant:Stop()
 		unveil(radioChant)
@@ -583,20 +590,53 @@ AnomalyManager.Anomalies = {
 	-- 7. วิทยุในร้านเปลี่ยนจากเพลงเป็นเสียงพระสวดศพ (ใช้เสียงพระสวดวัดของวิทยุ ไม่เอาเสียงพูดของผู้เล่นมาปน)
 	Anomaly_MonkRadio = {
 		-- คนไม่ได้พนมมือยังได้ยินเพลงวิทยุตามปกติ คนพนมมือได้ยินเสียงสวดศพแทน
-		apply = function(_v)
-			if radioStatic then
-				veil(radioStatic, GHOST_TAG, "Volume", RADIO_VOLUME.static, 0)
-				radioStatic:Play()
-			end
-			if radioMusic and radioUserOn then
-				veil(radioMusic, NORMAL_TAG, "Volume", RADIO_VOLUME.music, 0)
-			end
-			task.delay(0.8, function()
-				if radioChant then
+		apply = function(v)
+			chantToken += 1
+			local my = chantToken
+			task.spawn(function()
+				while chantToken == my do
+					if radioStatic then
+						veil(radioStatic, GHOST_TAG, "Volume", RADIO_VOLUME.static, 0)
+						radioStatic:Play()
+					end
+					if radioMusic and radioUserOn then
+						veil(radioMusic, NORMAL_TAG, "Volume", RADIO_VOLUME.music, 0)
+					end
+					task.wait(0.8)
+					if chantToken ~= my or not radioChant then
+						return
+					end
 					radioChant.SoundId = SOUNDS.MonkChant
 					radioChant.PlaybackSpeed = 1
 					veil(radioChant, GHOST_TAG, "Volume", RADIO_VOLUME.chant, 0)
+					radioChant:SetAttribute("VeilFade", nil)
 					radioChant:Play()
+					task.wait(CHANT_SECONDS)
+					if chantToken ~= my then
+						return
+					end
+					-- ค่อยๆ เบาลงแล้วหยุด กลับเป็นเพลงวิทยุ (คนพนมมืออยู่ได้ยินเงียบลงไปเอง)
+					radioChant:SetAttribute("VeilShow", 0)
+					TweenService:Create(radioChant, TweenInfo.new(CHANT_FADE), { Volume = 0 }):Play()
+					task.wait(CHANT_FADE)
+					if chantToken ~= my then
+						return
+					end
+					radioChant:Stop()
+					unveil(radioChant)
+					if radioStatic then
+						unveil(radioStatic)
+					end
+					if radioMusic then
+						unveil(radioMusic)
+						if radioUserOn then
+							radioMusic.Volume = RADIO_VOLUME.music
+						end
+					end
+					if not v then
+						return -- สวดเรียกเอง: แว่วครั้งเดียว
+					end
+					task.wait(CHANT_REPEAT[1] + math.random() * (CHANT_REPEAT[2] - CHANT_REPEAT[1]))
 				end
 			end)
 		end,

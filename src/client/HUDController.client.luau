@@ -35,6 +35,7 @@ end
 localPlayer.CharacterAdded:Connect(lockJumpOnCharacter)
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
+SoundBank.PreloadVoices()
 local HeadTurn = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HeadTurn")) :: any
 -- กลาง Handle อยู่หน้ารูกำมือเท่านี้ (ตามแนวกระบอก): ไฟฉายยาว 1.35 มือจับท้ายกระบอก หัวไฟยื่นออกไปข้างหน้า
 local FLASHLIGHT_GRIP_BACK = 0.3
