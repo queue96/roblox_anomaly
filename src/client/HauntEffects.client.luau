@@ -165,6 +165,9 @@ local function drowsy(seconds: number)
 	end)
 end
 
+-- เสียงกระซิบ + ตาปรือ (นิยามด้านล่าง ใช้ใน Remotes.Curse ด้วย)
+local whisperFn: (() -> ())? = nil
+
 local function shake(seconds: number, amp: number?)
 	shakeUntil = os.clock() + seconds
 	shakeAmp = amp or 2.2
@@ -202,7 +205,11 @@ local curseRemote = remotes:WaitForChild("Curse") :: RemoteEvent
 curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	local s = seconds or 4
 	if symptom == "drowsy" then
-		drowsy(s)
+		if whisperFn then
+			whisperFn()
+		else
+			drowsy(s)
+		end
 	elseif symptom == "shake" then
 		shake(s)
 	elseif symptom == "slow" then
@@ -212,11 +219,51 @@ curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	end
 end)
 
--- เสียงกระซิบไม่รู้ที่มา = ตาปรือจะหลับ
+-- เสียงกระซิบธี่หยด (เจ้าของเกมอัปโหลด ~28 วิ) ข้างหูคนเดียว เล่นแค่ WHISPER_LEN วิ เบา 10% ระหว่างนั้นตาปรือจะหลับ
+--   ดังเมื่อ: ศาลไม่คุ้มครอง (อาการ drowsy) / สวดเรียกผี (บทพูด WhisperSpeaker) / สุ่มเองนานๆ ครั้งตอนร้านเปิด
+--   (ผู้ใช้ 2026-11-04: เอากลับมา หลังเอาออกจากเสียงสุ่มรอบทุ่งเมื่อ 2026-11-03)
+local WHISPER_ID = "rbxassetid://116827997071173"
+local WHISPER_VOLUME = 0.1
+local WHISPER_LEN = 15
+local WHISPER_EVERY = { 240, 480 }
+local whisperUntil = 0
+local function whisper()
+	if os.clock() < whisperUntil or Lighting:GetAttribute("Cutscene") == true then
+		return
+	end
+	whisperUntil = os.clock() + WHISPER_LEN + 1
+	local s = Instance.new("Sound")
+	s.Name = "HauntWhisper"
+	s.SoundId = WHISPER_ID
+	s.Volume = 0
+	s.Parent = game:GetService("SoundService")
+	s:Play()
+	TweenService:Create(s, TweenInfo.new(0.8, Enum.EasingStyle.Sine), { Volume = WHISPER_VOLUME }):Play()
+	drowsy(WHISPER_LEN)
+	task.delay(WHISPER_LEN - 1, function()
+		TweenService:Create(s, TweenInfo.new(1, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+	end)
+	task.delay(WHISPER_LEN + 0.1, function()
+		s:Destroy()
+	end)
+end
+
+whisperFn = whisper
+
 local speechRemote = remotes:WaitForChild("CustomerSpeech") :: RemoteEvent
 speechRemote.OnClientEvent:Connect(function(key: string?, _head: any, who: any)
 	if key and type(who) == "table" and who.ghost == "WhisperSpeaker" then
-		drowsy(5)
+		whisper()
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(WHISPER_EVERY[1] + math.random() * (WHISPER_EVERY[2] - WHISPER_EVERY[1]))
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if remotes:GetAttribute("ShopOpen") == true and hum and hum.Health > 0 then
+			whisper()
+		end
 	end
 end)
 
