@@ -61,7 +61,9 @@
    - `src/shared/HumanAnimIds.luau` (คน 4 ตัวใหม่)
    - `src/shared/GhostAnimIds.luau` (ตอนนี้ว่างทุกตัว: ผียืนท่า rest pose ซึ่งดูเหมือนท่า T)
 2. ใส่โลงศพในขบวนแห่ศพ ให้ผีชุดขาวแบก (origin โลง = กำปั้นขวาคนแบก)
-3. ต่อผีเข้าเกมผ่าน `src/server/GhostNPC.luau` + `AnomalyManager.luau`
+3. (ทำแล้ว 2026-11-04) ผี 17 ตัวอยู่ในเกมแล้ว: ผีลูกค้า `Anomaly_TaKhon` / `Anomaly_MirrorGhost` (มอไซค์) + ผีฉาก 10 แบบใน `AnomalyManager.RIGGED_SCENERY`
+   - ยังไม่ได้ทำ: อีเวนต์ใหญ่ข้อ 27-30 (ดับไฟ หมอบ) · ขบวนแห่ศพยังใช้ `ghost_glide` จนกว่าจะนำเข้าโลง · กระสือของลูกค้า (ไส้แบบ Part) ยังเป็นแบบเดิม
+   ต่อผีเข้าเกมผ่าน `src/server/GhostNPC.luau` + `AnomalyManager.luau`
    - session หลักทำค้างไว้ ยังไม่ commit
 5. ให้คนเดินถนน/ลูกค้าสุ่มใช้คน 4 แบบใหม่ (หญิง เด็ก ชายชรา หญิงชรา) ใน `HumanNPC`
    - คนขับรถลูกค้ายังเป็น NPC แบบเก่า -> เปลี่ยนเป็น `HumanNPC.SeatIn`

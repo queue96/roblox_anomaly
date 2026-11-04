@@ -456,6 +456,8 @@ LanguageModule.BookOrder = {
 	"Anomaly_NeckTwist",
 	"Anomaly_CreepySmile",
 	"Anomaly_Krasue",
+	"Anomaly_TaKhon",
+	"Anomaly_MirrorGhost",
 	"Anomaly_MonkRadio",
 	"Anomaly_BloodFuel",
 	"Anomaly_NoUmbrella",
@@ -484,6 +486,14 @@ LanguageModule.Book = {
 	Anomaly_Krasue = {
 		th = { "กระสือ", "ไม่มีขา มีไส้ห้อยเรืองแสงอยู่ใต้ตัว และหิวเสมอ" },
 		en = { "Krasue", "No legs, glowing entrails hanging beneath, and always hungry." },
+	},
+	Anomaly_TaKhon = {
+		th = { "หน้ากากผีตาโขน", "คนขับใส่หน้ากากผีตาโขนรูตาดำกลวง เอียงหน้ากากมามองคุณ แล้วสะบัดกลับ" },
+		en = { "Phi Ta Khon Mask", "The rider wears a Phi Ta Khon mask with hollow black eyes. It tilts toward you, then snaps back." },
+	},
+	Anomaly_MirrorGhost = {
+		th = { "ผีในกระจกมองข้าง", "ผู้หญิงผมยาวนั่งซ้อนท้าย ค่อยๆ หันไปมองกระจกมองข้าง คนขับไม่เคยรู้ว่ามีเธออยู่" },
+		en = { "Ghost in the Side Mirror", "A long-haired woman rides pillion and slowly turns to the side mirror. The rider never knew she was there." },
 	},
 	Anomaly_MonkRadio = {
 		th = { "วิทยุสวดศพ", "วิทยุในร้านเปลี่ยนเป็นเสียงพระสวดเอง แต่ลูกค้ากลับชมว่าเพลงเพราะ" },

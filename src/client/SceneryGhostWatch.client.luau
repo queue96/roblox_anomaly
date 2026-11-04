@@ -29,6 +29,15 @@ local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local function focusPoint(m: Instance): Vector3?
+	-- ผีมีกระดูก (GhostNPC): ชิ้นผิววางอยู่ที่ origin กรอบโมเดลจึงเพี้ยน ใช้ตำแหน่งกระดูกหัวแทน
+	local focusBone = m:GetAttribute("FocusBone")
+	if type(focusBone) == "string" then
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("Bone") and d.Name == focusBone then
+				return d.WorldPosition
+			end
+		end
+	end
 	local eyes, n = Vector3.zero, 0
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("BasePart") and string.find(d.Name, "Eye") then

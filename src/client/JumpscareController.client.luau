@@ -48,6 +48,19 @@ local FX = {
 	Scenery_Tani = { focus = "tani", tint = Color3.fromRGB(20, 80, 30), sounds = { { "Sting", 1 }, { "Scream", 1, 0.1 } } },
 	Scenery_Scarecrow = { focus = "scarecrow", tint = Color3.fromRGB(90, 40, 0), sounds = { { "Sting", 1 }, { "Crows", 0.8, 0.05, 2 } } },
 	Scenery_Shadow = { focus = "shadow", tint = Color3.fromRGB(10, 0, 0), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.08 } } },
+	-- ผีฉากแบบมีกระดูก (AnomalyManager.RIGGED_SCENERY): ตัวผีที่โผล่อยู่ส่งมาเป็น source
+	Scenery_Dancer = { focus = "rigged", tint = Color3.fromRGB(110, 10, 40), sounds = { { "Sting", 1 }, { "Laugh", 0.8, 0.1 } } },
+	Scenery_MaeNak = { focus = "rigged", tint = Color3.fromRGB(60, 20, 70), sounds = { { "Crying", 0.8 }, { "Scream", 1, 0.25 } } },
+	Scenery_Kuman = { focus = "rigged", tint = Color3.fromRGB(150, 110, 0), sounds = { { "Laugh", 1 }, { "Sting", 0.9, 0.1 } } },
+	Scenery_Child = { focus = "rigged", tint = Color3.fromRGB(40, 50, 60), sounds = { { "Sting2", 1 }, { "Laugh", 0.7, 0.15 } } },
+	Scenery_Shroud = { focus = "rigged", tint = Color3.fromRGB(120, 110, 70), sounds = { { "Sting2", 1 }, { "Bells", 0.7, 0.05 } } },
+	Scenery_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.05 } } },
+	Scenery_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10), sounds = { { "Sting", 1 }, { "Laugh", 0.9, 0.1 } } },
+	Scenery_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30), sounds = { { "Sting2", 1 }, { "Scream", 0.9, 0.1 } } },
+	Scenery_Krahang = { focus = "rigged", tint = Color3.fromRGB(80, 50, 10), sounds = { { "Sting", 1 }, { "Crows", 0.8, 0.05, 2 } } },
+	Scenery_Funeral = { focus = "rigged", tint = Color3.fromRGB(200, 200, 190), sounds = { { "Bells", 1 }, { "Sting2", 1, 0.1 } }, extra = "grey" },
+	Anomaly_TaKhon = { focus = "rider", tint = Color3.fromRGB(130, 0, 0), sounds = { { "Sting", 1 }, { "Laugh", 0.9, 0.15 } } },
+	Anomaly_MirrorGhost = { focus = "passenger", tint = Color3.fromRGB(40, 60, 70), sounds = { { "Sting2", 1 }, { "Crying", 0.8, 0.1 } } },
 	Anomaly_BloodFuel = { focus = "head", tint = Color3.fromRGB(150, 0, 0), sounds = { { "Glug", 1 }, { "Sting", 1, 0.15 } }, extra = "blood" },
 	Anomaly_NoUmbrella = { focus = "head", tint = Color3.fromRGB(200, 210, 255), sounds = { { "Thunder", 1 }, { "Sting", 1, 0.05 } }, extra = "lightning" },
 }
@@ -254,8 +267,15 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 			end
 		end
 		focusPart = best
+	elseif focus == "rigged" and source then
+		local c = addClone(source)
+		local boneName = source:GetAttribute("FocusBone")
+		focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "head")
 	elseif source then
-		if focus == "passenger" and source:FindFirstChild("GhostPassengerModel") then
+		if focus == "rider" and source:FindFirstChild("GhostRiderModel") then
+			local c = addClone(source.GhostRiderModel)
+			focusPart = boneFocus(c, "head")
+		elseif focus == "passenger" and source:FindFirstChild("GhostPassengerModel") then
 			local c = addClone(source.GhostPassengerModel)
 			focusPart = boneFocus(c, "neck")
 		elseif focus == "passenger" and source:FindFirstChild("GhostPassenger") then

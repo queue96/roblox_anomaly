@@ -55,8 +55,9 @@ function GhostNPC.Play(m: Model, clip: string, speed: number?)
 		return
 	end
 	task.spawn(function()
+		-- Spawn calls this before the caller parents the model, so no parent yet just means "wait"
 		local t0 = os.clock()
-		while m.Parent and not m:IsDescendantOf(workspace) and os.clock() - t0 < 60 do
+		while not m:IsDescendantOf(workspace) and st.clip == clip and os.clock() - t0 < 60 do
 			task.wait(0.2)
 		end
 		if not m:IsDescendantOf(workspace) or st.clip ~= clip then
