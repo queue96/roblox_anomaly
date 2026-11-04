@@ -681,7 +681,7 @@ def baby(body, rig, char, s, clip="nak_cradle"):
     col = np.ones((N_, N_, 3))*np.array((0.74, 0.68, 0.56))*(0.86 + 0.14*wrapb)[..., None]
     col = CL["mix"](col, (0.45, 0.40, 0.32), CL["sstep"](0.06, 0.0, wrapb)*0.7)
     col = CL["mix"](col, CL["DIRT"], 0.45*CL["sstep"](0.55, 0.8, CL["fbm"](X*6, Y*6, oct=3, seed=150, period=6)))
-    col = CL["mix"](col, CL["BLOOD_OLD"], 0.8*CL["sstep"](0.72, 0.76, CL["fbm"](X*5, Y*5, oct=3, seed=151, period=5)))
+    col = CL["mix"](col, (0.25, 0.20, 0.14), 0.7*CL["sstep"](0.72, 0.76, CL["fbm"](X*5, Y*5, oct=3, seed=151, period=5)))   # dark old stains (no blood)
     fx, fy = (X - 0.25)/0.10, (Y - 0.10)/0.075; face = np.hypot(fx, fy)            # the little face, looking up
     col = CL["mix"](col, (0.10, 0.08, 0.07), CL["sstep"](1.35, 1.1, face))           # hood shadow
     col = CL["mix"](col, (0.56, 0.60, 0.62), CL["sstep"](1.05, 0.9, face))           # grey-blue dead skin
@@ -699,7 +699,8 @@ def baby(body, rig, char, s, clip="nak_cradle"):
 def ta_khon_mask(body, rig, char, s):
     """หน้ากากผีตาโขน (ref: art_refs/ghosts/phi_ta_khon): a painted face plate over the whole face, pointed below the
     chin, with a long curved nose, the หวด (rice-steamer basket) flaring up on top, patchwork cloth round the back of
-    the head; blood seeping from the eye holes and running down the face. Bound to `head`; texture ta_khon_mask_*."""
+    the head; black soot and rust stains running down from the eye holes (no blood: Roblox moderation). Bound to
+    `head`; texture ta_khon_mask_*."""
     b, C, U, F, L, hv = head_frame(body, rig); s = b.s; meta = uv_meta(char)
     hcrown = float(max((Vector(p) - C).dot(U) for p in hv))
     chin, ey, my = meta["chin_h"], meta["eye_h"], meta["mouth_h"]
@@ -839,7 +840,7 @@ def ta_khon_mask(body, rig, char, s):
     chip = sst_(0.70, 0.73, fbm(X*30, Y*30, oct=3, seed=163))*~back
     c = mix(c, (0.45, 0.40, 0.32), chip*0.85); hgt -= 0.0002*chip
     c = mix(c, CL["DIRT"], 0.35*sst_(0.55, 0.80, fbm(X*9, Y*9, oct=3, seed=164)))
-    # blood seeping from the eyes: soaked round the lower rim, runs down the face with drops at the ends
+    # stains from the eyes: black soot / rust soaked round the lower rim, running down the face (no red blood: moderation)
     rnd = np.random.RandomState(8); wet = np.zeros((N_, N_))
     for sx in (-1, 1):
         wet = np.maximum(wet, (E > 0.95)*(E < 2.1)*(Y < ey_m)*(np.abs(X - sx*ex) < 0.024*s)*(aa < 1.3)*0.9)
@@ -851,8 +852,8 @@ def ta_khon_mask(body, rig, char, s):
             drop = np.hypot(X - (x0 + 0.004*s*math.sin(Lk/(0.018*s) + ph0)), Y - (y0 - Lk)) < 0.0045*s
             wet = np.maximum(wet, np.maximum(st, drop*(aa < 1.3)).astype(float))
     tone = fbm(X*60, Y*60, oct=2, seed=165)
-    c = mix(c, CL["BLOOD_OLD"], wet*0.9); c = mix(c, (0.42, 0.02, 0.03), wet*sst_(0.35, 0.65, tone)*0.85)
-    rgh = rgh - 0.35*wet; hgt += 0.0002*wet
+    c = mix(c, (0.05, 0.04, 0.04), wet*0.9); c = mix(c, (0.26, 0.16, 0.09), wet*sst_(0.45, 0.70, tone)*0.6)   # black, rusty in places
+    rgh = rgh + 0.1*wet; hgt += 0.0001*wet
     rgh = np.where(back, 0.85, rgh)
     col = np.where(hel[..., None], c, col)
     # basket: red over woven bamboo, a gold band of scrolls round the middle, gold rim

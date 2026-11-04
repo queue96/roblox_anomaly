@@ -453,6 +453,7 @@ OUTFITS = {
     "ghost_shroud": [("shell", "wrap", *shroud(), "ghost_shroud_wrap"),
                      ("ring", "cord_wrists", "forearm", 0.80, "ghost_sai_sin", dict(tr=0.0028, room=0.018)),   # above the bent wrist
                      ("ring", "cord_ankles", "foot", 0.0, "ghost_sai_sin", dict(tr=0.0028, room=0.018))],
+    # ghost_shroud / widow / nak / child / kuman have no blood (Roblox moderation flagged bloody textures, 2026-11-04): dirt, stains, holes only
     # ผีแม่ม่าย (30) / ปอบ: ชุดไทยเก่า - faded indigo-black blouse with long sleeves, an old dark maroon sin, barefoot
     "ghost_widow": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "ghost_widow_blouse"),
                     ("tube", "sin", 1.30, ("lp", 1.92), "ghost_sin_widow", dict(clear=0.024, ragged=0.05))],
@@ -529,12 +530,12 @@ FABRIC = {
                                    ghost=dict(pale=0.22, dirt=0.30, blood=0.0, holes=0.0, fray=0.0, gold_edges=True)),
     # ผ้าห่อศพ: yellowed cotton in overlapping wound bands (bands), body fluid seeping through (seep)
     "ghost_shroud_wrap":      dict(c=(0.84, 0.82, 0.73), weave=0.9, folds=0.3, rough=0.9, bands=True,
-                                   ghost=dict(pale=0.10, dirt=1.1, blood=0.20, holes=0.45, seep=True)),
+                                   ghost=dict(pale=0.10, dirt=1.1, blood=0.0, holes=0.45, seep=True)),
     "ghost_widow_blouse":     dict(c=(0.11, 0.11, 0.16), weave=0.6, buttons="blouse", folds=0.5, rough=0.85,
-                                   ghost=dict(pale=0.30, dirt=0.9, blood=0.30, holes=0.7)),
-    "ghost_nak_wrap":         dict(c=(0.24, 0.15, 0.24), weave=0.6, folds=0.6, rough=0.85, ghost=dict(pale=0.30, dirt=1.0, blood=0.35, holes=0.6)),
-    "ghost_child_shirt":      dict(c=(0.86, 0.86, 0.82), weave=0.7, buttons="blouse", folds=0.5, ghost=dict(pale=0.15, dirt=1.4, blood=0.45, holes=0.8)),
-    "ghost_child_shorts":     dict(c=(0.10, 0.13, 0.26), weave=0.9, folds=1.0, ghost=dict(pale=0.30, dirt=1.5, blood=0.20, holes=0.6)),
+                                   ghost=dict(pale=0.30, dirt=1.1, blood=0.0, holes=0.7)),
+    "ghost_nak_wrap":         dict(c=(0.24, 0.15, 0.24), weave=0.6, folds=0.6, rough=0.85, ghost=dict(pale=0.30, dirt=1.1, blood=0.0, holes=0.6)),
+    "ghost_child_shirt":      dict(c=(0.86, 0.86, 0.82), weave=0.7, buttons="blouse", folds=0.5, ghost=dict(pale=0.15, dirt=1.6, blood=0.0, holes=0.8)),
+    "ghost_child_shorts":     dict(c=(0.10, 0.13, 0.26), weave=0.9, folds=1.0, ghost=dict(pale=0.30, dirt=1.6, blood=0.0, holes=0.6)),
 }
 
 # ---------------------------------------------------------------- noise
@@ -797,9 +798,9 @@ pattern("ghost_sin_green", "norm")(_ghost_sin((0.11, 0.30, 0.17), (0.06, 0.18, 0
 pattern("ghost_sabai_green", "norm")(_ghost_sabai((0.20, 0.42, 0.24), (0.08, 0.22, 0.12), (0.50, 0.58, 0.28), 74))
 pattern("ghost_sin_white", "norm")(_ghost_sin((0.86, 0.86, 0.82), (0.80, 0.80, 0.76), (0.70, 0.70, 0.66), 75, dirt=1.0, blood=0.25))  # ชุดขาว
 pattern("ghost_sabai_white", "norm")(_ghost_sabai((0.88, 0.88, 0.84), (0.82, 0.82, 0.78), (0.74, 0.74, 0.70), 76, blood=0.25, lattice=False))
-pattern("ghost_sin_widow", "norm")(_ghost_sin((0.24, 0.08, 0.10), (0.09, 0.05, 0.06), (0.55, 0.42, 0.20), 77, stripe=(0.16, 0.05, 0.07)))  # แม่ม่าย: ซิ่นเก่าแดงคล้ำ
-pattern("ghost_sin_nak", "norm")(_ghost_sin((0.16, 0.11, 0.09), (0.30, 0.10, 0.10), (0.58, 0.45, 0.22), 78, blood=0.45, stripe=(0.11, 0.08, 0.07)))  # แม่นาค
-pattern("ghost_sabai_nak", "norm")(_ghost_sabai((0.33, 0.22, 0.33), (0.16, 0.09, 0.15), (0.55, 0.44, 0.25), 79, blood=0.45))
+pattern("ghost_sin_widow", "norm")(_ghost_sin((0.24, 0.08, 0.10), (0.09, 0.05, 0.06), (0.55, 0.42, 0.20), 77, blood=0.0, stripe=(0.16, 0.05, 0.07)))  # แม่ม่าย: ซิ่นเก่าแดงคล้ำ
+pattern("ghost_sin_nak", "norm")(_ghost_sin((0.16, 0.11, 0.09), (0.30, 0.10, 0.10), (0.58, 0.45, 0.22), 78, blood=0.0, stripe=(0.11, 0.08, 0.07)))  # แม่นาค
+pattern("ghost_sabai_nak", "norm")(_ghost_sabai((0.33, 0.22, 0.33), (0.16, 0.09, 0.15), (0.55, 0.44, 0.25), 79, blood=0.0))
 @pattern("ghost_sai_sin", "norm")
 def _ghost_sai_sin(X, Y):         # สายสิญจน์ (ตราสัง): twisted white cotton cord, grey with grime
     u = X/TILE
@@ -1175,7 +1176,7 @@ def ghost_shell(b, ras, freg, m, c, h, r, g, k):
         sp_ = fbm(x*6, y*6, z*6, oct=3, seed=93 + k) + 0.06*(y < 0)*sstep(b.z(0.3), b.z(2.2), z)   # more over the belly / chest
         wet = sstep(0.60, 0.66, sp_)
         c = mix(c, (0.58, 0.49, 0.30), wet*0.45); c = mix(c, (0.33, 0.24, 0.11), (np.abs(sp_ - 0.62) < 0.008)*0.6)
-        c = mix(c, (0.30, 0.14, 0.08), sstep(0.72, 0.76, sp_)*0.5); r = r - 0.25*wet
+        c = mix(c, (0.24, 0.18, 0.11), sstep(0.72, 0.76, sp_)*0.5); r = r - 0.15*wet     # dark brown, no red (moderation)
     if g.get("gold_edges"):     # gold trim along the neckline, the cuffs and the hem (worn: dusty, broken in places)
         tr_ = (edge < 0.016)*(fbm(x*40, y*40, z*40, oct=2, seed=92) < 0.75)
         c = mix(c, np.array(GOLD_OLD)*0.9, tr_*0.9); h = h + 0.0003*tr_
