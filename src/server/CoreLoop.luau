@@ -22,7 +22,7 @@ local Cutscene: any -- (require ทีหลัง หลังฟังก์�
 
 -- ---------------------------------------------------------------- ค่าปรับเกม
 local CONFIG = {
-	TargetMoney = 1500, -- (เดิม 500 จบเร็วเกิน ~5 นาที) ตอนนี้ ~15-20 นาทีต่อคืน
+	TargetMoney = 800, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที = ~15-30 นาทีต่อคืน (เดิม 1200 นานเกิน, ผู้ใช้ 2026-11-05)
 	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ) [น้ำมันหลอด]
 	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
 	-- บริการแต่ละแบบ: ตู้ไหน / ราคาให้เลือก / คำถามราคา (เติมผิดตู้ ลูกค้าท้วง)
@@ -43,7 +43,7 @@ local CONFIG = {
 	AirStopOffset = 12, -- จุดจอดเติมลม (หน้าถังลม)
 	ExpensiveRefuseChance = 0.5, -- ตอบแพง (120) ลูกค้าปกติมีโอกาสไม่เอา
 	ReplyTime = 8, -- วินาทีที่เปิดให้ตอบราคา
-	RejectGhostReward = 50, -- ดึงแผงปิดร้านใส่ผีได้ถูกต้อง
+	RejectGhostReward = 0, -- ดึงแผงปิดร้านใส่ผีได้ถูกต้อง (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 	-- เผลอเติมน้ำมันให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงินแล้ว ผู้ใช้ 2026-11-04)
 	StartIncense = 3,
 	AnomalyChance = 0.3, -- (เดิม 0.4 ผีมาถี่เกินไป)
@@ -108,7 +108,7 @@ local CONFIG = {
 	-- ผีใหญ่บุกประชิด (server/BigEvents): ดับไฟที่สะพานไฟ + นั่งยองนิ่งๆ ให้ผีผ่านไป
 	BigEvery = { 360, 600 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง
 	BigMax = 2, -- คืนละไม่เกินเท่านี้
-	BigReward = 50, -- รอดได้ทั้งทีม
+	BigReward = 0, -- รอดได้ทั้งทีม (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 
 	-- น้ำมันในตู้ (2026-11-03): เติม 1 ครั้งใช้เท่านี้ของหลอด หมดแล้วต้องเอาแกลลอนในร้านไปตักจากถังหลังร้านมาเท
 	FuelPerFill = 0.25, -- หลอดเต็ม = เติมได้ 4 ครั้ง
@@ -706,7 +706,7 @@ local function toggleShutter(wantOpen: boolean, who: string?)
 			shutterRejectThread = nil
 			print("↩️ เปิดแผงทันเวลา! ยกเลิกการนับถอยหลังปฏิเสธ")
 			if currentVehicle and not decision and not currentVehicleIsAnomaly and currentSpeaker then
-				say(pick({ "นึกว่าจะไม่ขายซะแล้ว", "ตกใจหมด นึกว่าแผงหล่นใส่", "ฮ่าๆ แผงมันฝืดเหรอช่าง?" }), currentSpeaker, nil, 2.2)
+				task.spawn(CoreLoop.say, pick({ "Shutter_Open_1", "Shutter_Open_2", "Shutter_Open_3" }), currentSpeaker, nil, 2.2) -- ไม่หน่วงการยกแผง
 			end
 		end
 		openShutter()
@@ -729,9 +729,9 @@ local function toggleShutter(wantOpen: boolean, who: string?)
 			task.delay(0.6, function()
 				if not isShutterOpen and currentVehicle and not decision and currentSpeaker then
 					if currentVehicleIsAnomaly then
-						say("...", currentSpeaker, nil, 2.0)
+						CoreLoop.say("...", currentSpeaker, nil, 2.0)
 					else
-						say(pick({ "เอ้า ปิดทำไม?", "ฮัลโหล มีใครอยู่ไหม?", "เฮ้ย ปิดแผงทำไมเนี่ย?" }), currentSpeaker, nil, 2.2)
+						CoreLoop.say(pick({ "Shutter_Closed_1", "Shutter_Closed_2", "Shutter_Closed_3" }), currentSpeaker, nil, 2.2)
 					end
 				end
 			end)
@@ -1595,6 +1595,7 @@ local function say(key: string, speaker: { [string]: any }, vars: { [string]: an
 		task.wait(hold)
 	end
 end
+CoreLoop.say = say -- ใช้จากโค้ดแผงร้านที่อยู่ก่อนบรรทัดนี้ (local say ยังไม่เกิดตรงนั้น)
 
 -- ตัวเลือกตอบ: ทุกคนเห็นเหมือนกัน ใครตอบก่อนนับเป็นคำตอบของทั้งร้าน
 -- options = { { id = "100", key = "Reply_100" }, ... }  Client ส่ง id กลับมา
@@ -2384,9 +2385,6 @@ local function eventRacers()
 				v:PivotTo(CFrame.lookAt(at, at + ROAD_DIR) * CFrame.Angles(lift, 0, 0)) -- หน้ารถเงยขึ้น lift เรเดียน
 				task.wait()
 			end
-			if i == 1 then
-				task.spawn(roadSay, pick({ "Racer_Shout_1", "Racer_Shout_2" }), "Name_Racer", 2.6, v)
-			end
 			eventSound(root :: Instance, "RacerWheeliePass", 0.52, false, 200, false)
 			driveTo(v, exitPos(), false, 46)
 			v:Destroy()
@@ -2596,7 +2594,7 @@ local function spawnerLoop()
 	while not gameOver do
 		-- รอจนไม่มีลูกค้าหรือคนหลบฝนค้างอยู่ในฉาก และไม่มีขาจรบนถนน
 		waitWhile(function()
-			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running
+			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or CoreLoop.Linger.Active()
 		end)
 		if gameOver then
 			return
@@ -2833,14 +2831,14 @@ local function serveCustomer(c: Customer)
 		end
 		if ghost then
 			-- เติมให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงิน)
-			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price }, 1.5)
+			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price }, 0.6)
 			incense -= 1
 			refreshIncense()
 			local spiritPart = spirit:FindFirstChildWhichIsA("BasePart", true)
 			if spiritPart then
 				SoundBank.PlayOneShot("IncenseExtinguish", spiritPart, 85, 3.0)
 			end
-			TriggerJumpscare:FireAllClients(c.anomaly, v)
+			TriggerJumpscare:FireAllClients(c.anomaly, v, "fueled")
 			stats.fooled += 1
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
 			-- หลอกเสร็จ ผีกับรถหายวับไปตรงนั้น (ไม่ขับ/เดินออกไปต่อ): เริ่มจางตอนจอยังโดนผีหลอกเต็มจออยู่
@@ -2903,25 +2901,17 @@ local function serveCustomer(c: Customer)
 			if s then
 				s.ghosts += 1
 			end
-			local tin = interactive:FindFirstChild("MoneyTin")
-			SoundBank.PlayOneShot("CoinTinDrop1", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
 			if c.anomaly then
 				AnomalyBook.Survived(c.anomaly) -- รอดจากผีตัวนี้ -> ปลดล็อกในสมุดของทุกคน
 			end
 			-- ผีรู้ว่าเรารู้แล้ว: ใครยังอยู่นอกร้าน (ยังไม่ได้เข้าหลังแผง) โดนผีหลอกทันที แล้วผีหายวับไปตรงนั้น
-			local outside = {}
-			for _, p in ipairs(Players:GetPlayers()) do
-				local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-				if root and not root.Anchored and not soloDead[p] and not Items.insideShop(root.Position) then
-					table.insert(outside, p)
-				end
-			end
+			local outside = CoreLoop.Rampage.victims()
 			task.wait(CONFIG.RejectScareDelay)
 			for _, p in ipairs(outside) do
 				print("👻 [" .. p.Name .. "] ยังอยู่นอกร้านตอนปิดแผงใส่ผี โดนหลอก")
 				TriggerJumpscare:FireClient(p, c.anomaly, v, "chased")
 				task.delay(0.35, function()
-					knockDown(p, CONFIG.KnockdownTime)
+					CoreLoop.Rampage.down(p)
 				end)
 			end
 			say(if #outside > 0 then "Ghost_Chased" else pick({ "Rejected_1", "Rejected_2" }), speaker)
@@ -2937,11 +2927,12 @@ local function serveCustomer(c: Customer)
 					Pedestrian.FadeAway(v, GHOST_VANISH_FADE)
 				end
 			end)
-			print("✅ ไล่ผีถูกต้อง +" .. CONFIG.RejectGhostReward .. "฿ รวม " .. money .. " (นอกร้านโดนหลอก " .. #outside .. " คน)")
+			print("✅ ไล่ผีถูกต้อง (นอกร้านโดนหลอก " .. #outside .. " คน)")
 			-- บางตัวยังไม่ไป: เคาะแผง / วิ่งรอบร้าน / ขึ้นหลังคา (เปิดแผงระหว่างนี้ = โดนหลอก) ลูกค้าคนถัดไปรอจนผีไป
+			-- มีคนโดนหลอกนอกร้าน: ผีต้องปั่นป่วนทุกครั้ง คนที่ล้มนอนรอจนผีไป
 			task.delay(if #outside > 0 then GHOST_VANISH_AFTER else 1.8, function()
 				if not gameOver then
-					CoreLoop.Linger.Start()
+					CoreLoop.Linger.Start(#outside > 0)
 				end
 			end)
 		else
@@ -3073,6 +3064,87 @@ end
 
 -- ผีฉาก (โผล่ให้เห็นเป็นช่วงๆ ไม่เกี่ยวกับลูกค้า) อยู่ฝั่ง client: client/SceneryGhosts แต่ละคนเห็นคนละตัว คนละเวลา
 
+-- ผีปั่นป่วนคนนอกร้าน (ผู้ใช้ 2026-11-04): คนที่โดนล้ม + ตาปรือ ลุกไม่ได้จนผีปั่นป่วนเสร็จ (GhostLinger จบ) แล้วค่อยลุกพร้อมกัน
+--   ใช้กับ: ปิดแผงใส่ลูกค้าผีตอนยังอยู่นอกร้าน / ผีฉากที่ถูกเห็นแล้วเดินไล่ถึงตัว (client/SceneryGhosts)
+CoreLoop.Rampage = { held = {}, watching = false, nextAt = 0, Cooldown = 30, MaxHold = 45 } :: any
+
+-- ใครจะโดนบ้าง: ทุกคนที่อยู่นอกร้าน + reporter (คนที่ผีไล่ถึงตัว) ถ้าอยู่ในร้านแต่แผงยังเปิด
+function CoreLoop.Rampage.victims(reporter: Player?): { Player }
+	local list = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and not root.Anchored and not soloDead[p] then
+			if not Items.insideShop(root.Position) or (p == reporter and isShutterOpen) then
+				table.insert(list, p)
+			end
+		end
+	end
+	return list
+end
+
+function CoreLoop.Rampage.down(p: Player)
+	local R = CoreLoop.Rampage
+	local char = p.Character
+	if not char or R.held[p] then
+		return
+	end
+	R.held[p] = char
+	collapse(p)
+	Curse:FireClient(p, "downed")
+	if R.watching then
+		return
+	end
+	R.watching = true
+	task.spawn(function()
+		local t0 = os.clock()
+		while
+			not gameOver
+			and os.clock() - t0 < R.MaxHold
+			and (os.clock() - t0 < CONFIG.KnockdownTime or CoreLoop.Linger.Active())
+		do
+			task.wait(0.25)
+		end
+		R.watching = false
+		local held = R.held
+		R.held = {}
+		for q, ch in pairs(held) do
+			if q.Parent then
+				Curse:FireClient(q, "wake")
+				if q.Character == ch and not losePending and not soloDead[q] then
+					standUp(q)
+				end
+			end
+		end
+	end)
+end
+
+remote("SceneryGhostHit").OnServerEvent:Connect(function(p: Player, kind: any)
+	local R = CoreLoop.Rampage
+	local scared = false
+	if type(kind) == "string" and not gameOver and remotes:GetAttribute("ShopOpen") == true and not CoreLoop.Big.running and os.clock() >= R.nextAt then
+		local list = R.victims(p)
+		if #list > 0 then
+			R.nextAt = os.clock() + R.Cooldown
+			if not CoreLoop.Linger.Active() then
+				CoreLoop.Linger.Start(true)
+			end
+			local group = CoreLoop.Linger.Group()
+			for _, v in ipairs(list) do
+				print("👻 [" .. v.Name .. "] โดนผีฉากหลอก (" .. kind .. ") ล้มจนผีปั่นป่วนเสร็จ")
+				if v == p then
+					scared = true -- เครื่องคนที่เห็นเล่นจอผีหลอกเองด้วยตัวผีที่เห็น (ผีฉากอยู่ฝั่ง client)
+				else
+					TriggerJumpscare:FireClient(v, "Linger_Scare", group)
+				end
+				task.delay(0.35, function()
+					R.down(v)
+				end)
+			end
+		end
+	end
+	remote("SceneryGhostHit"):FireClient(p, scared)
+end)
+
 -- ผีใหญ่บุกประชิด (server/BigEvents): ผิดกติกา = ธูปดับ 1 ดอก + ผีหลอกคนที่ทำผิด / รอด = ได้เงิน + ปลดสมุด
 function CoreLoop.Big.run(kind: string?)
 	if CoreLoop.Big.running or gameOver or (not kind and CoreLoop.Big.count >= CONFIG.BigMax) then
@@ -3098,7 +3170,7 @@ function CoreLoop.Big.run(kind: string?)
 		money += CONFIG.BigReward
 		broadcastHUD()
 		AnomalyBook.Survived("Big_" .. k)
-		print("✅ รอดจากผีใหญ่ +" .. CONFIG.BigReward .. "฿")
+		print("✅ รอดจากผีใหญ่")
 	else
 		for p, why in pairs(r.faults :: { [Player]: string }) do
 			TriggerJumpscare:FireClient(p, "Big_" .. k, r.group)
@@ -3127,7 +3199,7 @@ function CoreLoop.Big.loop()
 		-- รอร้านว่าง (ไม่มีลูกค้า คนหลบฝน ขาจรบนถนน) ไม่เกิน 2 นาที
 		local t0 = os.clock()
 		while os.clock() - t0 < 120 do
-			if remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and #shelters == 0 and not roadEventRunning then
+			if remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and #shelters == 0 and not roadEventRunning and not CoreLoop.Linger.Active() then
 				CoreLoop.Big.run()
 				break
 			end

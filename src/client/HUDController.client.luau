@@ -1460,7 +1460,6 @@ end)
 
 -- ---------------------------------------------------------------- ผีหลอก (เติมน้ำมันให้ผี)
 TriggerJumpscare.OnClientEvent:Connect(function(_anomalyKey: string?, _source: Instance?, reason: string?)
-	SoundBank.PlayReaction("Fear", SoundBank.DetectPlayerGender(localPlayer))
 	flash.BackgroundTransparency = 0.1
 	TweenService:Create(flash, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
 	-- reason "chased" = วิ่งตามผีที่ไล่ไปแล้ว (ไม่ได้เติมน้ำมันให้)

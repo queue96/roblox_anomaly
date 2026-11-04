@@ -608,11 +608,6 @@ local function playNeckBreath(side: string?)
 			emitter.CFrame = h.CFrame * CFrame.new(offset)
 		end
 	end)
-	-- เสียงผู้เล่นสะดุ้ง/เสียงสั่นกลัวเบาๆ ตามเพศตัวละครเมื่อโดนหายใจรดต้นคอ
-	task.delay(1.8, function()
-		local g = SoundBank.DetectPlayerGender(localPlayer)
-		SoundBank.PlayReaction(if math.random() < 0.5 then "Tremble" else "Startle", g)
-	end)
 	task.delay(dur - 0.8, function()
 		if snd and snd.Parent then
 			TweenService:Create(snd, TweenInfo.new(0.8, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
@@ -778,14 +773,6 @@ local function triggerRandomHaunt(forcedKind: string?)
 		playShopInteriorOrRoofWalk(math.random() < 0.4)
 	elseif kind == "tree" then
 		playTreeClimb()
-	elseif kind == "cold" then
-		SoundBank.PlayReaction("Cold", SoundBank.DetectPlayerGender(localPlayer))
-	elseif kind == "fear" then
-		SoundBank.PlayReaction("Fear", SoundBank.DetectPlayerGender(localPlayer))
-	elseif kind == "startle" then
-		SoundBank.PlayReaction("Startle", SoundBank.DetectPlayerGender(localPlayer))
-	elseif kind == "question" then
-		SoundBank.PlayReaction("Question", SoundBank.DetectPlayerGender(localPlayer))
 	end
 	task.delay(5.5, function()
 		fadeCrickets(1, 4.0)
@@ -795,7 +782,7 @@ end
 SoundService:GetAttributeChangedSignal("DebugHaunt"):Connect(function()
 	local cmd = SoundService:GetAttribute("DebugHaunt")
 	if type(cmd) == "string" and cmd ~= "" then
-		triggerRandomHaunt(cmd) -- "breath" | "dirt" | "shop" | "tree" | "cold" | "fear" | "startle" | "question"
+		triggerRandomHaunt(cmd) -- "breath" | "dirt" | "shop" | "tree"
 		SoundService:SetAttribute("DebugHaunt", "")
 	end
 end)

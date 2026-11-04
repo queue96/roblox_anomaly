@@ -90,9 +90,14 @@ LanguageModule.Dialogues = {
 	Wrong_NeedPetrol = { th = "นั่นมันดีเซล! รถฉันใช้เบนซินนะ", en = "That's diesel! I need petrol from the petrol pump." },
 	Wrong_NeedAir = { th = "ไม่ได้มาเติมน้ำมัน มาเติมลมยางจ้ะ!", en = "I'm not here for fuel, I just need air in my tire!" },
 	Wrong_NeedFuel = { th = "ลมยางยังดีอยู่ เติมน้ำมันให้หน่อยสิ", en = "My tires are fine. I need fuel." },
+	-- ลูกค้าพูดตอนแผงร้านเปิด / ปิดต่อหน้า
+	Shutter_Open_1 = { th = "นึกว่าจะไม่ขายซะแล้ว", en = "Thought you weren't selling anymore." },
+	Shutter_Open_2 = { th = "ตกใจหมด นึกว่าแผงหล่นใส่", en = "You scared me, thought the shutter was falling on me." },
+	Shutter_Open_3 = { th = "ฮ่าๆ แผงมันฝืดเหรอช่าง?", en = "Haha, is the shutter stuck?" },
+	Shutter_Closed_1 = { th = "เอ้า ปิดทำไม?", en = "Hey, why'd you close?" },
+	Shutter_Closed_2 = { th = "ฮัลโหล มีใครอยู่ไหม?", en = "Hello? Anyone there?" },
+	Shutter_Closed_3 = { th = "เฮ้ย ปิดแผงทำไมเนี่ย?", en = "Hey, why close the shutter?" },
 	-- ขาจรบนถนน (ไม่ได้มาใช้บริการ)
-	Racer_Shout_1 = { th = "ปั๊มผีปะเนี่ย 555 เปิดดึกจัง!", en = "Is this a ghost pump? Haha, open so late!" },
-	Racer_Shout_2 = { th = "เฮ้ย ดูนี่! ยกล้อผ่านหน้าร้านโว้ย!", en = "Hey, watch this! Wheelie past the shop!" },
 	Party_Line = { th = "ไปไหนกันจ๊ะคืนนี้ งานวัดบ้านโน้นยังไม่เลิกเลย ไปด้วยกันไหม!", en = "Where you headed tonight? The temple fair's still going, come along!" },
 	Teen_Line = { th = "จัดไปพี่! เปิดดังๆ อีก!", en = "Let's go! Turn it up!" },
 	Coyote_Line = { th = "หวัดดีจ้า แค่แวะทักเฉยๆ นะ ไม่ได้มาเติมน้ำมันหรอก", en = "Hi there! Just saying hello, we're not here for fuel." },
@@ -230,7 +235,6 @@ LanguageModule.Names = {
 	Name_Daeng = { th = "พี่แดง", en = "Daeng" },
 	Name_Noi = { th = "น้าน้อย", en = "Auntie Noi" },
 	-- ขาจร
-	Name_Racer = { th = "เด็กแว้น", en = "Racer kid" },
 	Name_PartyDriver = { th = "คนขับรถซิ่ง", en = "Party truck driver" },
 	Name_Teen = { th = "วัยรุ่น", en = "Teen" },
 	Name_Coyote = { th = "สาวโคโยตี้", en = "Coyote girl" },

@@ -68,10 +68,10 @@ SoundBank.CustomUploadedIds = {
 	ParadeMusic2_KlongYao = "", -- assets/sounds/music_parade_2_klongyao_brass.wav
 
 	-- 6) เสียงอุทานสั้นๆ / เสียงหนาวสั่น / เสียงหวาดกลัวผวา (assets/sounds/reactions/React_*.wav)
-	React_Startle_Huh_M1 = "",  -- เฮ้ย! (ชาย)
-	React_Startle_Huh_M2 = "",  -- เฮ้ย! อีหยังวะ! (ชาย)
-	React_Startle_Huh_F1 = "",  -- เฮ้ย! (หญิง)
-	React_Startle_Huh_F2 = "",  -- ว้าย! ตกใจเบิดเลย! (หญิง)
+	React_Startle_Huh_M1 = "rbxassetid://129631914908386",  -- เฮ้ย! (ชาย)
+	React_Startle_Huh_M2 = "rbxassetid://130158442655576",  -- เฮ้ย! อีหยังวะ! (ชาย)
+	React_Startle_Huh_F1 = "rbxassetid://86655418231086",  -- เฮ้ย! (หญิง)
+	React_Startle_Huh_F2 = "rbxassetid://114087252777494",  -- ว้าย! ตกใจเบิดเลย! (หญิง)
 	React_Question_Haa_M1 = "", -- ห๊า?! (ชาย)
 	React_Question_Haa_M2 = "", -- ห๊า... แม่นติ? (ชาย)
 	React_Question_Haa_F1 = "", -- ห๊า?! (หญิง)
@@ -111,7 +111,7 @@ SoundBank.DialogueUploadedIds = {
 	Intro_Player_2_M = "rbxassetid://103870537479640",
 
 	-- ลูกค้าทักทาย / คุยระหว่างรอ (ตามโปรไฟล์ลูกค้า ไม่แยกเพศ)
-	Greet_Uncle = "rbxassetid://135889952784672",
+	Greet_Uncle = "rbxassetid://124079216219424",
 	Greet_Aunt = "rbxassetid://135684387590380",
 	Greet_Student = "rbxassetid://89982569853810",
 	Greet_Farmer = "rbxassetid://124747645986293",
@@ -121,7 +121,7 @@ SoundBank.DialogueUploadedIds = {
 	Normal_Farmer = "rbxassetid://90304011725352",
 
 	-- สั่งน้ำมัน ตามประเภทยานพาหนะ
-	Walker_Order_1 = "rbxassetid://104488474180267",
+	Walker_Order_1 = "rbxassetid://80383433386927",
 	Walker_Order_2 = "rbxassetid://106758192539257",
 	Walker_Order_3 = "rbxassetid://73303762715875",
 	Walker_Order_4 = "rbxassetid://116836694647618",
@@ -140,6 +140,91 @@ SoundBank.DialogueUploadedIds = {
 	Pay_2_F = "rbxassetid://79980471421044",
 	Pay_3_M = "rbxassetid://138230893125902",
 	Pay_3_F = "rbxassetid://122927726611288",
+
+	-- ลูกค้ารอนาน / เร่ง / ทักคิว
+	Greet_Waited_M = "rbxassetid://88665687649497",
+	Greet_Waited_F = "rbxassetid://107823156545973",
+	Impatient_1_M = "rbxassetid://99326167547702",
+	Impatient_1_F = "rbxassetid://80749077424250",
+	Impatient_2_M = "rbxassetid://125685947008192",
+	Impatient_2_F = "rbxassetid://137204654697077",
+	Impatient_3_M = "rbxassetid://74873106276661",
+	Impatient_3_F = "rbxassetid://113508307082559",
+	Queue_Chime_M = "rbxassetid://113965823398340",
+	Queue_Chime_F = "rbxassetid://82783583982805",
+	NoOne_1_M = "rbxassetid://107718528797788",
+	NoOne_1_F = "rbxassetid://90433543795714",
+	NoOne_2_M = "rbxassetid://109429992064846",
+	NoOne_2_F = "rbxassetid://95256866710286",
+
+	-- เติมผิดตู้ / จ่ายช้า / โดนปฏิเสธ
+	Wrong_NeedFuel_M = "rbxassetid://129287586147989",
+	Wrong_NeedFuel_F = "rbxassetid://87420590770644",
+	Wrong_NeedPetrol_M = "rbxassetid://86826626985185",
+	Wrong_NeedPetrol_F = "rbxassetid://97082285254450",
+	Wrong_NeedDiesel_M = "rbxassetid://89422788816781",
+	Wrong_NeedDiesel_F = "rbxassetid://93982819043135",
+	Wrong_NeedAir_M = "rbxassetid://109515457797724",
+	Wrong_NeedAir_F = "rbxassetid://70544510139982",
+	Pay_Slow_M = "rbxassetid://113082132363913",
+	Pay_Slow_F = "rbxassetid://123532358154818",
+	Rejected_1_M = "rbxassetid://125395137668895",
+	Rejected_1_F = "rbxassetid://77530178287051",
+	Rejected_2_M = "rbxassetid://131143966474701",
+	Rejected_2_F = "rbxassetid://127722535641568",
+
+	-- ลูกค้าพูดตอนแผงร้านเปิด / ปิดต่อหน้า
+	Shutter_Open_1_M = "rbxassetid://98016373246241",
+	Shutter_Open_1_F = "rbxassetid://122677831744462",
+	Shutter_Open_2_M = "rbxassetid://114999698716069",
+	Shutter_Open_2_F = "rbxassetid://72396976201656",
+	Shutter_Open_3_M = "rbxassetid://112592122590868",
+	Shutter_Open_3_F = "rbxassetid://79635255602673",
+	Shutter_Closed_1_M = "rbxassetid://137332217812444",
+	Shutter_Closed_1_F = "rbxassetid://74928695416599",
+	Shutter_Closed_2_M = "rbxassetid://88666908641530",
+	Shutter_Closed_2_F = "rbxassetid://140044696079853",
+	Shutter_Closed_3_M = "rbxassetid://107782373965219",
+	Shutter_Closed_3_F = "rbxassetid://73392531333493",
+
+	-- ลูกค้าทักคนพนมมือ
+	Pray_Ask_1_M = "rbxassetid://93125176294677",
+	Pray_Ask_1_F = "rbxassetid://115035686543508",
+	Pray_Ask_2_M = "rbxassetid://129074712887611",
+	Pray_Ask_2_F = "rbxassetid://132894536569628",
+	Pray_Ask_3_M = "rbxassetid://106825157155459",
+	Pray_Ask_3_F = "rbxassetid://84278109213466",
+	Pray_Ask_4_M = "rbxassetid://125312309692669",
+	Pray_Ask_4_F = "rbxassetid://131695284992255",
+	Pray_After_1_M = "rbxassetid://103221332740357",
+	Pray_After_1_F = "rbxassetid://78994031383062",
+	Pray_After_2_M = "rbxassetid://79656601360432",
+	Pray_After_2_F = "rbxassetid://71773063993619",
+	Pray_Ghost_1_M = "rbxassetid://105448388105251",
+	Pray_Ghost_1_F = "rbxassetid://110910342680855",
+	Pray_Ghost_2_M = "rbxassetid://118613079122215",
+	Pray_Ghost_2_F = "rbxassetid://131498664469603",
+	Pray_Ghost_3_M = "rbxassetid://135171697217682",
+	Pray_Ghost_3_F = "rbxassetid://137619306973532",
+	Pray_GhostAfter_1_M = "rbxassetid://139796578586671",
+	Pray_GhostAfter_1_F = "rbxassetid://92175695828583",
+	Pray_GhostAfter_2_M = "rbxassetid://123010882457849",
+	Pray_GhostAfter_2_F = "rbxassetid://102927310075959",
+
+	-- เสียงกระซิบตอนสวดเรียกผี
+	Pray_Summon_1 = "rbxassetid://111442887245112",
+	Pray_Summon_2 = "rbxassetid://128575611906473",
+	Pray_Summon_3 = "rbxassetid://74307670216532",
+
+	-- ฝน / คนหลบฝน (ยังมีแค่เพศเดียว อีกเพศใช้เสียงเดิม)
+	RainTalk_1_M = "rbxassetid://108765476380825",
+	Shelter_Ask_F = "rbxassetid://78514124480838",
+
+	-- ขาจร: รถเครื่องเสียง / รถแห่
+	Party_Line = "rbxassetid://115037195700895",
+	Teen_Line = "rbxassetid://129476554217488",
+	Coyote_Line = "rbxassetid://100042904022492",
+	Parade_Invite = "rbxassetid://87431658575313",
 }
 
 -- ---------------------------------------------------------------- 2. พรีเซ็ตเสียงพร้อมใช้ทันที (Warm Non-Piercing EQ: HighGain ติดลบทุกอันเพื่อไม่ให้แสบหู)
@@ -638,78 +723,17 @@ SoundBank.GhostSounds = {
 	FuneralElderWoman = { voice = "Ghost_Pop", laugh = "Ghost_MaeNak_Laugh" },
 }
 
--- ---------------------------------------------------------------- 3. สถานีเพลงวิทยุลูกทุ่งเหงาๆ หลอนๆ 5 คลื่น (Vintage AM Luk Thung Stations)
--- สลับคลื่นได้ หรือสุ่มเปลี่ยนเพลงตอนเที่ยงคืน มีทั้งขลุ่ย/ดนตรีเก่า/ลูกคอเอื้อนช้าๆ แต่ง EQ วิทยุทรานซิสเตอร์ AM นุ่มๆ
+-- ---------------------------------------------------------------- 3. เพลงวิทยุ (เหลือเพลงเดียว radio_song ผู้ใช้สั่ง 2026-11-04 แทน 5 คลื่นลูกทุ่งเดิม)
 SoundBank.RadioStations = {
 	{
-		name = "LukThung_1_LamnamThungMued",
-		titleTH = "คลื่น AM 1: ลำนำทุ่งมืด (ลูกทุ่งเก่าเหงาๆ)",
-		id = "rbxassetid://108772936146894",
-		customKey = "LukThung1",
-		volume = 0.32,
-		speed = 1.0, -- ช้าลงนิดๆ ให้ได้อารมณ์แผ่นเสียง/เทปเก่าเหงาๆ
-		pitchOctave = 0.96,
-		low = -8,
-		mid = 4,
-		high = -20, -- ลำโพงวิทยุ AM อุ่นๆ ไม่บาดหู
-		reverbWet = -6,
-		reverbDecay = 2.8,
-	},
-	{
-		name = "LukThung_2_KhluiSaoTaiSai",
-		titleTH = "คลื่น AM 2: ขลุ่ยเศร้าใต้ต้นไทร (โหยหวนช้าๆ)",
-		id = "rbxassetid://108772936146894",
-		customKey = "LukThung2",
-		volume = 0.30,
-		speed = 1.0, -- โหยหวนช้าๆ เหมือนเพลงลูกทุ่งยุคแผ่นครั่ง
-		pitchOctave = 0.90,
-		low = -6,
-		mid = 5,
-		high = -22,
-		reverbWet = -4,
-		reverbDecay = 3.4,
-	},
-	{
-		name = "LukThung_3_WinyanRakThungNa",
-		titleTH = "คลื่น AM 3: วิญญาณรักท้ายทุ่ง (ลูกคอเทปยาน)",
-		id = "rbxassetid://9040293936",
-		customKey = "LukThung3",
-		volume = 0.24,
-		speed = 1.0, -- ดึงจังหวะลงครึ่งหนึ่ง + กดคีย์ต่ำ กลายเป็นเพลงจังหวะลูกทุ่งช้าๆ หลอนๆ
-		pitchOctave = 0.78,
-		low = -4,
-		mid = 3,
-		high = -24,
-		reverbWet = -5,
-		reverbDecay = 3.2,
-	},
-	{
-		name = "LukThung_4_KlomKhuenDueanDap",
-		titleTH = "คลื่น AM 4: กล่อมคืนเดือนดับ (ดนตรีไทยโบราณวังเวง)",
-		id = "rbxassetid://9043078311",
-		customKey = "LukThung4",
-		volume = 0.25,
+		name = "RadioSong",
+		titleTH = "เพลงวิทยุ",
+		id = "rbxassetid://101156490081905",
+		volume = 0.35, -- ต้องตรงกับ RADIO_VOLUME.music ใน AnomalyManager
 		speed = 1.0,
-		pitchOctave = 0.82,
-		low = -4,
-		mid = 4,
-		high = -22,
-		reverbWet = -3,
-		reverbDecay = 3.8,
-	},
-	{
-		name = "LukThung_5_AMDetunedGhost",
-		titleTH = "คลื่น AM 5: คลื่นแทรกวิญญาณลูกทุ่ง (คลื่นเพี้ยนกลางดึก)",
-		id = "rbxassetid://108772936146894",
-		customKey = "LukThung5",
-		volume = 0.28,
-		speed = 1.0,
-		pitchOctave = 0.85,
-		low = -10,
-		mid = 5,
-		high = -24,
-		reverbWet = -2,
-		reverbDecay = 4.0,
+		low = -2,
+		mid = 2,
+		high = -6,
 	},
 }
 

@@ -79,8 +79,8 @@ local TIPS = {
 		en = "Tip: Check license plates, radio static, the banana grove, and the glass fuel cylinder carefully.",
 	},
 	{
-		th = "คำแนะนำ: เก็บเงินให้ครบ 1,500 บาทก่อนที่ธูปทั้ง 3 ดอกจะดับลงเพื่อเอาชีวิตรอดผ่านคืนนี้",
-		en = "Tip: Earn 1,500 Baht before all 3 incense sticks burn out to survive the night.",
+		th = "คำแนะนำ: เก็บเงินให้ครบ 800 บาทก่อนที่ธูปทั้ง 3 ดอกจะดับลงเพื่อเอาชีวิตรอดผ่านคืนนี้",
+		en = "Tip: Earn 800 Baht before all 3 incense sticks burn out to survive the night.",
 	},
 	{
 		th = "คำแนะนำ: เริ่มคืนมาไฟดับ กด 1 เปิดไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",

@@ -4,6 +4,7 @@
 --   + เสียงหลอน + สีจอ + เอฟเฟกต์เฉพาะของผีแต่ละแบบ (เลือดหยด, ขาวดำ, ฟ้าแลบ ...)
 -- เสียงทุกตัวอยู่ใน SoundGroup SFX (ปรับระดับได้จากหน้าตั้งค่า)
 
+local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -28,6 +29,8 @@ local SND = {
 	Crying = "rbxassetid://75664285683608",
 	Glug = "rbxassetid://9117641837",
 	Thunder = "rbxassetid://9120016037",
+	Jumpscare_1 = "rbxassetid://105012119508747",
+	Jumpscare_2 = "rbxassetid://86851276922466",
 }
 
 -- เอฟเฟกต์ของผีแต่ละแบบ
@@ -74,6 +77,7 @@ local FX = {
 local DEFAULT_FX = { focus = "head", tint = Color3.fromRGB(120, 0, 0), sounds = { { "Sting", 1 } } }
 
 -- ---------------------------------------------------------------- เสียง
+local FUELED_VOLUME = 8 -- เสียงผีหลอกตอนเติมน้ำมันให้ผี (สูงสุด 10, กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
 local JUMPSCARE_BOOST = 1.65 -- ผีหลอกเด่นกว่าเสียงพื้นหลัง แต่ไม่ดังระเบิดหู (กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
 -- ทุกเสียงตอนผีหลอกยาวไม่เกินนี้ แล้วค่อยๆ เบาลงจนหยุด: คลิปจริงยาว 4-30 วินาที (Sting 4.6, Scream 4.1, Sting2 8.1,
 -- Bells 9.2 ...) เดิมปล่อยเล่นถึง 8 วินาที ร้องนานจนรำคาญ ตกใจแค่แวบเดียวพอ
@@ -373,16 +377,51 @@ end
 
 -- ---------------------------------------------------------------- เล่นผีหลอก
 local busy = false
-local function runScare(key: string?, source: Instance?)
+-- เติมน้ำมันให้ผี (reason "fueled"): เล่นแทนเสียงประจำผีใน FX · โหลดไฟล์ไว้ตั้งแต่เข้าเกม เสียงจึงมาพร้อมภาพ (โหลดตอนจะเล่นช้าไป ~0.5 วิ)
+-- สุ่มจากไฟล์ที่โหลดสำเร็จเท่านั้น ไฟล์ที่ Roblox ยังไม่อนุมัติจะถูกข้ามไปเอง ถ้าไม่มีไฟล์ไหนพร้อมเลยกลับไปใช้เสียงใน FX
+local fueledSounds: { Sound } = {}
+for _, key in ipairs({ "Jumpscare_1", "Jumpscare_2" }) do
+	local s = Instance.new("Sound")
+	s.Name = "Fueled" .. key
+	s.SoundId = SND[key]
+	s.Volume = FUELED_VOLUME
+	if sfxGroup and sfxGroup:IsA("SoundGroup") then
+		s.SoundGroup = sfxGroup
+	end
+	s.Parent = SoundService
+	table.insert(fueledSounds, s)
+end
+task.spawn(function()
+	pcall(function()
+		ContentProvider:PreloadAsync(fueledSounds)
+	end)
+end)
+local function playFueledSound(): boolean
+	local ready = {}
+	for _, s in ipairs(fueledSounds) do
+		if s.IsLoaded then
+			table.insert(ready, s)
+		end
+	end
+	if #ready == 0 then
+		return false
+	end
+	ready[math.random(#ready)]:Play()
+	return true
+end
+
+local function runScare(key: string?, source: Instance?, reason: string?)
 	if busy then
 		return
 	end
 	busy = true
 	local fx = (key and FX[key]) or DEFAULT_FX
-	for _, s in ipairs(fx.sounds) do
-		task.delay(s[3] or 0, function()
-			play(s[1], s[2], s[4])
-		end)
+	if not (reason == "fueled" and playFueledSound()) then
+		for _, s in ipairs(fx.sounds) do
+			task.delay(s[3] or 0, function()
+				play(s[1], s[2], s[4])
+			end)
+		end
 	end
 
 	local model, focus = ghostModel(key, fx.focus, source)
@@ -507,8 +546,8 @@ local function runScare(key: string?, source: Instance?)
 	drips:ClearAllChildren()
 	busy = false
 end
-TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?)
-	runScare(key, source)
+TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?, reason: string?)
+	runScare(key, source, reason)
 end)
 -- ผีหลอกเฉพาะเครื่องนี้ (ผีฉาก: client/SceneryGhostWatch) ไม่ผ่านเซิร์ฟเวอร์ คนอื่นไม่เห็น
 _G.LocalJumpscare = function(key: string, source: Instance?)

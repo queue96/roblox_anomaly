@@ -177,7 +177,8 @@ RunService.RenderStepped:Connect(function(dt)
 		if w.away > GRACE then
 			w.stare = 0
 		end
-		if w.stare >= STARE then
+		-- NoStare = ผีตัวนี้เดินมาหาเมื่อถูกเห็นแทน (client/SceneryGhosts)
+		if w.stare >= STARE and not m:GetAttribute("NoStare") then
 			w.scared = true
 			local kind = tostring(m:GetAttribute("SceneryKind"))
 			if _G.LocalJumpscare then

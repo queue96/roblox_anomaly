@@ -125,11 +125,15 @@ end)
 
 -- ---------------------------------------------------------------- ตาจะหลับ (ธี่หยด)
 local drowsyToken = 0
+local isDowned = false -- ล้มเพราะผีปั่นป่วน (CoreLoop.Rampage): ตาปรือค้างจน "wake" เสียงกระซิบไม่มาทับ
 -- seconds = นานเท่าเสียงกระซิบ / fadeOut = ช่วงท้ายที่เสียงค่อยๆ เบาลง: ตาค่อยๆ ลืมไปพร้อมกัน
 -- กะพริบปรือ 2 ครั้ง แล้วปรือค้าง (หนังตาเคลื่อนขึ้นลงช้าๆ) จนเสียงกระซิบหาย ไม่สะดุ้งลืมตากลางคัน
 -- (ผู้ใช้ 2026-11-04: กะพริบ 2 ครั้ง / ตาปรือจนกว่าเสียงกระซิบจะหาย)
 -- (ไม่บังคับกล้องก้มลง/เอียง: ผู้ใช้ให้เอาออก 2026-11-03 — อาการอยู่ที่หนังตา เบลอ มืดลงเท่านั้น)
 local function drowsy(seconds: number, fadeOut: number?)
+	if isDowned then
+		return
+	end
 	drowsyToken += 1
 	local token = drowsyToken
 	local function live(): boolean
@@ -212,7 +216,17 @@ end
 local curseRemote = remotes:WaitForChild("Curse") :: RemoteEvent
 curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	local s = seconds or 4
-	if symptom == "drowsy" then
+	if symptom == "downed" then
+		-- นอนล้มตาปรือจนกว่า server สั่ง "wake" (ผีปั่นป่วนเสร็จ)
+		drowsy(3600)
+		isDowned = true
+	elseif symptom == "wake" then
+		isDowned = false
+		drowsyToken += 1
+		setLids(0, 1.5)
+		TweenService:Create(blur, TweenInfo.new(1.5), { Size = 0 }):Play()
+		TweenService:Create(grade, TweenInfo.new(1.5), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
+	elseif symptom == "drowsy" then
 		if whisperFn then
 			whisperFn()
 		else
@@ -279,6 +293,7 @@ end)
 
 -- ตาย / เกิดใหม่ / คัทซีน: ล้างอาการ
 local function clear()
+	isDowned = false
 	drowsyToken += 1
 	setLids(0, 0.3)
 	nodValue.Value, rollValue.Value = 0, 0

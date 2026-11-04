@@ -3,6 +3,7 @@
 -- ปิดแผงใส่ผีแล้ว ผีไม่ได้ไปไหนทันทีเสมอ: บางตัวหายวับ บางตัวมาเคาะแผงสังกะสี วิ่งป่วนรอบร้าน หรือวิ่งเล่นบนหลังคา
 --   ระหว่างผียังวนอยู่ (Active) ถ้ามีคนเปิดแผง = โดนหลอกทั้งร้าน (CoreLoop.toggleShutter เรียก Scare)
 --   ต้องรอจนผีหายไปเองถึงจะเปิดร้านได้ปลอดภัย · ลูกค้าคนถัดไปรอจนผีไปแล้ว
+--   คนที่โดนหลอกนอกร้านนอนล้มตาปรือจนผีตัวนี้ไป (CoreLoop.Rampage)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -59,8 +60,25 @@ local function fade(root: Instance, t: number, time: number)
 	end
 end
 
-local function pickBehavior(): string
-	local w = GhostLinger.Config.Weights
+local function shutterClosed(): boolean
+	local d = door()
+	if not d then
+		return false
+	end
+	local openY = d:GetAttribute("OpenY") or 15.5
+	local closedY = d:GetAttribute("ClosedY") or 6.0
+	return d.Position.Y < (openY + closedY) / 2
+end
+
+-- mustStay = ห้ามหายไปเฉยๆ (มีคนล้มรอผีปั่นป่วนอยู่) · แผงเปิดอยู่ = ไม่มีแผงให้เคาะ
+local function pickBehavior(mustStay: boolean?): string
+	local closed = shutterClosed()
+	local w = {}
+	for k, v in pairs(GhostLinger.Config.Weights) do
+		if not ((k == "vanish" and mustStay) or (k == "knock" and not closed)) then
+			w[k] = v
+		end
+	end
 	local total = 0
 	for _, v in pairs(w) do
 		total += v
@@ -72,11 +90,15 @@ local function pickBehavior(): string
 			return k
 		end
 	end
-	return "vanish"
+	return if mustStay then "circle" else "vanish"
 end
 
 function GhostLinger.Active(): boolean
 	return current ~= nil
+end
+
+function GhostLinger.Group(): Model?
+	return if current then current.group else nil
 end
 
 -- จบเอง / ถูกเปิดแผง: ผีจางหาย คืนกลุ่มโมเดล (ใช้เป็น source ของจอผีหลอก)
@@ -112,11 +134,11 @@ local function spawnIn(group: Model, name: string, cf: CFrame, clip: string): Mo
 end
 
 -- เริ่มหลังปิดแผงใส่ผี: คืน false = ผีหายไปทันที (ไม่วน)
-function GhostLinger.Start(): boolean
+function GhostLinger.Start(mustStay: boolean?): boolean
 	if current then
 		GhostLinger.Stop()
 	end
-	local behavior = pickBehavior()
+	local behavior = pickBehavior(mustStay)
 	if behavior == "vanish" then
 		return false
 	end
