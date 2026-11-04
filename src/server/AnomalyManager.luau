@@ -15,6 +15,7 @@ local TweenService = game:GetService("TweenService")
 
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
+local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 
 local AnomalyManager = {}
 
@@ -34,6 +35,38 @@ local gasPump = (interactive:FindFirstChild("FuelPumps") or interactive):FindFir
 local fuelLiquid = gasPump and gasPump:FindFirstChild("FuelLiquid") :: BasePart?
 local scarecrow = anomalyProps:FindFirstChild("Scarecrow") :: Model?
 local tani = anomalyProps:FindFirstChild("PhiTaniGhost") :: Model?
+-- rigged Tani (ServerStorage.GhostTemplates.ghost_tani) replaces the part ghost: feet on the ground where it stood,
+-- facing the shop like the old one (its front was -Z of the torso)
+if tani and GhostNPC.Has("ghost_tani") then
+	local old = tani
+	local p = old:GetPivot()
+	local hit = Workspace:Raycast(p.Position + Vector3.new(0, 10, 0), Vector3.new(0, -40, 0), (function()
+		local rp = RaycastParams.new()
+		rp.FilterType = Enum.RaycastFilterType.Include
+		rp.FilterDescendantsInstances = { Workspace.Terrain }
+		return rp
+	end)())
+	local y = if hit then hit.Position.Y else p.Position.Y - 2.25
+	-- face the spot where customers stop (tani_peek points at the driver); the old part ghost's pivot faced away
+	local wps = Workspace:FindFirstChild("VehicleWaypoints")
+	local stop = wps and wps:FindFirstChild("StopPoint") :: BasePart?
+	local feet = Vector3.new(p.Position.X, y, p.Position.Z)
+	local face = if stop then CFrame.lookAt(feet, Vector3.new(stop.Position.X, y, stop.Position.Z)) else CFrame.new(feet) * p.Rotation
+	local m = GhostNPC.Spawn("ghost_tani", face, "tani_peek")
+	if m then
+		m.Name = "PhiTaniGhostModel"
+		m.Parent = anomalyProps
+		for _, d in ipairs(old:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Transparency = 1
+				d.CanQuery = false
+			elseif d:IsA("BillboardGui") then
+				d.Enabled = false
+			end
+		end
+		tani = m
+	end
+end
 
 -- ค่าเดิมสำหรับ reset
 local fuelColor = fuelLiquid and fuelLiquid.Color
@@ -370,6 +403,18 @@ AnomalyManager.Anomalies = {
 	Anomaly_Headless = {
 		apply = function(v)
 			local g = v:FindFirstChild("GhostPassenger")
+			-- rigged ghost (ServerStorage.GhostTemplates.ghost_headless) sits where the old part ghost sat
+			local torso = g and g:FindFirstChild("Torso") :: BasePart?
+			if torso and GhostNPC.Has("ghost_headless") then
+				local hip = CFrame.new(torso.CFrame:PointToWorldSpace(Vector3.new(0, -1.05, 0))) * v:GetPivot().Rotation
+				local m = GhostNPC.SpawnSeated("ghost_headless", hip, "pillion_hug")
+				if m then
+					m.Name = "GhostPassengerModel"
+					m.Parent = v
+					ghostOnly(m)
+					return
+				end
+			end
 			if g then
 				ghostOnly(g, nil, true)
 			end
@@ -569,7 +614,7 @@ local showCount = 0
 
 local function fadeParts(root: Instance, t: number, time: number)
 	for _, d in ipairs(selfAndDescendants(root)) do
-		if d:IsA("BasePart") then
+		if d:IsA("BasePart") and d.Name ~= "RootPart" then -- RootPart of a rigged ghost stays invisible
 			if time > 0 then
 				TweenService:Create(d, TweenInfo.new(time), { Transparency = t }):Play()
 			else

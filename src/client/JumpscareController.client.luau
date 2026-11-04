@@ -190,8 +190,34 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 		c.Parent = m
 		return c
 	end
+	-- rigged ghost (GhostNPC): skinned mesh parts are placed at the origin, so focus on an invisible marker at a bone
+	local function boneFocus(c: Instance, boneName: string): BasePart?
+		for _, d in ipairs(c:GetDescendants()) do
+			if d:IsA("Bone") and d.Name == boneName then
+				local p = Instance.new("Part")
+				p.Name = "FocusMarker"
+				p.Size = Vector3.new(0.6, 0.6, 0.6)
+				p.Transparency = 1
+				p.Anchored = true
+				p.CanCollide = false
+				p.CanQuery = false
+				p.CFrame = d.WorldCFrame
+				p.Parent = c
+				return p
+			end
+		end
+		return nil
+	end
 	local anomalyProps = Workspace:FindFirstChild("AnomalyProps")
-	if focus == "tani" and anomalyProps and anomalyProps:FindFirstChild("PhiTaniGhost") then
+	if focus == "tani" and anomalyProps and anomalyProps:FindFirstChild("PhiTaniGhostModel") then
+		local c = addClone(anomalyProps.PhiTaniGhostModel)
+		for _, d in ipairs(c:GetDescendants()) do
+			if d:IsA("BasePart") and d.Name ~= "RootPart" then
+				d.Transparency = 0
+			end
+		end
+		focusPart = boneFocus(c, "head")
+	elseif focus == "tani" and anomalyProps and anomalyProps:FindFirstChild("PhiTaniGhost") then
 		local c = addClone(anomalyProps.PhiTaniGhost)
 		for _, d in ipairs(c:GetDescendants()) do
 			if d:IsA("BasePart") then
@@ -229,7 +255,10 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 		end
 		focusPart = best
 	elseif source then
-		if focus == "passenger" and source:FindFirstChild("GhostPassenger") then
+		if focus == "passenger" and source:FindFirstChild("GhostPassengerModel") then
+			local c = addClone(source.GhostPassengerModel)
+			focusPart = boneFocus(c, "neck")
+		elseif focus == "passenger" and source:FindFirstChild("GhostPassenger") then
 			local c = addClone(source.GhostPassenger)
 			focusPart = c:FindFirstChild("NeckStump") :: BasePart?
 		end
