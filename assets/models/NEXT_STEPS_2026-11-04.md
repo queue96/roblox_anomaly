@@ -35,26 +35,24 @@
 ### โมเดลที่นำเข้าแล้ว (อยู่ใน Studio)
 - `ServerStorage.HumanTemplates`: human_base, human_female, human_child, human_elder_male, human_elder_female
   - ของเก่าเก็บไว้ที่ `HumanTemplatesOld`
-- `ServerStorage.GhostTemplates`: 16 ตัว (Krahang, Krasue, Pret, ghost_* 13 ตัว)
+- `ServerStorage.GhostTemplates`: 17 ตัว (Krahang, Krasue, Pop, Pret, ghost_* 13 ตัว)
 - KeyframeSequence ที่สร้างแล้วแต่ **ยังไม่ publish**:
   - `HumanAnims.<4 คนใหม่>` คนละ 16 ท่า = 64
-  - `GhostAnims.<15 ผี>` = 33 ท่า
+  - `GhostAnims.<17 ผี>` = 41 ท่า (รวม Krasue 4 ท่า และ Pop 4 ท่า)
 - ท่า human_base publish แล้ว (ID อยู่ใน `src/shared/HumanAnimIds.luau`)
 
 ## 2. สิ่งที่คุณต้องทำ (ใน Studio)
 
-1. **Pop** (ยายป๊อปชุดแม่หม้าย): ตอนนี้อยู่ที่ `Workspace.Pop` นำเข้าให้เสร็จ (Scale 0.01, Rig Custom, Anchored) แล้วบอก AI ย้ายเข้า GhostTemplates
-2. **โลงศพ**: นำเข้า `assets/models/roblox/human_ghosts/Coffin.fbx` (Scale 0.01, Anchored) ยังไม่มีใน Studio
-3. **Publish ท่า** (Animation Editor > Save to Roblox) แล้วจด ID ส่งให้ AI:
+1. **โลงศพ**: นำเข้า `assets/models/roblox/human_ghosts/Coffin.fbx` (Scale 0.01, Anchored) ยังไม่มีใน Studio
+2. **Publish ท่า** (Animation Editor > Save to Roblox) แล้วจด ID ส่งให้ AI:
    - `ServerStorage.HumanAnims` คน 4 ตัวใหม่: 64 ท่า
-   - `ServerStorage.GhostAnims`: 33 ท่า
-   - Krasue (Float, Lunge, Sniff, HairWhip) และ Pop (TwitchWalk, LickLips, KnockShutter, PossessedSnap)
-     - สองตัวนี้ยังไม่มี KeyframeSequence (rig/ไฟล์ท่าคนละแบบ)
-     - ต้องนำเข้าท่าจาก FBX ใน Animation Editor ก่อน
+   - `ServerStorage.GhostAnims`: 41 ท่า
+     - Krasue สร้างจาก `assets/models/Krasue_Anims.json` (รูปแบบเก่า แปลงแกนเอง ท่า Float ตรงกับที่นำเข้าจาก FBX ภายใน 0.06°)
+     - ท่า Krasue ที่เคย publish จาก Animation Editor (81641072874464 = Float, 117758248464276 = โหลดไม่ได้) มี pose รากชื่อ KrasueRig ไม่ใช่ RootPart ให้ publish ตัวใหม่แทน
    - สิทธิ์: experience เป็นของ queue966 แต่ Studio ล็อกอิน Aunival_Games ท่าที่ publish ต้องแชร์สิทธิ์ให้ experience (หรือย้ายไป Group) ไม่งั้นในเกมจริงท่าไม่เล่น
-4. ห้ามใช้เลือดหรือแผลในภาพ/texture ก่อนอัปโหลด (Pret เคยโดนเตือน 2026-11-04)
-5. **Ctrl+S** บันทึก place (หรือ Publish)
-6. ทดสอบคัทซีนกับผู้เล่นจริง 2 คนอย่างน้อยครั้งหนึ่ง (Test > Clients and Servers)
+3. ห้ามใช้เลือดหรือแผลในภาพ/texture ก่อนอัปโหลด (Pret เคยโดนเตือน 2026-11-04)
+4. **Ctrl+S** บันทึก place (หรือ Publish)
+5. ทดสอบคัทซีนกับผู้เล่นจริง 2 คนอย่างน้อยครั้งหนึ่ง (Test > Clients and Servers)
    - หุ่นเดินด้วย Server ส่วนผู้เล่นจริงเดินด้วย Client
 
 ## 3. สิ่งที่ AI ทำต่อหลังคุณทำเสร็จ
@@ -62,9 +60,8 @@
 1. ใส่ AnimationId ที่ได้ลง:
    - `src/shared/HumanAnimIds.luau` (คน 4 ตัวใหม่)
    - `src/shared/GhostAnimIds.luau` (ตอนนี้ว่างทุกตัว: ผียืนท่า rest pose ซึ่งดูเหมือนท่า T)
-2. ย้าย `Workspace.Pop` เข้า `ServerStorage.GhostTemplates` ตรวจกระดูก/ชุด แล้วลบตัวที่ค้างใน Workspace
-3. ใส่โลงศพในขบวนแห่ศพ ให้ผีชุดขาวแบก (origin โลง = กำปั้นขวาคนแบก)
-4. ต่อผีเข้าเกมผ่าน `src/server/GhostNPC.luau` + `AnomalyManager.luau`
+2. ใส่โลงศพในขบวนแห่ศพ ให้ผีชุดขาวแบก (origin โลง = กำปั้นขวาคนแบก)
+3. ต่อผีเข้าเกมผ่าน `src/server/GhostNPC.luau` + `AnomalyManager.luau`
    - session หลักทำค้างไว้ ยังไม่ commit
 5. ให้คนเดินถนน/ลูกค้าสุ่มใช้คน 4 แบบใหม่ (หญิง เด็ก ชายชรา หญิงชรา) ใน `HumanNPC`
    - คนขับรถลูกค้ายังเป็น NPC แบบเก่า -> เปลี่ยนเป็น `HumanNPC.SeatIn`
