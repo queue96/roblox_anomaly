@@ -67,6 +67,15 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 		return -- กันกดรัว
 	end
 	last[p] = os.clock()
+	-- คัทซีนแบบกำหนดจำนวนคน (Studio): "intro@3" / "win@5" = ผู้เล่นจริง + หุ่นทดสอบเติมให้ครบ (Cutscene.luau อ่าน attribute ครั้งเดียวแล้วล้าง)
+	local cutKind, cutN = string.match(cmd, "^(%a+)@(%d)$")
+	if (cutKind == "intro" or cutKind == "win") and RunService:IsStudio() then
+		local n = math.clamp(tonumber(cutN) or 0, 1, 6)
+		devDecision():SetAttribute("CutsceneDummies", math.max(0, n - #Players:GetPlayers()))
+		devDecision():Fire(cutKind)
+		print(string.format("🛠️ [Admin %s] %s", p.Name, cmd))
+		return
+	end
 	local key = string.match(cmd, "^anomaly:(.+)$")
 	local killId = tonumber(string.match(cmd, "^kill:(%d+)$") or "")
 	local reviveId = tonumber(string.match(cmd, "^revive:(%d+)$") or "")

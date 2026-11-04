@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -76,7 +77,8 @@ local function start()
 		l.TextXAlignment = Enum.TextXAlignment.Left
 		l.Parent = frame
 	end
-	local function button(text: string, cmd: string, parent: GuiObject?)
+	-- cmd: ข้อความคำสั่ง หรือฟังก์ชันที่คืนคำสั่ง (ปุ่มที่ขึ้นกับตัวเลือกบนแผง เช่น จำนวนคนในคัทซีน)
+	local function button(text: string, cmd: string | () -> string, parent: GuiObject?): TextButton
 		order += 1
 		local b = Instance.new("TextButton")
 		b.LayoutOrder = order
@@ -100,8 +102,9 @@ local function start()
 			st.Color = C.Line
 		end)
 		b.Activated:Connect(function()
-			remote:FireServer(cmd)
+			remote:FireServer(if type(cmd) == "function" then cmd() else cmd)
 		end)
+		return b
 	end
 
 	label("Admin  [F2]")
@@ -136,8 +139,70 @@ local function start()
 	button("เงาหลังต้นไทร", "scenery:Shadow")
 	button("ซ่อนผีฉาก", "scenery:hide")
 	label("คัทซีน")
-	button("เล่นคัทซีนเปิดคืน", "intro")
-	button("ชนะทันที (คัทซีนเช้า + สรุปผล)", "win")
+	-- Studio: เลือกจำนวนคนในคัทซีน (ผู้เล่นจริง + หุ่นทดสอบเติมให้ครบ) ไว้ดูที่นั่ง/ลงรถ/กล้องตอนหลายคน
+	-- รถเปลี่ยนตามจำนวน: 1 มอไซค์ / 2 ตุ๊กตุ๊ก / 3 เก๋ง / 4-6 กระบะ
+	local cutN = 0 -- 0 = ตามผู้เล่นจริงในห้อง (ไม่เติมหุ่น)
+	local function cutCmd(kind: string): () -> string
+		return function()
+			return if cutN > 0 then kind .. "@" .. cutN else kind
+		end
+	end
+	if RunService:IsStudio() then
+		order += 1
+		local hint = Instance.new("TextLabel")
+		hint.LayoutOrder = order
+		hint.Size = UDim2.new(1, 0, 0, 18)
+		hint.BackgroundTransparency = 1
+		hint.Text = "จำนวนคน (เติมหุ่นให้ครบ · Studio)"
+		hint.TextColor3 = C.Dim
+		hint.FontFace = FONT
+		hint.TextSize = 13
+		hint.TextXAlignment = Enum.TextXAlignment.Left
+		hint.Parent = frame
+		order += 1
+		local row = Instance.new("Frame")
+		row.LayoutOrder = order
+		row.Size = UDim2.new(1, 0, 0, 28)
+		row.BackgroundTransparency = 1
+		row.Parent = frame
+		local rl = Instance.new("UIListLayout", row)
+		rl.FillDirection = Enum.FillDirection.Horizontal
+		rl.Padding = UDim.new(0, 4)
+		rl.SortOrder = Enum.SortOrder.LayoutOrder
+		local chips: { [number]: TextButton } = {}
+		local function paint()
+			for n, chip in pairs(chips) do
+				local on = n == cutN
+				chip.BackgroundColor3 = if on then C.LineHot else C.Button
+				chip.TextColor3 = if on then C.Ink else C.Cream
+			end
+		end
+		for n = 0, 6 do
+			local chip = Instance.new("TextButton")
+			chip.LayoutOrder = n
+			chip.Size = UDim2.new(1 / 7, -4, 1, 0)
+			chip.BackgroundColor3 = C.Button
+			chip.BackgroundTransparency = 0.1
+			chip.TextColor3 = C.Cream
+			chip.FontFace = FONT
+			chip.TextSize = 14
+			chip.Text = if n == 0 then "จริง" else tostring(n)
+			chip.AutoButtonColor = false
+			chip.Parent = row
+			Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 3)
+			local st = Instance.new("UIStroke", chip)
+			st.Color = C.Line
+			st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			chip.Activated:Connect(function()
+				cutN = n
+				paint()
+			end)
+			chips[n] = chip
+		end
+		paint()
+	end
+	button("เล่นคัทซีนเปิดคืน", cutCmd("intro"))
+	button("ชนะทันที (คัทซีนเช้า + สรุปผล)", cutCmd("win"))
 	label("ผู้เล่น (สั่งตาย / ชุบ)")
 	-- ปุ่มต่อผู้เล่นในห้อง (ตัวเอง + คนอื่น) สร้างใหม่ทุกครั้งที่มีคนเข้า/ออก: ตายคนเดียว ร้านเล่นต่อ / ชุบคนที่ตาย
 	order += 1

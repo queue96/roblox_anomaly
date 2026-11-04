@@ -265,6 +265,138 @@ local function setCam(spec: { [string]: any })
 	end
 end
 
+-- ---------------------------------------------------------------- ของบังกล้อง
+-- หลายคนในคัทซีน: ตัวผู้เล่นคนอื่น (หรือตัวเอง) ที่ยืน/นั่งขวางระหว่างกล้องกับจุดที่กล้องมอง
+-- และชิ้นตัวรถที่บังหน้าคนพูด -> จางลงเฉพาะเครื่องนี้ (LocalTransparencyModifier) แล้วค่อยๆ คืนเมื่อพ้นแนว
+local OCC_ALPHA = 0.7 -- ความจางของตัวที่บัง
+local OCC_RADIUS = 1.5 -- ระยะห่างจากเส้นสายตา (แนวราบ) ที่นับว่าบัง
+local occluding = {} :: { [Instance]: boolean } -- ตัวละคร/ชิ้นรถที่กำลังบังอยู่เฟรมนี้
+local fadeLevel: { [Instance]: number } = {} -- ความจางปัจจุบันของแต่ละตัว (ค่อยๆ เลื่อนเข้าหาเป้า)
+
+local function focusPoint(): Vector3?
+	if cam.mode == "lookat" then
+		return lookSmooth
+	elseif cam.mode == "fixed" then
+		return cam.look
+	elseif cam.mode == "track" and cam.target and cam.target.Parent then
+		return cam.target:GetPivot().Position
+	end
+	return nil
+end
+
+local function setLTM(m: Instance, a: number)
+	if m:IsA("BasePart") or m:IsA("Decal") then
+		(m :: any).LocalTransparencyModifier = a
+		return
+	end
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			(d :: any).LocalTransparencyModifier = a
+		end
+	end
+end
+
+local occParams = RaycastParams.new()
+occParams.FilterType = Enum.RaycastFilterType.Include
+
+local function fadeOccluders(dt: number, from: Vector3, focus: Vector3?)
+	table.clear(occluding)
+	local vehicle = Workspace:FindFirstChild("BrotherVehicle")
+	-- ช็อตตามรถ (เป้า = ตัวรถ): รถและคนบนรถคือตัวเอกของภาพ ไม่ทำให้จาง
+	local subjectIsVehicle = vehicle ~= nil and cam.target == vehicle
+	if focus and not subjectIsVehicle then
+		local seg = focus - from
+		local len2 = seg:Dot(seg)
+		if len2 > 1 then
+			-- ตัวผู้เล่นทุกคน + หุ่นทดสอบหลายคน (CutsceneDummy: Studio เท่านั้น ดู Cutscene.luau)
+			local bodies: { Model } = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p.Character then
+					table.insert(bodies, p.Character)
+				end
+			end
+			for _, m in ipairs(Workspace:GetChildren()) do
+				if m:IsA("Model") and m:GetAttribute("CutsceneDummy") then
+					table.insert(bodies, m)
+				end
+			end
+			for _, ch in ipairs(bodies) do
+				local root = ch and ch:FindFirstChild("HumanoidRootPart") :: BasePart?
+				local head = ch and ch:FindFirstChild("Head") :: BasePart?
+				if root then
+					local b = root.Position
+					-- ตัวที่กล้องกำลังมอง (หัว/ตัวอยู่ใกล้จุดมอง) ไม่นับว่าบัง
+					local subject = (head and (head.Position - focus).Magnitude < 2.5) or (b - focus).Magnitude < 2.5
+					local t = (b - from):Dot(seg) / len2
+					if not subject and t > 0.02 and t < 0.9 then
+						local near = from + seg * t
+						local flat = Vector3.new(b.X - near.X, 0, b.Z - near.Z).Magnitude
+						if flat < OCC_RADIUS and near.Y > b.Y - 3.2 and near.Y < b.Y + 2.6 then
+							occluding[ch :: Model] = true
+						end
+					end
+				end
+			end
+			-- ตัวรถ (หลังคา/กระจก/ข้างรถ) ที่บังคนพูด: ยิงจากกล้องไปจุดมอง เฉพาะชิ้นรถ (ไม่รวมคนขับ)
+			if vehicle then
+				occParams.FilterDescendantsInstances = { vehicle }
+				local origin = from
+				for _ = 1, 12 do
+					local hit = Workspace:Raycast(origin, focus - origin, occParams)
+					if not hit then
+						break
+					end
+					local drv = vehicle:FindFirstChild("DriverNPC")
+					if drv and hit.Instance:IsDescendantOf(drv) then
+						break
+					end
+					-- กล่องชนล่องหน (Collider) ไม่ต้องจาง แค่ยิงทะลุต่อ
+					if hit.Instance.Transparency < 0.95 then
+						occluding[hit.Instance] = true
+					end
+					origin = hit.Position + (focus - origin).Unit * 0.05
+				end
+			end
+		end
+	end
+	-- เลื่อนความจางนุ่มๆ (เข้า 0.15 วิ ออก 0.3 วิ)
+	for inst in pairs(occluding) do
+		if fadeLevel[inst] == nil then
+			fadeLevel[inst] = 0
+		end
+	end
+	for inst, a in pairs(fadeLevel) do
+		if not inst.Parent then
+			fadeLevel[inst] = nil
+			continue
+		end
+		local want = if occluding[inst] then OCC_ALPHA else 0
+		local nxt = if want > a then math.min(want, a + dt / 0.15 * OCC_ALPHA) else math.max(want, a - dt / 0.3 * OCC_ALPHA)
+		local isSelf = inst == player.Character
+		-- ตัวเอง: คืนเป็น 0 (update ตั้งให้อยู่แล้ว) / คนอื่น+ชิ้นรถ: คืนค่าเดิม 0
+		if nxt <= 0 then
+			fadeLevel[inst] = nil
+			if not isSelf then
+				setLTM(inst, 0)
+			end
+		else
+			fadeLevel[inst] = nxt
+			setLTM(inst, nxt)
+			occluding[inst] = true -- ตัวเองยังจางอยู่: update ไม่รีเซ็ตทับ
+		end
+	end
+end
+
+local function clearOccluders()
+	for inst in pairs(fadeLevel) do
+		if inst.Parent then
+			setLTM(inst, 0)
+		end
+	end
+	table.clear(fadeLevel)
+	table.clear(occluding)
+end
+
 local function update(dt: number)
 	local c = Workspace.CurrentCamera
 	if not (c and active) then
@@ -306,14 +438,17 @@ local function update(dt: number)
 		c.CFrame = out
 	end
 
-	-- ตัวเองต้องเห็นในคัทซีน (มุมมองบุคคลที่ 1 ซ่อนตัวเองไว้)
+	-- ตัวเองต้องเห็นในคัทซีน (มุมมองบุคคลที่ 1 ซ่อนตัวเองไว้) — ยกเว้นตัวที่ยืนบังกล้อง (fadeOccluders จัดการ)
 	local char = player.Character
-	if char then
+	if char and not occluding[char] then
 		for _, d in ipairs(char:GetDescendants()) do
 			if d:IsA("BasePart") or d:IsA("Decal") then
 				(d :: any).LocalTransparencyModifier = 0
 			end
 		end
+	end
+	if cf then
+		fadeOccluders(dt, c.CFrame.Position, focusPoint())
 	end
 end
 
@@ -626,6 +761,7 @@ local function endCutscene(kind: string)
 	active = nil
 	walkTarget = nil
 	table.clear(walkQueue)
+	clearOccluders() -- คืนความทึบตัวที่เคยจาง (คนอื่น / ชิ้นรถ)
 	RunService:UnbindFromRenderStep("CutsceneCamera")
 	subtitle.Visible = false
 	-- หยุดเดินที่คัทซีนสั่งไว้ (ยังเดินไม่ถึงตอนจบ = เดินข้างไปเองหลังกล้องกลับมาที่ตา)

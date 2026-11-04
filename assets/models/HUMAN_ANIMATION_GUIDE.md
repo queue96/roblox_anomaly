@@ -205,6 +205,11 @@ HumanEmotes.SetWalkLegs(npc, speed)   -- ขา+สะโพกเดิน ส�
 - require ModuleScript จาก MCP ได้ **instance แยก** ของโมดูล (เช่น `Power`) ไม่ใช่ตัวที่เกมใช้อยู่ → สั่งงานผ่าน `ServerStorage.DevDecision:Fire(...)` หรือ remote `Admin` แทน
   - คำสั่ง DevDecision: `open`, `spawn`, `car`, `walker`, `party`, `lose`, `kill:<UserId>`, `revive:<UserId>`, `fuel`, `powercut` ...
   - ผีคันถัดไป: `DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Headless")`
+- คัทซีนหลายคน (ไม่ต้องเปิดหลาย client): แผง admin (F2) > คัทซีน เลือกจำนวนคน 1–6 แล้วกดเล่นคัทซีน / ชนะทันที
+  - หรือจาก MCP: `ServerStorage.DevDecision:SetAttribute("CutsceneDummies", n)` แล้ว `Fire("intro")` / `Fire("win")` (ใช้ครั้งเดียวแล้วล้าง) หรือ remote `Admin` ส่ง `"intro@5"` / `"win@5"`
+  - หุ่น = โคลนตัวผู้เล่นจริง (`CutsceneDummyN` ใน Workspace) นั่ง/ลงรถ/เดินผ่านโค้ด Cutscene.luau เดียวกัน เฉพาะ Studio; ผู้เล่นจริงกดข้าม = จบคัทซีน ลบหุ่น
+  - ข้ามคัทซีนจาก MCP: client `Remotes.Cutscene:FireServer("skip")`
+  - ดูมุมใกล้ระหว่างคัทซีน: client `BindToRenderStep` priority สูงกว่า `Last` ตั้งกล้องเอง (อย่าลืม Unbind) / ซ่อน ScreenGui ชั่วคราวถ้าหน้าสรุปผลบัง
 - ProximityPrompt กดจากสคริปต์ไม่ติด (`InputHoldBegin`) → ใช้ `user_keyboard_input` กด E จริง และยืนห่าง < 9 studs หันหน้าเข้า
 - `VirtualInputManager` ใช้จาก MCP ไม่ได้ → ทดสอบจังหวะกดแม่นๆ ไม่ได้ ตรวจตรรกะแทนแล้วให้เจ้าของลองเล่น
 - screen_capture ใน Play: ส่งตำแหน่งกล้องมักไม่ตรง → ตั้ง `CameraType = Scriptable` แล้วล็อก CFrame ด้วย RenderStepped เอง แล้วถ่ายแบบไม่ส่งตำแหน่ง
