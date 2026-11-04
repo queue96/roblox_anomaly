@@ -33,3 +33,22 @@ ghost_dancer               rest          ok       0/1   frames  worst    0.0  {}
 ghost_dancer               dancer_dance  skin    50/121 frames  worst    1.0  {'leg.L out': 1, 'leg.R out': 1}
 ghost_dancer               dancer_dance  cloth   17/121 frames  worst    8.0  {'ghost_dancerxghost_dancer_sabai at uarm.R': 8}
 ghost_dancer               dancer_idle   ok       0/48  frames  worst    0.0  {}
+ghost_shroud               rest          ok       0/1   frames  worst    0.0  {}
+ghost_shroud               shroud_idle   ok       0/51  frames  worst    0.0  {}
+ghost_shroud               shroud_glide  ok       0/31  frames  worst    0.0  {}
+ghost_child                rest          ok       0/1   frames  worst    0.0  {}
+ghost_child                ghost_idle    ok       0/33  frames  worst    0.0  {}
+ghost_child                ghost_glide   cloth   19/20  frames  worst    1.2  {'ghost_child_shorts in leg.R': 1.2, 'ghost_child_shorts in thigh.L': 1.2, 'ghost_child_shorts in leg.L': 1.2, 'ghost_child_shorts in thigh.R': 1.2}
+ghost_mae_nak              rest          hair     1/1   frames  worst    3.1  {'hair under cloth': 3.1, 'hair in torso': 1.9}
+ghost_mae_nak              nak_cradle    skin    48/48  frames  worst    1.0  {'leg.L out': 1, 'leg.R out': 1}
+ghost_mae_nak              nak_cradle    hair    48/48  frames  worst    3.4  {'hair under cloth': 3.4, 'hair in torso': 1.8, 'hair in uarm.R': 1.6}
+ghost_mae_nak              nak_reach     skin    48/48  frames  worst    1.0  {'leg.L out': 1, 'leg.R out': 1, 'torso out': 1}
+ghost_mae_nak              nak_reach     hair    48/48  frames  worst    3.3  {'hair under cloth': 3.3, 'hair in torso': 1.6, 'hair in uarm.R': 1.5}
+ghost_mae_nak              nak_reach     cloth   31/48  frames  worst    1.3  {'ghost_nak in torso': 1.3}
+ghost_kuman_thong          rest          cloth    1/1   frames  worst    1.6  {'ghost_kuman in thigh.R': 1.6, 'ghost_kuman in thigh.L': 1.6, 'ghost_kuman in torso': 1.3}
+ghost_kuman_thong          kuman_sit     cloth   49/49  frames  worst    1.9  {'ghost_kuman in leg.R': 1.9, 'ghost_kuman in leg.L': 1.9, 'ghost_kuman in torso': 1.3, 'ghost_kuman in thigh.R': 1.1}
+ghost_kuman_thong          kuman_giggle  cloth   25/25  frames  worst    1.7  {'ghost_kuman in leg.R': 1.7, 'ghost_kuman in leg.L': 1.7, 'ghost_kuman in torso': 1.1}
+ghost_kuman_thong          run           cloth    5/6   frames  worst    1.7  {'ghost_kuman in leg.R': 1.7, 'ghost_kuman in leg.L': 1.7, 'ghost_kuman in shin.L': 1.6, 'ghost_kuman in shin.R': 1.6}
+ghost_ta_khon              rest          cloth    1/1   frames  worst   66.0  {'mohom_sashxmohom_sash_tails at torso': 66, 'mohom_sash_tailsxmohom_shorts at leg.L': 33}
+ghost_ta_khon              ride_moto     cloth   31/31  frames  worst   76.0  {'mohom_sashxmohom_sash_tails at torso': 76, 'mohom_sash_tailsxmohom_shorts at leg.L': 49, 'mohomxmohom_sash at leg.R': 24, 'mohom_sash_tails in torso': 2.2}
+ghost_ta_khon              mask_tilt     cloth   51/51  frames  worst   76.0  {'mohom_sashxmohom_sash_tails at torso': 76, 'mohom_sash_tailsxmohom_shorts at leg.L': 49, 'mohomxmohom_sash at leg.R': 24, 'mohom_sash_tails in torso': 2.2}

@@ -220,6 +220,17 @@ def chest_wrap(lo=1.80, hi=2.40):
     off.no_room = True                    # no armpit / opening room: it would bulge out under the sabai
     return lambda r, tz, ap, lp: torso(r) and lo <= tz < hi, off
 
+def shroud(loose=0.007):
+    """ผ้าห่อศพ: one wrap over the neck, trunk, arms to the wrists, legs and feet (hands and head stay out); sleeve
+    room as a long-sleeved shirt, leg room as long trousers"""
+    _, t_off = top(1.97, hem=-9.0, loose=loose, hang=0.0)
+    _, b_off = bottom(9.0, top_tz=-9.0, loose=loose + 0.001)
+    test = lambda r, tz, ap, lp: torso(r) or (r == "neck" and tz < 3.3) or (arm(r) and ap < 1.97) or leg(r) or foot(r)   # trunk rings above the collar are "neck" up to the crown
+    def off(r, tz, ap, lp, room=ROOM):
+        if foot(r): return loose
+        return b_off(r, tz, ap, lp, room) if leg(r) else t_off(r, tz, ap, lp, room)
+    return test, off
+
 def boots(top_lp=1.55):
     return (lambda r, tz, ap, lp: (leg(r) and lp >= top_lp) or foot(r),
             lambda r, tz, ap, lp, room=0: 0.006 + 0.008*sst(top_lp + 0.25, top_lp, lp)*leg(r) + 0.010*math.exp(-((lp - 2.0)/0.25)**2))   # roomy ankle
@@ -269,14 +280,14 @@ def path_sash_tails(b):
     t2 = [_front(b, x + 0.01, zk, False) + Vector((0, -0.01, 0))] + [_front(b, x + 0.03*b.s + 0.006*i*b.s, z, False) for i, z in enumerate(np.linspace(zk - 0.05*b.s, b.z(-0.55), 5))]
     return [t1, t2]
 
-def path_chains(b):
-    """สังวาล: two gold chains crossing on the chest, shoulder to opposite hip"""
+def path_chains(b, low=1.0):
+    """สังวาล: two gold chains crossing on the chest, shoulder to opposite hip (down to trunk height `low`)"""
     out = []
     for sx in (1, -1):
         sh = b.J["shoulder.L" if sx > 0 else "shoulder.R"]; x = sh[0][0]*0.4 + sh[1][0]*0.6
         top_p = _top(b, x, 0.0)
-        f = [top_p] + [_front(b, _lerp(x, -sx*0.06*b.s, t), _lerp(top_p.z - 0.02*b.s, b.z(1.0), t)) for t in np.linspace(0.05, 1.0, 9)]
-        bk = [_back(b, _lerp(x, -sx*0.06*b.s, t), _lerp(top_p.z - 0.02*b.s, b.z(1.0), t)) for t in np.linspace(1.0, 0.05, 9)] + [top_p]
+        f = [top_p] + [_front(b, _lerp(x, -sx*0.06*b.s, t), _lerp(top_p.z - 0.02*b.s, b.z(low), t)) for t in np.linspace(0.05, 1.0, 9)]
+        bk = [_back(b, _lerp(x, -sx*0.06*b.s, t), _lerp(top_p.z - 0.02*b.s, b.z(low), t)) for t in np.linspace(1.0, 0.05, 9)] + [top_p]
         out += [f, bk]
     return out
 
@@ -441,12 +452,34 @@ OUTFITS = {
                      ("ring", "cuffs2", "forearm", 0.82, "ghost_dancer_gold", dict(tr=0.008, room=0.004)),    # rings stacked up the wrist
                      ("crown", "crown", "ghost_dancer_gold", dict(slim=True)),
                      ("flowers", "flowers", "ghost_flower", {})],
+    # ผ้าห่อศพ (29): white cotton wound round the whole body in overlapping bands, yellowed, stained; ตราสัง = sai sin
+    # cord tied round the wrists and ankles (the cloth tied under the jaw is a prop of the ghost: build_ghosts)
+    "ghost_shroud": [("shell", "wrap", *shroud(), "ghost_shroud_wrap"),
+                     ("ring", "cord_wrists", "forearm", 0.80, "ghost_sai_sin", dict(tr=0.0028, room=0.018)),   # above the bent wrist
+                     ("ring", "cord_ankles", "foot", 0.0, "ghost_sai_sin", dict(tr=0.0028, room=0.018))],
+    # ghost_shroud / widow / nak / child / kuman have no blood (Roblox moderation flagged bloody textures, 2026-11-04): dirt, stains, holes only
+    # ผีแม่ม่าย (30) / ปอบ: ชุดไทยเก่า - faded indigo-black blouse with long sleeves, an old dark maroon sin, barefoot
+    "ghost_widow": [("shell", "blouse", *top(1.97, hem=0.35, loose=0.004, hang=0.006), "ghost_widow_blouse"),
+                    ("tube", "sin", 1.30, ("lp", 1.92), "ghost_sin_widow", dict(clear=0.024, ragged=0.05))],
+    # แม่นาค: ผ้าแถบ + สไบม่วงหม่น + ซิ่นน้ำตาลดำ (ref: art_refs/ghosts/mae_nak)
+    "ghost_nak": [("shell", "wrap", *chest_wrap(), "ghost_nak_wrap"),
+                  ("tube", "sin", 1.30, ("lp", 1.98), "ghost_sin_nak", dict(clear=0.024, ragged=0.06)),
+                  ("strip", "sabai", path_sabai, 0.13, "ghost_sabai_nak", dict(clear=0.020, over=True, cols=4))],
+    # ผีเด็ก: a child's white shirt and dark shorts, muddied, bloodied, torn (cut like mohom_child), barefoot
+    "ghost_child": [("shell", "shirt", *top(1.2, hem=0.95), "ghost_child_shirt"),
+                    ("shell", "shorts", *bottom(0.85, top_tz=0.95, flare=0.014), "ghost_child_shorts")],
 }
+# กุมารทอง: the red chong kraben, gold belt, chains, bangles and anklets of chong_gold, barefoot (a shrine figure);
+# the belt stands out over the puffed chong and the chains lie over both (in chong_gold they cut into each other)
+OUTFITS["ghost_kuman"] = [("shell", "chong", *bottom(1.25, top_tz=0.92, loose=0.008, puff=0.026), "red_chong"),
+                          ("tube", "belt", 0.86, ("tz", 1.10), "gold", dict(clear=0.030, band=True)),
+                          ("strip", "chains", lambda b: path_chains(b, 1.32), 0.012, "gold", dict(clear=0.008, thick=0.006, over=True)),   # ends above the belt
+                          ("ring", "bracelets", "hand", 0.0, "gold", {}), ("ring", "anklets", "foot", 0.0, "gold", {})]
 CHAR_OUTFITS = {
-    "male": ["mohom", "farmer", "sarong", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m"],
+    "male": ["mohom", "farmer", "sarong", "red_shirt", "wan_baggy", "wan_flannel", "wan_denim", "wan_camo", "ghost_white_m", "ghost_shroud"],
     "female": ["blouse_sin", "indigo_scarf", "sabai", "chest_wrap", "wan_girl", "wan_band_tee", "wan_crop", "wan_plaid",
-               "ghost_thai", "ghost_headless", "ghost_tani", "ghost_white_f", "ghost_dancer"],
-    "child": ["chong_gold", "mohom_child"],
+               "ghost_thai", "ghost_headless", "ghost_tani", "ghost_white_f", "ghost_dancer", "ghost_widow", "ghost_nak"],
+    "child": ["chong_gold", "mohom_child", "ghost_child", "ghost_kuman"],
     "elder_male": ["mohom", "sarong", "farmer", "ghost_white_m"],
     "elder_female": ["blouse_sin", "sabai", "indigo_scarf", "ghost_white_f"],
 }
@@ -499,6 +532,14 @@ FABRIC = {
     # green brocade body, red yoke over the shoulders and red sleeves (ref: art_refs/body/ghost_dancer_ref_colors.png)
     "ghost_brocade_top":      dict(c=(0.07, 0.27, 0.15), yoke=(0.55, 0.06, 0.08), weave=0.5, rough=0.6, brocade=True, folds=0.3,
                                    ghost=dict(pale=0.22, dirt=0.30, blood=0.0, holes=0.0, fray=0.0, gold_edges=True)),
+    # ผ้าห่อศพ: yellowed cotton in overlapping wound bands (bands), body fluid seeping through (seep)
+    "ghost_shroud_wrap":      dict(c=(0.84, 0.82, 0.73), weave=0.9, folds=0.3, rough=0.9, bands=True,
+                                   ghost=dict(pale=0.10, dirt=1.1, blood=0.0, holes=0.45, seep=True)),
+    "ghost_widow_blouse":     dict(c=(0.11, 0.11, 0.16), weave=0.6, buttons="blouse", folds=0.5, rough=0.85,
+                                   ghost=dict(pale=0.30, dirt=1.1, blood=0.0, holes=0.7)),
+    "ghost_nak_wrap":         dict(c=(0.24, 0.15, 0.24), weave=0.6, folds=0.6, rough=0.85, ghost=dict(pale=0.30, dirt=1.1, blood=0.0, holes=0.6)),
+    "ghost_child_shirt":      dict(c=(0.86, 0.86, 0.82), weave=0.7, buttons="blouse", folds=0.5, ghost=dict(pale=0.15, dirt=1.6, blood=0.0, holes=0.8)),
+    "ghost_child_shorts":     dict(c=(0.10, 0.13, 0.26), weave=0.9, folds=1.0, ghost=dict(pale=0.30, dirt=1.6, blood=0.0, holes=0.6)),
 }
 
 # ---------------------------------------------------------------- noise
@@ -765,6 +806,17 @@ pattern("ghost_sin_green", "norm")(_ghost_sin((0.11, 0.30, 0.17), (0.06, 0.18, 0
 pattern("ghost_sabai_green", "norm")(_ghost_sabai((0.20, 0.42, 0.24), (0.08, 0.22, 0.12), (0.50, 0.58, 0.28), 74))
 pattern("ghost_sin_white", "norm")(_ghost_sin((0.86, 0.86, 0.82), (0.80, 0.80, 0.76), (0.70, 0.70, 0.66), 75, dirt=1.0, blood=0.25))  # ชุดขาว
 pattern("ghost_sabai_white", "norm")(_ghost_sabai((0.88, 0.88, 0.84), (0.82, 0.82, 0.78), (0.74, 0.74, 0.70), 76, blood=0.25, lattice=False))
+pattern("ghost_sin_widow", "norm")(_ghost_sin((0.24, 0.08, 0.10), (0.09, 0.05, 0.06), (0.55, 0.42, 0.20), 77, blood=0.0, stripe=(0.16, 0.05, 0.07)))  # แม่ม่าย: ซิ่นเก่าแดงคล้ำ
+pattern("ghost_sin_nak", "norm")(_ghost_sin((0.16, 0.11, 0.09), (0.30, 0.10, 0.10), (0.58, 0.45, 0.22), 78, blood=0.0, stripe=(0.11, 0.08, 0.07)))  # แม่นาค
+pattern("ghost_sabai_nak", "norm")(_ghost_sabai((0.33, 0.22, 0.33), (0.16, 0.09, 0.15), (0.55, 0.44, 0.25), 79, blood=0.0))
+@pattern("ghost_sai_sin", "norm")
+def _ghost_sai_sin(X, Y):         # สายสิญจน์ (ตราสัง): twisted white cotton cord, grey with grime
+    u = X/TILE
+    c = np.ones(X.shape + (3,))*np.array((0.86, 0.84, 0.77))
+    tw = np.sin((u*16 + Y*3)*2*math.pi)                                  # the twist of the plies
+    c = c*(0.80 + 0.20*tw)[..., None]
+    c = mix(c, DIRT, 0.35*sstep(0.5, 0.75, fbm(u*8, Y*2, oct=2, seed=140, period=8)))
+    return c, 0.9, 0.0004*tw
 
 def brocade(u, v, gold, base):
     """ผ้ายก motif on (u, v) in cell units: a diamond with a four-petal flower, a dot between, gold on the base"""
@@ -944,6 +996,23 @@ def paint_shell(b, ras, faces, char, outfit):
             c *= (1 - 0.10*fab["folds"]*(fbm(x*25, y*25, z*4, seed=20 + k) - 0.5))[..., None]
         if fab.get("fade"):
             c = mix(c, np.array(fab["c"])*1.35, 0.35*fbm(x*12, y*12, z*12, seed=7)*front)
+        if fab.get("bands"):        # ผ้าห่อศพ: wound round each limb and the trunk in overlapping diagonal bands
+            Wb = 0.09*s; ph = np.zeros((N, N)); fr_ = freg.astype(str)
+            axes = [(np.isin(fr_, ["torso", "neck"]), b.J["hips"][0], b.J["neck"][0], 1)]
+            for sd, sx in (("L", 1), ("R", -1)):
+                axes += [(np.isin(fr_, ["arm." + sd, "hand." + sd]), b.J["upper_arm." + sd][0], b.J["hand." + sd][0], sx),
+                         (fr_ == "leg." + sd, b.J["thigh." + sd][0], b.J["foot." + sd][0], sx),
+                         (fr_ == "foot." + sd, b.J["foot." + sd][0], b.J["toe." + sd][1], sx)]
+            for am, p0, p1, sgn in axes:
+                if not (am & m).any(): continue
+                d_ = (p1 - p0)/np.linalg.norm(p1 - p0); u_ = np.cross(d_, (0.0, 1.0, 0.0) if abs(d_[1]) < 0.9 else (1.0, 0.0, 0.0))
+                u_ /= np.linalg.norm(u_); v_ = np.cross(d_, u_)
+                q = P[am] - p0
+                ph[am] = (q @ d_)/Wb + sgn*np.arctan2(q @ v_, q @ u_)/(2*math.pi)
+            fb = ph % 1.0
+            c = c*(0.86 + 0.14*fb)[..., None]                               # each band in the shade of the one over it
+            c = mix(c, np.array(fab["c"])*0.55, sstep(0.05, 0.0, fb)*0.8)    # the overlapping edge
+            h += 0.0007*fb - 0.0002*sstep(0.04, 0.0, fb)
         if fab.get("seams"):
             for sd in (1, -1):
                 hx = b.J["thigh.L" if sd > 0 else "thigh.R"][0][0]
@@ -1112,6 +1181,11 @@ def ghost_shell(b, ras, freg, m, c, h, r, g, k):
     hole = (hn > 0.76 - 0.06*patch)*(patch > 0.3)
     rim = (hn > 0.71 - 0.06*patch)*(patch > 0.3)*~hole
     c = mix(c, (0.05, 0.04, 0.04), hole); c = mix(c, (0.70, 0.66, 0.56), rim*0.55); h = h - 0.0005*hole
+    if g.get("seep"):           # ผ้าห่อศพ: body fluid seeped through in yellow-brown blotches with darker tide rims
+        sp_ = fbm(x*6, y*6, z*6, oct=3, seed=93 + k) + 0.06*(y < 0)*sstep(b.z(0.3), b.z(2.2), z)   # more over the belly / chest
+        wet = sstep(0.60, 0.66, sp_)
+        c = mix(c, (0.58, 0.49, 0.30), wet*0.45); c = mix(c, (0.33, 0.24, 0.11), (np.abs(sp_ - 0.62) < 0.008)*0.6)
+        c = mix(c, (0.24, 0.18, 0.11), sstep(0.72, 0.76, sp_)*0.5); r = r - 0.15*wet     # dark brown, no red (moderation)
     if g.get("gold_edges"):     # gold trim along the neckline, the cuffs and the hem (worn: dusty, broken in places)
         tr_ = (edge < 0.016)*(fbm(x*40, y*40, z*40, oct=2, seed=92) < 0.75)
         c = mix(c, np.array(GOLD_OLD)*0.9, tr_*0.9); h = h + 0.0003*tr_

@@ -1,5 +1,5 @@
 # ผีปอบ (Phi Pop) — ผีสิงร่างผู้หญิงชาวบ้าน ดัดแปลงจากโมเดลคน human_female (rig HumanRig + UV เดิม)
-# ผิวหนังเหี่ยว (_Withered) + ผม ghost_messy + ชุดไทยเก่า (ชั่วคราว: blouse_sin จาก build_clothes.py)
+# ผิวหนังเหี่ยว (_Withered) + ผม ghost_messy + ชุดไทยเก่าของผีแม่ม่าย (ghost_widow จาก build_clothes.py)
 # หน้า: ปากแบบกระสือ = อ้ากว้าง เห็นฟันบนล่าง เขี้ยวบน 2 ล่าง 2 (ชิ้นแยก) เลือดรอบปากไหลลงคางถึงคอ ตาแดงก่ำ (ชิ้นเลนส์แยก ทำ Neon ได้)
 # ลิ้น (ชิ้นแยก + กระดูก tongue_01..03 ต่อจาก head) สำหรับท่า LickLips: ตอนพักซ่อนอยู่หลังช่องปากที่วาด ออกทางช่องปากเท่านั้น
 #
@@ -19,7 +19,7 @@ M = os.path.join(ROOT, "assets", "models")
 HB = os.path.join(M, "human_base")
 PREV = os.path.join(M, "previews")
 CHAR = "female"
-OUTFIT = "blouse_sin"          # ชั่วคราว: รอชุดผีจาก session ghost-outfits แล้วเปลี่ยนชื่อตรงนี้ รันใหม่
+OUTFIT = "ghost_widow"         # ชุดไทยเก่าของผีแม่ม่าย (GDD ข้อ 30): เสื้อแขนกระบอกครามดำซีด + ซิ่นแดงคล้ำเก่า เท้าเปล่า
 HAIR = "ghost_messy"
 FPS = 30
 # GORE = False: Roblox-safe Pop (moderation flagged blood): open mouth and teeth stay, but no blood round the mouth,

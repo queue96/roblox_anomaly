@@ -349,7 +349,8 @@ FACES = {
     "dead":    dict(open=0.42, dull=True, mouth_open=0.3, pale=0.35, smile=-0.2),
     "cry":     dict(open=0.32, brow=1.7, smile=-1.5, mouth_open=1.3, teeth=True, tears=True),
     "ghost":   dict(ghost=True, open=1.5, mouth_open=3.0, scream=True),
-    "ghost_cry": dict(ghost=True, open=0.5, brow=1.9, smile=-1.6, mouth_open=1.7, tears=True, blood_tears=True),
+    # black tears, not blood: Roblox moderation flagged the bloody textures (2026-11-04, GHOST_MODELS.md)
+    "ghost_cry": dict(ghost=True, open=0.5, brow=1.9, smile=-1.6, mouth_open=1.7, tears=True, black_tears=True),
     "krasue":  dict(ghost=True, open=1.25, brow=-1.2, mouth_open=2.4, teeth=True, tears=True, blood_tears=True),   # tools/blender/krasue.py
     "angry":   dict(open=0.72, brow=-1.3, smile=-0.6, mouth_open=0.35, teeth=True),
     "injured": dict(open=0.62, brow=0.6, smile=-0.5, blood_head=True, bruise=True, blood_arm=True),
@@ -508,9 +509,10 @@ def paint_head(meta, char, ghost, face=None):
         bcol = np.array(lk["brow"]) if not ghost else np.array((0.10, 0.10, 0.10))
         col = mix(col, bcol, np.clip(band*1.4, 0, 1)*strokes*(0.95 if not ghost else 0.5))
         hgt += 0.00012*band*strokes
-        bt = f.get("blood_tears")    # ghost_cry: dark red rims, blood running down to the jaw (safe: black tears, dark rims)
+        bt = f.get("blood_tears") or f.get("black_tears")   # long streaks down to the jaw: blood (krasue, GORE only) or black
+        blk = bool(f.get("black_tears")) or not GORE          # Roblox-safe: no blood tears unless GORE
         if f.get("tears"):   # cry: red rims, wet streaks down the cheeks
-            rim = (np.array((0.42, 0.06, 0.08)) if GORE else np.array((0.16, 0.13, 0.16))) if bt else skin*np.array((1.12, 0.70, 0.68))
+            rim = np.array((0.12, 0.10, 0.11)) if (bt and blk) else np.array((0.42, 0.06, 0.08)) if bt else skin*np.array((1.12, 0.70, 0.68))
             col = mix(col, rim, (0.8 if bt else 0.65)*cv.ell(cx, ey, a*1.45, 0.011*s, 1.0)*(1 - soft))
             # squeezed-shut wrinkles at the outer corner
             for k in (-1, 0, 1):
@@ -521,7 +523,7 @@ def paint_head(meta, char, ghost, face=None):
                 nstep = 18 if bt else 12
                 pts = [(x0 + 0.0016*s*math.sin(i*0.9 + j), ey - bl - 0.0006*s - i*0.0052*s, 1.0 - 0.7*i/(nstep - 1)) for i in range(nstep)]
                 wet = cv.seg(pts, (0.0019 if bt else 0.0016)*s)
-                tear = ((0.40, 0.02, 0.03) if GORE else (0.04, 0.035, 0.04)) if bt else (0.86, 0.92, 1.0)
+                tear = ((0.04, 0.035, 0.04) if blk else (0.40, 0.02, 0.03)) if bt else (0.86, 0.92, 1.0)
                 col = mix(col, skin*0.80, 0.35*cv.seg(pts, 0.0028*s))           # wet track darkens the skin
                 col = mix(col, tear, 0.9*wet); rough = np.where(wet > 0.3, 0.08, rough)
                 drop = pts[-1]
@@ -536,7 +538,7 @@ def paint_head(meta, char, ghost, face=None):
                 x0 = cx + off*a
                 pts = [(x0 + 0.0015*s*math.sin(i*1.3 + j), ey - bl - 0.001*s - i*0.006*s, 1.0 - i/7) for i in range(8)]
                 col = mix(col, (0.05, 0.04, 0.05), 0.75*cv.seg(pts, 0.0011*s))
-    if f.get("tears") and not f.get("blood_tears"):   # cry: red nose tip
+    if f.get("tears") and not (f.get("blood_tears") or f.get("black_tears")):   # cry: red nose tip
         col = mix(col, skin*np.array((1.15, 0.72, 0.70)), 0.6*cv.ell(0, bh + 0.006*s, 0.012*s, 0.008*s, 1.0))
     # ---------------- nose: nostrils, darker under the tip
     for sx in (1, -1):
