@@ -22,6 +22,10 @@ CHAR = "female"
 OUTFIT = "blouse_sin"          # ชั่วคราว: รอชุดผีจาก session ghost-outfits แล้วเปลี่ยนชื่อตรงนี้ รันใหม่
 HAIR = "ghost_messy"
 FPS = 30
+# GORE = False: Roblox-safe Pop (moderation flagged blood): open mouth and teeth stay, but no blood round the mouth,
+# down the chin / neck, on the teeth, gums, fangs or tongue; red eyes stay (no raw red rims); the withered skin has
+# no open sores (build_skin.GORE follows this). True rebuilds the original bloody look.
+GORE = False
 LOG = []
 def log(*a): LOG.append(" ".join(str(x) for x in a))
 
@@ -35,6 +39,7 @@ def load(name):
     return ns
 
 SK = load("build_skin.py")
+SK["GORE"] = GORE
 AN = load("build_anims.py")
 HR = load("build_hair.py")
 HR["GHOST_GAP"] = (0, 30)      # ปอบ: แหวกกลาง เห็นทั้งหน้า (ผมคนแหวกหน้าตาซ้าย)
@@ -46,6 +51,7 @@ SK["FACES"]["pop"] = dict(ghost=True, open=1.25, brow=-1.2, mouth_open=2.4, smil
 # ปากที่วาดทับ (หน่วย = ขนาดหัว s): ครึ่งความกว้าง, ช่องอ้ากลางปาก, มุมปากยกขึ้น (แสยะ)
 MW, GAP, GRIN = 0.026, 0.024, 0.0040
 BLOOD = np.array((0.40, 0.02, 0.02)); BLOOD_DRY = np.array((0.19, 0.02, 0.02))
+STAIN = np.array((0.34, 0.25, 0.13))     # GORE False: old yellow-brown stain on the teeth instead of blood
 TOOTH = np.array((0.80, 0.74, 0.58))
 
 # ---------------------------------------------------------------- face / skin painting
@@ -87,7 +93,7 @@ def paint_pop_head(meta):
         lo = e["ey"] - e["bl"]*np.clip(1 - dx**2, 0, None)**0.9
         inside = (np.abs(dx) < 1) & (Y < up) & (Y > lo)
         soft = np.clip(np.minimum(up - Y, Y - lo)/(0.0006*s), 0, 1)*inside
-        col = mix(col, (0.42, 0.03, 0.03), 0.85*cv.ell(cx, e["ey"], e["a"]*1.5, 0.012*s, 1.0)*(1 - soft))  # raw red rims
+        col = mix(col, (0.42, 0.03, 0.03) if GORE else (0.17, 0.12, 0.14), 0.85*cv.ell(cx, e["ey"], e["a"]*1.5, 0.012*s, 1.0)*(1 - soft))  # raw red rims (safe: dark sunken rims)
         col = mix(col, (0.55, 0.05, 0.04), soft)
         veins = ridge(X*900, Y*900, seed=5, sharp=12)*soft
         col = mix(col, (0.22, 0.01, 0.01), 0.8*veins)
@@ -100,13 +106,16 @@ def paint_pop_head(meta):
     xm, up, lo = mouth_bounds(X, m)
     brk = sstep(0.35, 0.65, fbm(X/s*90, Y/s*90, oct=3, seed=81))
     smear = cv.ell(0, my + 0.3*m["grin"], m["w"]*1.40, m["gap"]*1.15, 0.8)
-    col = mix(col, BLOOD_DRY, 0.80*smear*(0.5 + 0.5*brk))
-    rough = np.where(smear*brk > 0.4, 0.22, rough)
+    if GORE:
+        col = mix(col, BLOOD_DRY, 0.80*smear*(0.5 + 0.5*brk))
+        rough = np.where(smear*brk > 0.4, 0.22, rough)
+    else:      # dark dried skin round the stretched mouth (grey-brown, no red, matte)
+        col = mix(col, (0.20, 0.17, 0.16), 0.45*smear*(0.5 + 0.5*brk))
     # ---- drips: from the lower lip over the chin, the long ones down the neck to the bottom of the head region
     chin = meta["chin_h"]; h0 = meta["h0"]
     rnd = np.random.RandomState(12)
     for i, (fx, end) in enumerate(((-0.62, chin - 0.010*s), (-0.30, h0 + 0.006*s), (-0.06, h0 + 0.004*s),
-                                   (0.16, chin - 0.03*s), (0.38, h0 + 0.010*s), (0.66, chin + 0.004*s))):
+                                   (0.16, chin - 0.03*s), (0.38, h0 + 0.010*s), (0.66, chin + 0.004*s)) if GORE else ()):
         x0 = fx*m["w"]; y0 = float(mouth_bounds(np.array(x0), m)[2]) - 0.002*s
         n = max(4, int((y0 - end)/(0.006*s)))
         pts = []
@@ -117,25 +126,26 @@ def paint_pop_head(meta):
         st = cv.seg(pts, wid)
         col = mix(col, BLOOD, 0.95*st); rough = np.where(st > 0.35, 0.12, rough); hgt += 0.00018*st
         col = mix(col, BLOOD, 0.9*cv.ell(pts[-1][0], pts[-1][1], wid*1.1, wid*1.5, 0.4))          # drop at the end
-    col = mix(col, BLOOD, 0.75*cv.ell(0, chin + 0.006*s, m["w"]*0.75, 0.010*s, 0.9)*(0.6 + 0.4*brk))   # chin soaked
-    neck = sstep(chin - 0.03*s, chin - 0.07*s, Y)*sstep(0.05*s, 0.025*s, np.abs(X))*(0.45 + 0.55*brk)
-    col = mix(col, BLOOD_DRY, 0.75*neck); rough = np.where(neck > 0.4, 0.25, rough)                 # lower neck soaked
+    if GORE:
+        col = mix(col, BLOOD, 0.75*cv.ell(0, chin + 0.006*s, m["w"]*0.75, 0.010*s, 0.9)*(0.6 + 0.4*brk))   # chin soaked
+        neck = sstep(chin - 0.03*s, chin - 0.07*s, Y)*sstep(0.05*s, 0.025*s, np.abs(X))*(0.45 + 0.55*brk)
+        col = mix(col, BLOOD_DRY, 0.75*neck); rough = np.where(neck > 0.4, 0.25, rough)                 # lower neck soaked
     # ---- lips: shrunken, dark, cracked, wet with blood
     lt_up = 0.0034*s*np.clip(1 - xm**2, 0, None)**0.5 + 0.0007*s
     lt_lo = 0.0046*s*np.clip(1 - xm**2, 0, None)**0.6 + 0.0007*s
     lip_up = (xm < 1.07) & (Y >= up) & (Y < up + lt_up)
     lip_lo = (xm < 1.07) & (Y <= lo) & (Y > lo - lt_lo)
-    lipc = np.array((0.26, 0.06, 0.05))*(0.8 + 0.4*fbm(X/s*400, Y/s*120, oct=2, seed=83))[..., None]
+    lipc = np.array((0.26, 0.06, 0.05) if GORE else (0.22, 0.11, 0.11))*(0.8 + 0.4*fbm(X/s*400, Y/s*120, oct=2, seed=83))[..., None]
     col = np.where((lip_up | lip_lo)[..., None], lipc, col)
     cr = ridge(X/s*1400, Y/s*500, seed=13, sharp=18)*(lip_up | lip_lo)
     col = mix(col, (0.08, 0.01, 0.01), 0.7*cr)
     hgt += 0.0003*lip_lo - 0.0003*cr
-    rough = np.where(lip_up | lip_lo, 0.18, rough)
+    rough = np.where(lip_up | lip_lo, 0.18 if GORE else 0.55, rough)
     # ---- inside: black-red mouth, gums, two rows of teeth (stained), bigger teeth where the fang pieces sit
     inside = (xm < 1) & (Y < up) & (Y > lo)
     col = np.where(inside[..., None], np.array((0.035, 0.008, 0.008)), col)
     gum_u = inside & (Y > up - 0.0016*s); gum_l = inside & (Y < lo + 0.0013*s)
-    col = mix(col, (0.32, 0.05, 0.06), 0.95*(gum_u | gum_l))
+    col = mix(col, (0.32, 0.05, 0.06) if GORE else (0.20, 0.10, 0.11), 0.95*(gum_u | gum_l))
     tw = 0.0034*s
     k = np.floor(X/tw + 0.5); tx = X/tw - k
     shade = (0.55 + 0.45*np.clip(1 - xm**2, 0, 1))[..., None]                           # darker towards the corners
@@ -144,13 +154,13 @@ def paint_pop_head(meta):
         hh = h_*(1 - 0.5*xm**2)*(1 - 0.35*(2*tx)**4)
         if row == "u": tooth = inside & (Y < top) & (Y > top - hh) & (np.abs(tx) < 0.43)
         else:          tooth = inside & (Y > top) & (Y < top + hh) & (np.abs(tx) < 0.43)
-        tc = TOOTH*shade*(1 - 0.45*stain) + BLOOD*0.45*stain
+        tc = TOOTH*shade*(1 - 0.45*stain) + (BLOOD if GORE else STAIN)*0.45*stain
         col = np.where(tooth[..., None], tc, col)
         rough = np.where(tooth, 0.25, rough)
         hgt += 0.0002*tooth
     # blood running down the front teeth from the gums
     run = inside & (sstep(0.62, 0.70, ridge(X/s*120, Y/s*25, seed=87, sharp=8)) > 0.5)
-    col = mix(col, BLOOD, 0.8*run)
+    if GORE: col = mix(col, BLOOD, 0.8*run)
     return col, hgt, rough, pp
 
 def paint_pop_body(ras, meta):
@@ -168,7 +178,7 @@ def paint_pop_body(ras, meta):
         d = np.abs(x - cx - 0.003*s*np.sin(z*400))
         st = np.maximum(st, np.exp(-(d/(0.0028*s))**2)*sstep(nJ[2] - ln, nJ[2] - ln + 0.02, z))
     st *= near
-    col = mix(col, BLOOD, 0.9*st); rough = np.where(st > 0.35, 0.12, rough)
+    if GORE: col = mix(col, BLOOD, 0.9*st); rough = np.where(st > 0.35, 0.12, rough)
     return col, hgt, rough
 
 def make_textures(body, uv, meta):
@@ -193,13 +203,13 @@ def make_parts_textures():
     col = np.zeros((n, n, 3)); hgt = np.zeros((n, n)); rough = np.full((n, n), 0.4)
     fang = (xx < 0.5) & (yy >= 0.5); t = (yy - 0.5)*2
     fc = TOOTH*(0.85 + 0.25*t)[..., None]
-    fc = fc*(1 - 0.5*(1 - t)[..., None]**3) + BLOOD*(0.5*(1 - t)**3)[..., None]                   # bloody at the gum
+    fc = fc*(1 - 0.5*(1 - t)[..., None]**3) + (BLOOD if GORE else STAIN)*(0.5*(1 - t)**3)[..., None]   # bloody (safe: stained) at the gum
     col = np.where(fang[..., None], fc, col); rough = np.where(fang, 0.22, rough)
     tong = (xx >= 0.5) & (yy >= 0.5); tu = (xx - 0.75)*4
-    tc = np.array((0.42, 0.07, 0.09))*(0.8 + 0.3*vnoise(xx*60, yy*60, seed=3))[..., None]
-    tc = mix(tc, (0.22, 0.02, 0.04), np.exp(-(tu/0.12)**2))                                         # centre groove
-    tc = mix(tc, BLOOD, 0.5*sstep(0.6, 0.8, fbm(xx*20, yy*20, oct=2, seed=4)))
-    col = np.where(tong[..., None], tc, col); rough = np.where(tong, 0.15, rough)
+    tc = np.array((0.42, 0.07, 0.09) if GORE else (0.30, 0.14, 0.18))*(0.8 + 0.3*vnoise(xx*60, yy*60, seed=3))[..., None]
+    tc = mix(tc, (0.22, 0.02, 0.04) if GORE else (0.16, 0.08, 0.11), np.exp(-(tu/0.12)**2))         # centre groove
+    tc = mix(tc, BLOOD if GORE else (0.20, 0.17, 0.17), 0.5*sstep(0.6, 0.8, fbm(xx*20, yy*20, oct=2, seed=4)))   # (safe: grey coating)
+    col = np.where(tong[..., None], tc, col); rough = np.where(tong, 0.15 if GORE else 0.45, rough)
     hgt += np.where(tong, 0.4*vnoise(xx*90, yy*90, seed=5) - 0.6*np.exp(-(tu/0.12)**2), 0)
     eye = (xx < 0.5) & (yy < 0.5); r = np.hypot(xx - 0.25, yy - 0.25)/0.25
     ec = np.array((0.55, 0.04, 0.03))*np.ones((n, n, 1))

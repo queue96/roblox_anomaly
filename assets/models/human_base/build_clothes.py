@@ -8,6 +8,7 @@
 #                                           # .blend of the character; the outfits already there are left exactly as they are
 #   preview_all()          # renders clothes_previews/<char>.png (rows = outfits; front, 3-4, side, back)
 #   preview_ghosts()       # clothes_previews/ghost_<char>.png: the ghost_* outfits only, on the SkinGhost skin
+#   ghost_textures()       # repaint only the ghost cloth textures (ghost_* patterns + shells), e.g. after changing GORE
 #
 # Three ways to make a piece:
 #   shell   faces of the body pushed out along their normals (shirts, trousers, chong kraben, chest wrap, boots).
@@ -33,6 +34,9 @@ DIRS = {"human_base": "male", "human_female": "female", "human_child": "child",
 NAMES = {v: k for k, v in DIRS.items()}
 N = 1024
 TILE = 0.32                       # metres per texture repeat for patterned cloth
+# GORE = False: Roblox-safe ghost cloth (moderation flagged blood): the old-blood spots become brown-grey grime /
+# water stains (dry, not wet) and the headless ghost's neck blood on the wrap and sabai is left out. True = original look.
+GORE = False
 
 def char_dir(char): return os.path.join(M, NAMES[char])
 def blend_files(char=None):
@@ -693,6 +697,8 @@ def _gold(X, Y):            # gold belt / chains / bangles: hammered with a squa
 # Noise is periodic across the tile (u), so the cloth still tiles; `span` patterns don't tile (u = 0..1 along the
 # whole strip, see build_strip) and may place things along it (blood from the neck at the shoulder end).
 BLOOD = (0.30, 0.025, 0.03); BLOOD_OLD = (0.20, 0.06, 0.04); DIRT = (0.30, 0.24, 0.16)
+GRIME = (0.24, 0.21, 0.17)        # GORE False: what the old-blood spots become (dried mud / water stain)
+STAIN = BLOOD_OLD if GORE else GRIME
 def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0, fray=1.0):
     """kind "skirt": Y 0 = hem (dirt, fraying and mud rise from it); "band": Y 0..1 across a strip (both edges fray)"""
     u = X/TILE; Q = 6
@@ -708,8 +714,9 @@ def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0, f
     tide = np.abs(n(Q//2, seed + 2, 2) - 0.5) < 0.012                      # dried water marks
     c = mix(c, c*0.72, tide*0.6)
     bl = n(4, seed + 3)
-    spot = sstep(0.70, 0.74, bl)*blood
-    c = mix(c, BLOOD_OLD, spot*0.85); c = mix(c, np.array(BLOOD_OLD)*0.6, spot*sstep(0.80, 0.74, bl)*0.6)   # darker rims
+    spot = sstep(0.70, 0.74, bl)*blood*(1.0 if GORE else 0.7)
+    c = mix(c, STAIN, spot*0.85); c = mix(c, np.array(STAIN)*0.6, spot*sstep(0.80, 0.74, bl)*0.6)   # darker rims
+    if not GORE: spot = spot*0.0                                            # dry: no wet sheen
     fr = edge < (0.035 + 0.04*n(24, seed + 4, 2))*fray                    # frayed, torn edge
     threads = (np.sin(X*2*math.pi/0.003) > 0.3) & (edge < 0.06)
     c = mix(c, np.array(DIRT)*0.35, fr*0.9); c = mix(c, c*0.6, threads*0.4)
@@ -719,6 +726,7 @@ def ghost_cloth(c, X, Y, seed, kind, dirt=1.0, blood=0.4, rough=0.8, pale=1.0, f
 
 def neck_blood(c, r, X, Y):
     """span strips (sabai) of the headless ghost: blood soaked in at the shoulder ends, fading out in blotches"""
+    if not GORE: return c, r
     u = X/TILE
     k = np.exp(-u/0.22) + np.exp(-(1 - u)/0.10)                            # both ends of the loop sit on the shoulder
     blot = fbm(u*14, Y*3, oct=3, seed=61); run = fbm(Y*10, u*3, oct=2, seed=63)
@@ -1078,8 +1086,9 @@ def ghost_shell(b, ras, freg, m, c, h, r, g, k):
     tide = np.abs(fbm(x*5, y*5, z*5, oct=2, seed=82 + k) - 0.5) < 0.010
     c = mix(c, c*0.72, tide*0.6)
     bl = fbm(x*7, y*7, z*7, seed=83 + k)
-    spot = sstep(0.70, 0.74, bl)*g.get("blood", 0.4)
-    c = mix(c, BLOOD_OLD, spot*0.85); c = mix(c, np.array(BLOOD_OLD)*0.6, spot*sstep(0.80, 0.74, bl)*0.6); r = r - 0.35*spot
+    spot = sstep(0.70, 0.74, bl)*g.get("blood", 0.4)*(1.0 if GORE else 0.7)
+    c = mix(c, STAIN, spot*0.85); c = mix(c, np.array(STAIN)*0.6, spot*sstep(0.80, 0.74, bl)*0.6)
+    if GORE: r = r - 0.35*spot
     # how close each texel is to the piece's open edges: top / bottom of it on the trunk, end of sleeve / trouser leg
     edge = np.full((N, N), 9.0)
     tr = m & (freg == "torso")
@@ -1106,7 +1115,7 @@ def ghost_shell(b, ras, freg, m, c, h, r, g, k):
     if g.get("gold_edges"):     # gold trim along the neckline, the cuffs and the hem (worn: dusty, broken in places)
         tr_ = (edge < 0.016)*(fbm(x*40, y*40, z*40, oct=2, seed=92) < 0.75)
         c = mix(c, np.array(GOLD_OLD)*0.9, tr_*0.9); h = h + 0.0003*tr_
-    if g.get("neck"):           # blood run down from the neck: soaked in under the top edge, a few runs below, a drop at each end
+    if g.get("neck") and GORE:  # blood run down from the neck: soaked in under the top edge, a few runs below, a drop at each end
         top = m & (freg == "torso"); zt = z[top].max() if top.any() else b.J["neck"][0][2]
         near = sstep(0.13*s, 0.06*s, np.abs(x))
         cols = fbm(x/s*30 + 0.6*fbm(z/s*9, x/s*2, oct=2, seed=91), np.zeros_like(x), oct=2, seed=87)    # runs wander a little
@@ -1984,6 +1993,34 @@ def add_outfits(char, outfits, save=True):
         limit_cloth_weights([o for v in made.values() for o in v])
         bpy.ops.file.make_paths_relative(); bpy.ops.wm.save_mainfile()
 
+def ghost_textures(chars=None):
+    """repaint only the ghost cloth (after changing GORE): the ghost_* tiling patterns in clothes_tex/ and the shell
+    textures of every ghost_* outfit, on the faces stored in <name>_clothes.json. Geometry and .blend files untouched."""
+    os.makedirs(TEX, exist_ok=True)
+    keep = dict(PATTERNS)
+    try:
+        for k in list(PATTERNS):
+            if not k.startswith("ghost_"): del PATTERNS[k]
+        make_patterns()
+    finally:
+        PATTERNS.clear(); PATTERNS.update(keep)
+    done = []
+    for char in chars or DIRS.values():
+        outs = [o for o in CHAR_OUTFITS[char] if o in GHOST_OUTFITS and any(sp[0] == "shell" for sp in OUTFITS[o])]
+        if not outs: continue
+        bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(char), NAMES[char] + ".blend"))
+        body = bpy.data.objects["Body"]; rig = bpy.data.objects["HumanRig"]
+        for pb in rig.pose.bones: pb.rotation_euler = (0, 0, 0)
+        bpy.context.view_layer.update()
+        b = Body(body, rig)
+        js = json.load(open(os.path.join(char_dir(char), NAMES[char] + "_clothes.json")))
+        if js["polys"] != len(body.data.polygons): raise RuntimeError(f"{char}: clothes file is for {js['polys']} faces")
+        uv = np.zeros((len(body.data.loops), 2)); body.data.uv_layers.active.data.foreach_get("uv", uv.ravel())
+        ras = raster_body(b, uv)
+        for name in outs:
+            paint_shell(b, ras, js["outfits"][name], char, name); done.append((char, name))
+    return done
+
 def clothes_all(save=True):
     make_patterns()
     for c in DIRS.values(): clothes_char(c, save)
@@ -2044,7 +2081,7 @@ def preview_ghosts(out_dir=os.path.join(M, "clothes_previews")):
     for c in DIRS.values():
         rows = [o for o in CHAR_OUTFITS[c] if o in GHOST_OUTFITS]
         if not rows: continue
-        bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(c), NAMES[c] + ".blend"))
+        bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(c), NAMES[c] + ".blend")); fix_image_paths()
         if not any(o.name.startswith("Cloth_") for o in bpy.data.objects): add_clothes(c)
         preview(c, os.path.join(out_dir, "ghost_" + NAMES[c] + ".png"), rows, "SkinGhost", GHOST_HAIR.get(c))
 

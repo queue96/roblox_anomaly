@@ -5,6 +5,7 @@
 #   skin_all()          # per character: unwrap the normal body, paint textures, apply to all its .blend files
 #   add_skin("female")  # current scene: UVs from human_female_uv.json + Skin / SkinGhost / SkinWithered materials
 #   withered_char("female")  # only the _Withered set, on the stored UVs (skin_all re-unwraps: the UVs can shift)
+#   withered_char("female", False, (True, "withered"))   # _Ghost + _Withered on the stored UVs (after changing GORE)
 #   preview_all()       # renders skin_previews/<char>.png (face front / 3-4 / side / hand, human + ghost)
 #
 # Files per character (next to its .blend): <name>_Color/_Normal/_Roughness.png, <name>_Ghost_*.png (pale ghost)
@@ -25,6 +26,9 @@ M = r"C:\Aunival\pump-lot-anomaly\assets\models"
 DIRS = {"human_base": "male", "human_female": "female", "human_child": "child",
         "human_elder_male": "elder_male", "human_elder_female": "elder_female"}
 NAMES = {v: k for k, v in DIRS.items()}
+# GORE = False: Roblox-safe ghost skins (moderation flagged blood): no open sores / wet red cracks on withered skin,
+# black tears instead of blood tears, dull (not red) veins in the ghost eyes. True rebuilds the original bloody look.
+GORE = False
 N = 1024
 HV0, HV1 = 0.505, 0.995                     # head region rows (v)
 BODY_BOX = (0.005, 0.005, 0.495, 0.495)     # u0, v0, u1, v1
@@ -316,18 +320,22 @@ def wither(col, hgt, rough, skin, x, y, z=None, k=1.0):
     col = mix(col, (0.30, 0.22, 0.30), 0.35*sstep(0.62, 0.78, fbm(*co(18, 18), oct=3, seed=68)))
     col = mix(col, (0.44, 0.46, 0.40), 0.25*sstep(0.40, 0.24, m))
     col = mix(col, skin*1.20, 0.25*sstep(0.66, 0.80, fbm(*co(140, 140), oct=2, seed=69)))   # dry flaky spots
-    # split cracks through the dried skin, dark red-brown inside
+    # split cracks through the dried skin, dark red-brown inside (safe: dark grey-brown, dry)
     cr = ridge(*co(300, 300), seed=64, sharp=34)*sstep(0.48, 0.62, fbm(*co(30, 30), oct=2, seed=65))
-    col = mix(col, (0.20, 0.06, 0.05), 0.85*cr)
+    col = mix(col, (0.20, 0.06, 0.05) if GORE else (0.15, 0.13, 0.11), 0.85*cr)
     hgt = hgt - 0.0007*k*cr
-    rough = np.where(cr > 0.4, 0.45, rough)
-    # open sores: raw red centre, dark rim, wet
+    if GORE: rough = np.where(cr > 0.4, 0.45, rough)
     so = fbm(*co(30, 30), oct=3, seed=67)
     rim = sstep(0.78, 0.82, so); core = sstep(0.83, 0.87, so)
-    col = mix(col, (0.16, 0.08, 0.06), 0.7*rim)
-    col = mix(col, (0.45, 0.07, 0.05), 0.9*core)
-    hgt = hgt - 0.0010*k*core + 0.0003*k*(rim - core)
-    rough = np.where(core > 0.4, 0.25, rough)
+    if GORE:   # open sores: raw red centre, dark rim, wet
+        col = mix(col, (0.16, 0.08, 0.06), 0.7*rim)
+        col = mix(col, (0.45, 0.07, 0.05), 0.9*core)
+        hgt = hgt - 0.0010*k*core + 0.0003*k*(rim - core)
+        rough = np.where(core > 0.4, 0.25, rough)
+    else:      # dry scab patches: low-contrast dark grey-brown, slightly raised, matte
+        col = mix(col, skin*0.62, 0.35*rim)
+        col = mix(col, (0.25, 0.22, 0.19), 0.40*core)
+        hgt = hgt + 0.0002*k*core
     return col, hgt, rough
 
 # ---------------------------------------------------------------- face painting
@@ -457,13 +465,13 @@ def paint_head(meta, char, ghost, face=None):
             icx, icy, ir = cx, ey + 0.0004*s, ir*0.45                     # wide staring eyes, pin-point pupils
             irc = (0.30, 0.28, 0.24)
             veins = ridge(X*900, Y*900, seed=5, sharp=14)*soft*sstep(0.25, 1.0, np.abs(dx))
-            col = mix(col, (0.55, 0.12, 0.10), 0.9*veins)
+            col = mix(col, (0.55, 0.12, 0.10) if GORE else (0.42, 0.36, 0.40), 0.9*veins)
         elif ghost:
             icx, icy, ir = cx + sx*0.0005*s, ey + bu*0.9, ir*0.85        # rolled up under the upper lid
             irc = (0.62, 0.60, 0.52)
             # bloodshot
             veins = ridge(X*900, Y*900, seed=5, sharp=14)*soft*sstep(0.25, 1.0, np.abs(dx))
-            col = mix(col, (0.55, 0.12, 0.10), 0.8*veins)
+            col = mix(col, (0.55, 0.12, 0.10) if GORE else (0.42, 0.36, 0.40), 0.8*veins)
             if withered: icx, icy, ir, irc = cx, ey + 0.0006*s, ir*1.15, (0.80, 0.80, 0.72)   # milky cataract
         elif f.get("dull"):
             icx, icy, irc = cx, ey + 0.0012*s, (0.36, 0.33, 0.30)             # dead: grey, wide pupil, no shine
@@ -500,9 +508,9 @@ def paint_head(meta, char, ghost, face=None):
         bcol = np.array(lk["brow"]) if not ghost else np.array((0.10, 0.10, 0.10))
         col = mix(col, bcol, np.clip(band*1.4, 0, 1)*strokes*(0.95 if not ghost else 0.5))
         hgt += 0.00012*band*strokes
-        bt = f.get("blood_tears")    # ghost_cry: dark red rims, blood running down to the jaw
+        bt = f.get("blood_tears")    # ghost_cry: dark red rims, blood running down to the jaw (safe: black tears, dark rims)
         if f.get("tears"):   # cry: red rims, wet streaks down the cheeks
-            rim = np.array((0.42, 0.06, 0.08)) if bt else skin*np.array((1.12, 0.70, 0.68))
+            rim = (np.array((0.42, 0.06, 0.08)) if GORE else np.array((0.16, 0.13, 0.16))) if bt else skin*np.array((1.12, 0.70, 0.68))
             col = mix(col, rim, (0.8 if bt else 0.65)*cv.ell(cx, ey, a*1.45, 0.011*s, 1.0)*(1 - soft))
             # squeezed-shut wrinkles at the outer corner
             for k in (-1, 0, 1):
@@ -513,7 +521,7 @@ def paint_head(meta, char, ghost, face=None):
                 nstep = 18 if bt else 12
                 pts = [(x0 + 0.0016*s*math.sin(i*0.9 + j), ey - bl - 0.0006*s - i*0.0052*s, 1.0 - 0.7*i/(nstep - 1)) for i in range(nstep)]
                 wet = cv.seg(pts, (0.0019 if bt else 0.0016)*s)
-                tear = (0.40, 0.02, 0.03) if bt else (0.86, 0.92, 1.0)
+                tear = ((0.40, 0.02, 0.03) if GORE else (0.04, 0.035, 0.04)) if bt else (0.86, 0.92, 1.0)
                 col = mix(col, skin*0.80, 0.35*cv.seg(pts, 0.0028*s))           # wet track darkens the skin
                 col = mix(col, tear, 0.9*wet); rough = np.where(wet > 0.3, 0.08, rough)
                 drop = pts[-1]
@@ -581,7 +589,14 @@ def paint_head(meta, char, ghost, face=None):
             cord = cv.seg([(sx*0.014*s, meta["chin_h"] - 0.01*s, 0.3), (sx*0.020*s, meta["chin_h"] - 0.05*s, 1.0), (sx*0.026*s, meta["chin_h"] - 0.10*s, 0.4)], 0.004*s)
             hgt += 0.0012*cord; col = mix(col, skin*1.12, 0.3*cord)
             col = mix(col, skin*0.6, 0.4*cv.seg([(sx*0.006*s, meta["chin_h"] - 0.01*s, 0.3), (sx*0.010*s, meta["chin_h"] - 0.07*s, 1.0)], 0.004*s))
-    if f.get("blood_head"):   # injured: split forehead at the hairline, blood running down the temple and cheek
+    if f.get("blood_head") and not GORE:   # injured (Roblox-safe): an adhesive plaster at the hairline over a faint bruise
+        gx, gy = 0.028*s, brow_y + 0.032*s
+        col = mix(col, skin*np.array((0.86, 0.80, 0.88)), 0.35*cv.ell(gx, gy, 0.022*s, 0.012*s, 1.0))
+        pad = cv.ell(gx, gy, 0.016*s, 0.0065*s, 1.0)
+        col = mix(col, (0.86, 0.74, 0.60), 0.95*pad)                                    # tan plaster
+        col = mix(col, (0.93, 0.90, 0.84), 0.9*cv.ell(gx, gy, 0.006*s, 0.0045*s, 1.0))  # gauze pad
+        hgt += 0.0004*pad
+    if f.get("blood_head") and GORE:   # injured: split forehead at the hairline, blood running down the temple and cheek
         gx, gy = 0.028*s, brow_y + 0.032*s
         gash = cv.seg([(gx - 0.012*s, gy + 0.004*s, 0.6), (gx, gy, 1.0), (gx + 0.010*s, gy + 0.006*s, 0.5)], 0.0016*s)
         col = mix(col, (0.30, 0.02, 0.02), 0.95*gash)
@@ -684,9 +699,12 @@ def paint_body(ras, meta, char, ghost, face=None):
     if face and FACES.get(face, {}).get("blood_arm"):   # injured: grazes and blood down the left arm
         arm_ = np.isin(bn, ["forearm.L", "upper_arm.L", "hand.L"])
         graze = sstep(0.52, 0.62, fbm(x*45, y*45, z*45, oct=3, seed=71))*arm_
-        col = mix(col, (0.50, 0.05, 0.04), 0.85*graze)
-        drip = sstep(0.75, 0.80, ridge(x*18, y*60, z*18, seed=73, sharp=20))*arm_
-        col = mix(col, (0.40, 0.03, 0.03), 0.7*drip)
+        if GORE:
+            col = mix(col, (0.50, 0.05, 0.04), 0.85*graze)
+            drip = sstep(0.75, 0.80, ridge(x*18, y*60, z*18, seed=73, sharp=20))*arm_
+            col = mix(col, (0.40, 0.03, 0.03), 0.7*drip)
+        else:   # Roblox-safe: dusty scuff and a faint bruise, no blood
+            col = mix(col, skin*np.array((0.78, 0.72, 0.74)), 0.45*graze)
     if ghost:   # veins over the arms, chest, neck; dirty grey-green mottling
         vv = ridge(x*22, y*22, z*22, seed=51, sharp=55)*sstep(0.62, 0.70, fbm(x*6, y*6, z*6, oct=2, seed=53))
         col = mix(col, (0.36, 0.34, 0.48), 0.35*vv); hgt += 0.0003*vv
@@ -824,9 +842,10 @@ def skin_char(char, save=True):
             bpy.ops.wm.save_mainfile(relative_remap=True)
     return meta
 
-def withered_char(char, save=True):
-    """only the _Withered set, painted on the UVs stored in <name>_uv.json (no re-unwrap, so the plain / ghost
-    textures and anything exported with them stay valid); adds SkinWithered to every .blend of the character"""
+def withered_char(char, save=True, variants=("withered",)):
+    """only the _Withered set (or `variants`, e.g. (True, "withered") = _Ghost + _Withered), painted on the UVs stored
+    in <name>_uv.json (no re-unwrap, so the plain textures and anything exported with them stay valid); adds
+    SkinWithered to every .blend of the character"""
     bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(char), NAMES[char] + ".blend"))
     body = bpy.data.objects["Body"]
     d = json.load(open(os.path.join(char_dir(char), NAMES[char] + "_uv.json")))
@@ -834,7 +853,7 @@ def withered_char(char, save=True):
     uv = np.array(d["uv"]).reshape(-1, 2)
     set_uv(body.data, uv)
     meta = {k: np.float64(v) if isinstance(v, float) else v for k, v in d.items() if k != "uv"}   # as unwrap() gives them
-    make_textures(char, uv, meta, body, variants=("withered",))
+    make_textures(char, uv, meta, body, variants=variants)
     if save:
         bpy.context.preferences.filepaths.save_version = 0
         for f in blend_files(char):
@@ -891,6 +910,11 @@ def preview_all(chars=None, out_dir=os.path.join(M, "skin_previews")):
     os.makedirs(out_dir, exist_ok=True)
     for c in chars or DIRS.values():
         bpy.ops.wm.open_mainfile(filepath=os.path.join(char_dir(c), NAMES[c] + ".blend"))
+        for im in bpy.data.images:    # images saved with a path relative to another checkout: point them at this M
+            fp = os.path.normpath(bpy.path.abspath(im.filepath)) if im.filepath else ""
+            k = fp.replace("/", "\\").lower().rfind("\\assets\\models\\")
+            if fp and not os.path.exists(fp) and k >= 0 and os.path.exists(os.path.join(M, fp[k + 15:])):
+                im.filepath = os.path.join(M, fp[k + 15:]); im.reload()
         if "SkinWithered" not in bpy.data.materials: add_skin(c)
         preview(c, os.path.join(out_dir, NAMES[c] + ".png"))
 

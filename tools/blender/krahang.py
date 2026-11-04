@@ -4,7 +4,7 @@
 # ลองท่า/รูปทรงเร็วๆ: ตั้ง env KRAHANG_QUICK=<โฟลเดอร์> (ข้าม bake/export ใช้ texture เดิม เขียนภาพตัวอย่างลงโฟลเดอร์นั้น)
 #   KRAHANG_CHECK=<ทุกกี่เฟรม> = สร้างท่าแล้วตรวจชนอย่างเดียว (clip_check: ทุกชิ้นต้องไม่จมเข้ากันเกิน 6 มม. ทุกเฟรม)
 # ต้นแบบ: ตัวชายผอม assets/models/human_base/human_base_thin.blend (rig 52 กระดูก + weight + joint limits เดิม)
-#   Body        ผิวเดิม ปรับให้ซี่โครงบานและท้องตอบ ผิวคล้ำแห้งเหี่ยว ซี่โครง เส้นเอ็น หน้าแยกเขี้ยว บาดแผล (วาดลง texture)
+#   Body        ผิวเดิม ปรับให้ซี่โครงบานและท้องตอบ ผิวคล้ำแห้งเหี่ยว ซี่โครง เส้นเอ็น หน้าแยกเขี้ยว (บาดแผล/เลือด วาดลง texture เฉพาะเมื่อ GORE = True ค่าตั้งต้น False เพราะ Roblox moderation)
 #   Hair        ผมดำยาวยุ่ง ปลิวไปด้านหลัง (สร้างด้วย Build/Head ของ human_base/build_hair.py) ผูกกับ head
 #   Cloth       ผ้าขาวม้าแดงนุ่งสั้น ผูกปมที่สะเอวซ้าย มีชายผ้า 2 ชาย ชายผ้าหน้า-หลังร่นขึ้นพ้นสาก
 #               weight ตามผิวใต้ผ้า (hips/spine/thigh) + ชายหน้า-หลังผูก sak, relax_cloth() ดันจุดที่จมผิวในท่าต่างๆ ออก
@@ -36,6 +36,10 @@ STUDS_PER_M = 3.5         # same as the human pipeline (man 1.80 m = 6.3 studs)
 R = math.radians
 LOG = []
 QUICK = os.environ.get("KRAHANG_QUICK", "")   # folder: quick pose check only (see main)
+# GORE = True: painted open wounds (strap burns, thigh scrapes, rib / back / face cuts, sores) with wet red flesh and
+# dried blood. Roblox moderation flags that as "excessive blood", so the default is False: no wounds, no blood, no
+# saturated red on the skin (only subtle grey-dark rubbing under the rattan ties). The red pha khao ma is cloth, kept.
+GORE = False
 
 def log(*a):
     s = " ".join(str(x) for x in a); LOG.append(s); print(s)
@@ -578,6 +582,20 @@ def paint_body(P, N, rig, fm, hd):
         toe = np.asarray(bs["toe." + side].tail_local, np.float32); dt = np.linalg.norm(P - toe, axis=1)
         c = mix(c, (60, 52, 36), sstep(0.03, 0.012, dt)*0.6)
     sole = sstep(0.025, 0.006, Z); c = mix(c, (20, 18, 15), sole*0.8)
+    if GORE: c, rough, H = paint_wounds(P, rig, fm, hd, c, rough, H, fine, dh, onface)
+    else:                                                        # no wounds: only faint grey-dark rubbing under the ties
+        rag = fbm(P, (60, 60, 60), 3, 120)
+        for side in ("L", "R"):
+            e, arm, L = forearm(rig, side); e = np.asarray(e, np.float32); ax_ = np.asarray(arm, np.float32)
+            t = (P - e) @ ax_; rad = np.linalg.norm(P - e - t[:, None]*ax_, axis=1)
+            for k in KR_STRAPS:
+                band = sstep(0.018, 0.006, np.abs(t - L*k) + (rag - 0.5)*0.010)*(rad < 0.06)*(t > 0)
+                c = mix(c, (34, 32, 30), band*0.45); H -= band*0.15
+    return paint_face(P, rig, fm, hd, c, rough, H, dh)
+
+def paint_wounds(P, rig, fm, hd, c, rough, H, fine, dh, onface):
+    """GORE only"""
+    n = len(P); X, Y, Z = P[:, 0], P[:, 1], P[:, 2]; s = hd.s; C = hd.C; bs = rig.data.bones
     # ---- wounds (painted in 3D, so none is cut by a UV seam): raw strap burns under the basket ties, scrapes on the
     # inner thighs and knees from gripping the pestle, gashes on the ribs, back and face, scattered open sores
     rag = fbm(P, (60, 60, 60), 3, 120)                            # ragged edges
@@ -622,6 +640,10 @@ def paint_body(P, N, rig, fm, hd):
     c = mix(c, (118, 20, 15), core); c = mix(c, (150, 46, 36), core*sstep(0.6, 0.9, fine)*0.6)
     c = mix(c, (56, 22, 14), scab); H += -core*1.3 + scab*1.0
     rough = np.where(core > 0.4, 0.28, rough); rough = np.where(scab > 0.4, 0.85, rough)
+    return c, rough, H
+
+def paint_face(P, rig, fm, hd, c, rough, H, dh):
+    X, Y, Z = P[:, 0], P[:, 1], P[:, 2]; s = hd.s; C = hd.C
     # ---- head: scalp under the hair is dark; snarling face
     head = dh < 0.16*s
     E, MZ = fm["eye"], fm["mouth"]
@@ -638,7 +660,8 @@ def paint_body(P, N, rig, fm, hd):
     lid = E + 0.0045*s + 0.24*(ax - ex)                      # upper lid slants down toward the nose
     eye = (ell(ax, Z, ex, E, 0.0115*s, 0.0062*s) < 1) & (Z < lid) & fr
     c = mix(c, (196, 182, 126), eye*1.0)
-    vein_e = lines(P, (900, 900, 900), 0.08, 41)*eye; c = mix(c, (150, 30, 24), vein_e*0.7 + eye*sstep(0.55, 1.0, ell(ax, Z, ex, E, 0.0115*s, 0.0062*s))*0.6)
+    vein_e = lines(P, (900, 900, 900), 0.08, 41)*eye                 # bloodshot only with GORE; else a dull amber rim
+    c = mix(c, (150, 30, 24) if GORE else (150, 112, 60), vein_e*(0.7 if GORE else 0.3) + eye*sstep(0.55, 1.0, ell(ax, Z, ex, E, 0.0115*s, 0.0062*s))*0.6)
     iris = (ell(ax, Z, ex - 0.0015*s, E - 0.0005*s, 0.0042*s, 0.0042*s) < 1) & eye
     c = mix(c, (170, 70, 18), iris*1.0)
     pupil = (ell(ax, Z, ex - 0.0015*s, E - 0.0005*s, 0.0016*s, 0.0024*s) < 1) & eye
@@ -686,7 +709,7 @@ def paint_body(P, N, rig, fm, hd):
         teeth |= fang
     c = mix(c, (176, 160, 104), teeth*1.0); c = mix(c, (110, 90, 52), teeth*sstep(MZ + 0.006*s, MZ + 0.009*s, zc)*0.6)
     H = np.where(teeth, -0.4, H); rough = np.where(teeth, 0.35, rough)
-    gum = mouth & (zc >= MZ + 0.0085*s); c = mix(c, (92, 24, 22), gum*1.0)
+    gum = mouth & (zc >= MZ + 0.0085*s); c = mix(c, (92, 24, 22) if GORE else (48, 30, 28), gum*1.0)
     # temples: purple veins
     tv = lines(P, (110, 110, 110), 0.05, 61)*sstep(0.05*s, 0.07*s, ax)*head*sstep(E - 0.02*s, E + 0.02*s, Z)*(Y < C.y + 0.03)
     c = mix(c, (50, 40, 62), tv*0.8); H += tv*0.6
@@ -792,8 +815,28 @@ def save_png(arr, path, chans=3, colorspace="sRGB"):
     px[:, :chans] = arr.reshape(len(arr), -1)[:, :chans] if arr.ndim > 1 else arr[:, None]
     if chans == 1: px[:, 1] = px[:, 0]; px[:, 2] = px[:, 0]
     im = bpy.data.images.new("_save", n, n); im.colorspace_settings.name = colorspace
-    im.pixels.foreach_set(np.clip(px, 0, 1).ravel()); im.filepath_raw = path; im.file_format = 'PNG'; im.save()
-    bpy.data.images.remove(im)
+    im.pixels.foreach_set(np.clip(px, 0, 1).ravel()); im.file_format = 'PNG'
+    def write(tmp): im.filepath_raw = tmp; im.save()
+    publish(write, path); bpy.data.images.remove(im)
+
+def publish(write, path, tries=10):
+    """write to a private temp name next to path, then swap it in, retrying: other ghost builds / Studio / scanners
+    touch files in assets/models at the same time and a write there sometimes fails (Errno 22, 'could not write')"""
+    import time, shutil
+    d = os.path.join(os.path.dirname(path), "_krahang_tmp"); os.makedirs(d, exist_ok=True)
+    tmp = os.path.join(d, os.path.basename(path))   # same base name: the FBX exporter copies textures to <name>.fbm/
+    for i in range(tries):
+        try:
+            write(tmp); os.replace(tmp, path)
+            fbm = os.path.splitext(tmp)[0] + ".fbm"
+            if os.path.isdir(fbm):
+                dst = os.path.splitext(path)[0] + ".fbm"; os.makedirs(dst, exist_ok=True)
+                for f in os.listdir(fbm): os.replace(os.path.join(fbm, f), os.path.join(dst, f))
+            shutil.rmtree(d, ignore_errors=True); return
+        except Exception as ex:
+            log("write retry", i + 1, os.path.basename(path), (str(ex).strip().splitlines() or [""])[-1][:120])
+            if i == tries - 1: raise
+            time.sleep(3)
 
 def bake_normal(objs, hgt):
     """tangent-space normal map from the painted height, baked by Cycles through a Bump node (OpenGL, +Y up)"""
@@ -1003,6 +1046,9 @@ def add_anims(rig):
 
 # ---------------------------------------------------------------- export
 def fbx(path, **kw):
+    publish(lambda tmp: _fbx(tmp, **kw), path)
+
+def _fbx(path, **kw):
     bpy.ops.export_scene.fbx(filepath=path, global_scale=STUDS_PER_M, apply_scale_options='FBX_SCALE_NONE',
                              axis_forward='-Z', axis_up='Y', bake_space_transform=False, add_leaf_bones=False,
                              primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=True, **kw)
@@ -1223,8 +1269,9 @@ def render_view(cam, objs, az, el, path, res=(1000, 1000), pts=None):
     ctr = sum(pts, Vector())/len(pts); depth = ctr.dot(d)
     cam.location = right*cx + up*cy + d*(depth + 6.0); cam.rotation_euler = rot.to_euler()
     cam.data.ortho_scale = span; cam.data.clip_end = 30
-    sc.render.resolution_x, sc.render.resolution_y = res; sc.render.filepath = path
-    bpy.ops.render.render(write_still=True)
+    sc.render.resolution_x, sc.render.resolution_y = res
+    def write(tmp): sc.render.filepath = tmp; bpy.ops.render.render(write_still=True)
+    publish(write, path)
 
 def previews(rig, objs):
     cam = preview_scene(); os.makedirs(PREV, exist_ok=True); sc = bpy.context.scene
@@ -1247,13 +1294,15 @@ def previews(rig, objs):
             row = []
             for k in range(5):
                 sc.frame_set(int(f0 + (f1 - f0)*k/5 if name != "LandOnRoof" else f0 + (f1 - f0)*k/4)); bpy.context.view_layer.update()
-                tmp = os.path.join(PREV, "_t.png"); render_view(cam, objs, az, el, tmp, res=(300, 300))
+                tmp = os.path.join(PREV, "_" + NAME + "_tile.png"); render_view(cam, objs, az, el, tmp, res=(300, 300))   # own tile name: other ghost scripts render into previews/ too
                 im = bpy.data.images.load(tmp); arr = np.empty(300*300*4, np.float32); im.pixels.foreach_get(arr)
                 row.append(arr.reshape(300, 300, 4)); bpy.data.images.remove(im); os.remove(tmp)
             tiles.append(np.concatenate(row, 1))
         sheet = np.concatenate(tiles[::-1], 0)
         img = bpy.data.images.new("_sheet", sheet.shape[1], sheet.shape[0]); img.pixels.foreach_set(sheet.ravel())
-        img.filepath_raw = os.path.join(PREV, NAME + suffix + ".png"); img.file_format = 'PNG'; img.save(); bpy.data.images.remove(img)
+        img.file_format = 'PNG'
+        def write(tmp): img.filepath_raw = tmp; img.save()
+        publish(write, os.path.join(PREV, NAME + suffix + ".png")); bpy.data.images.remove(img)
     rig.animation_data.action = bpy.data.actions["FlapFly"]
 
 # ---------------------------------------------------------------- main
@@ -1296,7 +1345,12 @@ def main():
     for o in list(bpy.data.objects):
         if o.name.startswith("_"): bpy.data.objects.remove(o, do_unlink=True)
     bpy.context.preferences.filepaths.save_version = 0
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(M, "krahang.blend"), relative_remap=True)
+    for i in range(10):                         # same transient write failures as publish(); in place (relative paths)
+        try: bpy.ops.wm.save_as_mainfile(filepath=os.path.join(M, "krahang.blend"), relative_remap=True); break
+        except RuntimeError as ex:
+            log("blend save retry", i + 1, str(ex).strip()[-120:])
+            if i == 9: raise
+            import time; time.sleep(3)
 
 if __name__ == "__main__":
     out = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else os.path.join(os.environ.get("TEMP", HERE), "krahang.txt")

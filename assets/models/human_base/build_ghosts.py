@@ -20,6 +20,10 @@ M = r"C:\Aunival\pump-lot-anomaly\assets\models"
 HB = os.path.join(M, "human_base")
 GH = os.path.join(M, "human_ghosts")
 RBX = os.path.join(M, "roblox", "human_ghosts")
+# GORE = False: Roblox-safe headless ghost (moderation flagged blood): the NeckStump is a closed, blackened / ashen cap
+# (no red meat, no white bone) and the skin round the cut only darkens with soot instead of blood running down the
+# chest, shoulders and back. The cloth follows build_clothes.GORE. True rebuilds the original bloody look.
+GORE = False
 
 def _load(fn):
     """the sibling build scripts, pointed at this M (so a copy of the repo builds into itself)"""
@@ -27,6 +31,8 @@ def _load(fn):
     src = src.replace('M = r"C:\\Aunival\\pump-lot-anomaly\\assets\\models"', 'M = r"%s"' % M)
     ns = {"__name__": fn[:-3]}; exec(src, ns); return ns
 CL = _load("build_clothes.py"); HA = _load("build_hair.py"); AN = _load("build_anims.py")
+if CL["GORE"] != GORE:            # the outfit textures already on disk come from build_clothes; keep its switch in step
+    print(f"build_ghosts: GORE={GORE} but build_clothes.GORE={CL['GORE']}: rerun build_clothes.ghost_textures() with the same value")
 AN["_clothes"] = lambda: CL
 sm = AN["sm"]; arm = AN["arm"]; hand = AN["hand"]; arms_down = AN["arms_down"]; legs_bounce = AN["legs_bounce"]
 hip_drop = AN["hip_drop"]; gait = AN["gait"]; FINGERS = AN["FINGERS"]
@@ -349,6 +355,21 @@ def neck_stump(body, rig, s):
     N_ = 256; xx = (np.arange(N_) + 0.5)/N_; X, Y = np.meshgrid(xx, xx)
     dx, dy = (X - 0.5)/0.48, (Y - 0.5)/0.48; r = np.hypot(dx, dy)
     nz = CL["fbm"](X*12, Y*12, oct=3, seed=120)
+    if not GORE:   # closed, blackened stump: pale ghost skin puckered in at the rim, charred ash-grey to black inside
+        col = np.ones((N_, N_, 3))*np.array((0.07, 0.065, 0.065))*(0.75 + 0.6*nz)[..., None]
+        ash = CL["sstep"](0.58, 0.70, CL["fbm"](X*26, Y*26, oct=3, seed=122))
+        col = CL["mix"](col, (0.26, 0.25, 0.24), ash*0.55*(r < 0.85))                            # flaky grey ash
+        cr = np.abs(CL["fbm"](X*18, Y*18, oct=2, seed=123) - 0.5) < 0.02
+        col = CL["mix"](col, (0.03, 0.03, 0.03), cr*0.8)                                          # dark cracks
+        col = CL["mix"](col, (0.40, 0.42, 0.40), CL["sstep"](0.72, 0.97, r))                     # puckered skin at the rim
+        pk = (0.5 + 0.5*np.cos(np.arctan2(dy, dx)*18))*CL["sstep"](0.55, 0.95, r)                  # folds drawn in to the centre
+        col = CL["mix"](col, (0.10, 0.10, 0.10), pk*0.35*(r < 0.9))
+        hgt = 0.0004*nz + 0.0002*ash - 0.0003*cr + 0.0004*pk
+        os.makedirs(GH, exist_ok=True); base = os.path.join(GH, "neck_stump")
+        CL["save_png"](col, base + "_Color.png", False); CL["save_png"](CL["normal_from_height"](hgt, 900, 900), base + "_Normal.png", True)
+        CL["save_png"](np.clip(0.82 + 0.1*nz, 0, 1), base + "_Roughness.png", True)
+        mat = CL["tex_material"]("NeckStump", base)
+        return msh.to_object("NeckStump", rig, mat, fix_normals=False)
     col = np.ones((N_, N_, 3))*np.array((0.50, 0.08, 0.08))*(0.7 + 0.5*nz)[..., None]
     col = CL["mix"](col, (0.25, 0.02, 0.03), CL["sstep"](0.75, 0.95, r))                       # dark clotted rim
     col = CL["mix"](col, (0.62, 0.18, 0.16), (CL["fbm"](X*30, Y*30, oct=2, seed=121) > 0.62)*(r < 0.8)*0.6)   # muscle fibres
@@ -377,6 +398,7 @@ def blood_skin(body, rig, char, s):
     L = (0.06 + 0.26*CL["fbm"](x/s*9 + 3.0*(y > 0), np.zeros_like(x), oct=2, seed=132))*s
     stream = CL["sstep"](0.56, 0.62, cols)*CL["sstep"](L, L - 0.04*s, run)*(run > -0.01*s)
     soak = CL["sstep"](0.05*s, 0.0, run + 0.04*s*CL["fbm"](x*30, y*30, oct=2, seed=133))*(run > -0.02*s)
+    if not GORE: stream = stream*0.0; soak = CL["sstep"](0.03*s, 0.0, run + 0.02*s*CL["fbm"](x*30, y*30, oct=2, seed=133))*(run > -0.02*s)
     wet = np.clip(stream + soak, 0, 1)*(Fi >= 0)
     imgs = {}
     for nd in nm.node_tree.nodes:
@@ -391,8 +413,12 @@ def blood_skin(body, rig, char, s):
             continue
         if fp.endswith("_Color.png"):
             tone = CL["fbm"](x*40, y*40, z*40, oct=2, seed=134)
-            a = CL["mix"](a, CL["BLOOD_OLD"], wet*0.9); a = CL["mix"](a, CL["BLOOD"], wet*CL["sstep"](0.4, 0.7, tone)*0.7); suf = "_Color"
-        elif fp.endswith("_Roughness.png"): a = a*(1 - 0.5*wet[..., None]); suf = "_Roughness"
+            if GORE:
+                a = CL["mix"](a, CL["BLOOD_OLD"], wet*0.9); a = CL["mix"](a, CL["BLOOD"], wet*CL["sstep"](0.4, 0.7, tone)*0.7)
+            else:      # soot / bruise-dark ring right at the cut, so the closed stump blends into the neck
+                a = CL["mix"](a, (0.16, 0.15, 0.16), wet*(0.55 + 0.25*tone))
+            suf = "_Color"
+        elif fp.endswith("_Roughness.png"): a = a*(1 - 0.5*wet[..., None]) if GORE else a; suf = "_Roughness"
         else: continue
         CL["save_png"](a, out + suf + ".png", suf != "_Color")
         ni = bpy.data.images.load(out + suf + ".png"); ni.colorspace_settings.name = im.colorspace_settings.name; nd.image = ni
@@ -460,6 +486,7 @@ def porcelain_face(body, rig, char, s):
 def build(name, save=True):
     g = GHOSTS[name]; char = g["char"]
     bpy.ops.wm.open_mainfile(filepath=os.path.join(CL["char_dir"](char), CL["NAMES"][char] + ".blend"))
+    CL["fix_image_paths"]()                   # some skin images were saved with paths relative to another checkout
     body = bpy.data.objects["Body"]; rig = bpy.data.objects["HumanRig"]
     if rig.animation_data: rig.animation_data.action = None
     for p in rig.pose.bones: p.rotation_euler = (0, 0, 0); p.location = (0, 0, 0)
@@ -744,7 +771,8 @@ def sheet(name, out_dir=os.path.join(GH, "previews"), size=(220, 360), n=6):
         img_ = np.concatenate(rows[::-1], 0)
         p = os.path.join(out_dir, f"{name}_{clip}.png")
         im = bpy.data.images.new("_sheet", img_.shape[1], img_.shape[0]); im.pixels.foreach_set(img_.ravel())
-        im.filepath_raw = p; im.file_format = 'PNG'; im.save(); bpy.data.images.remove(im); out.append(p)
+        tmp = os.path.join(out_dir, f"_sheet_{name}.png")   # write next to it, then replace (saving over the old sheet could fail)
+        im.filepath_raw = tmp; im.file_format = 'PNG'; im.save(); bpy.data.images.remove(im); os.replace(tmp, p); out.append(p)
     bpy.data.objects.remove(cam, do_unlink=True)
     if cof is not None: bpy.data.objects.remove(cof, do_unlink=True)
     return out

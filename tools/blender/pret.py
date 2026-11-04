@@ -32,9 +32,24 @@ TEX = 1024
 STUDS_PER_M = 3.5         # เหมือนตัวมนุษย์และกระหัง (ชาย 1.80 ม. = 6.3 studs)
 HEIGHT = 4.0              # = 14 studs
 STAGE = os.environ.get("PRET_STAGE", "full")
+# GORE = True: แผลเปิด แผลแตก รอยข่วน เลือดแห้งไหล เนื้อแดงเปียก คราบเลือดบนผ้า ลิ้นแดงสด (ทางเดิม)
+# GORE = False (ค่าตั้งต้น ปลอดภัยสำหรับ Roblox moderation): ไม่มีแผล/เลือด ผิวศพแห้งตากแดดล้วน ปากดำคล้ำ ลิ้นม่วงเทาหม่น
+GORE = False
 R = math.radians
 LOG = []
 T0 = time.time()
+
+
+def retry_io(fn, tries=10, wait=3.0):
+    """เขียนไฟล์ลง assets/ ซ้ำถ้าล้ม: ไฟล์อาจถูกโปรแกรมอื่น (สแกนไวรัส / editor / Blender ตัวอื่น) เปิดค้างชั่วคราว"""
+    for k in range(tries):
+        try:
+            return fn()
+        except (RuntimeError, OSError) as e:
+            if k == tries - 1:
+                raise
+            LOG.append(f"  retry write ({k + 1}): {str(e).splitlines()[0][:120]}")
+            time.sleep(wait)
 
 
 def log(*a):
@@ -921,7 +936,7 @@ def paint_body(P, N, rig, fm, hd):
     c = mix(c, (22, 14, 14), sock * 0.95)
     H -= sock * 1.2
     rim = np.exp(-((ell(ax, Z, ex, E, 0.017 * s, 0.017 * s) - 1) / 0.12) ** 2) * w
-    c = mix(c, (110, 30, 28), rim * 0.7)
+    c = mix(c, (110, 30, 28) if GORE else (58, 40, 44), rim * 0.7)          # GORE False: ขอบตาช้ำม่วงคล้ำ ไม่แดง
     under = sstep(1.0, 0.0, ell(ax, Z, ex + 0.004 * s, E - 0.022 * s, 0.022 * s, 0.009 * s)) * w
     c = mix(c, (26, 18, 16), under * 0.6)
     H -= under * 0.5
@@ -948,11 +963,11 @@ def paint_body(P, N, rig, fm, hd):
     mo = ell(X, Z, 0, MZ, mx, mz)
     mouth = (mo < 1) & fr
     lip = np.exp(-((mo - 1.0) / 0.16) ** 2) * w
-    c = mix(c, (70, 34, 34), lip * 0.9)
+    c = mix(c, (70, 34, 34) if GORE else (46, 36, 34), lip * 0.9)          # GORE False: ปากแห้งหม่นคล้ำ
     H += lip * 0.5
-    c = mix(c, (10, 3, 3), mouth * 1.0)
+    c = mix(c, (10, 3, 3) if GORE else (9, 7, 7), mouth * 1.0)
     H = np.where(mouth, -1.5, H)
-    rough = np.where(mouth, 0.3, rough)
+    rough = np.where(mouth, 0.3 if GORE else 0.75, rough)
     tw = 0.0062 * s
     colm = np.abs(np.mod(X + tw / 2, tw) - tw / 2)
     teeth = mouth & (Z > MZ + 0.009 * s) & (colm > 0.0012 * s) & (np.abs(X) < 0.018 * s)
@@ -962,7 +977,8 @@ def paint_body(P, N, rig, fm, hd):
     tv = lines(P, (70, 70, 70), 0.05, 61) * sstep(0.05 * s, 0.07 * s, ax) * head * sstep(E - 0.02 * s, E + 0.02 * s, Z) * (Y < C.y + 0.03 * s)
     c = mix(c, (52, 38, 60), tv * 0.8)
     H += tv * 0.6
-    c, rough, H = wounds(P, N, rig, fm, hd, c, rough, H)
+    if GORE:
+        c, rough, H = wounds(P, N, rig, fm, hd, c, rough, H)
     return c, np.clip(rough, 0.05, 1.0), H
 
 
@@ -1122,7 +1138,11 @@ def paint_cloth(P):
     dirt = fbm(P, (7, 7, 7), 4, 83)
     c = mix(c, (44, 32, 24), sstep(0.42, 0.72, dirt) * 0.8)
     blood = sstep(0.7, 0.8, fbm(P, (9, 9, 9), 3, 84)) * sstep(0.4, 0.6, vnoise(P, (30, 30, 30), 85))
-    c = mix(c, (46, 12, 10), blood * 0.85)                                                 # คราบเลือดแห้ง
+    if GORE:
+        c = mix(c, (46, 12, 10), blood * 0.85)                                             # คราบเลือดแห้ง
+    else:
+        c = mix(c, (52, 40, 28), blood * 0.7)                                              # คราบโคลนแห้ง (ไม่ใช่เลือด)
+        c = mix(c, (74, 58, 44), np.full(n, 0.5, np.float32))                                                     # ลายตารางซีดลงไปทางน้ำตาล
     bot = np.array([kb_bottom(a) for a in az], np.float32)
     f = (CLOTH["top"] - Z) / np.maximum(CLOTH["top"] - bot, 0.05)
     c = mix(c, (44, 32, 24), sstep(0.7, 0.97, f) * (0.5 + 0.4 * dirt))                     # ชายผ้าเปื้อนโคลน
@@ -1141,11 +1161,17 @@ def paint_tongue(P):
     n2 = vnoise(P, (160, 160, 160), 92)
     vein = lines(P, (20, 20, 20), 0.03, 93)
     c = np.empty((n, 3), np.float32)
-    c[:] = np.array([96, 18, 22], np.float32) / 255
-    c = mix(c, (150, 44, 46), sstep(0.35, 0.7, n1))
-    c = mix(c, (44, 8, 12), vein * 0.7)
-    c = mix(c, (160, 80, 70), sstep(0.6, 0.75, n2) * 0.35)
-    return c, 0.22 + 0.2 * n2, n2 * 0.6 - vein * 0.4
+    if GORE:
+        c[:] = np.array([96, 18, 22], np.float32) / 255
+        c = mix(c, (150, 44, 46), sstep(0.35, 0.7, n1))
+        c = mix(c, (44, 8, 12), vein * 0.7)
+        c = mix(c, (160, 80, 70), sstep(0.6, 0.75, n2) * 0.35)
+        return c, 0.22 + 0.2 * n2, n2 * 0.6 - vein * 0.4
+    c[:] = np.array([58, 46, 54], np.float32) / 255                # ม่วงเทาคล้ำหม่น แห้ง ไม่เปียก
+    c = mix(c, (78, 64, 62), sstep(0.35, 0.7, n1))                 # ด่างน้ำตาลเทา
+    c = mix(c, (30, 24, 30), vein * 0.7)
+    c = mix(c, (92, 80, 72), sstep(0.6, 0.75, n2) * 0.25)
+    return c, 0.62 + 0.2 * n2, n2 * 0.6 - vein * 0.4
 
 
 def paint_eyes(P):
@@ -1163,7 +1189,7 @@ def paint_eyes(P):
         cc = np.empty((sel.sum(), 3), np.float32)
         cc[:] = np.array([206, 192, 150], np.float32) / 255  # ตาขาวอมเหลือง
         vein = lines(P[sel], (900, 900, 900), 0.08, 41)
-        cc = mix(cc, (150, 30, 24), vein * 0.8 * sstep(0.85, 0.2, f) + sstep(0.4, -0.2, f) * 0.7)
+        cc = mix(cc, (150, 30, 24) if GORE else (120, 92, 70), vein * 0.8 * sstep(0.85, 0.2, f) + sstep(0.4, -0.2, f) * 0.7)
         cc = mix(cc, (120, 116, 96), sstep(0.955, 0.965, f))  # ม่านตาขุ่น
         cc = mix(cc, (8, 5, 5), sstep(0.988, 0.992, f))      # รูม่านตาเล็กเท่ารูเข็ม
         c[sel] = cc
@@ -1208,7 +1234,7 @@ def save_png(arr, path, chans=3, colorspace="sRGB"):
     im.pixels.foreach_set(np.clip(px, 0, 1).ravel())
     im.filepath_raw = path
     im.file_format = "PNG"
-    im.save()
+    retry_io(im.save)
     bpy.data.images.remove(im)
 
 
@@ -1661,9 +1687,9 @@ def check_clips(rig, body, tongue, hair, cloth, CS, made):
 
 # ================================================================ 6. export + ภาพตัวอย่าง
 def fbx(path, **kw):
-    bpy.ops.export_scene.fbx(filepath=path, global_scale=STUDS_PER_M, apply_scale_options="FBX_SCALE_NONE",
-                             axis_forward="-Z", axis_up="Y", bake_space_transform=False, add_leaf_bones=False,
-                             primary_bone_axis="Y", secondary_bone_axis="X", use_armature_deform_only=True, **kw)
+    retry_io(lambda: bpy.ops.export_scene.fbx(filepath=path, global_scale=STUDS_PER_M, apply_scale_options="FBX_SCALE_NONE",
+                                              axis_forward="-Z", axis_up="Y", bake_space_transform=False, add_leaf_bones=False,
+                                              primary_bone_axis="Y", secondary_bone_axis="X", use_armature_deform_only=True, **kw))
 
 
 def export_all(rig, objs):
@@ -1775,17 +1801,17 @@ def render_view(cam, objs, az, el, path, res=(800, 1200), pts=None, margin=1.06)
     cam.data.clip_end = 40
     sc.render.resolution_x, sc.render.resolution_y = res
     sc.render.filepath = path
-    bpy.ops.render.render(write_still=True)
+    retry_io(lambda: bpy.ops.render.render(write_still=True))
 
 
 def tile(cam, objs, az, el, res, pts):
-    tmp = os.path.join(PREV, "_t.png")
+    tmp = os.path.join(PREV, "_pret_t.png")
     render_view(cam, objs, az, el, tmp, res=res, pts=pts, margin=1.04)
     im = bpy.data.images.load(tmp)
     arr = np.empty(res[0] * res[1] * 4, np.float32)
     im.pixels.foreach_get(arr)
     bpy.data.images.remove(im)
-    os.remove(tmp)
+    retry_io(lambda: os.remove(tmp))
     return arr.reshape(res[1], res[0], 4)
 
 
@@ -1895,7 +1921,7 @@ def main():
         if o.name.startswith("_"):
             bpy.data.objects.remove(o, do_unlink=True)
     bpy.context.preferences.filepaths.save_version = 0
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(M, "pret.blend"), relative_remap=True)
+    retry_io(lambda: bpy.ops.wm.save_as_mainfile(filepath=os.path.join(M, "pret.blend"), relative_remap=True))
     log("done")
 
 

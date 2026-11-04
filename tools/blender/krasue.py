@@ -1,4 +1,5 @@
 # กระสือ (Krasue) — หัวผู้หญิงลอย ผมยาวดำ หน้าซีด ตาแดง ปากเลือด เขี้ยว + หลอดลม ปอด หัวใจ ไส้ห้อย — Blender headless
+# GORE = False (ค่าตั้งต้น ด้านล่าง): แบบปลอดภัยสำหรับ Roblox ไม่มีเลือด อวัยวะสีเทาม่วงหม่น ตอคอดำปิด (True = แบบเดิม)
 # รัน (PowerShell):
 #   powershell -ExecutionPolicy Bypass -File tools\blender\run_headless.ps1 -Script tools\blender\krasue.py -Out C:\tmp\krasue.txt
 # ผลลัพธ์ (assets/models/):
@@ -28,6 +29,11 @@ K = 0.28   # เมตรต่อ stud
 N = 1024   # ขนาด texture
 MG = 2     # ขอบกันสีเลอะ (px) ของแต่ละช่องใน atlas
 FPS = 30
+# GORE = False: Roblox-safe Krasue (moderation flagged blood): no blood round the mouth or running down to the neck,
+# black tears, fangs without blood, a closed dark (charred) neck stump, and the organs dull grey-purple / brown and
+# matte instead of raw red meat (they stay a separate material, so the in-game glow still works). The red eyes stay.
+# build_skin.GORE follows this. True rebuilds the original bloody look.
+GORE = False
 LOG = []
 
 
@@ -342,6 +348,7 @@ def load_ns(path):
     ns = {"__name__": "krasue_lib", "__file__": path}
     exec(compile(open(path, encoding="utf-8").read(), path, "exec"), ns)
     ns["M"] = ROOT
+    ns["GORE"] = GORE
     return ns
 
 
@@ -349,10 +356,12 @@ CHAR, FACE = "female", "krasue"           # ตัวคนที่ใช้ห
 
 
 # ---- ส่วนหน้าผีที่ใช้ซ้ำได้ (ผีตัวอื่นที่ใช้หัว human: เรียกด้วย char/face ของตัวเอง; sk = namespace ของ build_skin)
-def paint_ghost_head(sk, meta, char=CHAR, face=FACE, red_eyes=True, blood=True, neck_soak=True):
+def paint_ghost_head(sk, meta, char=CHAR, face=FACE, red_eyes=True, blood=None, neck_soak=None):
     """ผิวหัว (ครึ่งบนของ atlas, แถวล่างขึ้นบนแบบ build_skin): paint_head(face) + ตาแดง + เลือดรอบปากไหลลงคางถึงคอ
     (neck_soak = คอล่างชุ่มเลือดทั้งรอบ สำหรับหัวขาด) คืน (สี, ความสูง, roughness, normal)
     พิกัด Canvas: X = มุมรอบหัว * RF, Y = ความสูงตามแกนหัว (ม. ของ human)"""
+    blood = GORE if blood is None else blood
+    neck_soak = GORE if neck_soak is None else neck_soak
     hc, hh, hr, (ppx, ppy) = sk["paint_head"](meta, char, True, face)
     f = sk["FACES"][face]
     rows, cols = np.arange(N // 2, N), np.arange(N)
@@ -823,7 +832,19 @@ def paint_hair(reg, seed):
     return col, strand, 0.38 + 0.2 * (1 - strand)
 
 
+def dull(c):
+    """GORE False: organ colour desaturated and darkened towards a dead grey-purple / brown (not raw meat)"""
+    c = np.asarray(c, float)
+    if GORE:
+        return c
+    g = c @ np.array((0.2126, 0.7152, 0.0722)) if c.ndim else float(c)
+    out = (np.asarray(g)[..., None] * 1.7) * np.array((0.95, 0.86, 0.96)) * 0.88 + c * 0.12
+    return np.clip(out, 0.0, 0.48)
+
+
 def paint_organ(reg, base, dark, seed, rough=0.18):
+    if not GORE:
+        base, dark, rough = dull(base), dull(dark), rough + 0.4     # dry and matte, not wet
     S, T, n = region_st(reg)
     n1, n2, n3 = vnoise(n, 6, seed), vnoise(n, 28, seed + 1), vnoise(n, 70, seed + 2)
     col = np.array(base) * (0.75 + 0.35 * n2 + 0.15 * n1)[..., None]
@@ -854,32 +875,36 @@ def paint_all(head):
     put("lung", c, h, r)
     S, T, n, n1, c, h, r = paint_organ("heart", (0.42, 0.02, 0.04), (0.22, 0.0, 0.05), 61)
     fat = sm(0.7, 0.85, T + 0.15 * (n1 - 0.5))
-    c = mix(c, 0.85 * fat, (0.82, 0.62, 0.30))
+    c = mix(c, 0.85 * fat, dull((0.82, 0.62, 0.30)))
     cor = (np.abs(np.sin(S * 2 * math.pi * 3 + 1.5 * np.sin(T * 7))) < 0.07) * (T < 0.8)
-    c = mix(c, 0.8 * cor, (0.22, 0.0, 0.06))
+    c = mix(c, 0.8 * cor, dull((0.22, 0.0, 0.06)))
     put("heart", c, h + 0.4 * cor, r)
     S, T, n, n1, c, h, r = paint_organ("gut", (0.58, 0.10, 0.11), (0.35, 0.03, 0.10), 71, 0.2)
     folds = 0.5 + 0.5 * np.sin(T * 2 * math.pi * 10)
     c = c * (0.82 + 0.25 * folds)[..., None]
     mes = (np.abs(S - 0.25 - 0.02 * np.sin(T * 40)) < 0.015).astype(float)
-    c = mix(c, mes, (0.40, 0.03, 0.12))
+    c = mix(c, mes, dull((0.40, 0.03, 0.12)))
     put("gut", c, h + 0.4 * folds + 0.3 * mes, r)
     S, T, n, n1, c, h, r = paint_organ("colon", (0.50, 0.12, 0.14), (0.30, 0.04, 0.08), 81, 0.25)
     band = sm(0.0, 0.06, 0.04 - np.abs(S - 0.5))
-    c = mix(c, 0.6 * band, (0.75, 0.55, 0.50))
+    c = mix(c, 0.6 * band, dull((0.75, 0.55, 0.50)))
     put("colon", c, h + 0.3 * band, r)
     S, T, n, n1, c, h, r = paint_organ("trachea", (0.55, 0.08, 0.10), (0.30, 0.0, 0.04), 91, 0.3)
     cart = sm(-0.2, 0.3, np.sin(T * 2 * math.pi * 4))
-    c = mix(c, 0.8 * cart, (0.78, 0.48, 0.46))
+    c = mix(c, 0.8 * cart, dull((0.78, 0.48, 0.46)))
     put("trachea", c, h + cart, r)
     S, T, n, n1, c, h, r = paint_organ("flesh", (0.48, 0.03, 0.05), (0.12, 0.0, 0.02), 101)
     c = mix(c, sm(0.8, 0.9, vnoise(n, 30, 105)), (0.80, 0.50, 0.45))
+    if not GORE:   # closed stump: charred black-grey with flaky ash, matte (no red flesh, no bone)
+        c = np.array([0.07, 0.065, 0.065]) * (0.75 + 0.6 * n1)[..., None]
+        c = mix(c, 0.55 * sm(0.62, 0.78, vnoise(n, 30, 105)), (0.27, 0.26, 0.25))
+        r = 0.85 + 0 * r
     put("flesh", c, h, r)
     _, _, _, _, c, h, r = paint_organ("vessel", (0.34, 0.02, 0.07), (0.18, 0.0, 0.05), 111, 0.2)
     put("vessel", c, h, r)
     S, T, n = region_st("fang")
     c = np.array([0.86, 0.82, 0.68]) * (0.8 + 0.2 * (1 - T))[..., None]
-    c = mix(c, 0.75 * sm(0.55, 0.9, T), (0.40, 0.0, 0.02))
+    c = mix(c, 0.75 * sm(0.55, 0.9, T), (0.40, 0.0, 0.02) if GORE else (0.34, 0.26, 0.14))   # safe: old stain, not blood
     put("fang", c, np.zeros_like(T), 0.3 + 0 * T)
     # ลูกตา: ตาขาวแดงก่ำเส้นเลือดเต็ม ม่านตาแดงสด รูม่านตาดำเล็ก
     S, T, n = region_st("eye")
