@@ -84,6 +84,13 @@ local function setLids(closed: number, time: number, style: Enum.EasingStyle?, f
 	-- หนังตาสูง 0.62 ของจอ (ขอบจาง 30%): ปิดสนิทเลื่อนมาถึง 0.75 ส่วนทึบทับกันกลางจอพอดี
 	TweenService:Create(lidTop, info, { Position = UDim2.fromScale(0.5, closed * 0.75) }):Play()
 	TweenService:Create(lidBottom, info, { Position = UDim2.fromScale(0.5, 1 - closed * 0.75) }):Play()
+	-- ตอนตาย (force): หนังตาทึบดำสนิท / อาการหลอน: ดำโปร่งๆ ยังเห็นภาพลางๆ
+	local alpha = if force then 0 else LID_ALPHA
+	for _, f in ipairs({ lidTop, lidBottom, lidTop:FindFirstChild("Back"), lidBottom:FindFirstChild("Back") }) do
+		if f then
+			TweenService:Create(f :: Frame, TweenInfo.new(math.min(time, 0.4)), { BackgroundTransparency = alpha }):Play()
+		end
+	end
 end
 
 -- ---------------------------------------------------------------- กล้อง: สัปหงก / เขย่า (ซ้อนหลังกล้องปกติทุกเฟรม)
@@ -118,50 +125,51 @@ end)
 
 -- ---------------------------------------------------------------- ตาจะหลับ (ธี่หยด)
 local drowsyToken = 0
-local function drowsy(seconds: number)
+-- seconds = นานเท่าเสียงกระซิบ / fadeOut = ช่วงท้ายที่เสียงค่อยๆ เบาลง: ตาค่อยๆ ลืมไปพร้อมกัน
+-- กะพริบปรือ 2 ครั้ง แล้วปรือค้าง (หนังตาเคลื่อนขึ้นลงช้าๆ) จนเสียงกระซิบหาย ไม่สะดุ้งลืมตากลางคัน
+-- (ผู้ใช้ 2026-11-04: กะพริบ 2 ครั้ง / ตาปรือจนกว่าเสียงกระซิบจะหาย)
+-- (ไม่บังคับกล้องก้มลง/เอียง: ผู้ใช้ให้เอาออก 2026-11-03 — อาการอยู่ที่หนังตา เบลอ มืดลงเท่านั้น)
+local function drowsy(seconds: number, fadeOut: number?)
 	drowsyToken += 1
 	local token = drowsyToken
 	local function live(): boolean
 		return drowsyToken == token
 	end
+	local out = fadeOut or 1.5
+	local stopAt = os.clock() + seconds - out
 	task.spawn(function()
-		TweenService:Create(blur, TweenInfo.new(1.2), { Size = 10 }):Play()
-		TweenService:Create(grade, TweenInfo.new(1.2), { Brightness = -0.12, Saturation = -0.45, Contrast = 0.1 }):Play()
-		-- กะพริบปรือ 2 ครั้ง แล้วสุ่ม: ลืมตาหยุดแค่นั้น / หลับ (ปิดค้างครู่หนึ่ง) แล้วสะดุ้งตื่น
-		-- (ผู้ใช้ 2026-11-04: กะพริบแค่ 2 ครั้ง เดิม 3 ครั้งหนักขึ้นเรื่อยๆ)
-		-- (ไม่บังคับกล้องก้มลง/เอียง: ผู้ใช้ให้เอาออก 2026-11-03 — อาการอยู่ที่หนังตา เบลอ มืดลงเท่านั้น)
-		local beats = { { 0.4, 1.3 }, { 0.5, 1.4 } }
-		local per = math.max(2.0, (seconds - 1) / (#beats + 1))
-		for _, b in ipairs(beats) do
-			if not live() then
-				return
-			end
+		TweenService:Create(blur, TweenInfo.new(2.5), { Size = 10 }):Play()
+		TweenService:Create(grade, TweenInfo.new(2.5), { Brightness = -0.12, Saturation = -0.45, Contrast = 0.1 }):Play()
+		local function wait(t: number): boolean
+			task.wait(math.max(0, math.min(t, stopAt - os.clock())))
+			return live() and os.clock() < stopAt - 0.05
+		end
+		for _, b in ipairs({ { 0.4, 1.4 }, { 0.5, 1.5 } }) do
 			setLids(b[1], b[2])
-			task.wait(b[2] + 0.25)
-			if not live() then
-				return
+			if not wait(b[2] + 0.3) then
+				break
 			end
-			-- พยายามลืมตา (ไม่สุด)
-			local back = math.max(0.3, per - b[2] - 0.25)
-			setLids(b[1] * 0.45, back)
-			task.wait(back)
+			setLids(b[1] * 0.45, 1.1)
+			if not wait(1.2) then
+				break
+			end
+		end
+		-- ปรือค้าง: ลง-ขึ้นช้าๆ เหมือนฝืนลืมตา
+		local deep = true
+		while live() and os.clock() < stopAt - 0.05 do
+			setLids(if deep then 0.55 else 0.38, 2.2)
+			deep = not deep
+			if not wait(2.2) then
+				break
+			end
 		end
 		if not live() then
 			return
 		end
-		if math.random() < 0.5 then
-			-- หลับ: หนังตาปิดลงช้าๆ ค้างไว้ครู่หนึ่ง
-			setLids(LID_MAX, 1.6)
-			task.wait(1.6 + math.max(0.8, per - 1.6))
-			if not live() then
-				return
-			end
-		end
-		-- สะดุ้งตื่น / ลืมตา
-		setLids(0, 0.18, Enum.EasingStyle.Quad)
-		shakeUntil, shakeAmp = os.clock() + 0.35, 1.2
-		TweenService:Create(blur, TweenInfo.new(1.5), { Size = 0 }):Play()
-		TweenService:Create(grade, TweenInfo.new(1.5), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
+		-- เสียงกระซิบค่อยๆ หาย: ลืมตาช้าๆ ไปพร้อมกัน
+		setLids(0, out)
+		TweenService:Create(blur, TweenInfo.new(out), { Size = 0 }):Play()
+		TweenService:Create(grade, TweenInfo.new(out), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
 	end)
 end
 
@@ -225,6 +233,7 @@ end)
 local WHISPER_ID = "rbxassetid://116827997071173"
 local WHISPER_VOLUME = 0.1
 local WHISPER_LEN = 15
+local WHISPER_FADE = 3 -- เฟดเข้า / เฟดออก (วินาที)
 local WHISPER_EVERY = { 240, 480 }
 local whisperUntil = 0
 local function whisper()
@@ -238,10 +247,11 @@ local function whisper()
 	s.Volume = 0
 	s.Parent = game:GetService("SoundService")
 	s:Play()
-	TweenService:Create(s, TweenInfo.new(0.8, Enum.EasingStyle.Sine), { Volume = WHISPER_VOLUME }):Play()
-	drowsy(WHISPER_LEN)
-	task.delay(WHISPER_LEN - 1, function()
-		TweenService:Create(s, TweenInfo.new(1, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+	-- ค่อยๆ ดังขึ้น / ค่อยๆ เบาลงจนหาย (ไม่ตัดเข้า-ออกทันที) ตาปรือจนเสียงหายพอดี
+	TweenService:Create(s, TweenInfo.new(WHISPER_FADE, Enum.EasingStyle.Sine), { Volume = WHISPER_VOLUME }):Play()
+	drowsy(WHISPER_LEN, WHISPER_FADE)
+	task.delay(WHISPER_LEN - WHISPER_FADE, function()
+		TweenService:Create(s, TweenInfo.new(WHISPER_FADE, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
 	end)
 	task.delay(WHISPER_LEN + 0.1, function()
 		s:Destroy()
