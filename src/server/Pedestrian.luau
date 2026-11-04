@@ -172,7 +172,7 @@ end
 
 -- opts: umbrella (ร่ม), gallon (แกลลอนน้ำมันมือซ้าย), shirt/pants (สีเสื้อ/กางเกง คนแบบกล่อง), umbrellaColor,
 --       teen (ชาวบ้านแบบใหม่: ชุดสายแว้น), dance (ท่าเต้นตอนแกว่งตามขบวน เช่น "ramwong", "wan_bounce")
-function Pedestrian.Build(opts: { umbrella: boolean?, gallon: boolean?, shirt: Color3?, pants: Color3?, umbrellaColor: Color3?, teen: boolean?, dance: string?, noHelmet: boolean? }): Model
+function Pedestrian.Build(opts: { umbrella: boolean?, gallon: boolean?, shirt: Color3?, pants: Color3?, umbrellaColor: Color3?, teen: boolean?, dance: string?, noHelmet: boolean?, char: string?, outfit: string? }): Model
 	if HumanNPC.Available() then
 		return buildHuman(opts :: any)
 	end

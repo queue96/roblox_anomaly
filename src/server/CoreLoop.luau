@@ -526,10 +526,11 @@ end
 
 -- ลูกค้าประจำ (ชื่อ / คำทัก / คำสั่งน้ำมัน) ผีจะปลอมเป็นหนึ่งในนี้
 local CHARACTERS = {
-	{ name = "Name_Sommai", greet = "Greet_Uncle", order = "Normal_Uncle", voice = "M" },
-	{ name = "Name_Chaem", greet = "Greet_Aunt", order = "Normal_Aunt", voice = "F" },
-	{ name = "Name_Ton", greet = "Greet_Student", order = "Normal_Student", voice = "M" },
-	{ name = "Name_Boonmee", greet = "Greet_Farmer", order = "Normal_Farmer", voice = "M" },
+	-- char = ตัวละคร (HumanNPC) ให้ตรงกับเสียงพากย์: ลุง = ตา, ป้า = ยาย, ผู้หญิง = human_female
+	{ name = "Name_Sommai", greet = "Greet_Uncle", order = "Normal_Uncle", voice = "M", char = "human_elder_male" },
+	{ name = "Name_Chaem", greet = "Greet_Aunt", order = "Normal_Aunt", voice = "F", char = "human_elder_female" },
+	{ name = "Name_Ton", greet = "Greet_Student", order = "Normal_Student", voice = "M", char = "human_base", teen = true },
+	{ name = "Name_Boonmee", greet = "Greet_Farmer", order = "Normal_Farmer", voice = "M", char = "human_base", outfit = "farmer" },
 }
 -- ประโยคผีที่ใช้คำแทนตัวเฉพาะเพศ ต้องให้ลูกค้าเพศเดียวกันพูด (ไม่อยู่ในตาราง = ใครพูดก็ได้)
 local ANOMALY_VOICE: { [string]: string } = {
@@ -541,9 +542,9 @@ local ANOMALY_VOICE: { [string]: string } = {
 }
 -- คนแวะหลบฝน (ชื่อไม่ซ้ำกับลูกค้าประจำ จะได้ไม่สับสนตอนคุยกัน)
 local SHELTER_CHARACTERS = {
-	{ name = "Name_Prik", voice = "F" },
-	{ name = "Name_Daeng", voice = "M" },
-	{ name = "Name_Noi", voice = "F" },
+	{ name = "Name_Prik", voice = "F", char = "human_elder_female" }, -- ยายปริก
+	{ name = "Name_Daeng", voice = "M", char = "human_base" },
+	{ name = "Name_Noi", voice = "F", char = "human_female" }, -- น้าน้อย
 }
 local namesInUse: () -> { [string]: boolean }
 local function pickCharacter(voice: string?, list: { any }?)
@@ -1928,13 +1929,18 @@ local function spawnCustomer(kind: string?)
 	end
 	forceGhostNext = false
 
+	-- เลือกคนก่อน แล้วสร้างตัวละครให้ตรงกับเสียงพากย์ (ชาย/หญิง/คนแก่)
+	-- ผีพูดเหมือนคนปกติทุกประโยค ไม่มีคำใบ้ (ผู้ใช้ 2026-11-03: ให้รู้ว่าเป็นผีจากการเห็นตัวเองเท่านั้น)
+	local useAnomalyLine = false
+	local who = pickCharacter(nil)
+	local look = { char = who.char, teen = who.teen, outfit = who.outfit }
 	local v: Model
 	local service = "petrol"
 	if k == "walker" then
-		v = Pedestrian.Build({ umbrella = raining, gallon = true })
+		v = Pedestrian.Build({ umbrella = raining, gallon = true, char = who.char, outfit = who.outfit })
 	elseif k == "bicycle" then
 		-- จักรยานยางแบน: คนเดินเข็นจักรยานมาด้วย (จักรยานอยู่ข้างขวา)
-		v = Pedestrian.Build({ umbrella = raining, gallon = false })
+		v = Pedestrian.Build({ umbrella = raining, gallon = false, char = who.char, outfit = who.outfit })
 		local bt = templateOrNil(pick(BICYCLE_TEMPLATES)) :: Model
 		local bike = bt:Clone()
 		prepThaiVehicle(bike)
@@ -1971,7 +1977,7 @@ local function spawnCustomer(kind: string?)
 		end
 	end
 	if not walking and anomaly ~= "Anomaly_Krasue" then
-		humanizeDriver(v :: Model)
+		humanizeDriver(v :: Model, look)
 	end
 	if ghost then
 		if AnomalyManager.IsWorld(anomaly :: string) then
@@ -1980,9 +1986,6 @@ local function spawnCustomer(kind: string?)
 			AnomalyManager.Apply(anomaly :: string, v)
 		end
 	end
-	-- ผีพูดเหมือนคนปกติทุกประโยค ไม่มีคำใบ้ (ผู้ใช้ 2026-11-03: ให้รู้ว่าเป็นผีจากการเห็นตัวเองเท่านั้น)
-	local useAnomalyLine = false
-	local who = pickCharacter(if useAnomalyLine then ANOMALY_VOICE[anomaly :: string] else nil)
 	local order = who.order
 	if k == "walker" then
 		order = pick(if raining then WALKER_ORDERS_RAIN else WALKER_ORDERS)
@@ -2152,8 +2155,9 @@ local function spawnShelter()
 		return
 	end
 	local ghost = math.random() < CONFIG.ShelterGhostChance
-	local v = Pedestrian.Build({ umbrella = true, gallon = false })
-	local sh: Shelter = { v = v, who = pickCharacter(nil, SHELTER_CHARACTERS), ghost = ghost, spot = spot, arrived = false, leaving = false }
+	local shWho = pickCharacter(nil, SHELTER_CHARACTERS)
+	local v = Pedestrian.Build({ umbrella = true, gallon = false, char = shWho.char })
+	local sh: Shelter = { v = v, who = shWho, ghost = ghost, spot = spot, arrived = false, leaving = false }
 	local start = stopPoint.Position + backDir() * (CONFIG.WalkerStartDistance - 10)
 	start = Vector3.new(start.X, groundAt(start), start.Z)
 	v:PivotTo(CFrame.lookAt(start, Vector3.new(stopPoint.Position.X, start.Y, stopPoint.Position.Z)))
@@ -2463,7 +2467,9 @@ local function eventParade()
 	table.insert(people, { m = naga, offset = CFrame.new(0, 0, len / 2 + 3), dance = false })
 	local colors = { Color3.fromRGB(230, 120, 40), Color3.fromRGB(60, 130, 200), Color3.fromRGB(200, 60, 90), Color3.fromRGB(240, 200, 60), Color3.fromRGB(120, 60, 160) }
 	for i = 1, 10 do
-		local m = Pedestrian.Build({ shirt = colors[(i - 1) % #colors + 1], teen = false, noHelmet = true, dance = "ramwong" })
+		-- นางรำในขบวน: ผู้หญิง / ยาย / เด็ก ปนกัน (ท่ารำวงของแต่ละตัวละคร)
+		local dancers = { "human_female", "human_female", "human_elder_female", "human_child" }
+		local m = Pedestrian.Build({ shirt = colors[(i - 1) % #colors + 1], teen = false, noHelmet = true, dance = "ramwong", char = dancers[(i - 1) % #dancers + 1] })
 		m.Name = "ParadeDancer"
 		CollisionGroups.Set(m, CollisionGroups.NPC)
 		m.Parent = Workspace

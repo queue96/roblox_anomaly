@@ -53,6 +53,7 @@ type Ghost = {
 	clips: { string },
 	angry: string?,
 	face: Vector3?,
+	mirrorOf: number?, -- คนแบกคานขวา: ท่าสะท้อนซ้าย-ขวาของผีลำดับนี้ (client/MirrorPose) ยืนตามโลง ไม่เดินตาม pts
 }
 type Plan = {
 	ghosts: { Ghost },
@@ -61,19 +62,33 @@ type Plan = {
 	laugh: string?,
 	focus: string?,
 	glow: Color3?,
+	coffin: boolean?, -- แบกโลง (ServerStorage.GhostProps.Coffin) ด้วยกำปั้นขวาของผีตัวแรก
 }
 
+-- ขบวนแห่ศพ: แบกโลง 2 คาน คานละ 2 คน (หน้า/หลัง ห่างกัน COFFIN_GAP) ศพห่อผ้าลอยตามหลัง
+--   คานซ้าย = ชาย 2 คน ท่า coffin_walk (บ่าขวา) / คานขวา = หญิง 2 คน ท่าเดียวกันสะท้อนเป็นบ่าซ้าย (client/MirrorPose)
+--   โลง: origin = กลางคานซ้าย ตัวโลงอยู่ทาง +X (ขวาคนแบก) คานขวาห่าง POLE_SPAN
+local COFFIN_GAP = 7 -- ระยะคนแบกหน้า-หลัง (โลงยาว 10.5)
+local POLE_SPAN = 3.14 -- ระยะคานซ้าย-ขวา (โลงกว้าง 3.36 กึ่งกลางที่ +1.57)
 local function procession(): { Ghost }
 	local list: { Ghost } = {}
-	local names = { "ghost_funeral_elder_man", "ghost_funeral_man", "ghost_funeral_woman", "ghost_funeral_elder_woman", "ghost_shroud" }
-	for i, n in ipairs(names) do
-		local dx = -(i - 1) * 3.6
+	local rows = {
+		{ "ghost_funeral_man", 0, "coffin_walk" },
+		{ "ghost_funeral_elder_man", -COFFIN_GAP, "coffin_walk" },
+		{ "ghost_shroud", -COFFIN_GAP - 5, "shroud_glide" },
+	}
+	for _, r in ipairs(rows) do
+		local n, dx, clip = r[1] :: string, r[2] :: number, r[3] :: string
 		table.insert(list, {
 			name = n,
 			pts = { { -78 + dx, -14 }, { -14 + dx, -14 }, { 20 + dx, -14 }, { 58 + dx, -14 } },
 			lift = if n == "ghost_shroud" then { 0.5, 0.5, 0.5, 0.5 } else nil,
-			clips = if n == "ghost_shroud" then { "shroud_glide", "shroud_glide", "shroud_glide" } else { "ghost_glide", "ghost_glide", "ghost_glide" },
+			clips = { clip, clip, clip },
 		})
+	end
+	-- คานขวา: สะท้อนคนแบกหน้า (1) และหลัง (2)
+	for i, n in ipairs({ "ghost_funeral_woman", "ghost_funeral_elder_woman" }) do
+		table.insert(list, { name = n, pts = list[i].pts, clips = {}, mirrorOf = i })
 	end
 	return list
 end
@@ -113,6 +128,7 @@ local function plans(): { [string]: Plan }
 			ghosts = procession(),
 			rules = { lights = true, crouch = true, still = true, shutter = true, flashlight = false },
 			voice = "Ghost_Showtime",
+			coffin = true,
 		},
 		Pop = {
 			ghosts = {
@@ -257,7 +273,7 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 	group:SetAttribute("FocusBone", plan.focus or "head")
 	local live: { Live } = {}
 	for _, g in ipairs(plan.ghosts) do
-		local m = GhostNPC.Spawn(g.name, CFrame.new(), g.clips[1])
+		local m = GhostNPC.Spawn(g.name, CFrame.new(), g.clips[1] or nil)
 		if m then
 			m.Parent = group
 			local e = { m = m, g = g }
@@ -269,7 +285,56 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 		group:Destroy()
 		return { ok = true, faults = {} }
 	end
+	-- คนแบกคานขวา: client/MirrorPose สะท้อนท่าของคนแบกคานซ้ายให้ทุกเฟรม (ตัวนี้ไม่มีท่าของตัวเอง)
+	for _, e in ipairs(live) do
+		local src = e.g.mirrorOf and live[e.g.mirrorOf]
+		if src then
+			local ov = Instance.new("ObjectValue")
+			ov.Name = "MirrorSource"
+			ov.Value = src.m
+			ov.Parent = e.m
+			-- Animator ที่ไม่มีท่าเล่นก็ยังรีเซ็ตกระดูกทุกเฟรม (ทับท่าสะท้อน): เอาออก
+			for _, ac in ipairs(e.m:GetDescendants()) do
+				if ac:IsA("AnimationController") or ac:IsA("Animator") then
+					ac:Destroy()
+				end
+			end
+			game:GetService("CollectionService"):AddTag(e.m, "MirrorPose")
+		end
+	end
 	local root = live[1].m:FindFirstChild("RootPart") :: BasePart?
+	-- โลง: origin = กลางคานขวา (กำปั้นขวาคนแบก) หน้าโลง = หน้าคนแบก วางตามมือขวาของคนแบกหน้าทุกเฟรม (โยกตามก้าว)
+	local coffin: Model? = nil
+	local hand: Bone? = nil
+	local props = game:GetService("ServerStorage"):FindFirstChild("GhostProps")
+	local ct = plan.coffin and props and props:FindFirstChild("Coffin") :: Model?
+	if ct then
+		coffin = ct:Clone()
+		;(coffin :: Model).Parent = group
+		for _, d in ipairs(live[1].m:GetDescendants()) do
+			if d:IsA("Bone") and d.Name == "hand.R" then
+				hand = d
+				break
+			end
+		end
+	end
+	local function carry()
+		if coffin and hand then
+			local rot = live[1].m:GetPivot().Rotation
+			-- มือคนแบกหน้าจับที่ปลายคานหน้า: กลางคานอยู่หลังมือครึ่งระยะคนแบก
+			local cp = CFrame.new(hand.TransformedWorldCFrame.Position) * rot * CFrame.new(0, 0, COFFIN_GAP / 2)
+			coffin:PivotTo(cp)
+			-- คนแบกคานขวา: ตำแหน่งสะท้อนของคนแบกคานซ้ายข้ามแนวกลางโลง
+			for _, e in ipairs(live) do
+				local src = e.g.mirrorOf and live[e.g.mirrorOf]
+				if src then
+					local rel = cp:PointToObjectSpace(src.m:GetPivot().Position)
+					e.m:PivotTo(cp * CFrame.new(POLE_SPAN - rel.X, rel.Y, rel.Z))
+				end
+			end
+		end
+	end
+	carry()
 	if plan.glow and root then
 		local l = Instance.new("PointLight")
 		l.Color = plan.glow
@@ -296,10 +361,11 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 		end
 		local a = math.clamp((os.clock() - phaseStart) / durations[phase], 0, 1)
 		for _, e in ipairs(live) do
-			if e.m.Parent then
+			if e.m.Parent and not e.g.mirrorOf then
 				placeAt(e, phase, a)
 			end
 		end
+		carry()
 	end)
 	local function setPhase(n: number)
 		-- จบช่วงเดิมให้ตรงจุดพอดี แล้วเริ่มช่วงใหม่
@@ -310,7 +376,7 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 		phaseStart = os.clock()
 		for _, e in ipairs(live) do
 			-- ท่าเดิม = เล่นต่อ ไม่เริ่มท่าใหม่ (ไม่สะดุดกลางก้าว)
-			if e.g.clips[n] ~= e.g.clips[n - 1] then
+			if e.g.clips[n] and e.g.clips[n] ~= e.g.clips[n - 1] then
 				GhostNPC.Play(e.m, e.g.clips[n])
 			end
 		end

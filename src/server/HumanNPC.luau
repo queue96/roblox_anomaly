@@ -17,7 +17,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HumanNPC = {}
 
-local TEMPLATE_NAME = "human_base"
+-- ตัวละคร (ชื่อแม่แบบใน ServerStorage.HumanTemplates) opts.char เลือกได้ ไม่ใส่ = human_base
+--   human_base ชาย / human_female หญิง / human_child เด็ก / human_elder_male ตา / human_elder_female ยาย
+local DEFAULT_CHAR = "human_base"
 
 -- ชุดของผู้ชาย (ชื่อตรงกับ Cloth_<ชุด>* ในแม่แบบ) weight = โอกาสสุ่ม
 --   skirt = ผ้านุ่งยาว (ต้องเดินด้วย walk_skirt), helmet = หมวกกันน็อก (ไม่ใส่ผม)
@@ -33,6 +35,39 @@ local OUTFITS = {
 }
 local HAIRS = { "student", "rong_song_sung", "side_part" }
 
+-- ชุด / ทรงผมของแต่ละตัวละคร (ไม่รวมชุดผี ghost_* และชุดกุมารทอง) sin = ซิ่นยาว เดินด้วย walk_skirt
+local OUTFITS_BY: { [string]: { any } } = {
+	human_base = OUTFITS,
+	human_female = {
+		{ name = "blouse_sin", weight = 3, skirt = true },
+		{ name = "indigo_scarf", weight = 2, skirt = true },
+		{ name = "sabai", weight = 1, skirt = true },
+		{ name = "chest_wrap", weight = 1 },
+		{ name = "wan_girl", weight = 1, teen = true },
+		{ name = "wan_band_tee", weight = 1, teen = true },
+		{ name = "wan_crop", weight = 1, teen = true },
+		{ name = "wan_plaid", weight = 1, teen = true },
+	},
+	human_child = { { name = "mohom_child", weight = 1 } },
+	human_elder_male = {
+		{ name = "mohom", weight = 3 },
+		{ name = "farmer", weight = 2 },
+		{ name = "sarong", weight = 2, skirt = true },
+	},
+	human_elder_female = {
+		{ name = "blouse_sin", weight = 3, skirt = true },
+		{ name = "indigo_scarf", weight = 2, skirt = true },
+		{ name = "sabai", weight = 1, skirt = true },
+	},
+}
+local HAIRS_BY: { [string]: { string } } = {
+	human_base = HAIRS,
+	human_female = { "bob", "ponytail_bow" },
+	human_child = { "child_short", "ko", "pia", "klae" },
+	human_elder_male = { "bald_grey", "long_white_beard" },
+	human_elder_female = { "bun_grey", "curly_grey" },
+}
+
 -- ความเร็วเดินที่ท่า walk ตั้งใจไว้ (studs/วินาที) ใช้ปรับความเร็วท่าให้เท้าไม่ไถลพื้น
 local WALK_CLIP_SPEED = 4.3
 
@@ -43,51 +78,68 @@ type Rig = {
 	overlays: { [string]: boolean }, -- ท่าซ้อนที่เล่นทับท่าเดิน/ยืน (ถือร่ม หิ้วแกลลอน พนมมือ)
 	skirt: boolean,
 	dance: string?,
+	char: string, -- ตัวละคร (ชุดท่าของตัวนี้ ท่าที่ไม่มีใช้ของ human_base)
 	seated: string?, -- นั่งขับรถอยู่: ท่าขับนี้ตลอด (คำสั่งเดิน/ยืน/เต้นไม่มีผล)
 }
 local rigs: { [Model]: Rig } = setmetatable({}, { __mode = "k" }) :: any
 
-local function template(): Model?
+local function template(char: string?): Model?
 	local f = ServerStorage:FindFirstChild("HumanTemplates")
-	return f and f:FindFirstChild(TEMPLATE_NAME) :: Model?
+	return f and (f:FindFirstChild(char or DEFAULT_CHAR) or f:FindFirstChild(DEFAULT_CHAR)) :: Model?
 end
 
-function HumanNPC.Available(): boolean
-	return template() ~= nil
+function HumanNPC.Available(char: string?): boolean
+	local f = ServerStorage:FindFirstChild("HumanTemplates")
+	return f ~= nil and f:FindFirstChild(char or DEFAULT_CHAR) ~= nil
 end
 
 -- Skin_<n> -> ชุดที่ปิดผิวชิ้นนั้น (สร้างจาก build_anims.py ตอน export)
-local function skinParts(): { [string]: { string } }
+local function skinParts(char: string): { [string]: { string } }
 	local shared = ReplicatedStorage:FindFirstChild("Shared")
 	local mod = shared and shared:FindFirstChild("HumanSkinParts")
 	if not mod then
 		return {}
 	end
-	return (require(mod :: ModuleScript) :: any)[TEMPLATE_NAME] or {}
+	return (require(mod :: ModuleScript) :: any)[char] or {}
 end
 
-local function animIds(): { [string]: string }
+-- ท่าของตัวละครนี้ ท่าที่ตัวนี้ไม่มี (ขับรถ ถือร่ม หิ้วแกลลอน พนมมือ ฯลฯ) ใช้ของ human_base (กระดูกชื่อเดียวกัน)
+local function animIds(char: string?): { [string]: string }
 	local shared = ReplicatedStorage:FindFirstChild("Shared")
 	local mod = shared and shared:FindFirstChild("HumanAnimIds")
 	if not mod then
 		return {}
 	end
-	return (require(mod :: ModuleScript) :: any)[TEMPLATE_NAME] or {}
+	local all = require(mod :: ModuleScript) :: any
+	local base = all[DEFAULT_CHAR] or {}
+	local own = char and all[char]
+	if not own or char == DEFAULT_CHAR then
+		return base
+	end
+	return setmetatable(table.clone(own), { __index = base }) :: any
 end
 
-local function pickOutfit(opts: { [string]: any }): { [string]: any }
+local function pickOutfit(opts: { [string]: any }, char: string): { [string]: any }
+	local outfits = OUTFITS_BY[char] or OUTFITS
 	if opts.outfit then
-		for _, o in ipairs(OUTFITS) do
+		for _, o in ipairs(outfits) do
 			if o.name == opts.outfit then
 				return o
 			end
 		end
 	end
 	local pool, total = {}, 0
-	for _, o in ipairs(OUTFITS) do
+	for _, o in ipairs(outfits) do
 		-- กางร่ม / ถือแกลลอน / งานแห่: ไม่ใส่หมวกกันน็อก, วัยรุ่น: เฉพาะชุดสายแว้น
 		local ok = (opts.teen == nil or (o.teen == true) == opts.teen) and not (o.helmet and (opts.umbrella or opts.noHelmet))
 		if ok then
+			table.insert(pool, o)
+			total += o.weight
+		end
+	end
+	-- ตัวละครที่ไม่มีชุดตามเงื่อนไข (เช่น เด็กไม่มีชุดสายแว้น): สุ่มจากทุกชุดของตัวนั้น
+	if #pool == 0 then
+		for _, o in ipairs(outfits) do
 			table.insert(pool, o)
 			total += o.weight
 		end
@@ -145,9 +197,11 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 		opts = table.clone(opts)
 		opts.noHelmet = true
 	end
-	local outfit = pickOutfit(opts)
-	local hair = if outfit.helmet then nil else (opts.hair or HAIRS[math.random(#HAIRS)])
-	local skin = skinParts()
+	local char = opts.char or DEFAULT_CHAR
+	local outfit = pickOutfit(opts, char)
+	local hairs = HAIRS_BY[char] or HAIRS
+	local hair = if outfit.helmet then nil else (if opts.hair and table.find(hairs, opts.hair) then opts.hair else hairs[math.random(#hairs)])
+	local skin = skinParts(char)
 	for _, c in ipairs(d:GetChildren()) do
 		if c:IsA("MeshPart") and c.Name ~= "Body" and c.Name ~= "BodyHead" then
 			local n = c.Name
@@ -168,6 +222,7 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 		end
 	end
 	d:SetAttribute("Human", true)
+	d:SetAttribute("Char", char)
 	d:SetAttribute("Outfit", outfit.name)
 	d:SetAttribute("Hair", hair or "")
 	return outfit
@@ -176,7 +231,12 @@ end
 -- opts: outfit (ชื่อชุด), hair, teen (true = ชุดสายแว้นเท่านั้น / false = ไม่เอาชุดสายแว้น), umbrella, noHelmet,
 --       dance (ชื่อท่าเต้นตอนแกว่ง เช่น "ramwong", "wan_bounce")
 function HumanNPC.Build(opts: { [string]: any }): Model
-	local tpl = template() :: Model
+	if not HumanNPC.Available(opts.char) then
+		opts = table.clone(opts)
+		opts.char = DEFAULT_CHAR
+	end
+	local char = opts.char or DEFAULT_CHAR
+	local tpl = template(char) :: Model
 	local m = Instance.new("Model")
 	m.Name = "Walker"
 	local root = marker(m, "Root", Vector3.new(1, 0.2, 1), Vector3.zero)
@@ -203,9 +263,13 @@ function HumanNPC.Build(opts: { [string]: any }): Model
 		overlays = {},
 		skirt = outfit.skirt == true,
 		dance = opts.dance,
+		char = char,
 	}
 	-- ท่าอารมณ์ / หน้าตา / กะพริบตา (shared/HumanEmotes, client/HumanEmotesRunner)
-	game:GetService("CollectionService"):AddTag(m, "HumanEmote")
+	-- เฉพาะ human_base: ชุดภาพหน้า (HumanFaceSets) ทำบนผิวของ human_base ใส่ตัวอื่นแล้วหน้าเพี้ยน
+	if char == DEFAULT_CHAR then
+		game:GetService("CollectionService"):AddTag(m, "HumanEmote")
+	end
 	return m
 end
 
@@ -264,7 +328,8 @@ local function addIK(d: Model, targets: { [string]: IKTarget })
 end
 
 function HumanNPC.SeatIn(vehicle: Model, hip: CFrame, clip: string, opts: { [string]: any }?, targets: { [string]: IKTarget }?): Model?
-	if not (template() and animIds()[clip]) then
+	local ch = (opts or {} :: any).char
+	if not (template(ch) and animIds(ch)[clip]) then
 		return nil
 	end
 	local o = table.clone(opts or {})
@@ -310,7 +375,8 @@ local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack
 		rig.tracks[animator] = t
 	end
 	if t[clip] == nil then
-		local id = animIds()[clip]
+		local ids = animIds(rig.char)
+		local id = ids[clip]
 		if not id or not animator:IsDescendantOf(workspace) then
 			return nil
 		end
@@ -321,9 +387,9 @@ local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack
 		t[clip] = tr
 		-- โหลดท่ายืน/เดินไว้ล่วงหน้าตั้งแต่ครั้งแรก: ท่าที่ยังโหลดไม่เสร็จเล่นไม่ออก ตัวจะกลับเป็นท่า A แวบหนึ่ง
 		for _, c in ipairs({ "idle", "walk", "walk_skirt" }) do
-			if t[c] == nil and animIds()[c] then
+			if t[c] == nil and ids[c] then
 				local pa = Instance.new("Animation")
-				pa.AnimationId = animIds()[c]
+				pa.AnimationId = ids[c]
 				local ptr = animator:LoadAnimation(pa)
 				ptr.Looped = true
 				t[c] = ptr
