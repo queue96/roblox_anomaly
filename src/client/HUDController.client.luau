@@ -186,9 +186,42 @@ local panel = new("Frame", {
 }, gui)
 new("UIStroke", { Color = Color3.fromRGB(70, 64, 54), Thickness = 1, Transparency = 0.25 }, panel)
 if IS_TOUCH then
-	-- มือถือ: มุมขวาล่างเป็นปุ่มกระโดด/สวด/นั่งยองของ Roblox -> ย้ายแผงเงินขึ้นมุมขวาบน ใต้รูปศาล (ItemSlots.ShrineTimer 60px ที่ y 56)
+	-- มือถือ: มุมขวาล่างเป็นปุ่มกระโดด/สวด/นั่งยองของ Roblox -> ย้ายแผงเงินขึ้นแถวบนสุด ชิดซ้ายปุ่มตั้งค่า (แนวเดียวกัน)
+	--   ปุ่มตั้งค่าอยู่ ScreenGui อื่น และ HUD นี้ถูก UiFit ย่อ: วัดตำแหน่งจริงบนจอแล้วขยับแผงให้ขอบขวาห่างปุ่ม 8px ขอบบนตรงกัน
 	panel.AnchorPoint = Vector2.new(1, 0)
-	panel.Position = UDim2.new(1, -16, 0, 124)
+	panel.Position = UDim2.new(1, -110, 0, 14)
+	task.spawn(function()
+		local sg = localPlayer:WaitForChild("PlayerGui"):WaitForChild("SettingsGui", 20)
+		local sb = sg and sg:WaitForChild("SettingsButton", 20) :: GuiObject?
+		if not sb then
+			return
+		end
+		local function place()
+			if sb.AbsoluteSize.X <= 0 then
+				return
+			end
+			local scaleObj = gui:FindFirstChildOfClass("UIScale")
+			local k = if scaleObj and scaleObj.Scale > 0 then scaleObj.Scale else 1
+			-- 2 รอบ: ตั้งแล้ววัดผลจริง แก้ส่วนต่าง (ครอบผลของ UIScale ทุกแบบ)
+			for _ = 1, 2 do
+				local wantRight = sb.AbsolutePosition.X - 8
+				local wantTop = sb.AbsolutePosition.Y
+				local nowRight = panel.AbsolutePosition.X + panel.AbsoluteSize.X
+				local nowTop = panel.AbsolutePosition.Y
+				local pos = panel.Position
+				panel.Position = UDim2.new(1, pos.X.Offset + (wantRight - nowRight) / k, 0, pos.Y.Offset + (wantTop - nowTop) / k)
+				task.wait() -- ให้ตำแหน่งจริงบนจออัปเดตก่อนวัดรอบถัดไป
+			end
+		end
+		task.wait()
+		place()
+		local function later()
+			task.defer(place)
+		end
+		sb:GetPropertyChangedSignal("AbsolutePosition"):Connect(later)
+		sb:GetPropertyChangedSignal("AbsoluteSize"):Connect(later)
+		gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(later)
+	end)
 end
 local function shadow(t: TextLabel)
 	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.35 }, t)
