@@ -18,109 +18,56 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local TriggerJumpscare = remotes:WaitForChild("TriggerJumpscare") :: RemoteEvent
 
 local SND = {
-	Sting = "rbxassetid://97921269926730", -- Scared Effect (เสียงตกใจหลัก)
-	Sting2 = "rbxassetid://134690050450846",
-	Scream = "rbxassetid://93232280469148",
-	Bone = "rbxassetid://9113542694",
-	Laugh = "rbxassetid://91272160888434",
-	Bells = "rbxassetid://119445319966378",
-	Static = "rbxassetid://9117159106",
-	Crows = "rbxassetid://190872950",
-	Crying = "rbxassetid://75664285683608",
-	Glug = "rbxassetid://9117641837",
-	Thunder = "rbxassetid://9120016037",
 	Jumpscare_1 = "rbxassetid://105012119508747",
 	Jumpscare_2 = "rbxassetid://86851276922466",
 }
 
 -- เอฟเฟกต์ของผีแต่ละแบบ
 --   focus = แบบที่จะเอามาโชว์ ("head" หัวคนขับ, "passenger", "tani", "scarecrow", "body" ทั้งตัวคนขับ)
---   sounds = { {id, volume, delay, length?} }  tint = สีจอ  extra = เอฟเฟกต์พิเศษ
+--   tint = สีจอ  extra = เอฟเฟกต์พิเศษ
 local FX = {
-	Anomaly_Headless = { focus = "passenger", tint = Color3.fromRGB(140, 0, 0), sounds = { { "Sting", 1 }, { "Scream", 0.8, 0.1 } }, extra = "blood" },
-	Anomaly_Cemetery = { focus = "head", tint = Color3.fromRGB(60, 60, 60), sounds = { { "Sting2", 1 }, { "Bells", 0.8, 0.05 } }, extra = "grey" },
-	Anomaly_WheelHair = { focus = "head", tint = Color3.fromRGB(20, 10, 10), sounds = { { "Sting", 1 }, { "Scream", 0.8, 0.15 } }, extra = "hair" },
-	Anomaly_NeckTwist = { focus = "head", tint = Color3.fromRGB(110, 0, 0), sounds = { { "Bone", 1 }, { "Bone", 1, 0.25 }, { "Sting", 0.9, 0.1 } }, spin = true },
-	Anomaly_CreepySmile = { focus = "head", tint = Color3.fromRGB(90, 0, 20), sounds = { { "Sting", 1 }, { "Laugh", 0.9, 0.2 } } },
-	Anomaly_Krasue = { focus = "body", tint = Color3.fromRGB(170, 20, 0), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.05 } }, extra = "blood" },
-	Anomaly_MonkRadio = { focus = "head", tint = Color3.fromRGB(50, 50, 55), sounds = { { "Static", 1, 0, 1.2 }, { "Sting2", 1, 0.1 } }, extra = "static" },
+	Anomaly_Headless = { focus = "passenger", tint = Color3.fromRGB(140, 0, 0), extra = "blood" },
+	Anomaly_Cemetery = { focus = "head", tint = Color3.fromRGB(60, 60, 60), extra = "grey" },
+	Anomaly_WheelHair = { focus = "head", tint = Color3.fromRGB(20, 10, 10), extra = "hair" },
+	Anomaly_NeckTwist = { focus = "head", tint = Color3.fromRGB(110, 0, 0), spin = true },
+	Anomaly_CreepySmile = { focus = "head", tint = Color3.fromRGB(90, 0, 20) },
+	Anomaly_Krasue = { focus = "body", tint = Color3.fromRGB(170, 20, 0), extra = "blood" },
+	Anomaly_MonkRadio = { focus = "head", tint = Color3.fromRGB(50, 50, 55), extra = "static" },
 	-- ผีตานี / หุ่นไล่กา: ตัวจริงเป็น MeshPart ที่ ViewportFrame วาดไม่ขึ้น ใช้หน้าหลอนของลูกค้าแทน (เสียง/สีจอยังเป็นของตัวเอง)
-	Anomaly_Tani = { focus = "head", tint = Color3.fromRGB(20, 80, 30), sounds = { { "Crying", 0.8 }, { "Scream", 1, 0.3 } } },
-	Anomaly_Scarecrow = { focus = "head", tint = Color3.fromRGB(90, 40, 0), sounds = { { "Crows", 1, 0, 3 }, { "Sting", 1, 0.05 } } },
+	Anomaly_Tani = { focus = "head", tint = Color3.fromRGB(20, 80, 30) },
+	Anomaly_Scarecrow = { focus = "head", tint = Color3.fromRGB(90, 40, 0) },
 	-- ผีฉาก (client/SceneryGhostWatch: มองค้างนาน = พุ่งใส่หน้าคนที่มองคนเดียว)
-	Scenery_Tani = { focus = "rigged", tint = Color3.fromRGB(20, 80, 30), sounds = { { "Sting", 1 }, { "Scream", 1, 0.1 } } },
-	Scenery_Scarecrow = { focus = "scarecrow", tint = Color3.fromRGB(90, 40, 0), sounds = { { "Sting", 1 }, { "Crows", 0.8, 0.05, 2 } } },
-	Scenery_Shadow = { focus = "shadow", tint = Color3.fromRGB(10, 0, 0), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.08 } } },
+	Scenery_Tani = { focus = "rigged", tint = Color3.fromRGB(20, 80, 30) },
+	Scenery_Scarecrow = { focus = "scarecrow", tint = Color3.fromRGB(90, 40, 0) },
+	Scenery_Shadow = { focus = "shadow", tint = Color3.fromRGB(10, 0, 0) },
 	-- ผีฉากแบบมีกระดูก (AnomalyManager.RIGGED_SCENERY): ตัวผีที่โผล่อยู่ส่งมาเป็น source
-	Scenery_Dancer = { focus = "rigged", tint = Color3.fromRGB(110, 10, 40), sounds = { { "Sting", 1 }, { "Laugh", 0.8, 0.1 } } },
-	Scenery_MaeNak = { focus = "rigged", tint = Color3.fromRGB(60, 20, 70), sounds = { { "Crying", 0.8 }, { "Scream", 1, 0.25 } } },
-	Scenery_Kuman = { focus = "rigged", tint = Color3.fromRGB(150, 110, 0), sounds = { { "Laugh", 1 }, { "Sting", 0.9, 0.1 } } },
-	Scenery_Child = { focus = "rigged", tint = Color3.fromRGB(40, 50, 60), sounds = { { "Sting2", 1 }, { "Laugh", 0.7, 0.15 } } },
-	Scenery_Shroud = { focus = "rigged", tint = Color3.fromRGB(120, 110, 70), sounds = { { "Sting2", 1 }, { "Bells", 0.7, 0.05 } } },
-	Scenery_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.05 } } },
-	Scenery_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10), sounds = { { "Sting", 1 }, { "Laugh", 0.9, 0.1 } } },
-	Scenery_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30), sounds = { { "Sting2", 1 }, { "Scream", 0.9, 0.1 } } },
-	Scenery_Krahang = { focus = "rigged", tint = Color3.fromRGB(80, 50, 10), sounds = { { "Sting", 1 }, { "Crows", 0.8, 0.05, 2 } } },
+	Scenery_Dancer = { focus = "rigged", tint = Color3.fromRGB(110, 10, 40) },
+	Scenery_MaeNak = { focus = "rigged", tint = Color3.fromRGB(60, 20, 70) },
+	Scenery_Kuman = { focus = "rigged", tint = Color3.fromRGB(150, 110, 0) },
+	Scenery_Child = { focus = "rigged", tint = Color3.fromRGB(40, 50, 60) },
+	Scenery_Shroud = { focus = "rigged", tint = Color3.fromRGB(120, 110, 70) },
+	Scenery_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0) },
+	Scenery_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10) },
+	Scenery_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30) },
+	Scenery_Krahang = { focus = "rigged", tint = Color3.fromRGB(80, 50, 10) },
 	-- ผีใหญ่บุกประชิด (server/BigEvents): source = กลุ่มผีที่กำลังเดินอยู่
-	Big_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0), sounds = { { "Sting", 1 }, { "Scream", 1, 0.05 } } },
-	Big_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30), sounds = { { "Sting2", 1 }, { "Scream", 1, 0.1 } } },
-	Big_Funeral = { focus = "rigged", tint = Color3.fromRGB(200, 200, 190), sounds = { { "Bells", 1 }, { "Scream", 0.9, 0.1 } }, extra = "grey" },
-	Big_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10), sounds = { { "Sting", 1 }, { "Laugh", 1, 0.1 } } },
+	Big_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0) },
+	Big_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30) },
+	Big_Funeral = { focus = "rigged", tint = Color3.fromRGB(200, 200, 190), extra = "grey" },
+	Big_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10) },
 	-- ผีเดินมาซื้อทั้งร่าง (source = ตัวผี) / เปิดแผงตอนผียังวนอยู่หน้าร้าน (source = กลุ่มผี GhostLinger)
-	Anomaly_GhostWalkIn = { focus = "rigged", tint = Color3.fromRGB(120, 0, 20), sounds = { { "Sting", 1 }, { "Scream", 0.9, 0.1 } } },
-	Linger_Scare = { focus = "rigged", tint = Color3.fromRGB(110, 0, 0), sounds = { { "Sting", 1 }, { "Laugh", 1, 0.1 } } },
-	Anomaly_TaKhon = { focus = "rider", tint = Color3.fromRGB(130, 0, 0), sounds = { { "Sting", 1 }, { "Laugh", 0.9, 0.15 } } },
-	Anomaly_MirrorGhost = { focus = "passenger", tint = Color3.fromRGB(40, 60, 70), sounds = { { "Sting2", 1 }, { "Crying", 0.8, 0.1 } } },
-	Anomaly_BloodFuel = { focus = "head", tint = Color3.fromRGB(150, 0, 0), sounds = { { "Glug", 1 }, { "Sting", 1, 0.15 } }, extra = "blood" },
-	Anomaly_NoUmbrella = { focus = "head", tint = Color3.fromRGB(200, 210, 255), sounds = { { "Thunder", 1 }, { "Sting", 1, 0.05 } }, extra = "lightning" },
+	Anomaly_GhostWalkIn = { focus = "rigged", tint = Color3.fromRGB(120, 0, 20) },
+	Linger_Scare = { focus = "rigged", tint = Color3.fromRGB(110, 0, 0) },
+	Anomaly_TaKhon = { focus = "rider", tint = Color3.fromRGB(130, 0, 0) },
+	Anomaly_MirrorGhost = { focus = "passenger", tint = Color3.fromRGB(40, 60, 70) },
+	Anomaly_BloodFuel = { focus = "head", tint = Color3.fromRGB(150, 0, 0), extra = "blood" },
+	Anomaly_NoUmbrella = { focus = "head", tint = Color3.fromRGB(200, 210, 255), extra = "lightning" },
 }
-local DEFAULT_FX = { focus = "head", tint = Color3.fromRGB(120, 0, 0), sounds = { { "Sting", 1 } } }
+local DEFAULT_FX = { focus = "head", tint = Color3.fromRGB(120, 0, 0) }
 
 -- ---------------------------------------------------------------- เสียง
-local FUELED_VOLUME = 7 -- เสียงผีหลอกตอนเติมน้ำมันให้ผี (สูงสุด 10, กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
-local JUMPSCARE_BOOST = 1.65 -- ผีหลอกเด่นกว่าเสียงพื้นหลัง แต่ไม่ดังระเบิดหู (กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
--- ทุกเสียงตอนผีหลอกยาวไม่เกินนี้ แล้วค่อยๆ เบาลงจนหยุด: คลิปจริงยาว 4-30 วินาที (Sting 4.6, Scream 4.1, Sting2 8.1,
--- Bells 9.2 ...) เดิมปล่อยเล่นถึง 8 วินาที ร้องนานจนรำคาญ ตกใจแค่แวบเดียวพอ
-local MAX_LEN = 1.8
-local FADE = 0.4
--- ยกเว้น: เสียงตกใจหลัก (Sting 4.6 วิ) ไม่แสบหู เล่นจนจบคลิป
-local PLAY_FULL = { Sting = true }
+local SCARE_VOLUME = 7 -- เสียงผีหลอกที่เจ้าของเกมอัปโหลด (สูงสุด 10, กลุ่ม SFX ถูกหารครึ่งอยู่แล้ว)
 local sfxGroup = SoundService:FindFirstChild("SFX")
-local function play(key: string, volume: number, length: number?)
-	local s = Instance.new("Sound")
-	s.SoundId = SND[key]
-	s.Volume = volume * JUMPSCARE_BOOST
-	-- ตัดย่านเสียงแหลมแสบหูออก (Warm Low-Pass EQ)
-	local eq = Instance.new("EqualizerSoundEffect")
-	eq.LowGain = 3
-	eq.MidGain = 0
-	eq.HighGain = -18
-	eq.Parent = s
-	if sfxGroup and sfxGroup:IsA("SoundGroup") then
-		s.SoundGroup = sfxGroup
-	end
-	s.Parent = SoundService
-	s:Play()
-	if PLAY_FULL[key] then
-		s.Ended:Once(function()
-			s:Destroy()
-		end)
-		task.delay(10, function() -- โหลดไม่ขึ้น (Ended ไม่มา): ลบทิ้งกันค้าง
-			if s.Parent then
-				s:Destroy()
-			end
-		end)
-		return
-	end
-	local life = math.min(length or MAX_LEN, MAX_LEN)
-	task.delay(math.max(0, life - FADE), function()
-		TweenService:Create(s, TweenInfo.new(FADE, Enum.EasingStyle.Quad), { Volume = 0 }):Play()
-	end)
-	task.delay(life, function()
-		s:Stop()
-		s:Destroy()
-	end)
-end
 
 -- ---------------------------------------------------------------- UI
 local gui = Instance.new("ScreenGui")
@@ -382,37 +329,37 @@ local function hairStrands()
 end
 
 -- ---------------------------------------------------------------- เล่นผีหลอก
--- เติมน้ำมันให้ผี (reason "fueled"): เล่นแทนเสียงประจำผีใน FX · โหลดไฟล์ไว้ตั้งแต่เข้าเกม เสียงจึงมาพร้อมภาพ (โหลดตอนจะเล่นช้าไป ~0.5 วิ)
--- สุ่มจากไฟล์ที่โหลดสำเร็จเท่านั้น ไฟล์ที่ Roblox ยังไม่อนุมัติจะถูกข้ามไปเอง ถ้าไม่มีไฟล์ไหนพร้อมเลยกลับไปใช้เสียงใน FX
-local fueledSounds: { Sound } = {}
+-- ผีหลอกทุกแบบใช้เสียงที่เจ้าของเกมอัปโหลดเท่านั้น (ผู้ใช้ 2026-11-05) · โหลดไฟล์ไว้ตั้งแต่เข้าเกม เสียงจึงมาพร้อมภาพ
+-- สุ่มจากไฟล์ที่โหลดสำเร็จ ไฟล์ที่ Roblox ยังไม่อนุมัติจะถูกข้ามไปเอง · ยังโหลดไม่เสร็จเลย = สั่งเล่น Jumpscare_1
+local scareSounds: { Sound } = {}
 for _, key in ipairs({ "Jumpscare_1", "Jumpscare_2" }) do
 	local s = Instance.new("Sound")
-	s.Name = "Fueled" .. key
+	s.Name = "Scare" .. key
 	s.SoundId = SND[key]
-	s.Volume = FUELED_VOLUME
+	s.Volume = SCARE_VOLUME
 	if sfxGroup and sfxGroup:IsA("SoundGroup") then
 		s.SoundGroup = sfxGroup
 	end
 	s.Parent = SoundService
-	table.insert(fueledSounds, s)
+	table.insert(scareSounds, s)
 end
 task.spawn(function()
 	pcall(function()
-		ContentProvider:PreloadAsync(fueledSounds)
+		ContentProvider:PreloadAsync(scareSounds)
 	end)
 end)
-local function playFueledSound(): boolean
+local function playScareSound()
 	local ready = {}
-	for _, s in ipairs(fueledSounds) do
+	for _, s in ipairs(scareSounds) do
 		if s.IsLoaded then
 			table.insert(ready, s)
 		end
 	end
 	if #ready == 0 then
-		return false
+		scareSounds[1]:Play()
+		return
 	end
 	ready[math.random(#ready)]:Play()
-	return true
 end
 
 -- จอผีหลอกเต็มจอ (รวมไม่เกิน 2 วินาที: พุ่งเข้า 0.18 + ค้าง ~1.0 + จางออก 0.55)
@@ -420,17 +367,11 @@ end
 local DASH = 0.18
 local HOLD = 1.0
 local FADE_OUT = 0.55
-local function showScare(key: string?, source: Instance?, reason: string?, opts: { side: number?, instant: boolean? }?)
+local function showScare(key: string?, source: Instance?, opts: { side: number?, instant: boolean? }?)
 	local fx = (key and FX[key]) or DEFAULT_FX
 	local side = (opts and opts.side) or 0
 	local instant = (opts and opts.instant) == true
-	if not (reason == "fueled" and playFueledSound()) then
-		for _, s in ipairs(fx.sounds) do
-			task.delay(s[3] or 0, function()
-				play(s[1], s[2], s[4])
-			end)
-		end
-	end
+	playScareSound()
 
 	local model, focus = ghostModel(key, fx.focus, source)
 	-- ผีทั้งตัวสีทึบ (หุ่นไล่กา/ตานี) ต้องสว่างกว่าหน้าคนนิดหน่อย ไม่งั้นจมหายในจอมืด
@@ -812,7 +753,7 @@ local function runScare(key: string?, source: Instance?, reason: string?, plan: 
 		if reason == "fueled" and type(plan) == "table" then
 			opts = revealGhost(key, source, plan)
 		end
-		showScare(key, source, reason, opts)
+		showScare(key, source, opts)
 	end)
 	if not ok then
 		warn("[Jumpscare] " .. tostring(err))

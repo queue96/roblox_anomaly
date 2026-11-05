@@ -92,9 +92,11 @@ local CONFIG = {
 	LobbyPlaceId = 70980777393906, -- ออกจากเกม = Teleport กลับวัด (Lobby, Start Place)
 	-- พนมมือ
 	PrayReactRadius = 30, -- ลูกค้าเห็นคนพนมมือในระยะนี้ แล้วทัก
-	PrayReactMax = 2, -- ลูกค้า 1 คนทักเรื่องพนมมือได้สูงสุดกี่ครั้ง
+	PrayReactMax = 1, -- ลูกค้า 1 คนทักเรื่องพนมมือได้สูงสุดกี่ครั้ง
+	PrayReactChance = 0.25, -- โอกาสที่ลูกค้าคนนี้จะทัก สุ่มครั้งเดียวต่อลูกค้า 1 คน (ไม่สุ่มต่อคนสวด เล่น 4 คนรุมสวดจะได้ไม่ทักทุกคัน)
+	PrayReactCooldown = 150, -- ทักแล้ว ลูกค้าคนอื่นยังไม่ทักอีกอย่างน้อยกี่วินาที (ทั้งร้าน)
 	PrayReactAfter = 1.2, -- พนมมือนานเท่านี้ลูกค้าถึงจะสังเกต
-	PrayGhostLineChance = 0.6, -- ผีตอบแบบผี (ที่เหลือแกล้งทำตัวเป็นคนปกติ)
+	PrayGhostLineChance = 0.2, -- ผีตอบแบบผี เช่น แสบหู (น้อยๆ เพราะเป็นเฉลย ที่เหลือแกล้งทำตัวเป็นคนปกติ)
 	PraySummonAfter = 3, -- สวดตอนร้านว่างนานเท่านี้ ถึงจะสุ่มเรียกผี (1 ครั้งต่อการพนมมือ 1 รอบ)
 	PraySummonChance = 0.25,
 	PraySummonCooldown = 60, -- เรียกผีได้ครั้งเดียวในช่วงนี้ (ทั้งร้าน)
@@ -2694,6 +2696,9 @@ local PRAY_GHOST_AFTER = { "Pray_GhostAfter_1", "Pray_GhostAfter_2" }
 
 -- ทำงานตลอดที่ลูกค้าคนนี้อยู่ที่ตู้ (หยุดเมื่อ alive() = false)
 local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: () -> boolean)
+	if math.random() >= CONFIG.PrayReactChance or os.clock() < (CoreLoop.prayReactNextAt or 0) then
+		return
+	end
 	local reacted = 0
 	local seen: { [Player]: number } = {} -- พนมมือรอบไหนที่ทักไปแล้ว (เวลาเริ่มพนมมือ)
 	while alive() and reacted < CONFIG.PrayReactMax and not gameOver do
@@ -2708,6 +2713,7 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 			if started and dur and dur >= CONFIG.PrayReactAfter and seen[p] ~= started then
 				seen[p] = started
 				reacted += 1
+				CoreLoop.prayReactNextAt = os.clock() + CONFIG.PrayReactCooldown
 				local ghostLine = c.ghost and math.random() < CONFIG.PrayGhostLineChance
 				print("🙏 ลูกค้าเห็น [" .. p.Name .. "] พนมมือ" .. (if ghostLine then " (ผีไม่ชอบ)" else ""))
 				say(pick(if ghostLine then PRAY_GHOST else PRAY_ASK), speaker, nil, 2.8)

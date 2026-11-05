@@ -448,9 +448,6 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 				GhostNPC.Play(e.m, e.g.angry)
 			end
 		end
-		if root and plan.laugh then
-			SoundBank.PlayOneShot(plan.laugh, root, 160, 4)
-		end
 		task.delay(4, function()
 			conn:Disconnect()
 			fade(group, 1, 1.5)

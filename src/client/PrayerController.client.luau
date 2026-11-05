@@ -519,7 +519,7 @@ local function onOtherPraying(p: Player)
 	s:SetAttribute("SoundCategory", "Music")
 	s.SoundId = soundId
 	s.Looped = true
-	s.Volume = preset.volume or 0.48
+	s.Volume = (preset.volume or 0.48) * 0.45 -- เบากว่าเสียงสวดของตัวเอง ได้ยินเพื่อนแค่แผ่วๆ
 	s.PlaybackSpeed = preset.speed or 1.0
 	s.RollOffMode = Enum.RollOffMode.InverseTapered
 	s.RollOffMinDistance = 8

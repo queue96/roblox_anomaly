@@ -15,8 +15,8 @@ local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local TAG = "SceneryGhost"
-local SIGHT_ID = "rbxassetid://123314010660698" -- เสียงตกใจตอนเห็นผี (ชุดเดียวกับที่เคยใช้ตอนพนมมือเห็นผี)
-local SIGHT_VOLUME = 0.5
+local SIGHT_ID = "rbxassetid://105012119508747" -- เสียงตกใจตอนเห็นผี: Jumpscare_1 ที่เจ้าของเกมอัปโหลด
+local SIGHT_VOLUME = 2
 local MAX_DIST = 140 -- ไกลกว่านี้ไม่นับว่าเห็น
 local CENTER = 0.22 -- ผีอยู่ห่างกลางจอไม่เกินสัดส่วนนี้ (ของครึ่งจอ) = กำลังจ้องอยู่
 local STARE = 2.5 -- จ้องต่อเนื่องกี่วินาทีถึงโดนพุ่งใส่หน้า
