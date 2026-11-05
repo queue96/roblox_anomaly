@@ -6,6 +6,7 @@
 --   ShowHUD     boolean       แสดงเงิน / ธูป / ป้ายปุ่มคีย์ (คำพูดลูกค้าและแถบประกาศแสดงเสมอ)
 --   ShowLabels  boolean       แสดงป้ายชื่อตามวัตถุในฉาก (ZoneLabel)
 --   FlashHand   "R" | "L"     มือที่ถือไฟฉาย (ค่าเริ่มต้นขวา) แกลลอน/ขนมอยู่มืออีกข้าง (shared/HeadTurn.Sides)
+--   LangChosen  boolean       ผู้เล่นยืนยันภาษาเองแล้ว (หน้าเลือกภาษาครั้งแรกก่อนฉากเปิด Lobby)
 -- Client เปลี่ยนค่าผ่าน Remotes.SetSetting:FireServer(name, value) (หน้าตั้งค่าใน SettingsController)
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -59,6 +60,8 @@ local SETTINGS: { [string]: { default: any, check: (any) -> any } } = {
 			return if v == "R" or v == "L" then v else nil
 		end,
 	},
+	-- เลือกภาษาเองแล้วหรือยัง (หน้าเลือกภาษาก่อนฉากเปิด Lobby ครั้งแรก: LobbyIntro.client) ยืนยันแล้ว = ไม่ถามอีก
+	LangChosen = { default = false, check = bool },
 }
 
 local function keyFor(player: Player): string

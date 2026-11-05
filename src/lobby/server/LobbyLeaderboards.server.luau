@@ -44,7 +44,15 @@ local function displayName(userId: number): string
 	return names[userId]
 end
 
-local function boardLabel(model: Model): TextLabel?
+-- ป้ายแบบตาราง: หัวป้าย + แถวละ 1 คน (อันดับ · รูปหัว · ชื่อชิดซ้าย · สถิติชิดขวา) มีเส้นคั่นแถว ไม่มีเส้นคั่นคอลัมน์
+--   ข้อความอยู่ด้าน Back ของแผ่นป้าย (หันเข้าลานวัด ดู MapBuilder.BuildTempleLobby มุมป้าย)
+local INK = Color3.fromRGB(17, 13, 11)
+local CREAM = Color3.fromRGB(238, 229, 204)
+local DIM = Color3.fromRGB(165, 156, 136)
+local LINE = Color3.fromRGB(90, 80, 64)
+local FONT = Font.fromEnum(Enum.Font.SpecialElite)
+
+local function boardCanvas(model: Model): Frame?
 	local face = model:FindFirstChild("DonationBoard_Face", true)
 	if not face or not face:IsA("BasePart") then
 		return nil
@@ -61,27 +69,126 @@ local function boardLabel(model: Model): TextLabel?
 	gui.PixelsPerStud = 34
 	gui.LightInfluence = 0.25
 	gui.Parent = face
-	local label = Instance.new("TextLabel")
-	label.Name = "Text"
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundColor3 = Color3.fromRGB(17, 13, 11)
-	label.BackgroundTransparency = 0.18
-	label.BorderSizePixel = 0
-	label.TextColor3 = Color3.fromRGB(238, 229, 204)
-	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	label.TextStrokeTransparency = 0.5
-	label.Font = Enum.Font.SpecialElite
-	label.TextSize = 25
-	label.TextWrapped = true
-	label.TextYAlignment = Enum.TextYAlignment.Top
-	label.Parent = gui
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 20)
-	padding.PaddingBottom = UDim.new(0, 16)
-	padding.PaddingLeft = UDim.new(0, 16)
-	padding.PaddingRight = UDim.new(0, 16)
-	padding.Parent = label
-	return label
+	local root = Instance.new("Frame")
+	root.Name = "Board"
+	root.Size = UDim2.fromScale(1, 1)
+	root.BackgroundColor3 = INK
+	root.BackgroundTransparency = 0.12
+	root.BorderSizePixel = 0
+	root.Parent = gui
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 26)
+	pad.PaddingBottom = UDim.new(0, 22)
+	pad.PaddingLeft = UDim.new(0, 30)
+	pad.PaddingRight = UDim.new(0, 30)
+	pad.Parent = root
+	return root
+end
+
+local function text(parent: Instance, props: { [string]: any }): TextLabel
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.FontFace = FONT
+	l.TextColor3 = CREAM
+	l.TextStrokeColor3 = Color3.new(0, 0, 0)
+	l.TextStrokeTransparency = 0.6
+	l.TextTruncate = Enum.TextTruncate.AtEnd
+	for k, v in pairs(props) do
+		(l :: any)[k] = v
+	end
+	l.Parent = parent
+	return l
+end
+
+local TITLE_H = 86
+local ROWS = 5
+
+local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId: number, value: number } })
+	text(root, {
+		Name = "Title",
+		Size = UDim2.new(1, 0, 0, TITLE_H - 16),
+		Text = spec.title,
+		TextColor3 = spec.color,
+		TextSize = 54,
+	})
+	-- เส้นใต้หัวป้าย (สีของป้าย)
+	local head = Instance.new("Frame")
+	head.Position = UDim2.new(0, 0, 0, TITLE_H - 8)
+	head.Size = UDim2.new(1, 0, 0, 3)
+	head.BackgroundColor3 = spec.color
+	head.BackgroundTransparency = 0.3
+	head.BorderSizePixel = 0
+	head.Parent = root
+
+	local body = Instance.new("Frame")
+	body.Name = "Rows"
+	body.Position = UDim2.new(0, 0, 0, TITLE_H)
+	body.Size = UDim2.new(1, 0, 1, -TITLE_H)
+	body.BackgroundTransparency = 1
+	body.Parent = root
+	if #rows == 0 then
+		text(body, { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.fromScale(0, 0.2), Text = "ยังไม่มีข้อมูล\nNO RECORDS YET", TextColor3 = DIM, TextSize = 34 })
+		return
+	end
+	local rowH = 1 / ROWS
+	for rank, row in ipairs(rows) do
+		local r = Instance.new("Frame")
+		r.Name = "Row" .. rank
+		r.Position = UDim2.fromScale(0, (rank - 1) * rowH)
+		r.Size = UDim2.fromScale(1, rowH)
+		r.BackgroundTransparency = 1
+		r.Parent = body
+		-- อันดับ
+		text(r, {
+			Size = UDim2.new(0, 50, 1, 0),
+			Text = tostring(rank),
+			TextSize = 44,
+			TextColor3 = if rank == 1 then spec.color else DIM,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		})
+		-- รูปหัวผู้เล่น (Roblox headshot)
+		local pic = Instance.new("ImageLabel")
+		pic.AnchorPoint = Vector2.new(0, 0.5)
+		pic.Position = UDim2.new(0, 56, 0.5, 0)
+		pic.Size = UDim2.new(0.72, 0, 0.72, 0)
+		pic.SizeConstraint = Enum.SizeConstraint.RelativeYY
+		pic.BackgroundColor3 = Color3.fromRGB(40, 34, 28)
+		pic.BorderSizePixel = 0
+		pic.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"):format(row.userId)
+		pic.Parent = r
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = pic
+		-- ชื่อชิดซ้าย
+		text(r, {
+			Position = UDim2.new(0, 146, 0, 0),
+			Size = UDim2.new(0.64, -146, 1, 0),
+			Text = displayName(row.userId),
+			TextSize = 44,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		})
+		-- สถิติชิดขวา
+		text(r, {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromScale(1, 0),
+			Size = UDim2.new(0.36, 0, 1, 0),
+			Text = ("%d %s"):format(row.value, spec.suffix),
+			TextSize = 42,
+			TextColor3 = spec.color,
+			TextXAlignment = Enum.TextXAlignment.Right,
+		})
+		-- เส้นคั่นแถว (ไม่ใส่ใต้แถวสุดท้าย)
+		if rank < #rows then
+			local line = Instance.new("Frame")
+			line.AnchorPoint = Vector2.new(0, 1)
+			line.Position = UDim2.fromScale(0, 1)
+			line.Size = UDim2.new(1, 0, 0, 2)
+			line.BackgroundColor3 = LINE
+			line.BackgroundTransparency = 0.25
+			line.BorderSizePixel = 0
+			line.Parent = r
+		end
+	end
 end
 
 local function refreshBoard(spec: { [string]: any })
@@ -90,11 +197,7 @@ local function refreshBoard(spec: { [string]: any })
 	if not model or not model:IsA("Model") then
 		return
 	end
-	local label = boardLabel(model)
-	if not label then
-		return
-	end
-	local rows = LeaderboardStats.GetTop(spec.category, 5)
+	local rows = LeaderboardStats.GetTop(spec.category, ROWS)
 	if spec.category == "completions" then
 		local rankOf = {}
 		for rank, row in ipairs(rows) do
@@ -109,17 +212,14 @@ local function refreshBoard(spec: { [string]: any })
 		end
 		lastCompletionRanks = rankOf
 	end
-	local lines = { spec.title, "────────────" }
-	if #rows == 0 then
-		table.insert(lines, "ยังไม่มีข้อมูล")
-		table.insert(lines, "NO RECORDS YET")
-	else
-		for rank, row in ipairs(rows) do
-			table.insert(lines, ("%d. %s  %d %s"):format(rank, displayName(row.userId), row.value, spec.suffix))
-		end
+	-- ชื่อผู้เล่นอ่านจากเว็บ (ช้า): เตรียมก่อนลบป้ายเก่า ป้ายจะไม่ว่างระหว่างรอ
+	for _, row in ipairs(rows) do
+		displayName(row.userId)
 	end
-	label.TextColor3 = spec.color
-	label.Text = table.concat(lines, "\n")
+	local root = boardCanvas(model)
+	if root then
+		drawBoard(root, spec, rows)
+	end
 end
 
 task.spawn(function()

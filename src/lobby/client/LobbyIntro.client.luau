@@ -292,6 +292,142 @@ while not player:GetAttribute("LoadingScreenDone") and os.clock() - t0 < 90 do
 	task.wait(0.05)
 end
 
+-- ---------------------------------------------------------------- เลือกภาษา (เข้าครั้งแรก)
+-- ยังไม่เคยยืนยันภาษา (PlayerSettings.LangChosen = false): ขึ้นหน้าเลือกภาษาบนม่านหมอกก่อนเล่นฉากเปิด
+--   กดภาษาแล้วข้อความเปลี่ยนตามทันที / ยืนยันแล้วบันทึก (DataStore) ครั้งหน้าไม่ถามอีก
+do
+	-- ค่าการตั้งค่าโหลดจาก DataStore ฝั่ง Server: รอให้มาก่อน (กันค้าง 8 วิ ไม่มา = ไม่ถาม)
+	local tw = os.clock()
+	while player:GetAttribute("LangChosen") == nil and os.clock() - tw < 8 do
+		task.wait(0.1)
+	end
+	if player:GetAttribute("LangChosen") == false then
+		local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+		local setSetting = remotes and remotes:FindFirstChild("SetSetting") :: RemoteEvent?
+		local function set(name: string, value: any)
+			player:SetAttribute(name, value) -- เปลี่ยนบนจอทันที
+			if setSetting then
+				setSetting:FireServer(name, value)
+			end
+		end
+
+		local INK = Color3.fromRGB(8, 7, 6)
+		local PANEL = Color3.fromRGB(22, 20, 17)
+		local LINE = Color3.fromRGB(70, 64, 54)
+		local BLOOD = Color3.fromRGB(150, 18, 16)
+		local touch = UserInputService.TouchEnabled and (not UserInputService.KeyboardEnabled or camera.ViewportSize.Y < 500)
+
+		local dim = Instance.new("Frame")
+		dim.Name = "LanguagePicker"
+		dim.Size = UDim2.fromScale(1, 1)
+		dim.BackgroundColor3 = INK
+		dim.BackgroundTransparency = 0.45
+		dim.BorderSizePixel = 0
+		dim.ZIndex = 40
+		dim.Parent = gui
+		local panel = Instance.new("Frame")
+		panel.AnchorPoint = Vector2.new(0.5, 0.5)
+		panel.Position = UDim2.fromScale(0.5, 0.5)
+		panel.Size = UDim2.fromOffset(440, 250)
+		panel.BackgroundColor3 = PANEL
+		panel.BackgroundTransparency = 0.05
+		panel.BorderSizePixel = 0
+		panel.ZIndex = 41
+		panel.Parent = dim
+		Instance.new("UICorner").Parent = panel
+		local ps = Instance.new("UIStroke")
+		ps.Color = LINE
+		ps.Thickness = 1
+		ps.Parent = panel
+		-- มือถือแนวนอนจอเตี้ย: ขยายให้นิ้วกดง่ายแต่ไม่ล้นจอ
+		local scale = Instance.new("UIScale")
+		scale.Scale = if touch then math.clamp(camera.ViewportSize.Y / 330, 0.85, 1.15) else 1
+		scale.Parent = panel
+
+		local function label(text: string, y: number, h: number, size: number, color: Color3): TextLabel
+			local l = Instance.new("TextLabel")
+			l.Position = UDim2.new(0, 0, 0, y)
+			l.Size = UDim2.new(1, 0, 0, h)
+			l.BackgroundTransparency = 1
+			l.FontFace = FONT
+			l.Text = text
+			l.TextSize = size
+			l.TextColor3 = color
+			l.ZIndex = 42
+			l.Parent = panel
+			return l
+		end
+		local titleTh = label("เลือกภาษา", 18, 30, 26, C.Cream)
+		local titleEn = label("Choose your language", 48, 22, 17, C.Dim)
+		local _ = titleTh
+		local _2 = titleEn
+
+		local function button(text: string, x: number, w: number, y: number, h: number, size: number): TextButton
+			local b = Instance.new("TextButton")
+			b.Position = UDim2.new(0, x, 0, y)
+			b.Size = UDim2.fromOffset(w, h)
+			b.BackgroundColor3 = INK
+			b.BorderSizePixel = 0
+			b.AutoButtonColor = false
+			b.FontFace = FONT
+			b.Text = text
+			b.TextSize = size
+			b.TextColor3 = C.Cream
+			b.ZIndex = 42
+			b.Parent = panel
+			local c = Instance.new("UICorner")
+			c.CornerRadius = UDim.new(0, 4)
+			c.Parent = b
+			local st = Instance.new("UIStroke")
+			st.Color = LINE
+			st.Thickness = 1
+			st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			st.Parent = b
+			return b
+		end
+		local thBtn = button("ไทย", 30, 180, 92, 64, 26)
+		local enBtn = button("English", 230, 180, 92, 64, 24)
+		local okBtn = button("ยืนยัน", 30, 380, 178, 48, 22)
+		okBtn.BackgroundColor3 = BLOOD
+
+		local choice = if isThai() then "th" else "en"
+		local function draw()
+			for _, pair in ipairs({ { thBtn, "th" }, { enBtn, "en" } }) do
+				local b, code = pair[1], pair[2]
+				local on = choice == code
+				b.BackgroundColor3 = if on then Color3.fromRGB(48, 22, 20) else INK
+				b.TextColor3 = if on then C.Cream else C.Dim
+				;(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Color = if on then C.Ember else LINE
+			end
+			okBtn.Text = if choice == "th" then "ยืนยัน" else "Confirm"
+		end
+		draw()
+		thBtn.Activated:Connect(function()
+			choice = "th"
+			set("Lang", "th")
+			draw()
+		end)
+		enBtn.Activated:Connect(function()
+			choice = "en"
+			set("Lang", "en")
+			draw()
+		end)
+		local confirmed = Instance.new("BindableEvent")
+		okBtn.Activated:Connect(function()
+			confirmed:Fire()
+		end)
+		confirmed.Event:Wait()
+		confirmed:Destroy()
+		set("Lang", choice)
+		set("LangChosen", true)
+		TweenService:Create(dim, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
+		panel.Visible = false
+		task.delay(0.4, function()
+			dim:Destroy()
+		end)
+	end
+end
+
 local FLY_TIME = 6.5
 -- ม่านหมอกตามทางที่กล้องผ่าน (เฉพาะจอเรา) กล้องทะลุผ่านเป็นชั้นๆ เห็นหมอกไหลผ่านหน้า
 local mist = Instance.new("Folder")

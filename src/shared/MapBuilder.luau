@@ -6215,14 +6215,15 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 	-- วัดแคบ: ป้ายถอยไปชิดรั้วหน้า เปิดที่ให้รถเข็นมาอยู่ข้างทางเดินกลาง
 	local BOARD_X = 58 * K / 2
 	local BOARD_Z = if COMPACT then FRONT - 7 else FRONT - 18
-	local donationBoard = placeTempleUnit(store, "DonationBoard", at(-BOARD_X, BOARD_Z, 180), lobby)
+	-- ข้อความป้าย (LobbyLeaderboards: ด้าน Back ของแผ่นป้าย) หันเข้าลานวัด
+	local donationBoard = placeTempleUnit(store, "DonationBoard", at(-BOARD_X, BOARD_Z, 0), lobby)
 	donationBoard.Name = "LeaderboardDonations"
 	templeLabels(donationBoard:FindFirstChild("DonationBoard_Face", true) :: BasePart, { { "ผู้ร่วมทำบุญสูงสุด\nกำลังโหลดอันดับ...", 0.5, 0.9 } }, 44)
-	local completionBoard = placeTempleUnit(store, "DonationBoard", at(BOARD_X, BOARD_Z, 180), lobby)
+	local completionBoard = placeTempleUnit(store, "DonationBoard", at(BOARD_X, BOARD_Z, 0), lobby)
 	completionBoard.Name = "LeaderboardCompletions"
 	templeLabels(completionBoard:FindFirstChild("DonationBoard_Face", true) :: BasePart, { { "จบเกมมากที่สุด\nกำลังโหลดอันดับ...", 0.5, 0.9 } }, 44)
 	-- ป้ายที่สามอยู่กลางระหว่างกุฏิสองหลัง หันเข้าหาลาน
-	local anomalyBoard = placeTempleUnit(store, "DonationBoard", at(KUTI_X, (KUTI_Z1 + KUTI_Z2) / 2, -90), lobby)
+	local anomalyBoard = placeTempleUnit(store, "DonationBoard", at(KUTI_X, (KUTI_Z1 + KUTI_Z2) / 2, 90), lobby)
 	anomalyBoard.Name = "LeaderboardAnomalies"
 	templeLabels(anomalyBoard:FindFirstChild("DonationBoard_Face", true) :: BasePart, { { "สะสมสิ่งผิดปกติมากที่สุด\nกำลังโหลดอันดับ...", 0.5, 0.9 } }, 44)
 	-- ตู้บริจาคหันออกสู่ลานใหญ่ (หน้าโมเดลหัน +Z) พร้อม ProximityPrompt mockup จาก TempleMerit

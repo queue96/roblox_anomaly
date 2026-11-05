@@ -394,15 +394,15 @@ local function refresh(pad: BasePart)
 	local i = pad:GetAttribute("PadIndex") or 0
 	local room = rooms[pad]
 	if room then
-		local d = Difficulty.Get(room.difficulty)
+		-- ไม่มีให้เลือกความยากแล้ว (ใช้ค่าเริ่มต้นเสมอ) ป้ายจึงไม่แสดงความยาก
 		if room.launching then
-			label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers)
+			label.Text = ("ห้อง %d · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers)
 		elseif room.fullCountdown then
-			label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.fullCountdown)
+			label.Text = ("ห้อง %d · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown)
 		else
-			label.Text = ("ห้อง %d · %s\n%s · %d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, d.th, #room.members, room.maxPlayers, room.countdown)
+			label.Text = ("ห้อง %d · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown)
 		end
-		label.TextColor3 = d.color
+		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 		for _, p in ipairs(room.members) do
 			RoomState:FireClient(p, {
 				pad = i,
@@ -570,12 +570,12 @@ local function launch(room: Room)
 	end)
 end
 
-ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, difficulty: any)
+ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, _difficulty: any)
 	local pad = onPad[player]
 	if not pad or pendingHost[pad] ~= player or rooms[pad] then
 		return
 	end
-	if type(maxPlayers) ~= "number" or not Difficulty.IsValid(difficulty) then
+	if type(maxPlayers) ~= "number" then
 		return
 	end
 	setPending(pad, nil)
@@ -585,7 +585,7 @@ ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, diff
 		host = player,
 		members = { player },
 		maxPlayers = math.clamp(math.floor(maxPlayers), 1, Difficulty.MaxPlayers),
-		difficulty = difficulty,
+		difficulty = Difficulty.Default, -- ไม่มีให้เลือกความยากใน Lobby แล้ว: ใช้ค่าเริ่มต้นเสมอ
 		countdown = WAITING_COUNTDOWN,
 		fullCountdown = nil,
 		fullDeadline = nil,

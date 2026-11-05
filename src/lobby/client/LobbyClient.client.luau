@@ -410,32 +410,32 @@ local setup = panelFrame("RoomSetup", 460, { AnchorPoint = Vector2.new(0.5, 0.5)
 local setupHead = header(setup)
 local setupPad = 0
 local setupDeadline = 0
-local chosenPlayers, chosenDiff = 4, Difficulty.Default
+local chosenPlayers = 4
+-- ไม่มีให้เลือกความยากแล้ว: ส่งค่าเริ่มต้น (Shared.Difficulty.Default) ให้ Server เสมอ
+local ROOM_DIFFICULTY = Difficulty.Default
+-- ขนาดปุ่ม/ตัวหนังสือ: มือถือใหญ่ขึ้นให้นิ้วกดโดน
+local NUM_BTN = if IS_TOUCH then 46 else 34
+local NUM_GAP = if IS_TOUCH then 8 else 6
+local ROW_H = if IS_TOUCH then 58 else 46
+local LABEL_SIZE = if IS_TOUCH then 21 else 18
 
 closeButton(setupHead, function()
 	setup.Visible = false
 	CancelSetup:FireServer()
 end)
 
-local countRow, countLabel = row(setup, 1)
+local countRow, countLabel = row(setup, 1, ROW_H)
+countLabel.TextSize = LABEL_SIZE
 local countButtons: { TextButton } = {}
 for i = 1, Difficulty.MaxPlayers do
 	countButtons[i] = button(countRow, {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -(Difficulty.MaxPlayers - i) * 36, 0.5, 0),
-		Size = UDim2.new(0, 30, 0, 30),
+		Position = UDim2.new(1, -(Difficulty.MaxPlayers - i) * (NUM_BTN + NUM_GAP), 0.5, 0),
+		Size = UDim2.new(0, NUM_BTN, 0, NUM_BTN),
 		Text = tostring(i),
+		TextSize = if IS_TOUCH then 24 else 19,
 	})
-end
-
-local diffRow, diffLabel = row(setup, 2)
-local diffButtons: { [string]: TextButton } = {}
-for i, id in ipairs(Difficulty.Order) do
-	diffButtons[id] = button(diffRow, {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -(#Difficulty.Order - i) * 64, 0.5, 0),
-		Size = UDim2.new(0, 58, 0, 30),
-	})
+	new("UICorner", { CornerRadius = UDim.new(0, 3) }, countButtons[i])
 end
 
 local function valueLabel(parent: Instance): TextLabel
@@ -450,10 +450,7 @@ local function valueLabel(parent: Instance): TextLabel
 		TextXAlignment = Enum.TextXAlignment.Right,
 	}, parent)
 end
-local rewardRow, rewardLabel = row(setup, 3, 30)
-local rewardValue = valueLabel(rewardRow)
-
-local confirmRow = new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1, LayoutOrder = 4 }, setup)
+local confirmRow = new("Frame", { Size = UDim2.new(1, 0, 0, if IS_TOUCH then 60 else 48), BackgroundTransparency = 1, LayoutOrder = 4 }, setup)
 new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, confirmRow)
 local setupTimer = new("TextLabel", {
 	AnchorPoint = Vector2.new(0, 0.5),
@@ -462,33 +459,25 @@ local setupTimer = new("TextLabel", {
 	BackgroundTransparency = 1,
 	FontFace = FONT_BODY,
 	TextColor3 = C.Dim,
-	TextSize = 16,
+	TextSize = if IS_TOUCH then 18 else 16,
 	TextXAlignment = Enum.TextXAlignment.Left,
 }, confirmRow)
 local confirm = button(confirmRow, {
 	AnchorPoint = Vector2.new(1, 0.5),
 	Position = UDim2.new(1, 0, 0.5, 0),
-	Size = UDim2.new(0, 160, 0, 34),
+	Size = UDim2.new(0, if IS_TOUCH then 200 else 170, 0, if IS_TOUCH then 48 else 38),
 	BackgroundColor3 = C.Blood,
-	TextSize = 19,
+	TextSize = if IS_TOUCH then 22 else 19,
 })
+new("UICorner", { CornerRadius = UDim.new(0, 3) }, confirm)
 
 local function drawSetup()
 	setupHead.Text = tr(("ตั้งห้องที่ %d"):format(setupPad), ("Set up room %d"):format(setupPad))
 	countLabel.Text = tr("จำนวนผู้เล่น", "Players")
-	diffLabel.Text = tr("ความยาก", "Difficulty")
-	rewardLabel.Text = tr("เงินรางวัลตอนจบ", "End reward")
 	confirm.Text = tr("สร้างห้อง", "Create room")
 	for i, b in ipairs(countButtons) do
 		b.BackgroundColor3 = if i == chosenPlayers then C.Blood else C.Ink
 	end
-	for id, b in pairs(diffButtons) do
-		local d = Difficulty.Levels[id]
-		b.Text = if isTH() then d.th else d.en
-		b.BackgroundColor3 = if id == chosenDiff then C.Blood else C.Ink
-	end
-	local d = Difficulty.Get(chosenDiff)
-	rewardValue.Text = tr(("×%s  ยิ่งยาก ยิ่งได้เยอะ"):format(tostring(d.reward)), ("×%s  harder pays more"):format(tostring(d.reward)))
 end
 table.insert(refreshers, drawSetup)
 for i, b in ipairs(countButtons) do
@@ -497,15 +486,9 @@ for i, b in ipairs(countButtons) do
 		drawSetup()
 	end)
 end
-for id, b in pairs(diffButtons) do
-	b.Activated:Connect(function()
-		chosenDiff = id
-		drawSetup()
-	end)
-end
 confirm.Activated:Connect(function()
 	setup.Visible = false
-	ConfirmRoom:FireServer(chosenPlayers, chosenDiff)
+	ConfirmRoom:FireServer(chosenPlayers, ROOM_DIFFICULTY)
 end)
 OpenSetup.OnClientEvent:Connect(function(padIndex: number?, seconds: number?)
 	if padIndex then
@@ -526,7 +509,7 @@ if IS_TOUCH then
 	-- จอเตี้ยมาก (มือถือแนวนอน ~360 px) ไม่ขยายเกินจนล้นจอ
 	local cam = workspace.CurrentCamera
 	local h = if cam then cam.ViewportSize.Y else 400
-	local scale = math.clamp(h / 330, 1, 1.2)
+	local scale = math.clamp(h / 340, 1, 1.12)
 	new("UIScale", { Scale = scale }, setup)
 	new("UIScale", { Scale = scale }, status)
 	-- มุมขวาบนบนมือถือมีปุ่มสมุดผีอยู่แล้ว: เลื่อนสถานะห้องลงมาอีกนิด
@@ -535,28 +518,32 @@ end
 local statusHead = header(status)
 statusHead.TextSize = 19
 local function infoRow(order: number): (TextLabel, TextLabel)
-	local r, l = row(status, order, 26)
-	l.TextSize = 16
+	local r, l = row(status, order, if IS_TOUCH then 32 else 28)
+	l.TextSize = if IS_TOUCH then 19 else 16
 	l.TextColor3 = C.Dim
 	local v = valueLabel(r)
 	v.TextColor3 = C.Cream
+	v.TextSize = if IS_TOUCH then 20 else 17
 	return l, v
 end
 local playersL, playersV = infoRow(1)
-local diffL, diffV = infoRow(2)
 local timeL, timeV = infoRow(3)
 local leaveHint = new("TextLabel", {
 	Size = UDim2.new(1, 0, 0, 22),
 	BackgroundTransparency = 1,
 	FontFace = FONT_BODY,
 	TextColor3 = C.Dim,
-	TextSize = 15,
+	TextSize = if IS_TOUCH then 16 else 15,
+	TextWrapped = true,
 	LayoutOrder = 4,
 }, status)
-local actionRow = new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = 5 }, status)
+local ACT_H = if IS_TOUCH then 46 else 36
+local actionRow = new("Frame", { Size = UDim2.new(1, 0, 0, ACT_H + 8), BackgroundTransparency = 1, LayoutOrder = 5 }, status)
 new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, actionRow)
-local startBtn = button(actionRow, { Size = UDim2.new(0.49, 0, 0, 32), Position = UDim2.new(0, 0, 0.5, -16), BackgroundColor3 = C.Blood, TextSize = 18 })
-local leaveBtn = button(actionRow, { Size = UDim2.new(0.49, 0, 0, 32), Position = UDim2.new(0.51, 0, 0.5, -16), BackgroundColor3 = C.Bar, TextSize = 18 })
+local startBtn = button(actionRow, { Size = UDim2.new(0.49, 0, 0, ACT_H), Position = UDim2.new(0, 0, 0.5, -ACT_H / 2), BackgroundColor3 = C.Blood, TextSize = if IS_TOUCH then 21 else 18 })
+local leaveBtn = button(actionRow, { Size = UDim2.new(0.49, 0, 0, ACT_H), Position = UDim2.new(0.51, 0, 0.5, -ACT_H / 2), BackgroundColor3 = C.Bar, TextSize = if IS_TOUCH then 21 else 18 })
+new("UICorner", { CornerRadius = UDim.new(0, 3) }, startBtn)
+new("UICorner", { CornerRadius = UDim.new(0, 3) }, leaveBtn)
 startBtn.Activated:Connect(function()
 	startBtn.Visible = false
 	StartNow:FireServer()
@@ -573,14 +560,10 @@ local function drawStatus()
 		status.Visible = false
 		return
 	end
-	local d = Difficulty.Get(s.difficulty)
 	status.Visible = true
 	statusHead.Text = tr("ห้องของ ", "Room of ") .. s.hostName
 	playersL.Text = tr("ผู้เล่น", "Players")
 	playersV.Text = ("%d / %d"):format(s.count, s.maxPlayers)
-	diffL.Text = tr("ความยาก", "Difficulty")
-	diffV.Text = ("%s  ×%s"):format(if isTH() then d.th else d.en, tostring(d.reward))
-	diffV.TextColor3 = d.color
 	if s.launching then
 		timeL.Text = tr("สถานะ", "Status")
 		timeV.Text = tr("กำลังไปที่ปั๊ม...", "Heading to the pump...")
@@ -602,12 +585,12 @@ local function drawStatus()
 	startBtn.Visible = s.isHost and not s.launching
 	leaveBtn.Visible = not s.launching
 	if s.isHost then
-		startBtn.Size = UDim2.new(0.49, 0, 0, 32)
-		leaveBtn.Size = UDim2.new(0.49, 0, 0, 32)
-		leaveBtn.Position = UDim2.new(0.51, 0, 0.5, -16)
+		startBtn.Size = UDim2.new(0.49, 0, 0, ACT_H)
+		leaveBtn.Size = UDim2.new(0.49, 0, 0, ACT_H)
+		leaveBtn.Position = UDim2.new(0.51, 0, 0.5, -ACT_H / 2)
 	else
-		leaveBtn.Size = UDim2.new(1, 0, 0, 32)
-		leaveBtn.Position = UDim2.new(0, 0, 0.5, -16)
+		leaveBtn.Size = UDim2.new(1, 0, 0, ACT_H)
+		leaveBtn.Position = UDim2.new(0, 0, 0.5, -ACT_H / 2)
 	end
 end
 table.insert(refreshers, drawStatus)
