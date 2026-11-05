@@ -149,6 +149,7 @@ local StartNow = remote("StartNow") -- C->S เจ้าของห้องก
 local LeaveRoom = remote("LeaveRoom") -- C->S ออกจากห้องระหว่างรอ
 local RoomState = remote("RoomState") -- S->C (state | nil)
 local Notice = remote("Notice") -- S->C (th, en)
+local RejoinOffer = remote("RejoinOffer") -- S->C (true = มีเกมค้างอยู่ ถามว่าจะกลับเข้าไหม)  C->S (true กลับ / false ไม่กลับ)
 remotes.Parent = ReplicatedStorage
 
 type Room = {
@@ -521,7 +522,12 @@ local function launch(room: Room)
 		difficulty = room.difficulty,
 		maxPlayers = room.maxPlayers,
 		hostUserId = room.host.UserId,
+		members = {} :: { number }, -- server/MatchGuard ให้เข้าเกมได้เฉพาะคนในรายชื่อนี้ (กดเข้าร่วมตามเพื่อน = ส่งกลับ Lobby)
+		accessCode = nil :: string?, -- รหัสเซิร์ฟเวอร์เกม: คนที่หลุดใช้กลับเข้ามาที่เดิม
 	}
+	for _, m in ipairs(room.members) do
+		table.insert(data.members, m.UserId)
+	end
 	if IS_STUDIO then
 		print(("🚚 [Lobby] (Studio) Teleport -> PlaceId %d | %s"):format(GAME_PLACE_ID, HttpService:JSONEncode(data)))
 		task.wait(1.5)
@@ -533,9 +539,20 @@ local function launch(room: Room)
 		)
 		return
 	end
+	-- จองเซิร์ฟเวอร์เองก่อน (ได้รหัสไว้ให้คนหลุดกลับเข้ามา) จองไม่ได้ค่อยให้ TeleportAsync จองให้
+	local okCode, code = pcall(function()
+		return (TeleportService:ReserveServer(GAME_PLACE_ID))
+	end)
+	if okCode and type(code) == "string" then
+		data.accessCode = code
+	end
 	local ok, err = pcall(function()
 		local options = Instance.new("TeleportOptions")
-		options.ShouldReserveServer = true
+		if data.accessCode then
+			options.ReservedServerAccessCode = data.accessCode
+		else
+			options.ShouldReserveServer = true
+		end
 		options:SetTeleportData(data)
 		TeleportService:TeleportAsync(GAME_PLACE_ID, room.members, options)
 	end)
@@ -742,3 +759,73 @@ end)
 -- หน้าโหลดฝั่งผู้เล่นรอค่านี้ (LoadingScreen.client): ฉาก lobby และระบบห้องพร้อมแล้ว
 ReplicatedStorage:SetAttribute("SceneReady", true)
 print(("✅ [Lobby] Server พร้อม | ปลายทาง PlaceId %d | Studio = %s"):format(GAME_PLACE_ID, tostring(IS_STUDIO)))
+
+-- ---------------------------------------------------------------- หลุดเกมแล้วกลับเข้ามา
+-- server/MatchGuard (place เกม) จดไว้ใน MemoryStore ว่าสมาชิกแต่ละคนอยู่เซิร์ฟเวอร์ไหน (ลบทิ้งเมื่อออกเอง)
+-- เข้า Lobby มา + เซิร์ฟเวอร์นั้นยังเปิดอยู่ = ถามว่าจะกลับเข้าเกมเดิมไหม
+local MemoryStoreService = game:GetService("MemoryStoreService")
+local matchMap = MemoryStoreService:GetSortedMap("PumpLotMatches")
+local pendingRejoin: { [Player]: { [string]: any } } = {}
+
+local function checkRejoin(p: Player)
+	if IS_STUDIO then
+		return
+	end
+	local ok, entry = pcall(function()
+		return matchMap:GetAsync("match_" .. p.UserId)
+	end)
+	if not (ok and type(entry) == "table" and type(entry.jobId) == "string") then
+		return
+	end
+	local okAlive, alive = pcall(function()
+		return matchMap:GetAsync("alive_" .. entry.jobId)
+	end)
+	if not (okAlive and alive) then
+		pcall(function()
+			matchMap:RemoveAsync("match_" .. p.UserId)
+		end)
+		return
+	end
+	if p.Parent then
+		pendingRejoin[p] = entry
+		RejoinOffer:FireClient(p, true)
+	end
+end
+
+Players.PlayerAdded:Connect(function(p)
+	task.delay(4, checkRejoin, p) -- รอฉากเปิด/หน้าโหลดขึ้นก่อน
+end)
+Players.PlayerRemoving:Connect(function(p)
+	pendingRejoin[p] = nil
+end)
+
+RejoinOffer.OnServerEvent:Connect(function(p: Player, accept: any)
+	local entry = pendingRejoin[p]
+	pendingRejoin[p] = nil
+	if not entry then
+		return
+	end
+	if accept ~= true then
+		pcall(function()
+			matchMap:RemoveAsync("match_" .. p.UserId)
+		end)
+		return
+	end
+	local ok, err = pcall(function()
+		local options = Instance.new("TeleportOptions")
+		if type(entry.code) == "string" then
+			options.ReservedServerAccessCode = entry.code
+		else
+			options.ServerInstanceId = entry.jobId
+		end
+		options:SetTeleportData({ rejoin = true, difficulty = entry.difficulty })
+		TeleportService:TeleportAsync(entry.placeId or GAME_PLACE_ID, { p }, options)
+	end)
+	if not ok then
+		warn("[Lobby] Rejoin teleport failed: " .. tostring(err))
+		Notice:FireClient(p, "กลับเข้าเกมเดิมไม่ได้ (เกมอาจจบไปแล้ว)", "Couldn't rejoin (the game may have ended)")
+		pcall(function()
+			matchMap:RemoveAsync("match_" .. p.UserId)
+		end)
+	end
+end)

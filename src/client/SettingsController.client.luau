@@ -147,13 +147,14 @@ local panel = new("Frame", {
 	Size = UDim2.new(0, 460, 0, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
 	BackgroundColor3 = C.Ink,
-	BackgroundTransparency = 0.12,
+	BackgroundTransparency = 0.05,
 	BorderSizePixel = 0,
 	Visible = false,
+	ZIndex = 10,
 }, gui)
 new("UIStroke", { Color = C.Line, Thickness = 1 }, panel)
-new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, panel)
-new("UIPadding", { PaddingBottom = UDim.new(0, 14) }, panel)
+new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, if Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize.Y < 500 then 3 else 6) }, panel)
+new("UIPadding", { PaddingBottom = UDim.new(0, if Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize.Y < 500 then 8 else 14) }, panel)
 
 local header = new("TextLabel", {
 	Name = "Header",
@@ -170,8 +171,11 @@ local header = new("TextLabel", {
 local refreshers: { () -> () } = {}
 
 -- 1 แถว = ชื่อซ้าย + ตัวควบคุมขวา
+-- จอเตี้ย (มือถือแนวนอน): แถวเตี้ยลง ให้ทุกแถว (รวมปุ่มยอมแพ้) อยู่ในจอ
+local SHORT_SCREEN = Workspace.CurrentCamera ~= nil and Workspace.CurrentCamera.ViewportSize.Y < 500
+local ROW_H = if SHORT_SCREEN then 31 else 40
 local function row(order: number, labelKey: string): (Frame, TextLabel)
-	local r = new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = order }, panel)
+	local r = new("Frame", { Size = UDim2.new(1, 0, 0, ROW_H), BackgroundTransparency = 1, LayoutOrder = order }, panel)
 	new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }, r)
 	local l = new("TextLabel", {
 		Size = UDim2.new(0.5, 0, 1, 0),
@@ -477,6 +481,47 @@ do
 		open.Text = ui("ControlsOpen")
 		controlsHeader.Text = ui("Controls")
 		controlsBack.Text = ui("ControlsBack")
+	end)
+end
+
+-- ยอมแพ้ระหว่างเล่น (เฉพาะในเกม): กลับ Lobby คนเดียว เพื่อนในร้านเล่นต่อได้
+--   แตะครั้งแรก = ถามยืนยัน (4 วิ) แตะอีกครั้ง = ส่ง "quit" (server/CoreLoop: DeathChoice -> backToLobby)
+if not IN_LOBBY then
+	local r = row(8, "GiveUp")
+	local quitBtn = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 150, 0, 30) })
+	local armed = false
+	local sent = false
+	local function draw()
+		quitBtn.Text = ui(if armed then "GiveUpConfirm" else "GiveUpBtn")
+		quitBtn.BackgroundColor3 = if armed then C.Blood else C.Ink
+	end
+	quitBtn.Activated:Connect(function()
+		if sent then
+			return
+		end
+		if not armed then
+			armed = true
+			draw()
+			task.delay(4, function()
+				if armed and not sent then
+					armed = false
+					draw()
+				end
+			end)
+			return
+		end
+		local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+		local dc = remotes and remotes:FindFirstChild("DeathChoice")
+		if dc and dc:IsA("RemoteEvent") then
+			sent = true
+			quitBtn.Text = ui("GoingToLobby")
+			dc:FireServer("quit")
+		end
+	end)
+	table.insert(refreshers, function()
+		if not sent then
+			draw()
+		end
 	end)
 end
 

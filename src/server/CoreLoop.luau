@@ -258,6 +258,7 @@ function backToLobby(player: Player)
 		return
 	end
 	leaving[player] = true
+	player:SetAttribute("LeftOnPurpose", true) -- ออกเอง: MatchGuard ไม่ชวนกลับเข้าเกมนี้อีก
 	if RunService:IsStudio() then
 		print("🏯 [" .. player.Name .. "] กลับ Lobby (Studio Teleport ไม่ได้ -> Kick แทน)")
 		kickGoodbye(player)

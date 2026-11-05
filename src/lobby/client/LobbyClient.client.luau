@@ -645,4 +645,60 @@ Notice.OnClientEvent:Connect(function(th: string, en: string)
 	end)
 end)
 
+-- ---------------------------------------------------------------- หลุดเกมแล้วกลับมา: ถามว่าจะกลับเข้าเกมเดิมไหม (กลางจอ)
+-- server/LobbyServer เช็กให้แล้วว่าเกมนั้นยังเล่นอยู่ (server/MatchGuard ในเกมจดไว้)
+local RejoinOffer = remotes:WaitForChild("RejoinOffer", 10) :: RemoteEvent?
+if RejoinOffer then
+	local rejoin = panelFrame("RejoinOffer", 400, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 20 })
+	if IS_TOUCH then
+		new("UIScale", { Scale = 1.1 }, rejoin)
+	end
+	local rHead = header(rejoin)
+	local rText = new("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Cream,
+		TextSize = 17,
+		TextWrapped = true,
+		LayoutOrder = 1,
+	}, rejoin)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 18), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, rText)
+	local rRow = new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1, LayoutOrder = 2 }, rejoin)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 18) }, rRow)
+	local yes = button(rRow, { Size = UDim2.new(0.49, 0, 1, 0), BackgroundColor3 = C.Blood, TextSize = 18, Modal = true })
+	local no = button(rRow, { Size = UDim2.new(0.49, 0, 1, 0), AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), TextSize = 18 })
+	local function texts()
+		rHead.Text = tr("เกมที่ค้างอยู่", "Unfinished game")
+		rText.Text = tr("คุณหลุดออกจากเกมที่เพื่อนยังเล่นอยู่ จะกลับเข้าไปเล่นต่อไหม?", "You dropped out of a game your friends are still playing. Go back in?")
+		yes.Text = tr("กลับเข้าเกม", "Rejoin")
+		no.Text = tr("อยู่ที่วัด", "Stay here")
+	end
+	texts()
+	table.insert(refreshers, texts)
+	local function answer(v: boolean)
+		if not rejoin.Visible then
+			return
+		end
+		rejoin.Visible = false
+		RejoinOffer:FireServer(v)
+	end
+	yes.Activated:Connect(function()
+		answer(true)
+	end)
+	no.Activated:Connect(function()
+		answer(false)
+	end)
+	RejoinOffer.OnClientEvent:Connect(function()
+		-- รอฉากเปิด (แตะเพื่อเริ่ม) ปิดก่อน ไม่ให้ถามทับฉาก
+		local pg = player:WaitForChild("PlayerGui")
+		local t0 = os.clock()
+		while pg:FindFirstChild("LobbyIntro") and os.clock() - t0 < 120 do
+			task.wait(0.3)
+		end
+		rejoin.Visible = true
+	end)
+end
+
 print("✅ [Lobby] Client พร้อม: " .. player.Name)
