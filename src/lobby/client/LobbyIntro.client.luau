@@ -209,9 +209,13 @@ player:GetAttributeChangedSignal("Lang"):Connect(applyText)
 
 -- ซ่อน UI อื่นระหว่างโพสท่า (คืนค่าเดิมตอนจบ)
 local hiddenGuis: { [ScreenGui]: boolean } = {}
+-- ห้ามซ่อนหน้าโหลด (LoadingScreen.client สร้างชื่อ "RuralLoadingScreen" + หน้าคั่นวาร์ป): หน้าโหลดต้องค้างจนฉากเปิดพร้อม
+local function keepVisible(g: ScreenGui): boolean
+	return g == gui or string.find(g.Name, "Loading") ~= nil
+end
 local function hideOtherGuis()
 	for _, g in ipairs(playerGui:GetChildren()) do
-		if g:IsA("ScreenGui") and g ~= gui and g.Name ~= "LoadingScreen" and g.Enabled then
+		if g:IsA("ScreenGui") and not keepVisible(g) and g.Enabled then
 			hiddenGuis[g] = true
 			g.Enabled = false
 		end
@@ -220,7 +224,7 @@ end
 hideOtherGuis()
 -- UI ที่สร้างทีหลัง (สคริปต์อื่นโหลดช้ากว่า) ก็ซ่อนด้วย
 local guiAddedConn = playerGui.ChildAdded:Connect(function(g)
-	if g:IsA("ScreenGui") and g ~= gui and g.Name ~= "LoadingScreen" then
+	if g:IsA("ScreenGui") and not keepVisible(g) then
 		task.defer(function()
 			if hiding and g.Enabled then
 				hiddenGuis[g] = true
