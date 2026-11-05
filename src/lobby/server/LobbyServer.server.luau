@@ -4,6 +4,7 @@
 -- 2) โซนสร้างห้อง: เดินเข้าวง RoomPad ที่ว่าง = เป็นเจ้าของห้อง เลือกจำนวนผู้เล่น (1–6) + ความยาก
 --    คนอื่นเดินเข้าวงเดียวกัน = เข้าห้อง (จนเต็ม), ระหว่างรอสมาชิกถูกกั้นในวง (แสงจากพื้น + ขอบล่องหนที่ชนเฉพาะสมาชิก)
 --    และออกจากปุ่ม UI เท่านั้น
+--    ระหว่างเจ้าของห้องยังเลือกจำนวนผู้เล่นอยู่ วงถูกล็อก (ขอบชนทุกคน + ดันคนอื่นออก) จนกว่าจะยืนยันหรือยกเลิก
 --    เจ้าของห้องกด "เริ่มเกม" = ReserveServer + TeleportAsync ไป Pump Lot ทันที; ห้องเต็มนับ 5 วิแล้วส่งอัตโนมัติ
 --    พร้อม TeleportData { roomId, difficulty, maxPlayers, hostUserId } (ดูสัญญาใน Shared.Difficulty)
 --    ตั้งค่าไม่เสร็จใน 30 วิ = ดีดกลับจุดเกิด; ห้องรอผู้เล่นได้ 60 วิ แล้วปิดและดีดทุกคนกลับ
@@ -120,6 +121,18 @@ softBlur.Enabled = true
 softBlur.Size = 1.3
 softBlur.Parent = Lighting
 
+-- ไม่มีผีใน Lobby: ลบเงาผี (tag "Apparition" เช่น SpookyDecor.LobbyApparition) ที่อาจติดมากับไฟล์ place / BuildTempleLobby
+for _, g in ipairs(CollectionService:GetTagged("Apparition")) do
+	if g:IsDescendantOf(workspace) then
+		g:Destroy()
+	end
+end
+CollectionService:GetInstanceAddedSignal("Apparition"):Connect(function(g)
+	if g:IsDescendantOf(workspace) then
+		g:Destroy()
+	end
+end)
+
 -- ---------------------------------------------------------------- 2) โซนสร้างห้อง
 local SETUP_COUNTDOWN = 30 -- เวลาตั้งค่าห้องในหน้าต่างเลือก
 local WAITING_COUNTDOWN = 60 -- เวลารอผู้เล่นหลังสร้างห้อง
@@ -193,6 +206,17 @@ PhysicsService:CollisionGroupSetCollidable(WALL_GROUP, PLAYER_GROUP, false)
 PhysicsService:CollisionGroupSetCollidable(PLAYER_GROUP, PLAYER_GROUP, false)
 PhysicsService:CollisionGroupSetCollidable(PLAYER_GROUP, MEMBER_GROUP, false)
 PhysicsService:CollisionGroupSetCollidable(MEMBER_GROUP, MEMBER_GROUP, false)
+-- ระหว่างเจ้าของห้องกำลังตั้งค่า (pending) วงถูกล็อก: ขอบล่องหนสลับมากลุ่มนี้ ชนทุกคน คนข้างนอกเดินเข้ามาไม่ได้
+--   ขอบสูง 10 studs กระโดดข้ามไม่ได้ ยืนยัน/ยกเลิกแล้วสลับกลับเป็น WALL_GROUP (คนนอกเดินเข้ามาร่วมห้องได้)
+local LOCKED_WALL_GROUP = "RoomWallLocked"
+if not PhysicsService:IsCollisionGroupRegistered(LOCKED_WALL_GROUP) then
+	PhysicsService:RegisterCollisionGroup(LOCKED_WALL_GROUP)
+end
+PhysicsService:CollisionGroupSetCollidable(LOCKED_WALL_GROUP, "Default", false)
+PhysicsService:CollisionGroupSetCollidable(LOCKED_WALL_GROUP, LOCKED_WALL_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(LOCKED_WALL_GROUP, WALL_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(LOCKED_WALL_GROUP, MEMBER_GROUP, true)
+PhysicsService:CollisionGroupSetCollidable(LOCKED_WALL_GROUP, PLAYER_GROUP, true)
 
 local LIGHT_HEIGHT = 6 -- ความสูงแสงที่สาดขึ้นจากพื้น (จางหมดที่ยอด)
 local LIGHT_COLOR = Color3.fromRGB(255, 60, 40)
@@ -247,6 +271,14 @@ local function prepareWall(pad: BasePart)
 				})
 				beam.Enabled = false
 				beam.Parent = w
+				-- แผ่นขอบเดิมบาง 0.4 สูง 10 ชนกันพอดีขอบ: แทรกผ่านรอยต่อได้ และกระโดดขึ้นไปยืนบนสันขอบแล้วข้ามได้
+				-- หนาขึ้น + กว้างขึ้นให้ซ้อนกัน + สูงขึ้นอีก WALL_EXTRA (ยอดพ้นระยะกระโดด) ฐานอยู่ที่เดิม
+				-- (ทำหลังสร้าง Beam ความกว้างแสงเท่าเดิม และเลื่อน attachment ชดเชย แสงจึงอยู่ที่พื้นเหมือนเดิม)
+				local WALL_EXTRA = 8
+				w.Size = Vector3.new(math.max(w.Size.X, 1.2), w.Size.Y + WALL_EXTRA, w.Size.Z * 1.3)
+				w.CFrame += Vector3.new(0, WALL_EXTRA / 2, 0)
+				a0.Position -= Vector3.new(0, WALL_EXTRA / 2, 0)
+				a1.Position -= Vector3.new(0, WALL_EXTRA / 2, 0)
 			end
 		end
 	end
@@ -322,19 +354,64 @@ local function pullInside(player: Player, pad: BasePart)
 	end
 end
 
+-- ขอบวงชนทุกคน (ล็อกระหว่างตั้งห้อง) หรือชนเฉพาะสมาชิก (ปกติ)
+local function setWallLocked(pad: BasePart, locked: boolean)
+	local wall = padWall(pad)
+	if not wall then
+		return
+	end
+	for _, w in ipairs(wall:GetChildren()) do
+		if w:IsA("BasePart") then
+			w.CollisionGroup = if locked then LOCKED_WALL_GROUP else WALL_GROUP
+		end
+	end
+end
+
+-- ดันผู้เล่นออกไปนอกขอบวง (คนที่ไม่ใช่เจ้าของห้องระหว่างวงถูกล็อก)
+local function pushOutside(player: Player, pad: BasePart)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (char and root) then
+		return
+	end
+	local outer = pad.Size.Y / 2 + 3
+	local d = root.Position - pad.Position
+	local flat = Vector3.new(d.X, 0, d.Z)
+	local dir = if flat.Magnitude > 0.01 then flat.Unit else Vector3.new(0, 0, 1)
+	local target = pad.Position + dir * outer
+	char:PivotTo(CFrame.new(Vector3.new(target.X, root.Position.Y, target.Z)) * root.CFrame.Rotation)
+end
+
+local lockedNoticeAt: { [Player]: number } = {}
+local onPad: { [Player]: BasePart? } = {}
+local function rejectWhileSetup(player: Player, pad: BasePart)
+	onPad[player] = nil
+	pushOutside(player, pad)
+	if os.clock() - (lockedNoticeAt[player] or 0) > 3 then
+		lockedNoticeAt[player] = os.clock()
+		Notice:FireClient(player, "มีคนกำลังตั้งห้องนี้อยู่ รอสักครู่", "Someone is setting up this room, please wait")
+	end
+end
+
 local function setPending(pad: BasePart, player: Player?)
 	local before = pendingHost[pad]
 	pendingHost[pad] = player
 	pendingSince[pad] = if player then os.clock() else nil
 	setWall(pad, player ~= nil)
+	setWallLocked(pad, player ~= nil)
 	if player then
 		pullInside(player, pad)
 		setLocked(player, true)
+		-- คนอื่นที่ยืนอยู่ในวงพร้อมกัน: ดันออกไปก่อน จนกว่าเจ้าของห้องจะยืนยันหรือยกเลิก
+		for other, p in pairs(onPad) do
+			if p == pad and other ~= player then
+				rejectWhileSetup(other, pad)
+			end
+		end
 	elseif before and not (rooms[pad] and table.find(rooms[pad].members, before)) then
 		setLocked(before, false)
 	end
 end
-local onPad: { [Player]: BasePart? } = {}
 local cooldownUntil: { [Player]: number } = {}
 
 -- ป้ายลอยเหนือวง (Server แก้ข้อความ ทุกคนเห็นตรงกัน)
@@ -420,7 +497,7 @@ local function refresh(pad: BasePart)
 			})
 		end
 	elseif pendingHost[pad] then
-		Bilingual.Text(label, ("ห้อง %d\n%s กำลังตั้งห้อง..."):format(i, pendingHost[pad].DisplayName), ("Room %d\n%s is setting up..."):format(i, pendingHost[pad].DisplayName))
+		Bilingual.Text(label, ("ห้อง %d\n%s กำลังตั้งห้อง...\nปิดชั่วคราว รอสักครู่"):format(i, pendingHost[pad].DisplayName), ("Room %d\n%s is setting up...\nLocked, please wait"):format(i, pendingHost[pad].DisplayName))
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	else
 		Bilingual.Text(label, ("ห้อง %d · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง"):format(i), ("Room %d · empty\nWalk in to host"):format(i))
@@ -510,6 +587,9 @@ local function enterPad(player: Player, pad: BasePart)
 		setPending(pad, player)
 		OpenSetup:FireClient(player, pad:GetAttribute("PadIndex"), SETUP_COUNTDOWN)
 		refresh(pad)
+	elseif pendingHost[pad] ~= player then
+		-- วงถูกล็อกระหว่างเจ้าของห้องเลือกจำนวนผู้เล่น: ห้ามเข้า ดันออกไปนอกวง
+		rejectWhileSetup(player, pad)
 	end
 end
 
@@ -664,6 +744,7 @@ Players.PlayerRemoving:Connect(function(player)
 	end
 	onPad[player] = nil
 	cooldownUntil[player] = nil
+	lockedNoticeAt[player] = nil
 end)
 
 -- ตรวจว่าใครยืนอยู่วงไหน (ระยะแนวราบ < รัศมีวง และสูงจากวงไม่เกิน 8 studs)

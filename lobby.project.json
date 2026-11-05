@@ -63,6 +63,9 @@
         },
         "AnomalyBook": {
           "$path": "src/server/AnomalyBook.luau"
+        },
+        "SacredGuard": {
+          "$path": "src/server/SacredGuard.server.luau"
         }
       }
     },
