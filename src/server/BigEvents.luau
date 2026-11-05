@@ -17,6 +17,7 @@ local Workspace = game:GetService("Workspace")
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 local Power = require(script.Parent:WaitForChild("Power"))
+local GhostFloat = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostFloat")) :: any
 
 local BigEvents = {}
 
@@ -53,6 +54,7 @@ type Ghost = {
 	clips: { string },
 	angry: string?,
 	face: Vector3?,
+	float: boolean?, -- ลอย (shared/GhostFloat): ส่าย ขึ้นลง เอียงตัว พุ่งเป็นพักๆ เร็วตามความดุของรอบ
 	mirrorOf: number?, -- คนแบกคานขวา: ท่าสะท้อนซ้าย-ขวาของผีลำดับนี้ (client/MirrorPose) ยืนตามโลง ไม่เดินตาม pts
 }
 type Plan = {
@@ -83,6 +85,7 @@ local function procession(): { Ghost }
 			name = n,
 			pts = { { -78 + dx, -14 }, { -14 + dx, -14 }, { 20 + dx, -14 }, { 58 + dx, -14 } },
 			lift = if n == "ghost_shroud" then { 0.5, 0.5, 0.5, 0.5 } else nil,
+			float = n == "ghost_shroud" or nil,
 			clips = { clip, clip, clip },
 		})
 	end
@@ -108,6 +111,7 @@ local function plans(): { [string]: Plan }
 					lift = { 7, 5.5, 5.5, 10 },
 					clips = { "Float", "Sniff", "Float" },
 					angry = "Lunge",
+					float = true,
 				},
 			},
 			rules = { lights = true, crouch = true, still = true, shutter = false, flashlight = false },
@@ -235,7 +239,7 @@ local function playerFault(p: Player, rules: any): string?
 end
 
 -- ---------------------------------------------------------------- เดินตามผัง
-type Live = { m: Model, g: Ghost }
+type Live = { m: Model, g: Ghost, seed: number, t0: number }
 
 local function placeAt(e: Live, phase: number, a: number)
 	local p0, p1 = e.g.pts[phase], e.g.pts[phase + 1]
@@ -257,6 +261,13 @@ local function placeAt(e: Live, phase: number, a: number)
 		look = Vector3.new(f.X - x, 0, f.Z - z)
 		look = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, 1)
 	end
+	if e.g.float then
+		-- ลอย: ส่ายซ้ายขวา ขึ้นลง เอียงตัวตามทางส่าย (ไม่ลอยเป็นเส้นตรงนิ่งๆ)
+		local off, rot = GhostFloat.Offset(e.seed, os.clock() - e.t0, look)
+		feet += off
+		e.m:PivotTo(CFrame.lookAt(feet, feet + look) * rot)
+		return
+	end
 	e.m:PivotTo(CFrame.lookAt(feet, feet + look))
 end
 
@@ -276,7 +287,7 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 		local m = GhostNPC.Spawn(g.name, CFrame.new(), g.clips[1] or nil)
 		if m then
 			m.Parent = group
-			local e = { m = m, g = g }
+			local e = { m = m, g = g, seed = math.random() * 100, t0 = os.clock() }
 			placeAt(e, 1, 0)
 			table.insert(live, e)
 		end
@@ -368,11 +379,14 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 		if frozen then
 			return
 		end
-		local a = math.clamp((os.clock() - phaseStart) / durations[phase], 0, 1)
+		local el = os.clock() - phaseStart
+		local a = math.clamp(el / durations[phase], 0, 1)
+		local fury = GhostFloat.Fury()
 		for _, e in ipairs(live) do
 			-- right-pole bearers follow the coffin (carry); with no coffin they walk their own path like the others
 			if e.m.Parent and not (e.g.mirrorOf and coffin and hand) then
-				placeAt(e, phase, a)
+				-- ผีลอยเดี่ยว (กระสือ): ลอยเร็วตามความดุ พุ่งเป็นพักๆ ถึงก่อนแล้ววนส่ายรอ (ขบวนศพเดินพร้อมโลง ไม่เร่ง)
+				placeAt(e, phase, if e.g.float and not coffin then GhostFloat.Progress(e.seed, el, durations[phase], fury) else a)
 				if e.g.mirrorOf then
 					e.m:PivotTo(e.m:GetPivot() * CFrame.new(POLE_SPAN, 0, 0)) -- beside its partner, not inside it
 				end

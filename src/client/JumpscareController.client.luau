@@ -738,6 +738,56 @@ local function revealGhost(key: string?, source: Instance?, plan: { [string]: an
 	return opts
 end
 
+-- ---------------------------------------------------------------- หัวเราะสะใจหลังหลอกได้ (ผู้ใช้ 2026-11-06)
+-- เสียงหัวเราะของผีตัวที่หลอก (SoundBank.GhostSounds) ดังข้างหูหลังภาพผีจางออก ไม่รู้ตัวไหน = สุ่ม
+local SoundBank = require(Shared:WaitForChild("SoundBank")) :: any
+local LAUGH_BY_KEY: { [string]: string } = {
+	Anomaly_Krasue = "Krasue",
+	Anomaly_Headless = "Headless",
+	Anomaly_MirrorGhost = "Mirror",
+	Anomaly_Tani = "Tani",
+	Big_Funeral = "FuneralMan",
+	Scenery_Child = "Mirror",
+	Scenery_Shroud = "FuneralWoman",
+}
+local LINGER_LAUGH = { knock = "Pop", circle = "Kuman", roof = "Krahang" }
+local function laughFor(key: string?, source: Instance?): string?
+	local name: string? = nil
+	if key then
+		name = LAUGH_BY_KEY[key] or string.match(key, "^Scenery_(%w+)$") or string.match(key, "^Big_(%w+)$")
+	end
+	if key == "Linger_Scare" and source then
+		name = LINGER_LAUGH[source:GetAttribute("Behavior") :: any]
+	end
+	local set = name and SoundBank.GhostSounds[name]
+	if set then
+		return set.laugh
+	end
+	local all = {}
+	for _, s in pairs(SoundBank.GhostSounds) do
+		table.insert(all, s.laugh)
+	end
+	return if #all > 0 then all[math.random(#all)] else nil
+end
+local function laughAfterScare(key: string?, source: Instance?)
+	local preset = laughFor(key, source)
+	if not preset then
+		return
+	end
+	local snd = SoundBank.CreateSound(preset, SoundService)
+	if not snd then
+		return
+	end
+	if sfxGroup and sfxGroup:IsA("SoundGroup") then
+		snd.SoundGroup = sfxGroup
+	end
+	snd.Volume *= 1.6
+	snd:Play()
+	task.delay(7, function()
+		snd:Destroy()
+	end)
+end
+
 local busy = false
 local function runScare(key: string?, source: Instance?, reason: string?, plan: any?)
 	if busy then
@@ -753,7 +803,9 @@ local function runScare(key: string?, source: Instance?, reason: string?, plan: 
 		if reason == "fueled" and type(plan) == "table" then
 			opts = revealGhost(key, source, plan)
 		end
+		local laughSource = source
 		showScare(key, source, opts)
+		task.delay(0.15, laughAfterScare, key, laughSource)
 	end)
 	if not ok then
 		warn("[Jumpscare] " .. tostring(err))

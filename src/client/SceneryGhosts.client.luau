@@ -22,6 +22,8 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local models = ReplicatedStorage:WaitForChild("GhostModels", 60)
 local animIds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostAnimIds")) :: any
 local GhostStretch = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostStretch")) :: any
+local GhostFloat = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostFloat")) :: any
+local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank")) :: any
 if not models then
 	return
 end
@@ -66,6 +68,7 @@ type Kind = {
 	reach: { side: string, factor: number, at: number, hold: number, every: number }?,
 	longLegs: number?, -- ขายาวกี่เท่า (ค่อยๆ ยืดหลังโผล่ แล้วเดินขาโย่งไปมา / เดินไล่ด้วยขายาว)
 	hop: { height: number, rate: number }?, -- กระโดดดึ๋งๆ ตอนเคลื่อน (สูง studs, ครั้งต่อวินาที)
+	float: boolean?, -- ลอย (shared/GhostFloat): ส่ายซ้ายขวา ขึ้นลง เอียงตัว พุ่งเป็นพักๆ เร็วขึ้นตามความดุของรอบ
 }
 local KINDS: { [string]: Kind } = {
 	Tani = { model = "ghost_tani", from = { 28, 7 }, to = { 27.4, 2.1 }, clip = "tani_peek", moveClip = "ghost_idle", speed = 0.8 },
@@ -93,11 +96,11 @@ local KINDS: { [string]: Kind } = {
 	Kuman = { model = "ghost_kuman_thong", from = { -38, 17 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "run", speed = 3, huntSpeed = 9, hop = { height = 2.6, rate = 1.7 } },
 	-- ผีเด็ก: ขายืดสูงโย่ง เดินไปมา/เดินไล่ด้วยขายาว
 	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4 },
-	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6 },
-	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, glow = Color3.fromRGB(255, 110, 40), focus = "Head" },
+	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6, float = true },
+	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, huntSpeed = 9, glow = Color3.fromRGB(255, 110, 40), focus = "Head", float = true },
 	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "LickLips", moveClip = "TwitchWalk", speed = 2 },
 	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 14, path = true }, -- 5x size (GhostAnimIds.SCALE): stride 5x longer too
-	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true },
+	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true, float = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
 	Shadow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
 }
@@ -352,6 +355,18 @@ local function insideShop(pos: Vector3): boolean
 	return math.abs(lp.X) < size.X / 2 - 0.4 and pos.Z > door.Position.Z + 0.3 and lp.Z < size.Z / 2
 end
 
+-- ตำแหน่งนี้อยู่ในตัวเพิงร้าน (กรอบกว้างกว่าผนัง 2 studs: ตัวผีไม่โผล่ผ่านผนัง/หลังคาเข้าไปในร้าน)
+local function inShackBox(pos: Vector3): boolean
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure") :: Model?
+	if not shack then
+		return false
+	end
+	local cf, size = shack:GetBoundingBox()
+	local lp = cf:PointToObjectSpace(pos)
+	return math.abs(lp.X) < size.X / 2 + 2 and math.abs(lp.Z) < size.Z / 2 + 2
+end
+
 -- ผีมาหาได้เฉพาะคนที่ถูกขังอยู่นอกร้าน (แผงปิดแล้ว) ร้านยังเปิดอยู่ = ผีแค่ยืนมองลางๆ แล้วจางหาย (ผู้ใช้ 2026-11-05)
 local function lockedOut(): boolean
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -451,6 +466,7 @@ local function showRigged(kind: string, def: Kind): Model?
 	local unit = if total > 0.01 then dir.Unit else Vector3.new(0, 0, -1)
 	-- dirNow = ทิศที่หันตอนเคลื่อน / nil = หยุดอยู่ หันหาหน้าร้าน
 	local hopUntil = 0 -- กระโดดอยู่ (hop): ถึงเวลานี้
+	local floatSeed, floatT0 = math.random() * 100, os.clock()
 	local function extraY(): number
 		local y = GhostStretch.LegLift(m)
 		if def.hop and os.clock() < hopUntil then
@@ -470,6 +486,13 @@ local function showRigged(kind: string, def: Kind): Model?
 			look = Vector3.new(f.X - feet.X, 0, f.Z - feet.Z)
 			look = if look.Magnitude > 0.01 then look.Unit else unit
 		end
+		if def.float then
+			-- ลอย: ส่ายซ้ายขวา ขึ้นลง เอียงตัวตามทางส่าย ตลอดเวลา (ไม่ลอยนิ่งเป็นเส้นตรง)
+			local off, rot = GhostFloat.Offset(floatSeed, os.clock() - floatT0, look)
+			feet += off
+			m:PivotTo(CFrame.lookAt(feet, feet + look) * rot)
+			return
+		end
 		m:PivotTo(CFrame.lookAt(feet, feet + look))
 	end
 	place(from, unit)
@@ -479,8 +502,10 @@ local function showRigged(kind: string, def: Kind): Model?
 	m.Parent = folder
 	fade(m, 0, 2)
 	play(m, def.moveClip or def.clip)
-	local speed = def.speed or 1
-	local huntSpeed = def.huntSpeed or CONFIG.HuntSpeed
+	-- ผีลอย: เร็วขึ้นตามความดุของรอบ (shared/GhostFloat)
+	local floatMult = if def.float then GhostFloat.SpeedMult() else 1
+	local speed = (def.speed or 1) * floatMult
+	local huntSpeed = (def.huntSpeed or CONFIG.HuntSpeed) * (if def.float then 0.75 + floatMult * 0.25 else 1)
 	local focusName = def.focus or "head"
 	local focusBone: Bone? = nil
 	for _, d in ipairs(m:GetDescendants()) do
@@ -519,6 +544,31 @@ local function showRigged(kind: string, def: Kind): Model?
 			current.hunting = true
 		end
 		play(m, def.moveClip or def.clip)
+		-- ผีลอยมาหา: หัวเราะคิกคักล้อเลียนก่อนโฉบเข้ามา
+		local root = m:FindFirstChild("RootPart")
+		local set = SoundBank.GhostSounds[kind]
+		if def.float and root and set then
+			SoundBank.PlayOneShot(set.laugh, root, 70, 4)
+		end
+	end
+	-- ผีลอยไล่แบบล้อหลอก (ผู้ใช้ 2026-11-06): โฉบเข้า-ถอยออกเป็นจังหวะ ส่ายวนข้าง พุ่งเป็นพักๆ
+	-- ใกล้ถึงตัว (ใน TeaseClose studs) ถอยวนรอบหนึ่งแล้วพุ่งเข้าใส่เต็มแรง
+	local function teaseStep(gap: Vector3, dt: number): Vector3
+		local t = os.clock() - huntStart
+		local dir = gap.Unit
+		local side = Vector3.new(-dir.Z, 0, dir.X)
+		local dist = gap.Magnitude
+		local surge = GhostFloat.Surge(floatSeed, t)
+		local fwd: number
+		if dist < CONFIG.HuntReach + 4 and t > 2.5 then
+			fwd = 2.2 -- เล่นพอแล้ว: พุ่งใส่
+		else
+			-- โฉบเข้า 2 จังหวะ ถอย 1 จังหวะ (ถอยสั้นกว่าเข้า: ยังเข้าใกล้ขึ้นเรื่อยๆ)
+			local beat = math.sin(t * 2.1 + floatSeed)
+			fwd = if beat > -0.45 then 1.25 * surge else -0.7
+		end
+		local orbit = math.cos(t * 1.4 + floatSeed) * 0.9
+		return (dir * fwd + side * orbit) * huntSpeed * dt
 	end
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not m.Parent or struck then
@@ -561,7 +611,15 @@ local function showRigged(kind: string, def: Kind): Model?
 				strike(kind)
 				return
 			end
-			pos += gap.Unit * huntSpeed * dt
+			if def.float then
+				-- ส่าย/วนล้อหลอกแล้วห้ามทะลุเข้าตัวร้าน: ก้าวที่จะเข้าไปในกรอบเพิง = ไม่ขยับ
+				local nextPos = pos + teaseStep(gap, dt)
+				if inShackBox(pos) or not inShackBox(nextPos) then
+					pos = nextPos
+				end
+			else
+				pos += gap.Unit * huntSpeed * dt
+			end
 			hopUntil = os.clock() + 0.1
 			place(pos, gap.Unit)
 			return
@@ -583,6 +641,9 @@ local function showRigged(kind: string, def: Kind): Model?
 			end
 		end
 		if arrived then
+			if def.float then
+				place(pos) -- ลอยอยู่กับที่ก็ยังส่าย/ขึ้นลง
+			end
 			return
 		end
 		local s = (os.clock() - t0) * speed

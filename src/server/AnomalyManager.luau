@@ -478,7 +478,7 @@ AnomalyManager.Anomalies = {
 	-- 5. คนขับยิ้มกว้างถึงหู ตาโปน
 	Anomaly_CreepySmile = {
 		apply = function(v)
-			if humanGhost(v, "pale") then
+			if humanGhost(v, "ghost") then
 				return
 			end
 			local d = driverOf(v)
@@ -958,6 +958,17 @@ function AnomalyManager.IsWorld(key: string): boolean
 	return a ~= nil and a.reset ~= nil
 end
 
+-- ผีที่ตัวลูกค้าเองไม่แปลงร่าง (ผิดปกติที่ป้าย/ล้อ/น้ำมัน/วิทยุ/ร่ม): ลูกค้าคือผี พนมมือแล้วต้องเห็นร่างผีของตัวลูกค้าด้วย
+-- และตอนหลอกใช้ร่างผีนี้ ไม่ใช่ร่างคน (ผู้ใช้ 2026-11-06) ผีที่มีร่างของตัวเองอยู่แล้ว (กระสือ ตาโขน หันหัว ยิ้ม) ไม่ต้องใส่
+-- ผีซ้อนท้าย (หัวขาด / มองกระจก): ตัวผีคือคนซ้อน คนขับเป็นคนปกติ
+local CUSTOMER_GHOST_FORM = {
+	Anomaly_Cemetery = true,
+	Anomaly_WheelHair = true,
+	Anomaly_BloodFuel = true,
+	Anomaly_MonkRadio = true,
+	Anomaly_NoUmbrella = true,
+}
+
 function AnomalyManager.Apply(key: string, vehicle: Model): boolean
 	local a = AnomalyManager.Anomalies[key]
 	if not a then
@@ -965,6 +976,12 @@ function AnomalyManager.Apply(key: string, vehicle: Model): boolean
 		return false
 	end
 	a.apply(vehicle)
+	if vehicle and CUSTOMER_GHOST_FORM[key] then
+		local d = driverOf(vehicle)
+		if d and not d:FindFirstChild("GhostDouble") then
+			humanGhost(vehicle, "ghost")
+		end
+	end
 	return true
 end
 

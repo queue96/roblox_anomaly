@@ -454,7 +454,32 @@ local function resetStats()
 	table.clear(stats.players)
 end
 
+-- ความดุของผีรอบนี้ 0..1 (shared/GhostFloat: ผีลอยเร็วขึ้น ส่ายแรงขึ้น) = ความยากของห้อง + คืนเดินไปไกลแค่ไหน
+-- + ธูปที่เสียไป + ศาลพระภูมิกำลังโกรธ (ผู้ใช้ 2026-11-06: ความเร็วผีลอยขึ้นกับความดุของแต่ละรอบ)
+-- (เก็บเป็นฟิลด์ของ CoreLoop ไม่ใช่ local: ไฟล์นี้ local ระดับบนสุดเต็มเพดาน 200 ของ Luau แล้ว)
+function CoreLoop.GhostFury(): number
+	local FURY_BY_DIFFICULTY = { easy = 0, normal = 0.25, hard = 0.5, nightmare = 0.75 }
+	local diff = "normal"
+	for _, p in ipairs(Players:GetPlayers()) do
+		local ok, data = pcall(function()
+			return p:GetJoinData().TeleportData
+		end)
+		if ok and type(data) == "table" and FURY_BY_DIFFICULTY[data.difficulty] then
+			diff = data.difficulty
+			break
+		end
+	end
+	local f = FURY_BY_DIFFICULTY[diff]
+	f += math.clamp(money / CONFIG.TargetMoney, 0, 1) * 0.25
+	f += math.max(0, CONFIG.StartIncense - incense) * 0.08
+	if remotes:GetAttribute("Cursed") == true then
+		f += 0.15
+	end
+	return math.clamp(f, 0, 1)
+end
+
 local function publishState()
+	remotes:SetAttribute("GhostFury", CoreLoop.GhostFury())
 	remotes:SetAttribute("Money", money)
 	remotes:SetAttribute("Incense", incense)
 	remotes:SetAttribute("IsAnomaly", currentVehicleIsAnomaly)
@@ -463,6 +488,10 @@ local function publishState()
 	remotes:SetAttribute("PetrolLevel", petrolLevel)
 	remotes:SetAttribute("DieselLevel", dieselLevel)
 end
+remotes:GetAttributeChangedSignal("Cursed"):Connect(function()
+	remotes:SetAttribute("GhostFury", CoreLoop.GhostFury())
+end)
+remotes:SetAttribute("GhostFury", CoreLoop.GhostFury())
 
 local function broadcastHUD(player: Player?)
 	if player then

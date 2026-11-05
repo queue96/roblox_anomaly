@@ -24,7 +24,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 -- หนังตาเป็นวงรีกว้างกว่าจอ (ขอบเป็นแนวโค้งแบบเปลือกตา ไม่ใช่แถบดำตรงแบบจอหนัง)
 -- สีดำโปร่งๆ ขอบจางยาว (เบลอ) — ผู้ใช้ 2026-11-04: ไม่เอาสีแดงทึบ
-local LID_ALPHA = 0.18 -- หนังตาโปร่งนิดๆ ยังเห็นภาพลางๆ
+local LID_ALPHA = 0.3 --หนังตาดำโปร่ง ยังเห็นภาพลางๆ (ผู้ใช้ 2026-11-06: ไม่ทึบ 100% ดำเบลอๆ) · ตอนตาย (force) ทึบสนิทเหมือนเดิม
 local function lid(top: boolean): Frame
 	local f = Instance.new("Frame")
 	f.Name = if top then "LidTop" else "LidBottom"
@@ -42,9 +42,11 @@ local function lid(top: boolean): Frame
 	local g = Instance.new("UIGradient")
 	g.Rotation = if top then 90 else 270
 	g.Transparency = NumberSequence.new({
+		-- ขอบจางยาวครึ่งหนังตา (ดูเบลอ ไม่เห็นขอบแข็ง)
 		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(0.45, 0.05),
-		NumberSequenceKeypoint.new(0.8, 0.55),
+		NumberSequenceKeypoint.new(0.3, 0.08),
+		NumberSequenceKeypoint.new(0.55, 0.35),
+		NumberSequenceKeypoint.new(0.8, 0.78),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	g.Parent = f

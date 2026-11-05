@@ -48,6 +48,17 @@ local function roofAt(x: number, z: number): number
 	return if hit then hit.Position.Y else 13
 end
 
+-- หลังคาสูงสุดใต้ตัวผี (ยิงหลายจุดรอบเท้า: ลอนสังกะสี/ขอบแผ่น ไม่ให้ส่วนไหนจมลงไปโผล่ใต้หลังคาในร้าน)
+local ROOF_SKIN = 0.35 -- เนื้อเท้า/นิ้วเท้าหนาเกินกระดูกออกมา + กันลอนสังกะสี
+local ROOF_FOOT = 1.6 -- รัศมีรอยเท้า (studs)
+local function roofTop(x: number, z: number): number
+	local top = roofAt(x, z)
+	for _, o in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+		top = math.max(top, roofAt(x + o[1] * ROOF_FOOT, z + o[2] * ROOF_FOOT))
+	end
+	return top
+end
+
 local function fade(root: Instance, t: number, time: number)
 	for _, d in ipairs(root:GetDescendants()) do
 		if d:IsA("BasePart") and d.Name ~= "RootPart" then
@@ -225,30 +236,131 @@ function GhostLinger.Start(mustStay: boolean?): boolean
 			end
 		end)
 	else
-		-- หลังคา: กระหังโฉบลงหลังคา ยืนชะโงกจากชายคาหน้าร้าน
-		local x = (math.random() - 0.5) * (ssize.X - 8)
+		-- หลังคา: กระหังโฉบลงหลังคา ชะโงกจากชายคาหน้าร้าน แล้วย่องไปมาบนหลังคา
+		-- (ผู้ใช้ 2026-11-06) ห้ามเท้าทะลุหลังคาลงมาในร้าน + คนในร้านต้องได้ยินว่าผีอยู่บนหลังคาตรงไหน (เสียง 3D ที่ตัวผี)
 		local z = d.Position.Z + 4.5
-		local top = roofAt(scf.X + x, z)
-		local feet = Vector3.new(scf.X + x, top, z)
+		local halfX = math.max(2, (ssize.X - 8) / 2)
+		local function spot(x: number): Vector3
+			return Vector3.new(scf.X + x, roofTop(scf.X + x, z), z)
+		end
+		local x = (math.random() - 0.5) * 2 * halfX
+		local feet = spot(x)
 		local m = spawnIn(group, "Krahang", CFrame.lookAt(feet + Vector3.new(0, 18, 8), feet + Vector3.new(0, 18, 0)), "LandOnRoof")
 		root = m and m:FindFirstChild("RootPart") :: BasePart?
-		if m then
+		if m and root then
+			local rootPart = root :: BasePart
+			-- เท้า/นิ้วเท้าตามท่าที่เล่นอยู่ต่ำกว่าหลังคาเมื่อไหร่ ยกตัวขึ้นทันที (ท่าชะโงกย่อตัวต่ำกว่าเท้าตอนยืน)
+			local feetBones: { Bone } = {}
+			for _, b in ipairs(m:GetDescendants()) do
+				if b:IsA("Bone") and (string.find(b.Name, "toe") or string.find(b.Name, "foot")) then
+					table.insert(feetBones, b)
+				end
+			end
+			local lift = 0
+			local base: CFrame? = nil -- ตำแหน่งบนหลังคาก่อนยก (nil = ยังร่อนลงอยู่)
+			local function place(cf: CFrame)
+				base = cf
+				m:PivotTo(cf + Vector3.new(0, lift, 0))
+			end
+			conn = RunService.Heartbeat:Connect(function()
+				if not (base and m.Parent) then
+					return
+				end
+				local p = (base :: CFrame).Position
+				local floor = roofTop(p.X, p.Z)
+				local low = math.huge
+				for _, b in ipairs(feetBones) do
+					low = math.min(low, b.TransformedWorldCFrame.Position.Y)
+				end
+				if low < math.huge then
+					local deficit = floor + ROOF_SKIN - low
+					-- ยกขึ้นทันทีถ้าจม / ค่อยๆ ลดลงเมื่อท่ายกเท้าขึ้นแล้ว (ไม่ลอยค้าง)
+					lift = if deficit > 0 then lift + deficit else math.max(0, lift + math.max(deficit, -0.05))
+					m:PivotTo((base :: CFrame) + Vector3.new(0, lift, 0))
+				end
+			end)
+			-- เสียงบนหลังคา: ฝีเท้าย่ำสังกะสีติดตัวผี (คนในร้านได้ยินจากทิศที่ผีอยู่)
+			local steps = SoundBank.CreateSound("RoofTinSteps", rootPart, 70)
+			if steps then
+				steps.Looped = true
+				steps.Volume = 0
+				steps.RollOffMinDistance = 10
+			end
+			local function stepping(on: boolean)
+				if steps then
+					if on and not steps.IsPlaying then
+						steps:Play()
+					end
+					TweenService:Create(steps, TweenInfo.new(0.25), { Volume = if on then 0.9 else 0 }):Play()
+				end
+			end
+			local function thud()
+				local s = SoundBank.PlayOneShot("ShutterCloseSlam", rootPart, 80, 1.2)
+				if s then
+					s.Volume *= 0.55
+					s.PlaybackSpeed = 0.7 + math.random() * 0.15 -- ทุ้มกว่าแผง = ตกลงบนหลังคา
+				end
+			end
 			-- ร่อนลงมาจากข้างบน แล้วชะโงกมองหน้าร้าน
-			local face = feet + Vector3.new(0, 0, -1)
 			local cv = Instance.new("CFrameValue")
 			cv.Value = CFrame.lookAt(feet + Vector3.new(0, 18, 8), feet + Vector3.new(0, 18, 7))
-			local tw = TweenService:Create(cv, TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = CFrame.lookAt(feet, face) })
+			local tw = TweenService:Create(cv, TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = CFrame.lookAt(feet, feet + Vector3.new(0, 0, -1)) })
 			cv.Changed:Connect(function(v)
-				if m.Parent then
+				if m.Parent and not base then
 					m:PivotTo(v)
 				end
 			end)
 			tw:Play()
-			task.delay(2.4, function()
+			task.spawn(function()
+				task.wait(2.2)
 				cv:Destroy()
-				if m.Parent and current and current.token == my then
-					GhostNPC.Play(m, "PeekOverEdge")
+				if not (m.Parent and current and current.token == my) then
+					return
 				end
+				place(CFrame.lookAt(feet, feet + Vector3.new(0, 0, -1)))
+				thud()
+				GhostNPC.Play(m, "PeekOverEdge")
+				-- ย่องไปมาบนหลังคา: ไปจุดใหม่ (เสียงฝีเท้าย้ายตาม) หยุดชะโงก หัวเราะเป็นพักๆ
+				while m.Parent and current and current.token == my do
+					task.wait(2.5 + math.random() * 2.5)
+					if not (m.Parent and current and current.token == my) then
+						break
+					end
+					local nx = math.clamp(x + (if math.random() < 0.5 then -1 else 1) * (4 + math.random() * 5), -halfX, halfX)
+					if math.abs(nx - x) < 2 then
+						nx = if x > 0 then -halfX * 0.6 else halfX * 0.6
+					end
+					local from, to = spot(x), spot(nx)
+					local dir = Vector3.new(to.X - from.X, 0, 0).Unit
+					GhostNPC.Play(m, "Glide", 1.3)
+					stepping(true)
+					local dist = math.abs(nx - x)
+					local dur = dist / 5.5
+					local t0 = os.clock()
+					while m.Parent and current and current.token == my do
+						local k = math.clamp((os.clock() - t0) / dur, 0, 1)
+						local p = from:Lerp(to, k)
+						p = Vector3.new(p.X, roofTop(p.X, p.Z), p.Z)
+						place(CFrame.lookAt(p, p + dir))
+						if k >= 1 then
+							break
+						end
+						RunService.Heartbeat:Wait()
+					end
+					stepping(false)
+					x = nx
+					if not (m.Parent and current and current.token == my) then
+						break
+					end
+					thud()
+					local stop = spot(x)
+					place(CFrame.lookAt(stop, stop + Vector3.new(0, 0, -1)))
+					GhostNPC.Play(m, "PeekOverEdge")
+					if math.random() < 0.5 then
+						SoundBank.PlayOneShot(if math.random() < 0.5 then "Ghost_Krahang_Laugh" else "Ghost_Krahang", rootPart, 80, 4)
+					end
+				end
+				stepping(false)
 			end)
 		end
 	end

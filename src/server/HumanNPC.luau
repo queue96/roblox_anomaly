@@ -586,8 +586,66 @@ function HumanNPC.Pose(m: Model, a: number)
 	end
 end
 
--- ร่างผีซ้อน (เห็นเฉพาะตอนพนมมือ): สำเนาตัวละครใน DriverNPC เล่นท่าเดียวกัน
---   kind = "twist" (หัวหันกลับ 180°) | "pale" (ผิวซีดเขียว)
+-- ร่างผีของชาวบ้านแต่ละแบบ (แม่แบบใน ServerStorage.GhostTemplates กระดูก 52 ท่อนชุดเดียวกับ HumanTemplates)
+-- ท่าของชาวบ้าน (เดิน ยืน ขับรถ) จึงเล่นบนร่างผีได้ตรงกันทุกท่อน
+local GHOST_BODY: { [string]: { string } } = {
+	human_base = { "ghost_funeral_man", "ghost_shroud" },
+	human_female = { "ghost_funeral_woman", "ghost_mirror", "ghost_tani" },
+	human_elder_male = { "ghost_funeral_elder_man" },
+	human_elder_female = { "ghost_funeral_elder_woman" },
+	human_child = { "ghost_child" },
+}
+
+local function ghostBody(char: string, d: Model): Model?
+	local f = ServerStorage:FindFirstChild("GhostTemplates")
+	local names = GHOST_BODY[char] or GHOST_BODY[DEFAULT_CHAR]
+	local pool = {}
+	for _, n in ipairs(names) do
+		if f and f:FindFirstChild(n) then
+			table.insert(pool, n)
+		end
+	end
+	if #pool == 0 then
+		return nil
+	end
+	local g = ((f :: Instance):FindFirstChild(pool[math.random(#pool)]) :: Model):Clone()
+	local gRoot = g:FindFirstChild("RootPart") :: BasePart?
+	local dRoot = d:FindFirstChild("RootPart") :: BasePart?
+	if not (gRoot and dRoot) then
+		g:Destroy()
+		return nil
+	end
+	-- วางให้กระดูกรากทับกระดูกรากของตัวจริงพอดี (ท่าเดียวกัน = ทับกันทั้งตัว)
+	g:PivotTo(dRoot.CFrame * gRoot.CFrame:ToObjectSpace(g:GetPivot()))
+	for _, x in ipairs(g:GetDescendants()) do
+		if x:IsA("BasePart") then
+			x.Anchored = true
+			x.CanCollide = false
+			x.CanTouch = false
+			x.CanQuery = false
+		end
+	end
+	-- มือ/เท้าจับแฮนด์ / พวงมาลัย / ที่พักเท้าเหมือนตัวจริง: IK ชุดเดียวกัน ชี้ไปที่กระดูกของร่างผี
+	local dac = d:FindFirstChildOfClass("AnimationController")
+	local gac = g:FindFirstChildOfClass("AnimationController")
+	if dac and gac then
+		for _, ik in ipairs(dac:GetChildren()) do
+			if ik:IsA("IKControl") and ik.ChainRoot and ik.EndEffector then
+				local root, tip = bone(g, ik.ChainRoot.Name), bone(g, ik.EndEffector.Name)
+				if root and tip then
+					local c = ik:Clone()
+					c.ChainRoot = root
+					c.EndEffector = tip
+					c.Parent = gac
+				end
+			end
+		end
+	end
+	return g
+end
+
+-- ร่างผีซ้อน (เห็นเฉพาะตอนพนมมือ) เล่นท่าเดียวกับตัวจริง
+--   kind = "ghost" (ร่างผีจริง) | "twist" (ร่างผี + หัวหันกลับ 180°) | "pale" (สำเนาตัวจริง ผิวซีดเขียว)
 --   คืนค่า (ร่างผี, รายชื่อชิ้นของตัวจริงที่ต้องซ่อนตอนพนมมือ)
 function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 	local rig = rigs[m]
@@ -601,14 +659,20 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 			table.insert(real, c)
 		end
 	end
-	-- ต้อง Clone ทั้งโมเดลในครั้งเดียว: ประกอบใหม่จากชิ้นที่ Clone ทีละชิ้น ผิวจะไม่ผูกกับกระดูกของร่างใหม่ (ค้างท่า A-pose)
-	local double = d:Clone()
-	double.Name = "GhostDouble"
-	for _, c in ipairs(double:GetChildren()) do
-		if c.Name == "Head" or c.Name == "Torso" or c.Name == "GhostDouble" then
-			c:Destroy()
+	-- ร่างผีจริง (ghost / twist): ผีจากแม่แบบผีที่กระดูกชุดเดียวกับชาวบ้าน (ServerStorage.GhostTemplates) ซ้อนทับตัวจริง
+	-- ไม่มีแม่แบบผี = ใช้สำเนาตัวจริงแบบเดิม (twist = หัวหันกลับ, pale = ผิวซีด)
+	local double = if kind == "ghost" or kind == "twist" then ghostBody(rig.char, d) else nil
+	if not double then
+		-- ต้อง Clone ทั้งโมเดลในครั้งเดียว: ประกอบใหม่จากชิ้นที่ Clone ทีละชิ้น ผิวจะไม่ผูกกับกระดูกของร่างใหม่ (ค้างท่า A-pose)
+		double = d:Clone()
+		for _, c in ipairs((double :: Model):GetChildren()) do
+			if c.Name == "Head" or c.Name == "Torso" or c.Name == "GhostDouble" then
+				c:Destroy()
+			end
 		end
 	end
+	assert(double)
+	double.Name = "GhostDouble"
 	local pivot = d:GetPivot()
 	if kind == "twist" then
 		-- หมุนกระดูกหัวรอบแกนตั้งของตัว (แกนกระดูกของ Roblox ไม่ตรงกับ Blender จึงหมุนรอบแกนโลก)
@@ -632,6 +696,10 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 	double.Parent = d
 	local ac = double:FindFirstChildOfClass("AnimationController")
 	local animator = ac and ac:FindFirstChildOfClass("Animator")
+	if ac and not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = ac
+	end
 	if animator then
 		table.insert(rig.animators, animator)
 		-- เริ่มท่าเดียวกับตัวจริง
