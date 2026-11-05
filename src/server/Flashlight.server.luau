@@ -341,9 +341,45 @@ end)
 -- ข้อความปุ่มแปลตามภาษาใน client/HUDController (PROMPTS.BuyBatteryPrompt)
 local BOX_SPOT = Vector3.new(-3, 0, 27.4) -- x, z (y = พื้นร้านที่ยิงลงไปเจอ)
 local BOX_SCALE = 1.4
+-- วางเองใน Studio ได้: Workspace.InteractiveProps.BatteryBox (Model) มีอยู่แล้ว = ใช้อันนั้น (ย้าย/หมุนได้ตามใจ) แค่ติดปุ่มซื้อให้
+--   ไม่มี = สร้างกล่องใหม่ที่ BOX_SPOT
+local function hookBox(m: Instance)
+	local target = (if m:IsA("Model") then m.PrimaryPart else nil) or (if m:IsA("BasePart") then m else m:FindFirstChildWhichIsA("BasePart", true))
+	if not target then
+		return
+	end
+	local prompt = m:FindFirstChild("BuyBatteryPrompt", true) :: ProximityPrompt?
+	if not prompt then
+		local pr = Instance.new("ProximityPrompt")
+		pr.Name = "BuyBatteryPrompt"
+		pr.ActionText = "Buy battery"
+		pr.ObjectText = "Battery box"
+		pr.HoldDuration = 0.4
+		pr.MaxActivationDistance = 8
+		pr.RequiresLineOfSight = false
+		pr.Parent = target
+		prompt = pr
+	end
+	local last: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+	local pp = prompt :: ProximityPrompt
+	pp.Triggered:Connect(function(player: Player)
+		if not FREE_BATTERY or os.clock() - (last[player] or 0) < 0.8 then
+			return
+		end
+		last[player] = os.clock()
+		if not giveBattery(player, 1) then
+			notice(player, "BatteryFull")
+		end
+	end)
+end
 local function buildBatteryBox()
 	local ip = workspace:WaitForChild("InteractiveProps", 60)
-	if not ip or ip:FindFirstChild("BatteryBox") then
+	if not ip then
+		return
+	end
+	local placed = ip:FindFirstChild("BatteryBox")
+	if placed then
+		hookBox(placed)
 		return
 	end
 	local params = RaycastParams.new()
@@ -399,24 +435,7 @@ local function buildBatteryBox()
 	m.PrimaryPart = floor
 	m:ScaleTo(BOX_SCALE) -- บนพื้นต้องใหญ่ขึ้นหน่อยถึงจะสังเกตเห็น
 	m:PivotTo(m:GetPivot() + Vector3.new(0, floorY - (floor.Position.Y - floor.Size.Y / 2), 0)) -- ก้นกล่องแตะพื้น
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "BuyBatteryPrompt"
-	prompt.ActionText = "Buy battery"
-	prompt.ObjectText = "Battery box"
-	prompt.HoldDuration = 0.4
-	prompt.MaxActivationDistance = 8
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = floor
 	m.Parent = ip
-	local last: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
-	prompt.Triggered:Connect(function(player: Player)
-		if not FREE_BATTERY or os.clock() - (last[player] or 0) < 0.8 then
-			return
-		end
-		last[player] = os.clock()
-		if not giveBattery(player, 1) then
-			notice(player, "BatteryFull")
-		end
-	end)
+	hookBox(m)
 end
 task.spawn(buildBatteryBox)
