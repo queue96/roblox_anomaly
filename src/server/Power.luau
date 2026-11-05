@@ -25,7 +25,7 @@ Power.Config = {
 	ShockStun = 1.4, -- โดนไฟช็อต: เดินไม่ได้กี่วินาที
 	ShockCooldown = 2.5, -- โดนไฟช็อตแล้ว กดปุ่มที่เครื่องใหม่ได้หลังจากนี้ (วินาที)
 	Range = 8, -- ต้องยืนห่างเครื่องไม่เกินนี้ (studs) ระหว่างซ่อม
-	CutEvery = { 240, 480 }, -- ไฟดับเองทุกๆ (วินาที, สุ่ม) ตอนร้านเปิด
+	CutEvery = { 420, 660 }, -- ไฟดับเองหลังไฟติดมาแล้วนานเท่านี้ (วินาที, สุ่ม) ตอนร้านเปิด (เดิม 240-480 ถี่เกิน ผู้ใช้ 2026-11-05)
 }
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes") or Instance.new("Folder")
@@ -399,11 +399,19 @@ function Power.Start(active: () -> boolean)
 		sessions[p] = nil
 		shockedUntil[p] = nil
 	end)
-	-- ไฟดับเองเป็นระยะตอนร้านเปิด
+	-- ไฟดับเองเป็นระยะตอนร้านเปิด: เริ่มนับเมื่อไฟติดและร้านเปิดเท่านั้น ระหว่างนับถ้าไฟดับหรือร้านปิด ให้นับใหม่
+	-- (เดิมนับตั้งแต่เปิด server และไม่รีเซ็ต ไฟเลยดับซ้ำได้ทันทีหลังเพิ่งซ่อมเสร็จ)
 	task.spawn(function()
 		while true do
+			while not (powerOn and active()) do
+				task.wait(1)
+			end
 			local c = Power.Config.CutEvery
-			task.wait(math.random(c[1], c[2]))
+			local duration = math.random(c[1], c[2])
+			local t0 = os.clock()
+			while os.clock() - t0 < duration and powerOn and active() do
+				task.wait(1)
+			end
 			if powerOn and active() then
 				Power.Cut()
 			end

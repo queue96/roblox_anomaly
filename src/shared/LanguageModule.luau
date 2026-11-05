@@ -206,12 +206,9 @@ LanguageModule.Dialogues = {
 	Pray_Summon_3 = { th = "...สวดให้ข้าเหรอ...", en = "...are you praying for me..." },
 	-- คัทซีนเปิดคืน / จบคืน (พี่ชายเจ้าของร้าน)
 	Intro_Brother_1 = { th = "คืนนี้เฝ้าร้านให้พี่หน่อยนะ พี่มีธุระในเมือง", en = "Mind the shop for me tonight, okay? I've got business in town." },
-	Intro_Player_1 = { th = "ได้เลยพี่ ไว้ใจได้", en = "Sure thing. Leave it to me." },
-	Intro_Player_2 = { th = "อ้าวเห้ย...", en = "Whoa, hey..." }, -- ลมพัดแผงร้านปิดลงเอง
 	Intro_Brother_2 = { th = "เปิดร้านให้แล้วนะ อย่าลืมเอาขนมไปถวายศาลพระภูมิล่ะ", en = "Shop's open. Don't forget to offer sweets at the spirit house." },
 	Intro_Brother_3 = { th = "ใครมาดึกๆ ดูให้ดีก่อนเติมนะ... ไปละ", en = "If anyone shows up late, take a good look before you fill them up... I'm off." },
 	Outro_Brother_1 = { th = "เมื่อคืนเป็นไงบ้าง เฝ้าไหวไหม?", en = "So how was last night? Hold up alright?" },
-	Outro_Player_1 = { th = "ผ่านไปได้ด้วยดีพี่... แต่คืนหน้าพี่เฝ้าเองนะ", en = "Got through it fine... but you're taking the next one." },
 	Outro_Brother_2 = { th = "ฮ่าๆ ขึ้นรถ ไปกินข้าวต้มกัน", en = "Haha, hop on. Let's go get some rice soup." },
 	-- ไม่ได้ถวายขนมศาล: ศาลไม่คุ้มครอง
 }
@@ -447,7 +444,6 @@ LanguageModule.UI = {
 	Big_Pret_Warn = { th = "เสียงหวีดยาวมาจากถนน... เปรตกำลังมา ดับไฟร้าน ปิดไฟฉาย แล้วนั่งยอง [C] นิ่งๆ", en = "A long shriek from the road... a Pret is coming. Kill the shop lights, switch off flashlights, crouch [C] and stay still." },
 	Big_Funeral_Warn = { th = "ขบวนแห่ศพไร้เสียงกำลังมา... ปิดแผงร้าน ดับไฟ แล้วนั่งยอง [C] รอให้ผ่านไป", en = "A silent funeral procession approaches... close the shutter, kill the lights, crouch [C] and let it pass." },
 	Big_Pop_Warn = { th = "มีใครเดินกระตุกมาทางร้าน... ปิดแผงร้าน ดับไฟ แล้วยืนนิ่งๆ ห้ามขยับ", en = "Something twitches its way toward the shop... close the shutter, kill the lights and stand perfectly still." },
-	NightNotOver = { th = "เงินครบแล้ว แต่ยังไม่ถึงรุ่งเช้า... เฝ้าร้านต่ออีกหน่อย", en = "The tin is full, but dawn hasn't come yet... keep watching the shop." },
 	Big_Danger = { th = "มันมาถึงแล้ว... อย่าขยับ", en = "It's here... don't move." },
 	Big_Pass = { th = "มันผ่านไปแล้ว... ลุกขึ้น [C] แล้วสับสะพานไฟขึ้นได้", en = "It's gone... stand up [C] and turn the lights back on." },
 	Big_Fail_Lights = { th = "ไฟร้านยังเปิดอยู่... มันเห็นเราแล้ว", en = "The shop lights were on... it saw us." },

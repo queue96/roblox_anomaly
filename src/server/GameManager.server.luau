@@ -118,7 +118,7 @@ task.spawn(function()
 	flickerLight.Range = 52
 
 	while true do
-		task.wait(math.random(25, 55))
+		task.wait(math.random(60, 120)) -- (เดิม 25-55 ถี่เกิน ผู้ใช้ 2026-11-05)
 		-- กะพริบเบาๆ 1-2 ครั้ง นานๆ ที ไม่ให้ถี่จนลายตา (ไฟดับอยู่ = ไม่กะพริบ ไม่งั้นไฟจะกลับมาติดเอง)
 		for _ = 1, if game:GetService("ReplicatedStorage"):GetAttribute("PowerOn") == false then 0 else math.random(1, 2) do
 			flickerLight.Enabled = true
