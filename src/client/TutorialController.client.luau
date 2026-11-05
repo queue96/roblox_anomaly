@@ -494,12 +494,67 @@ local function draw()
 	hideBtn.Text = ui("Tut_HideBtn")
 end
 
+-- มุมกล้องเฉพาะของชิ้นใหญ่ (ถ่ายทั้งตัวแล้วรูปเล็กจนดูไม่ออก) -> ถ่ายเฉพาะส่วนที่ดูแล้วรู้ทันทีว่าคืออะไร
+--   view = ทิศกล้องในกรอบของของ (-Z = หน้า) · focus = จุดกลาง (ในกรอบของ pivot) + รัศมีที่ให้เห็น
+local function frameFor(source: Instance): (Vector3?, { center: Vector3, radius: number }?)
+	local n = source.Name
+	if n == "SpiritHouseOnStilts" and source:IsA("BasePart") then
+		-- ตัวเรือนศาล ไม่เอาเสา/บันได (มุมเดียวกับรูปศาลมุมขวาบน ItemSlots)
+		return Vector3.new(0.75, 0.3, -0.75), { center = Vector3.new(0.8, source.Size.Y / 2 - 2.3, -0.2), radius = 2.4 }
+	elseif n == "Generator" then
+		-- ตัวเครื่อง + มือดึงสตาร์ท (สายไฟยาวทำให้รูปเล็ก)
+		return Vector3.new(0.7, 0.55, -1), { center = Vector3.new(0.6, 1.0, -0.2), radius = 2.1 }
+	elseif n == "FuelPumps" then
+		-- ตู้เดียว เห็นหลอดแก้วชัด
+		return Vector3.new(0.45, 0.25, -1), { center = Vector3.new(-2.3, 4.1, 0), radius = 2.9 }
+	end
+	return nil, nil
+end
+
+-- แผงร้าน: แผงสังกะสียาว 30 studs ถ่ายทั้งแผ่นเห็นแค่แถบมืดๆ -> รูปเชือกดึงแผง + ขอบแผงข้างหลัง (มองจากในร้าน)
+local shutterIcon: Model? = nil
+local shutterFocus: { center: Vector3, radius: number }? = nil
+local function shutterWithRope(door: BasePart): Model?
+	local rope = interactive("RejectRope")
+	if not (rope and rope:IsA("BasePart")) then
+		return nil
+	end
+	if shutterIcon then
+		return shutterIcon
+	end
+	local m = Instance.new("Model")
+	m.Name = "ShutterRopeIcon"
+	for _, p in ipairs({ door, rope }) do
+		local was = p.Archivable
+		p.Archivable = true
+		local c = p:Clone()
+		p.Archivable = was
+		c.Parent = m
+	end
+	m.WorldPivot = door.CFrame
+	local rl = door.CFrame:PointToObjectSpace(rope.Position)
+	shutterFocus = { center = rl + Vector3.new(0, -1, -2), radius = 5.5 }
+	shutterIcon = m
+	return m
+end
+
 -- รูปของ: ของในโลกอาจยังไม่ถูกส่งมา (StreamingEnabled) -> ลองใหม่ทุกรอบ refresh จนได้
 local function setIcon(vf: ViewportFrame, source: Instance?, shown: Instance?): Instance?
 	if source == shown and source ~= nil and #vf:GetChildren() > 0 then
 		return shown
 	end
-	if source and ModelIcon.Set(vf, source) then
+	local view, focus = nil, nil
+	local pic: Instance? = source
+	if source then
+		view, focus = frameFor(source)
+		if source.Name == "ShutterDoor" and source:IsA("BasePart") then
+			local combo = shutterWithRope(source)
+			if combo then
+				pic, view, focus = combo, Vector3.new(0.6, 0.3, 1), shutterFocus
+			end
+		end
+	end
+	if source and pic and ModelIcon.Set(vf, pic, view, focus) then
 		return source
 	end
 	return nil
