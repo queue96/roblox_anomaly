@@ -17,6 +17,7 @@ do
 	local vignetteGui = Instance.new("ScreenGui")
 	vignetteGui.Name = "LobbyVignette"
 	vignetteGui.IgnoreGuiInset = true
+	vignetteGui.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 	vignetteGui.ResetOnSpawn = false
 	vignetteGui.DisplayOrder = 0
 	vignetteGui.Parent = player:WaitForChild("PlayerGui")

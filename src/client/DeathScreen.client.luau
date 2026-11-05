@@ -60,6 +60,7 @@ local gui = new("ScreenGui", {
 	Name = "DeathScreen",
 	ResetOnSpawn = false,
 	IgnoreGuiInset = true,
+	ScreenInsets = Enum.ScreenInsets.None, -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 	AutoLocalize = false,
 	DisplayOrder = 20,
 	Enabled = false,

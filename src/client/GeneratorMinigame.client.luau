@@ -198,7 +198,7 @@ end
 
 -- ---------------------------------------------------------------- ไฟช็อต
 -- จอแยกต่างหาก (หน้ามินิเกมปิดไปแล้วตอนโดนช็อต): แสงฟ้าแวบ + ข้อความ
-local shockGui = new("ScreenGui", { Name = "GeneratorShock", ResetOnSpawn = false, DisplayOrder = 41, IgnoreGuiInset = true }, player:WaitForChild("PlayerGui"))
+local shockGui = new("ScreenGui", { Name = "GeneratorShock", ResetOnSpawn = false, DisplayOrder = 41, IgnoreGuiInset = true, ScreenInsets = Enum.ScreenInsets.None }, player:WaitForChild("PlayerGui"))
 local flash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(200, 225, 255), BackgroundTransparency = 1, BorderSizePixel = 0 }, shockGui)
 local shockText = new("TextLabel", { Size = UDim2.fromOffset(420, 52), Position = UDim2.new(0.5, 0, 0.5, R + 22), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, FontFace = FONT, TextSize = 20, TextColor3 = C.Cream, TextWrapped = true, Text = "" }, shockGui)
 new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.3 }, shockText)

@@ -102,6 +102,7 @@ local currentFocus = 20
 local vignetteGui = Instance.new("ScreenGui")
 vignetteGui.Name = "AmbienceVignette"
 vignetteGui.IgnoreGuiInset = true
+vignetteGui.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 vignetteGui.ResetOnSpawn = false
 -- อยู่ใต้ UI ทุกชิ้น: DisplayOrder เท่ากับ PumpHUD (0) แล้วสร้างทีหลัง = ขอบมืดทับ UI ที่มุมจอทั้งหมด (เงิน ปุ่มคีย์ ไฟฉาย ตั้งค่า จางหมด)
 vignetteGui.DisplayOrder = -1

@@ -17,6 +17,7 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local gui = Instance.new("ScreenGui")
 gui.Name = "HauntEffects"
 gui.IgnoreGuiInset = true
+gui.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 40 -- เหนือ HUD ใต้ jumpscare / จอตาย
 gui.Parent = player:WaitForChild("PlayerGui")

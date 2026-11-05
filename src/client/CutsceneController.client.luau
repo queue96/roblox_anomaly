@@ -51,6 +51,7 @@ local FONT = Font.fromEnum(Enum.Font.SpecialElite)
 local gui = Instance.new("ScreenGui")
 gui.Name = "Cutscene"
 gui.IgnoreGuiInset = true
+gui.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 gui.ResetOnSpawn = false
 gui.AutoLocalize = false
 gui.DisplayOrder = 60
@@ -519,6 +520,7 @@ local function showSummary()
 	local sg = Instance.new("ScreenGui")
 	sg.Name = "Summary"
 	sg.IgnoreGuiInset = true
+	sg.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 	sg.ResetOnSpawn = false
 	sg.AutoLocalize = false
 	sg.DisplayOrder = 70

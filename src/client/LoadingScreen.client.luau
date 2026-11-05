@@ -100,6 +100,7 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	local sg = Instance.new("ScreenGui")
 	sg.Name = name
 	sg.IgnoreGuiInset = true
+	sg.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 	sg.ResetOnSpawn = false
 	sg.DisplayOrder = 999
 	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -313,6 +314,44 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	end)
 	skipBtn.MouseLeave:Connect(function()
 		skipBtn.BackgroundColor3 = C.BarBg
+	end)
+
+	-- พื้นหลังเต็มจอถึงขอบ (ScreenInsets = None) แต่หัวข้อ + แผงโหลดอยู่ใน safe area ของจอ ไม่โดนติ่งจอ/ขอบโค้งบัง
+	--   วัด safe area จาก ScreenGui ตัววัด (ค่าเริ่มต้น CoreUISafeInsets) ชื่อมีคำว่า Loading: ฉากเปิด Lobby ไม่ซ่อน
+	local safe = Instance.new("Frame")
+	safe.Name = "SafeArea"
+	safe.Size = UDim2.fromScale(1, 1)
+	safe.BackgroundTransparency = 1
+	safe.Parent = root
+	headerBox.Parent = safe
+	bottomPanel.Parent = safe
+	task.spawn(function()
+		local probe = Instance.new("ScreenGui")
+		probe.Name = "LoadingSafeAreaProbe"
+		probe.IgnoreGuiInset = true
+		probe.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+		probe.ResetOnSpawn = false
+		local area = Instance.new("Frame")
+		area.Size = UDim2.fromScale(1, 1)
+		area.BackgroundTransparency = 1
+		area.Parent = probe
+		probe.Parent = player:WaitForChild("PlayerGui")
+		local function fit()
+			local fullPos, full = root.AbsolutePosition, root.AbsoluteSize
+			if full.X <= 0 or area.AbsoluteSize.X <= 0 then
+				return
+			end
+			local left = math.max(0, area.AbsolutePosition.X - fullPos.X)
+			local right = math.max(0, (fullPos.X + full.X) - (area.AbsolutePosition.X + area.AbsoluteSize.X))
+			local bottom = math.max(0, (fullPos.Y + full.Y) - (area.AbsolutePosition.Y + area.AbsoluteSize.Y))
+			-- ด้านบน: หัวข้อเว้นแถบปุ่ม Roblox ไว้แล้ว (topInset)
+			safe.Position = UDim2.fromOffset(left, 0)
+			safe.Size = UDim2.new(1, -(left + right), 1, -bottom)
+		end
+		area:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+		area:GetPropertyChangedSignal("AbsolutePosition"):Connect(fit)
+		root:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+		fit()
 	end)
 
 	return sg, {

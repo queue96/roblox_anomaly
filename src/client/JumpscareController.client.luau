@@ -126,6 +126,7 @@ end
 local gui = Instance.new("ScreenGui")
 gui.Name = "Jumpscare"
 gui.IgnoreGuiInset = true
+gui.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 15
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
