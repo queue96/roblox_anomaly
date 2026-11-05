@@ -100,8 +100,8 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 	return l
 end
 
-local TITLE_H = 86
-local ROWS = 5
+local TITLE_H = 70
+local ROWS = 10 -- แถวเล็กลง แสดงได้ 10 อันดับต่อป้าย
 
 local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId: number, value: number } })
 	text(root, {
@@ -109,7 +109,7 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 		Size = UDim2.new(1, 0, 0, TITLE_H - 16),
 		Text = spec.title,
 		TextColor3 = spec.color,
-		TextSize = 54,
+		TextSize = 42,
 	})
 	-- เส้นใต้หัวป้าย (สีของป้าย)
 	local head = Instance.new("Frame")
@@ -140,17 +140,17 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 		r.Parent = body
 		-- อันดับ
 		text(r, {
-			Size = UDim2.new(0, 50, 1, 0),
+			Size = UDim2.new(0, 42, 1, 0),
 			Text = tostring(rank),
-			TextSize = 44,
+			TextSize = 28,
 			TextColor3 = if rank == 1 then spec.color else DIM,
 			TextXAlignment = Enum.TextXAlignment.Left,
 		})
 		-- รูปหัวผู้เล่น (Roblox headshot)
 		local pic = Instance.new("ImageLabel")
 		pic.AnchorPoint = Vector2.new(0, 0.5)
-		pic.Position = UDim2.new(0, 56, 0.5, 0)
-		pic.Size = UDim2.new(0.72, 0, 0.72, 0)
+		pic.Position = UDim2.new(0, 44, 0.5, 0)
+		pic.Size = UDim2.new(0.8, 0, 0.8, 0)
 		pic.SizeConstraint = Enum.SizeConstraint.RelativeYY
 		pic.BackgroundColor3 = Color3.fromRGB(40, 34, 28)
 		pic.BorderSizePixel = 0
@@ -161,19 +161,19 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 		corner.Parent = pic
 		-- ชื่อชิดซ้าย
 		text(r, {
-			Position = UDim2.new(0, 146, 0, 0),
-			Size = UDim2.new(0.64, -146, 1, 0),
+			Position = UDim2.new(0, 98, 0, 0),
+			Size = UDim2.new(0.66, -98, 1, 0),
 			Text = displayName(row.userId),
-			TextSize = 44,
+			TextSize = 28,
 			TextXAlignment = Enum.TextXAlignment.Left,
 		})
 		-- สถิติชิดขวา
 		text(r, {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.fromScale(1, 0),
-			Size = UDim2.new(0.36, 0, 1, 0),
+			Size = UDim2.new(0.34, 0, 1, 0),
 			Text = ("%d %s"):format(row.value, spec.suffix),
-			TextSize = 42,
+			TextSize = 27,
 			TextColor3 = spec.color,
 			TextXAlignment = Enum.TextXAlignment.Right,
 		})
