@@ -131,6 +131,52 @@ task.spawn(function()
 		end
 		stack.Parent = fs
 		flashIcon = slotIcon(fs)
+		-- ปุ่มซื้อถ่าน (ถ่านไม่ชาร์จเองแล้ว) ขึ้นตอนถ่านไม่เต็ม -> ได้ถ่านเข้าช่องที่ 4 · ช่วงนี้ฟรี ทีหลังเป็นซื้อด้วย Robux (server/Flashlight)
+		--   คอม: กด B ได้เลย (เมาส์ล็อกกลางจอ) / มือถือ: แตะปุ่ม
+		local remotes = ReplicatedStorage:WaitForChild("Remotes")
+		local buy = remotes:WaitForChild("BuyBattery", 20) :: RemoteEvent?
+		if buy then
+			local touch = LanguageModule.TouchMode == true
+			local btn = Instance.new("TextButton")
+			btn.Name = "BuyBattery"
+			btn.LayoutOrder = 3
+			btn.Size = UDim2.fromOffset(0, SLOT_H - 14)
+			btn.AutomaticSize = Enum.AutomaticSize.X
+			btn.BackgroundColor3 = Color3.fromRGB(48, 22, 20)
+			btn.BackgroundTransparency = 0.1
+			btn.BorderSizePixel = 0
+			btn.AutoButtonColor = true
+			btn.FontFace = FONT
+			btn.TextColor3 = C.Cream
+			btn.TextSize = if touch then 16 else 13
+			btn.Visible = false
+			btn.Parent = fs
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
+			local bp = Instance.new("UIPadding", btn)
+			bp.PaddingLeft, bp.PaddingRight = UDim.new(0, 8), UDim.new(0, 8)
+			local bs = Instance.new("UIStroke", btn)
+			bs.Color = C.Ember
+			bs.Transparency = 0.3
+			bs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			local function draw()
+				btn.Text = ui(if touch then "BuyBattery" else "BuyBattery_Key")
+				local b = player:GetAttribute("Battery")
+				btn.Visible = type(b) == "number" and b < 0.99
+			end
+			draw()
+			player:GetAttributeChangedSignal("Battery"):Connect(draw)
+			player:GetAttributeChangedSignal("Lang"):Connect(draw)
+			local function request()
+				buy:FireServer()
+			end
+			btn.Activated:Connect(request)
+			game:GetService("ContextActionService"):BindAction("BuyBattery", function(_, state)
+				if state == Enum.UserInputState.Begin then
+					request()
+				end
+				return Enum.ContextActionResult.Pass
+			end, false, Enum.KeyCode.B)
+		end
 	end
 end)
 
@@ -188,6 +234,8 @@ end
 
 makeSlot(2, "2", "ThaiDessert", Enum.KeyCode.Two, "DessertSlot")
 makeSlot(3, "3", "FuelCan", Enum.KeyCode.Three, "CanSlot")
+-- ถ่านไฟฉายที่ซื้อไว้ (server/Flashlight: Tool "FlashlightBattery" มี attribute Count) กด 4 = ใส่ถ่านใหม่ ไม่ต้องถือ
+makeSlot(4, "4", "FlashlightBattery", Enum.KeyCode.Four, "BatterySlot")
 
 local function find(name: string): (Tool?, boolean)
 	local char = player.Character
@@ -212,6 +260,8 @@ local function refresh()
 		local txt = ui(s.label)
 		if s.tool == "FuelCan" and tool then
 			txt ..= " " .. ui(if tool:GetAttribute("Full") then "CanFull" else "CanEmpty")
+		elseif s.tool == "FlashlightBattery" and tool then
+			txt ..= " ×" .. tostring(tool:GetAttribute("Count") or 1)
 		end
 		s.text.Text = txt
 		s.stroke.Color = if equipped then C.LineHot else C.Line
@@ -235,6 +285,14 @@ local function toggle(s: Slot)
 	end
 	local tool, equipped = find(s.tool)
 	if not tool then
+		return
+	end
+	-- ถ่าน: ใช้ทันที (ใส่ถ่านก้อนใหม่ให้ไฟฉาย) ไม่ต้องหยิบขึ้นมือ
+	if s.tool == "FlashlightBattery" then
+		local use = ReplicatedStorage:WaitForChild("Remotes"):FindFirstChild("UseBattery")
+		if use and use:IsA("RemoteEvent") then
+			use:FireServer()
+		end
 		return
 	end
 	-- ย้าย Tool เข้า/ออกตัวเอง (ไม่ใช้ EquipTool ที่เก็บของอื่นทั้งหมด): ไฟฉายมือซ้ายถือค้างไว้ได้
@@ -387,6 +445,7 @@ local function watch(container: Instance?)
 	watched[container] = container.ChildAdded:Connect(function(c)
 		if c:IsA("Tool") then
 			c:GetAttributeChangedSignal("Full"):Connect(refresh)
+			c:GetAttributeChangedSignal("Count"):Connect(refresh) -- จำนวนถ่าน
 		end
 		refresh()
 	end)
@@ -394,6 +453,7 @@ local function watch(container: Instance?)
 	for _, c in ipairs(container:GetChildren()) do
 		if c:IsA("Tool") then
 			c:GetAttributeChangedSignal("Full"):Connect(refresh)
+			c:GetAttributeChangedSignal("Count"):Connect(refresh) -- จำนวนถ่าน
 		end
 	end
 end
