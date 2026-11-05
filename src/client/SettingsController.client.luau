@@ -301,6 +301,10 @@ local function toggle(order: number, name: string, labelKey: string)
 	end)
 end
 toggle(4, "ShowHUD", "ShowHUD")
+-- สอนเล่น เปิด/ปิด (เฉพาะในเกม: Lobby ไม่มีการ์ดสอน)
+if workspace:FindFirstChild("TempleLobby") == nil then
+	toggle(6, "ShowTutorial", "ShowTutorial")
+end
 
 -- มือถือไฟฉาย: [ซ้าย] [ขวา] (ค่าเริ่มต้นขวา) แกลลอน/ขนมย้ายไปมืออีกข้างเอง
 do
@@ -447,7 +451,7 @@ local controlsBack = button(controlsPage, {
 })
 -- แถวในหน้าตั้งค่า: "ปุ่มควบคุม  [ดู ▸]"
 do
-	local r = row(6, "Controls")
+	local r = row(7, "Controls")
 	local open = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
 	open.Activated:Connect(function()
 		panel.Visible = false
@@ -509,7 +513,7 @@ local function refresh()
 	end
 end
 refresh()
-for _, a in ipairs({ "Lang", "ShowHUD", "ShowLabels", "FlashHand" }) do
+for _, a in ipairs({ "Lang", "ShowHUD", "ShowLabels", "FlashHand", "ShowTutorial" }) do
 	localPlayer:GetAttributeChangedSignal(a):Connect(refresh)
 end
 

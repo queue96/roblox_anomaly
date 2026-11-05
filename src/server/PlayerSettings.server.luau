@@ -5,6 +5,7 @@
 --   SfxVolume   0..1          เสียงเอฟเฟกต์ (หมาหอน จิ้งหรีด ฯลฯ)
 --   ShowHUD     boolean       แสดงเงิน / ธูป / ป้ายปุ่มคีย์ (คำพูดลูกค้าและแถบประกาศแสดงเสมอ)
 --   ShowLabels  boolean       แสดงป้ายชื่อตามวัตถุในฉาก (ZoneLabel)
+--   ShowTutorial boolean      แสดงการ์ดสอนเล่น (ปิดได้ในหน้าตั้งค่า)
 --   FlashHand   "R" | "L"     มือที่ถือไฟฉาย (ค่าเริ่มต้นขวา) แกลลอน/ขนมอยู่มืออีกข้าง (shared/HeadTurn.Sides)
 --   LangChosen  boolean       ผู้เล่นยืนยันภาษาเองแล้ว (หน้าเลือกภาษาครั้งแรกก่อนฉากเปิด Lobby)
 --   TutSeen     string        เรื่องที่สอนเล่นไปแล้ว (คั่นด้วย ,) สอนแล้วไม่สอนซ้ำ (TutorialController)
@@ -55,6 +56,7 @@ local SETTINGS: { [string]: { default: any, check: (any) -> any } } = {
 	SfxVolume = { default = 0.8, check = volume },
 	ShowHUD = { default = true, check = bool },
 	ShowLabels = { default = true, check = bool },
+	ShowTutorial = { default = true, check = bool }, -- ปิด = ไม่ขึ้นการ์ดสอนเล่นเลย (TutorialController)
 	FlashHand = {
 		default = "R",
 		check = function(v)

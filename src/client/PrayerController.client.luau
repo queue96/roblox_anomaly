@@ -185,6 +185,11 @@ bar.BackgroundTransparency = 1
 bar.BorderSizePixel = 0
 bar.Visible = false
 bar.Parent = gui
+-- มือถือ: ขวาล่างเป็นปุ่มสวด/นั่งยอง/กระโดด -> ย้ายขึ้นมุมขวาบน ใต้แผงเงิน (แถวเดียวกับปุ่มตั้งค่า) ซ้ายรูปศาล (ItemSlots 60px)
+if (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any).TouchMode == true then
+	bar.AnchorPoint = Vector2.new(1, 0)
+	bar.Position = UDim2.new(1, -84, 0, 58)
+end
 
 local label = Instance.new("TextLabel")
 label.Name = "Text"

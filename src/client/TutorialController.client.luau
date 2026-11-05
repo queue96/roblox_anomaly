@@ -254,6 +254,7 @@ gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local panel = Instance.new("Frame")
+panel.Name = "Card"
 -- มุมซ้ายบน ใต้แถบปุ่มของ Roblox (โลโก้ เมนู แชต ~58px) ไม่ทับปุ่มบนจอเตี้ยแบบมือถือ
 panel.AnchorPoint = Vector2.new(0, 0)
 panel.Position = UDim2.new(0, 16, 0, 72)
@@ -334,6 +335,7 @@ end
 
 -- ส่วนที่ 1: เตรียมร้าน (หัวเรื่อง + เวลา, แล้วรายการงาน)
 local prepBox = Instance.new("Frame")
+prepBox.Name = "PrepBox"
 prepBox.LayoutOrder = 1
 prepBox.BackgroundTransparency = 1
 prepBox.Size = UDim2.new(1, 0, 0, 0)
@@ -379,6 +381,7 @@ divider.Parent = panel
 
 -- ส่วนที่ 2: สอนเล่น (หัวเรื่อง, แล้วรูป + ข้อความ, แล้วคำแนะนำปุ่ม H)
 local stepBox = Instance.new("Frame")
+stepBox.Name = "StepBox"
 stepBox.LayoutOrder = 3
 stepBox.BackgroundTransparency = 1
 stepBox.Size = UDim2.new(1, 0, 0, 0)
@@ -388,7 +391,46 @@ stepBox.Parent = panel
 local sl = Instance.new("UIListLayout", stepBox)
 sl.Padding = UDim.new(0, 4)
 sl.SortOrder = Enum.SortOrder.LayoutOrder
-local title = label(stepBox, 1, 11, C.Ember, 14)
+-- หัวการ์ด: "วิธีเฝ้าร้าน (n/6)" + ปุ่ม [ข้าม] (เรื่องนี้ถือว่าเรียนแล้ว) [ซ่อน] (ย่อเหลือป้ายเล็ก กดเปิดกลับได้)
+local BTN_H = if IS_TOUCH then 24 else 18
+local titleRow = Instance.new("Frame")
+titleRow.Name = "TitleRow"
+titleRow.LayoutOrder = 1
+titleRow.BackgroundTransparency = 1
+titleRow.Size = UDim2.new(1, 0, 0, BTN_H)
+titleRow.Parent = stepBox
+local title = label(titleRow, 1, 11, C.Ember, BTN_H)
+title.Size = UDim2.new(1, -(if IS_TOUCH then 118 else 96), 0, BTN_H)
+local function cardButton(order: number, w: number): TextButton
+	local b = Instance.new("TextButton")
+	b.AnchorPoint = Vector2.new(1, 0)
+	b.Position = UDim2.new(1, -(order - 1) * (w + 4), 0, 0)
+	b.Size = UDim2.fromOffset(w, BTN_H)
+	b.BackgroundColor3 = C.Well
+	b.BorderSizePixel = 0
+	b.AutoButtonColor = false
+	b.FontFace = FONT
+	b.TextSize = if IS_TOUCH then 13 else 11
+	b.TextColor3 = C.Dim
+	b.Parent = titleRow
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
+	local st = Instance.new("UIStroke", b)
+	st.Color = C.Line
+	st.Transparency = 0.2
+	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	b.MouseEnter:Connect(function()
+		b.TextColor3 = C.Cream
+	end)
+	b.MouseLeave:Connect(function()
+		b.TextColor3 = C.Dim
+	end)
+	return b
+end
+local hideBtn = cardButton(1, if IS_TOUCH then 54 else 44)
+local skipBtn = cardButton(2, if IS_TOUCH then 54 else 44)
+hideBtn.Name = "HideTip"
+skipBtn.Name = "SkipTip"
+local skipCurrent = false
 local stepRow = Instance.new("Frame")
 stepRow.LayoutOrder = 2
 stepRow.BackgroundTransparency = 1
@@ -447,6 +489,8 @@ local function draw()
 	title.Text = string.format("%s  (%d/%d)", ui("Tut_Title"), current, #STEPS)
 	body.Text = ui(if type(s.key) == "function" then s.key() else s.key)
 	hint.Text = ui("Tut_Hide")
+	skipBtn.Text = ui("Tut_Skip")
+	hideBtn.Text = ui("Tut_HideBtn")
 end
 
 -- รูปของ: ของในโลกอาจยังไม่ถูกส่งมา (StreamingEnabled) -> ลองใหม่ทุกรอบ refresh จนได้
@@ -494,10 +538,10 @@ local function refresh()
 	end
 	local any = prepping or teaching
 	local cutscene = ReplicatedStorage:GetAttribute("CutsceneRunning") == true
-	-- มือถือ: ซ่อนแล้วยังเหลือป้ายเล็กให้แตะเปิดกลับ / คอม: ซ่อนทั้งหมด (กด H เปิดกลับ)
-	gui.Enabled = any and not cutscene and (not hidden or IS_TOUCH)
+	-- ซ่อนแล้วยังเหลือป้ายเล็กให้แตะ/คลิกเปิดกลับ (คอมกด H ได้ด้วย)
+	gui.Enabled = any and not cutscene
 	panel.Visible = not hidden
-	tipsTab.Visible = IS_TOUCH and hidden
+	tipsTab.Visible = hidden
 	tipsTab.Text = ui("Tut_Title") .. "  ▸"
 	for _, h in ipairs(highlights) do
 		h.Enabled = teaching and not hidden and not cutscene
@@ -558,6 +602,17 @@ local function teach(i: number, s: Step): boolean
 		if not s.hold and s.done() then
 			break
 		end
+		if skipCurrent then
+			break -- ผู้เล่นกดข้ามเรื่องนี้ (นับว่าเรียนแล้ว)
+		end
+		if player:GetAttribute("ShowTutorial") == false then
+			-- ปิดการสอนจากหน้าตั้งค่ากลางคัน: เลิกสอน ไม่นับว่าเรียนแล้ว
+			clearHighlights()
+			running = false
+			current = 0
+			refresh()
+			return true
+		end
 		if remotes:GetAttribute("GameOver") == true then
 			clearHighlights()
 			running = false
@@ -567,7 +622,16 @@ local function teach(i: number, s: Step): boolean
 		end
 		task.wait(0.3)
 	end
+	local wasSkipped = skipCurrent
+	skipCurrent = false
 	markSeen(s.id)
+	if wasSkipped then
+		clearHighlights()
+		running = false
+		current = 0
+		refresh()
+		return true
+	end
 	-- สำเร็จ: แผงแวบสีทองก่อนปิด
 	stroke.Color = C.Gold
 	task.wait(0.6)
@@ -593,7 +657,8 @@ local function run()
 			if not seen[st.id] then
 				allSeen = false
 				local cutscene = ReplicatedStorage:GetAttribute("CutsceneRunning") == true
-				if not cutscene and st.trigger() and (st.hold or not st.done()) then
+				local enabled = player:GetAttribute("ShowTutorial") ~= false
+				if enabled and not cutscene and st.trigger() and (st.hold or not st.done()) then
 					if not teach(i, st) then
 						watching = false
 						return
@@ -632,19 +697,20 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		refresh()
 	end
 end)
-if IS_TOUCH then
-	panel.Active = true
-	panel.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			hidden = true
-			refresh()
-		end
-	end)
-	tipsTab.Activated:Connect(function()
-		hidden = false
-		refresh()
-	end)
-end
+skipBtn.Activated:Connect(function()
+	if running then
+		skipCurrent = true
+	end
+end)
+hideBtn.Activated:Connect(function()
+	hidden = true
+	refresh()
+end)
+tipsTab.Activated:Connect(function()
+	hidden = false
+	refresh()
+end)
+player:GetAttributeChangedSignal("ShowTutorial"):Connect(refresh)
 player:GetAttributeChangedSignal("Lang"):Connect(function()
 	draw()
 	refresh()
