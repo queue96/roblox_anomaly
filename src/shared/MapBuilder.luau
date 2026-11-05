@@ -6617,6 +6617,14 @@ function MapBuilder.BuildTempleLobby(origin: Vector3?, rebuild: boolean?, spread
 					m.WorldPivot = CFrame.new(base) * CFrame.Angles(0, math.rad(yaw), 0)
 					m.Parent = spooky
 					m:ScaleTo(rngG:NextNumber(0.6, 0.95))
+					-- หญ้าเดินทะลุได้ (ผู้ใช้ 2026-11-05) ไม่บังกล้อง/ไม่โดนคลิก
+					for _, d in ipairs(m:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.CanCollide = false
+							d.CanQuery = false
+							d.CanTouch = false
+						end
+					end
 				end
 			end
 		end
