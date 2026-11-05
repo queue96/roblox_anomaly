@@ -337,16 +337,27 @@ task.spawn(function()
 end)
 
 -- ---------------------------------------------------------------- กล่องถ่านไฟฉายบนเคาน์เตอร์ (ที่ซื้อถ่าน)
--- วางระหว่างกระป๋องเงินกับวิทยุ ข้อความปุ่มแปลตามภาษาใน client/HUDController (PROMPTS.BuyBatteryPrompt)
+-- วางบนพื้นมุมหลังร้าน ชิดผนังหลังใต้โปสเตอร์ (เคาน์เตอร์ของเยอะจนชิดกันเกินไป ผู้ใช้ 2026-11-05)
+-- ข้อความปุ่มแปลตามภาษาใน client/HUDController (PROMPTS.BuyBatteryPrompt)
+local BOX_SPOT = Vector3.new(-3, 0, 27.4) -- x, z (y = พื้นร้านที่ยิงลงไปเจอ)
+local BOX_SCALE = 1.4
 local function buildBatteryBox()
 	local ip = workspace:WaitForChild("InteractiveProps", 60)
 	if not ip or ip:FindFirstChild("BatteryBox") then
 		return
 	end
-	local counter = workspace:FindFirstChild("CounterTable", true)
-	local top = if counter and counter:IsA("BasePart") then counter.Position.Y + counter.Size.Y / 2 else 5.84
-	local z = if counter and counter:IsA("BasePart") then counter.Position.Z + 0.3 else 13.3
-	local base = CFrame.new(1.2, top, z) * CFrame.Angles(0, math.rad(12), 0)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local roofs = {}
+	for _, d in ipairs(workspace:GetDescendants()) do
+		if d:IsA("BasePart") and string.find(d.Name, "Roof") then
+			table.insert(roofs, d)
+		end
+	end
+	params.FilterDescendantsInstances = roofs
+	local hit = workspace:Raycast(Vector3.new(BOX_SPOT.X, 8, BOX_SPOT.Z), Vector3.new(0, -10, 0), params)
+	local floorY = if hit then hit.Position.Y else 2.5
+	local base = CFrame.new(BOX_SPOT.X, floorY, BOX_SPOT.Z) * CFrame.Angles(0, math.rad(-8), 0)
 	local m = Instance.new("Model")
 	m.Name = "BatteryBox"
 	local function box(name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material): Part
@@ -386,12 +397,14 @@ local function buildBatteryBox()
 		end
 	end
 	m.PrimaryPart = floor
+	m:ScaleTo(BOX_SCALE) -- บนพื้นต้องใหญ่ขึ้นหน่อยถึงจะสังเกตเห็น
+	m:PivotTo(m:GetPivot() + Vector3.new(0, floorY - (floor.Position.Y - floor.Size.Y / 2), 0)) -- ก้นกล่องแตะพื้น
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "BuyBatteryPrompt"
 	prompt.ActionText = "Buy battery"
 	prompt.ObjectText = "Battery box"
 	prompt.HoldDuration = 0.4
-	prompt.MaxActivationDistance = 7
+	prompt.MaxActivationDistance = 8
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = floor
 	m.Parent = ip
