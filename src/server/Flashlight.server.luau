@@ -1,15 +1,17 @@
 -- Flashlight.server.luau
 -- Phase 4: ไฟฉายกบ (StarterPack.FrogFlashlight) หยิบขึ้นมาถือแล้วสว่างทันที (ไม่ต้องคลิกเปิด/ปิด)
--- ถ่านไฟฉาย: player attribute "Battery" (0-1) หมดลงตอนถือไฟฉายอยู่ ชาร์จคืนช้าๆ ตอนเก็บ (เปิดค้างตลอดไม่ได้)
+-- ถ่านไฟฉาย: player attribute "Battery" (0-1) หมดลงตอนถือไฟฉายอยู่ ไม่ชาร์จคืนเอง (ผู้ใช้ 2026-11-05: จะขายถ่านด้วย Robux)
+--   เข้าเกมมา (เซิร์ฟเวอร์ใหม่ทุกครั้งที่เริ่มจาก Lobby) = ถ่านเต็ม 1 ก้อน ใช้หมดแล้วต้องเติม
 --   หมด = ไฟดับเองแม้ถืออยู่ (tool attribute On = false) / ใกล้หมด HUD กะพริบไฟ (HUDController)
+-- เติมถ่าน (ตอนซื้อสำเร็จ เช่น MarketplaceService.ProcessReceipt ของ Developer Product ถ่าน):
+--   game.ServerStorage.FlashlightRefill:Fire(player, 1)   -- 1 = เต็มก้อน, 0.5 = ครึ่งก้อน (รวมไม่เกินเต็ม)
 
 local Players = game:GetService("Players")
 local StarterPack = game:GetService("StarterPack")
 
 local TOOL_NAME = "FrogFlashlight"
 local RunService = game:GetService("RunService")
-local DRAIN_TIME = 100 -- วินาทีที่ถ่านเต็มก้อนเปิดได้
-local RECHARGE_TIME = 140 -- วินาทีที่เก็บไว้จนถ่านกลับมาเต็ม
+local DRAIN_TIME = 100 -- วินาทีที่ถ่านเต็มก้อนเปิดได้ (ไม่ชาร์จคืนเองแล้ว)
 
 local hooked: { [Tool]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -153,11 +155,36 @@ RunService.Heartbeat:Connect(function(dt)
 			if b <= 0 and tool:GetAttribute("On") then
 				setOn(tool, false) -- ถ่านหมด
 			end
-		else
-			b = math.min(1, b + step / RECHARGE_TIME)
 		end
 		if math.abs((p:GetAttribute("Battery") or -1) - b) > 0.001 then
 			p:SetAttribute("Battery", b)
 		end
 	end
+end)
+
+-- ---------------------------------------------------------------- เติมถ่าน (ซื้อถ่าน / admin)
+local ServerStorage = game:GetService("ServerStorage")
+local refill = ServerStorage:FindFirstChild("FlashlightRefill") :: BindableEvent?
+if not refill then
+	local ev = Instance.new("BindableEvent")
+	ev.Name = "FlashlightRefill"
+	ev.Parent = ServerStorage
+	refill = ev
+end
+local refillEvent = refill :: BindableEvent
+refillEvent.Event:Connect(function(player: Player, amount: number?)
+	if typeof(player) ~= "Instance" or not player:IsA("Player") then
+		return
+	end
+	local b = player:GetAttribute("Battery")
+	b = if type(b) == "number" then b else 1
+	b = math.min(1, b + math.clamp(amount or 1, 0, 1))
+	player:SetAttribute("Battery", b)
+	-- ถืออยู่ตอนถ่านหมดแล้วไฟดับ: เติมแล้วสว่างทันที
+	local char = player.Character
+	local tool = char and char:FindFirstChild(TOOL_NAME)
+	if tool and tool:IsA("Tool") and b > 0 then
+		setOn(tool, true)
+	end
+	print(("🔋 [%s] เติมถ่านไฟฉาย -> %d%%"):format(player.Name, math.floor(b * 100 + 0.5)))
 end)
