@@ -70,7 +70,8 @@
         "CameraMode": "LockFirstPerson",
         "CharacterWalkSpeed": 10.0,
         "CharacterJumpPower": 0.0,
-        "CharacterJumpHeight": 0.0
+        "CharacterJumpHeight": 0.0,
+        "EnableMouseLockOption": false
       },
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
