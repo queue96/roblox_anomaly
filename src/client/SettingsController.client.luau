@@ -108,11 +108,14 @@ local gui = new("ScreenGui", {
 -- จอเตี้ย (โน้ตบุ๊ก 14 นิ้ว) ย่อตามความสูงจอ (shared/UiFit ค่าเดียวกันทุกกล่อง)
 require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui)
 
+-- (Lobby ที่ยังไม่ได้ sync ไฟล์ SafeArea: ไม่เว้นเพิ่ม แทนที่จะค้างรอ)
+local safeMod = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SafeArea", 5)
+local EDGE = if safeMod then (require(safeMod) :: any).Pad() else 0
 -- ปุ่มตั้งค่า (ขนาดกะทัดรัด โทนดาร์กหม่นคุมธีมเดียวกับ HUD มุมขวาล่าง)
 local gear = new("TextButton", {
 	Name = "SettingsButton",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -16, 0, 14),
+	Position = UDim2.new(1, -16 - EDGE, 0, 14), -- มือถือเว้นขอบเพิ่ม (shared/SafeArea)
 	Size = UDim2.new(0, 0, 0, 32),
 	AutomaticSize = Enum.AutomaticSize.X,
 	BackgroundColor3 = Color3.fromRGB(16, 14, 12),

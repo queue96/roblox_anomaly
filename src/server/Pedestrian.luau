@@ -332,6 +332,10 @@ end
 function Pedestrian.WalkTo(m: Model, target: Vector3, speed: number?, floor: boolean?, ignore: { Instance }?)
 	local an = anims[m]
 	local spd = speed or 7
+	local cap = HumanNPC.PaceLimit(m) -- คนแก่ใส่ผ้านุ่งเดินช้ากว่านี้ (ท่าเดินไม่ซอยเท้า/ไถล)
+	if cap then
+		spd = math.min(spd, cap)
+	end
 	local done = false
 	local conn: RBXScriptConnection
 	conn = RunService.Heartbeat:Connect(function(dt)

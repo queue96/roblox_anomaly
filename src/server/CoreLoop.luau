@@ -47,7 +47,7 @@ local CONFIG = {
 	RejectGhostReward = 0, -- ดึงแผงปิดร้านใส่ผีได้ถูกต้อง (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 	-- เผลอเติมน้ำมันให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงินแล้ว ผู้ใช้ 2026-11-04)
 	StartIncense = 3,
-	AnomalyChance = 0.2, -- (เดิม 0.3 / 0.4 ผีมาถี่เกินไป เล่น 15 นาทีได้แค่ ~300 บาท ผู้ใช้ 2026-11-05)
+	AnomalyChance = 0.3, -- (0.2 แทบไม่เจอผี ผู้ใช้ 2026-11-05 ให้เพิ่ม 10% · เคยเป็น 0.3 / 0.4 ที่ผีมาถี่เกินไป)
 	WalkInChance = 0.35, -- ผีที่มาเป็นคนเดิน: ไม่แปลงร่าง เดินมาซื้อทั้งร่างผีเลย (เห็นได้ไม่ต้องพนมมือ)
 	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
 	RevealDelay = { 4, 12 }, -- พนมมือเห็นผีของลูกค้ารายนี้ได้หลังจอดที่ร้านแล้วนานเท่านี้ (สุ่ม) ก่อนหน้านั้นพนมมือก็ไม่เห็น
@@ -121,7 +121,7 @@ local CONFIG = {
 	OfferingDuration = 150, -- ถวาย 1 ครั้งคุ้มครองนานเท่านี้ (ผู้ใช้ 2026-11-05: เท่าเดิม)
 	OfferingWarn = 25, -- เหลือเวลาคุ้มครองเท่านี้ เตือนทุกคน
 	CurseEvery = { 9, 16 }, -- ศาลไม่คุ้มครอง: อาการแปลกๆ ทุกๆ
-	CurseAnomalyChance = 0.3, -- ศาลไม่คุ้มครอง: ลูกค้าเป็นผีบ่อยขึ้น (เดิม 0.75, ผู้ใช้ 2026-11-05 ให้ 30%)
+	CurseAnomalyChance = 0.4, -- ศาลไม่คุ้มครอง: ลูกค้าเป็นผีบ่อยขึ้น (เดิม 0.75 -> 0.3, ผู้ใช้ 2026-11-05 ให้เพิ่มอีก 10%)
 	CurseSlowSpeed = 5, -- เดินช้า (ปกติ 10)
 
 	-- ปิดร้านใส่ผี (2026-11-03): ใครยังอยู่นอกร้านโดนผีหลอกทันที แล้วผีหายวับไป (ไม่ขี่/เดินออกไปให้ไล่ตาม)
@@ -1927,6 +1927,14 @@ end
 
 local GHOST_VANISH_AFTER = 1.0 -- เติมให้ผีแล้ว: ผีหลอกได้กี่วินาทีผี+รถเริ่มจางหาย
 local GHOST_VANISH_FADE = 0.8 -- จางหายในกี่วินาที
+-- เติมให้ผีเสร็จ: ค่อยๆ เผยร่างผีก่อน แล้วสุ่มท่า (client/JumpscareController.revealGhost)
+--   lunge = พุ่งเข้าหาตรงๆ · side = วูบหลบไปข้างแล้วโผล่จากด้านนั้น · vanish = หายวับ เงียบไปแป๊บ แล้วโผล่ประชิด
+local FUELED_REVEAL = 1.3 -- วินาทีที่ร่างผีค่อยๆ ชัดขึ้น
+local function fueledPlan(): { [string]: any }
+	local style = pick({ "lunge", "side", "vanish" })
+	local pause = if style == "lunge" then 0.22 elseif style == "side" then 0.75 else 0.9 + math.random() * 0.7
+	return { style = style, reveal = FUELED_REVEAL, pause = pause, side = if math.random() < 0.5 then -1 else 1 }
+end
 local ENGINE_RANGE = 200 -- เสียงเครื่องยนต์รถลูกค้าได้ยินไกลเท่านี้ (studs)
 local ENGINE_LEAD = 2 -- ได้ยินเสียงเครื่องกี่วินาทีก่อนรถโผล่ที่จุดเกิด
 local function spawnCustomer(kind: string?)
@@ -2855,13 +2863,16 @@ local function serveCustomer(c: Customer)
 		if ghost then
 			-- เติมให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงิน)
 			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price }, 0.6)
+			-- ผีค่อยๆ เผยร่าง + ท่าก่อนหลอก (ทุกเครื่องเห็นท่าเดียวกัน) แล้วจอผีหลอกถึงขึ้น ธูปดับตอนจอหลอกขึ้น
+			local plan = fueledPlan()
+			TriggerJumpscare:FireAllClients(c.anomaly, v, "fueled", plan)
+			task.wait(plan.reveal + plan.pause)
 			incense -= 1
 			refreshIncense()
 			local spiritPart = spirit:FindFirstChildWhichIsA("BasePart", true)
 			if spiritPart then
 				SoundBank.PlayOneShot("IncenseExtinguish", spiritPart, 85, 3.0)
 			end
-			TriggerJumpscare:FireAllClients(c.anomaly, v, "fueled")
 			stats.fooled += 1
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
 			-- หลอกเสร็จ ผีกับรถหายวับไปตรงนั้น (ไม่ขับ/เดินออกไปต่อ): เริ่มจางตอนจอยังโดนผีหลอกเต็มจออยู่

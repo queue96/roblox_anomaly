@@ -21,6 +21,7 @@ local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local models = ReplicatedStorage:WaitForChild("GhostModels", 60)
 local animIds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostAnimIds")) :: any
+local GhostStretch = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostStretch")) :: any
 if not models then
 	return
 end
@@ -59,13 +60,39 @@ type Kind = {
 	glow: Color3?,
 	focus: string?,
 	after: { any }?,
+	front: { { number } }?, -- จุดหน้าร้านที่สุ่มไปโผล่แทนที่ประจำ (เดินออกมาจากด้านหลังจุดนั้น 3 studs)
+	frontChance: number?,
+	-- ยืดแขน (shared/GhostStretch): at = กี่วินาทีหลังหยุด แขนยาว factor เท่า ค้าง hold วิ แล้วหดกลับ (วนซ้ำทุก every วิ)
+	reach: { side: string, factor: number, at: number, hold: number, every: number }?,
+	longLegs: number?, -- ขายาวกี่เท่า (ค่อยๆ ยืดหลังโผล่ แล้วเดินขาโย่งไปมา / เดินไล่ด้วยขายาว)
+	hop: { height: number, rate: number }?, -- กระโดดดึ๋งๆ ตอนเคลื่อน (สูง studs, ครั้งต่อวินาที)
 }
 local KINDS: { [string]: Kind } = {
 	Tani = { model = "ghost_tani", from = { 28, 7 }, to = { 27.4, 2.1 }, clip = "tani_peek", moveClip = "ghost_idle", speed = 0.8 },
-	Dancer = { model = "ghost_dancer", from = { -33, 17 }, to = { -30, 13 }, clip = "dancer_dance", speed = 0.7 },
-	MaeNak = { model = "ghost_mae_nak", from = { -46, -26 }, to = { -42, -24 }, clip = "nak_cradle", speed = 1.2, after = { 4, "nak_reach" } },
-	Kuman = { model = "ghost_kuman_thong", from = { -38, 17 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "run", speed = 3, huntSpeed = 9 },
-	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6 },
+	-- นางรำ: ครึ่งหนึ่งโผล่ที่ต้นไทร อีกครึ่งมารำหน้าร้าน (ฝั่งตรงข้ามถนน / ข้างลาน) ผู้ใช้ 2026-11-05
+	Dancer = {
+		model = "ghost_dancer",
+		from = { -33, 17 },
+		to = { -30, 13 },
+		clip = "dancer_dance",
+		speed = 0.7,
+		front = { { -16, -20 }, { -4, -21 }, { 8, -20 }, { 12, -2 } },
+		frontChance = 0.5,
+	},
+	-- แม่นาก: ยื่นมือแล้วแขนยืดยาวออกมาหยิบของ (ตำนานยื่นมือเก็บมะนาว)
+	MaeNak = {
+		model = "ghost_mae_nak",
+		from = { -46, -26 },
+		to = { -42, -24 },
+		clip = "nak_cradle",
+		speed = 1.2,
+		after = { 4, "nak_reach" },
+		reach = { side = "R", factor = 4.5, at = 4.8, hold = 2.5, every = 9 },
+	},
+	-- กุมารทอง: กระโดดดึ๋งๆ เข้ามา
+	Kuman = { model = "ghost_kuman_thong", from = { -38, 17 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "run", speed = 3, huntSpeed = 9, hop = { height = 2.6, rate = 1.7 } },
+	-- ผีเด็ก: ขายืดสูงโย่ง เดินไปมา/เดินไล่ด้วยขายาว
+	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4 },
 	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6 },
 	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, glow = Color3.fromRGB(255, 110, 40), focus = "Head" },
 	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "LickLips", moveClip = "TwitchWalk", speed = 2 },
@@ -411,12 +438,28 @@ local function showRigged(kind: string, def: Kind): Model?
 	local lift = def.lift or 0
 	local from = Vector3.new(def.from[1], 0, def.from[2])
 	local to = Vector3.new(def.to[1], 0, def.to[2])
+	if def.front and #def.front > 0 and math.random() < (def.frontChance or 0.5) then
+		local spot = def.front[math.random(#def.front)]
+		to = Vector3.new(spot[1], 0, spot[2])
+		local f = shopFront()
+		local away = Vector3.new(to.X - f.X, 0, to.Z - f.Z)
+		away = if away.Magnitude > 0.01 then away.Unit else Vector3.new(0, 0, -1)
+		from = to + away * 3
+	end
 	local dir = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
 	local total = dir.Magnitude
 	local unit = if total > 0.01 then dir.Unit else Vector3.new(0, 0, -1)
 	-- dirNow = ทิศที่หันตอนเคลื่อน / nil = หยุดอยู่ หันหาหน้าร้าน
+	local hopUntil = 0 -- กระโดดอยู่ (hop): ถึงเวลานี้
+	local function extraY(): number
+		local y = GhostStretch.LegLift(m)
+		if def.hop and os.clock() < hopUntil then
+			y += math.abs(math.sin(os.clock() * math.pi * def.hop.rate)) * def.hop.height
+		end
+		return y
+	end
 	local function place(pos: Vector3, dirNow: Vector3?)
-		local feet = Vector3.new(pos.X, groundAt(pos.X, pos.Z) + lift, pos.Z)
+		local feet = Vector3.new(pos.X, groundAt(pos.X, pos.Z) + lift + extraY(), pos.Z)
 		local look: Vector3
 		if dirNow then
 			look = dirNow
@@ -519,6 +562,7 @@ local function showRigged(kind: string, def: Kind): Model?
 				return
 			end
 			pos += gap.Unit * huntSpeed * dt
+			hopUntil = os.clock() + 0.1
 			place(pos, gap.Unit)
 			return
 		end
@@ -562,8 +606,71 @@ local function showRigged(kind: string, def: Kind): Model?
 			return
 		end
 		pos = from + unit * s
+		hopUntil = os.clock() + 0.1
 		place(pos, unit)
 	end)
+	-- ขาโย่ง: ค่อยๆ ยืดหลังโผล่มาได้แป๊บ (ยกตัวตามความยาวขาที่เพิ่ม: เรียก place ซ้ำทุกเฟรมระหว่างยืด)
+	if def.longLegs then
+		task.delay(2.2, function()
+			if not m.Parent then
+				return
+			end
+			GhostStretch.Set(m, "leg", nil, def.longLegs, 2.5)
+			local t1 = os.clock()
+			while m.Parent and os.clock() - t1 < 2.7 do
+				if arrived and not hunting and not watching then
+					place(pos)
+				end
+				RunService.Heartbeat:Wait()
+			end
+		end)
+		-- ยืนอยู่ขายาว: เดินโย่งไปมาช้าๆ แถวที่ของมัน
+		task.spawn(function()
+			local dirSign = 1
+			while m.Parent do
+				task.wait(3.5)
+				if m.Parent and arrived and not hunting and not watching then
+					play(m, def.moveClip or def.clip)
+					local t1 = os.clock()
+					local side = Vector3.new(-unit.Z, 0, unit.X) * dirSign
+					while m.Parent and arrived and not hunting and not watching and os.clock() - t1 < 2.5 do
+						local dt = RunService.Heartbeat:Wait()
+						pos += side * 1.4 * dt
+						place(pos, side)
+					end
+					dirSign = -dirSign
+					if m.Parent and not hunting then
+						play(m, def.clip)
+					end
+				end
+			end
+		end)
+	end
+	-- ยืดแขนหยิบของ: หลังหยุดสักพัก แขนยาวออกไป ค้าง แล้วหดกลับ (วนซ้ำ)
+	if def.reach then
+		local r = def.reach
+		task.spawn(function()
+			while m.Parent and not arrived do
+				task.wait(0.2)
+			end
+			task.wait(r.at)
+			while m.Parent do
+				if not hunting then
+					GhostStretch.Set(m, "arm", r.side, r.factor, 1.3)
+					task.wait(1.3 + r.hold)
+					if not m.Parent then
+						break
+					end
+					GhostStretch.Set(m, "arm", r.side, 1, 0.9)
+				end
+				task.wait(r.every)
+				if m.Parent and not hunting then
+					play(m, "nak_reach")
+				end
+				task.wait(0.8)
+			end
+		end)
+	end
 	current = { kind = kind, m = m, conn = conn }
 	return m
 end

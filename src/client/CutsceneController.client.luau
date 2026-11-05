@@ -118,9 +118,11 @@ for _, l in ipairs({ speakerLbl, lineLbl }) do
 end
 
 -- ปุ่มข้าม (Modal = ปล่อยเมาส์ออกมากดได้แม้กล้องล็อกมุมมองบุคคลที่ 1)
+--   อยู่ในกรอบ safe area (shared/SafeArea): จอพื้นหลังเต็มขอบ แต่ปุ่มไม่ชิดขอบโค้ง/ติ่งจอมือถือ
+local safeFrame = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SafeArea")).Frame(gui)
 local skipBtn = Instance.new("TextButton")
 skipBtn.AnchorPoint = Vector2.new(1, 1)
-skipBtn.Position = UDim2.new(1, -24, 1, -18)
+skipBtn.Position = UDim2.new(1, -16, 1, -10)
 skipBtn.Size = UDim2.fromOffset(0, 30)
 skipBtn.AutomaticSize = Enum.AutomaticSize.X
 skipBtn.BackgroundColor3 = C.Panel
@@ -131,7 +133,7 @@ skipBtn.TextSize = 15
 skipBtn.Modal = true
 skipBtn.AutoButtonColor = true
 skipBtn.ZIndex = 6
-skipBtn.Parent = gui
+skipBtn.Parent = safeFrame
 Instance.new("UICorner", skipBtn).CornerRadius = UDim.new(0, 3)
 local skipPad = Instance.new("UIPadding", skipBtn)
 skipPad.PaddingLeft, skipPad.PaddingRight = UDim.new(0, 12), UDim.new(0, 12)
@@ -140,7 +142,7 @@ skipStroke.Color = C.Line
 skipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 local skipHint = Instance.new("TextLabel")
 skipHint.AnchorPoint = Vector2.new(1, 1)
-skipHint.Position = UDim2.new(1, -24, 1, -52)
+skipHint.Position = UDim2.new(1, -16, 1, -44)
 skipHint.Size = UDim2.fromOffset(300, 16)
 skipHint.BackgroundTransparency = 1
 skipHint.TextXAlignment = Enum.TextXAlignment.Right
@@ -148,7 +150,7 @@ skipHint.FontFace = FONT
 skipHint.TextSize = 12
 skipHint.TextColor3 = C.Dim
 skipHint.ZIndex = 6
-skipHint.Parent = gui
+skipHint.Parent = safeFrame
 
 -- ---------------------------------------------------------------- แสง: เย็นใกล้ค่ำ / เช้ามืด (เฉพาะเครื่องตัวเอง แล้วคืนค่ากลางคืน)
 local function atmo(): Atmosphere?

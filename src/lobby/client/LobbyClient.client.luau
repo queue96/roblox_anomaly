@@ -514,7 +514,9 @@ if IS_TOUCH then
 	new("UIScale", { Scale = scale }, setup)
 	new("UIScale", { Scale = scale }, status)
 	-- มุมขวาบนบนมือถือมีปุ่มสมุดผีอยู่แล้ว: เลื่อนสถานะห้องลงมาอีกนิด
-	status.Position = UDim2.new(1, -14, 0, 64)
+	local safeMod = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SafeArea", 5)
+	local edge = if safeMod then (require(safeMod) :: any).Pad() else 0 -- มือถือเว้นขอบเพิ่ม (shared/SafeArea)
+	status.Position = UDim2.new(1, -14 - edge, 0, 64)
 end
 local statusHead = header(status)
 statusHead.TextSize = 19

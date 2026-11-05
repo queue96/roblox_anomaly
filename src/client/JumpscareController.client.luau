@@ -174,10 +174,12 @@ grey.Enabled = false
 grey.Parent = Lighting
 
 -- ---------------------------------------------------------------- เลือกตัวผีมาใส่จอ
-local function ghostModel(key: string?, focus: string, source: Instance?): (Model?, BasePart?)
+local function ghostModel(key: string?, focus: string, source: Instance?): (Model?, BasePart?, { Instance })
 	local m = Instance.new("Model")
 	local focusPart: BasePart? = nil
+	local roots: { Instance } = {} -- ของจริงในฉากที่ถูก Clone มา (ตอนเผยร่างผีในฉาก: ซ่อนของจริงไว้)
 	local function addClone(inst: Instance)
+		table.insert(roots, inst)
 		local c = inst:Clone()
 		-- ชาวบ้านแบบใหม่ (กระดูก): ท่าที่กำลังเล่นอยู่ไม่ติดมากับ Clone -> คัดลอก Transform ของกระดูกทีละท่อน
 		local srcList, dstList = inst:GetDescendants(), c:GetDescendants()
@@ -333,14 +335,17 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 	end
 	if not focusPart then
 		m:Destroy()
-		return nil, nil
+		return nil, nil, roots
 	end
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("BasePart") then
 			d.Anchored = true
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
 		end
 	end
-	return m, focusPart
+	return m, focusPart, roots
 end
 
 -- ---------------------------------------------------------------- เอฟเฟกต์พิเศษ
@@ -377,7 +382,6 @@ local function hairStrands()
 end
 
 -- ---------------------------------------------------------------- เล่นผีหลอก
-local busy = false
 -- เติมน้ำมันให้ผี (reason "fueled"): เล่นแทนเสียงประจำผีใน FX · โหลดไฟล์ไว้ตั้งแต่เข้าเกม เสียงจึงมาพร้อมภาพ (โหลดตอนจะเล่นช้าไป ~0.5 วิ)
 -- สุ่มจากไฟล์ที่โหลดสำเร็จเท่านั้น ไฟล์ที่ Roblox ยังไม่อนุมัติจะถูกข้ามไปเอง ถ้าไม่มีไฟล์ไหนพร้อมเลยกลับไปใช้เสียงใน FX
 local fueledSounds: { Sound } = {}
@@ -411,12 +415,15 @@ local function playFueledSound(): boolean
 	return true
 end
 
-local function runScare(key: string?, source: Instance?, reason: string?)
-	if busy then
-		return
-	end
-	busy = true
+-- จอผีหลอกเต็มจอ (รวมไม่เกิน 2 วินาที: พุ่งเข้า 0.18 + ค้าง ~1.0 + จางออก 0.55)
+--   opts.side = -1/1 โผล่จากด้านซ้าย/ขวาของจอ (ผีวูบหลบไปด้านข้างก่อน) · opts.instant = โผล่ประชิดทันที ไม่พุ่ง (ผีหายวับแล้วกลับมา)
+local DASH = 0.18
+local HOLD = 1.0
+local FADE_OUT = 0.55
+local function showScare(key: string?, source: Instance?, reason: string?, opts: { side: number?, instant: boolean? }?)
 	local fx = (key and FX[key]) or DEFAULT_FX
+	local side = (opts and opts.side) or 0
+	local instant = (opts and opts.instant) == true
 	if not (reason == "fueled" and playFueledSound()) then
 		for _, s in ipairs(fx.sounds) do
 			task.delay(s[3] or 0, function()
@@ -427,7 +434,7 @@ local function runScare(key: string?, source: Instance?, reason: string?)
 
 	local model, focus = ghostModel(key, fx.focus, source)
 	-- ผีทั้งตัวสีทึบ (หุ่นไล่กา/ตานี) ต้องสว่างกว่าหน้าคนนิดหน่อย ไม่งั้นจมหายในจอมืด
-	vp.Ambient = if fx.focus == "scarecrow" or fx.focus == "tani" or fx.focus == "shadow" then Color3.fromRGB(175, 165, 160) else Color3.fromRGB(120, 110, 110)
+	vp.Ambient = if fx.focus == "scarecrow" or fx.focus == "tani" or fx.focus == "shadow" then Color3.fromRGB(175, 165, 160) else Color3.fromRGB(135, 125, 125)
 	local function clearViewport()
 		for _, ch in ipairs(vp:GetChildren()) do
 			if ch ~= vpCam then
@@ -445,7 +452,8 @@ local function runScare(key: string?, source: Instance?, reason: string?)
 	gui.Enabled = true
 	bg.BackgroundTransparency = 0.05
 	tintFrame.BackgroundColor3 = fx.tint
-	tintFrame.BackgroundTransparency = 0.55
+	tintFrame.BackgroundTransparency = 0.6
+	vp.ImageTransparency = 0
 	drips:ClearAllChildren()
 	if fx.extra == "blood" then
 		bloodDrips()
@@ -459,8 +467,14 @@ local function runScare(key: string?, source: Instance?, reason: string?)
 		tintFrame.BackgroundTransparency = 0
 		TweenService:Create(tintFrame, TweenInfo.new(0.35), { BackgroundTransparency = 0.6 }):Play()
 	end
+	if instant then
+		-- โผล่ประชิดทันที: แฟลชขาววูบเดียว
+		tintFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+		tintFrame.BackgroundTransparency = 0.2
+		TweenService:Create(tintFrame, TweenInfo.new(0.25), { BackgroundTransparency = 0.6, BackgroundColor3 = fx.tint }):Play()
+	end
 
-	-- กล้องใน Viewport: เริ่มไกล แล้วพุ่งเข้าหน้า (หน้า = -Z ของชิ้นโฟกัส)
+	-- กล้องใน Viewport: เริ่มไกล (หรือจากด้านข้าง) แล้วเข้ามาหยุดที่ระยะเห็นหน้า+ไหล่ชัดๆ (หน้า = -Z ของชิ้นโฟกัส)
 	local conn: RBXScriptConnection? = nil
 	if focus then
 		local target = focus.Position
@@ -495,48 +509,59 @@ local function runScare(key: string?, source: Instance?, reason: string?)
 			size = math.max(bsize.Y * 0.55, 2.5) -- ถอยให้เห็นทั้งหัว (ตาหุ่นไล่กาเล็กมากบนหน้ากว้าง)
 		end
 		local up = Vector3.new(0, 1, 0)
-		local far, near = size * 9, size * 1.05 -- ใกล้จนหน้าเกือบเต็มจอ
+		local right = front:Cross(up)
+		if right.Magnitude < 0.01 then
+			right = Vector3.new(1, 0, 0)
+		else
+			right = right.Unit
+		end
+		-- หยุดห่างพอเห็นหน้าทั้งหน้า + ไหล่ (เดิม 1.05 ใกล้จนเห็นแค่จมูก/ตา)
+		local far, near = size * 9, size * 2.1
 		local t0 = os.clock()
 		conn = RunService.RenderStepped:Connect(function()
 			local t = os.clock() - t0
-			local k = math.clamp(t / 0.16, 0, 1) -- 0.16 วิ พุ่งเข้ามา
-			local dist = far + (near - far) * (k * k)
-			local shake = if k >= 1 then Vector3.new(math.random(-10, 10), math.random(-10, 10), 0) / 100 * size else Vector3.zero
-			local camPos = target + front * dist + shake
-			vpCam.CFrame = CFrame.lookAt(camPos, target + shake * 0.5)
+			local k = if instant then 1 else math.clamp(t / DASH, 0, 1)
+			local ease = 1 - (1 - k) * (1 - k)
+			local dist = if side ~= 0 then near else far + (near - far) * (k * k)
+			-- โผล่จากด้านข้าง: เลื่อนกล้องเข้าจากฝั่งนั้น
+			local lateral = if side ~= 0 then right * (-side) * size * 5 * (1 - ease) else Vector3.zero
+			-- สั่นเบาๆ หลังเข้าถึงหน้า (สั่นแรงเกินไปจะมองหน้าผีไม่ชัด)
+			local shake = if k >= 1 and t < 0.6 then Vector3.new(math.random(-4, 4), math.random(-4, 4), 0) / 100 * size else Vector3.zero
+			local camPos = target + front * dist + lateral + shake
+			vpCam.CFrame = CFrame.lookAt(camPos, target + shake * 0.5 + lateral * 0.3)
 			if fx.spin and model then
 				-- หันหัวกลับมาทางเราแบบกระตุก
-				local ang = math.rad(math.clamp((t - 0.2) / 0.25, 0, 1) * 180)
+				local ang = math.rad(math.clamp((t - 0.15) / 0.22, 0, 1) * 180)
 				focus.CFrame = CFrame.new(target) * (focus.CFrame - focus.Position) * CFrame.Angles(0, ang - (focus:GetAttribute("Spun") or 0), 0)
 				focus:SetAttribute("Spun", ang)
 			end
-			-- กะพริบ
-			vp.ImageTransparency = if t > 0.7 and math.random() < 0.25 then 0.6 else 0
+			-- กะพริบช่วงท้าย
+			vp.ImageTransparency = if t > 0.8 and math.random() < 0.2 then 0.6 else 0
 		end)
 	end
 
 	-- สั่นกล้องจริงด้วย
 	local cam = Workspace.CurrentCamera
 	task.spawn(function()
-		for _ = 1, 14 do
+		for _ = 1, 10 do
 			if cam then
-				cam.CFrame *= CFrame.Angles(math.rad(math.random(-3, 3)), math.rad(math.random(-3, 3)), 0)
+				cam.CFrame *= CFrame.Angles(math.rad(math.random(-2, 2)), math.rad(math.random(-2, 2)), 0)
 			end
 			task.wait(0.03)
 		end
 	end)
 
-	task.wait(gui:GetAttribute("DebugHold") or 1.25) -- (ทดสอบ: ตั้ง Attribute DebugHold ให้ค้างนานขึ้น)
+	task.wait(gui:GetAttribute("DebugHold") or (DASH + HOLD)) -- (ทดสอบ: ตั้ง Attribute DebugHold ให้ค้างนานขึ้น)
 	-- จางออก
-	TweenService:Create(bg, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(vp, TweenInfo.new(0.35), { ImageTransparency = 1 }):Play()
-	TweenService:Create(tintFrame, TweenInfo.new(0.8), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(bg, TweenInfo.new(FADE_OUT), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(vp, TweenInfo.new(FADE_OUT * 0.7), { ImageTransparency = 1 }):Play()
+	TweenService:Create(tintFrame, TweenInfo.new(FADE_OUT), { BackgroundTransparency = 1 }):Play()
 	for _, d in ipairs(drips:GetChildren()) do
 		if d:IsA("Frame") then
-			TweenService:Create(d, TweenInfo.new(1.2), { BackgroundTransparency = 1 }):Play()
+			TweenService:Create(d, TweenInfo.new(FADE_OUT), { BackgroundTransparency = 1 }):Play()
 		end
 	end
-	task.wait(0.9)
+	task.wait(FADE_OUT)
 	if conn then
 		conn:Disconnect()
 	end
@@ -545,10 +570,167 @@ local function runScare(key: string?, source: Instance?, reason: string?)
 	vp.ImageTransparency = 0
 	clearViewport()
 	drips:ClearAllChildren()
+end
+
+-- ---------------------------------------------------------------- เติมน้ำมันให้ผีเสร็จ: เผยร่างผีในฉากก่อนหลอก
+-- server สุ่มท่า (ทุกคนเห็นเหมือนกัน) plan = { style, reveal, pause, side }
+--   "lunge"  เผยร่างแล้วพุ่งเข้าหาเราตรงๆ
+--   "side"   เผยร่างแล้ววูบหลบไปด้านซ้าย/ขวา หายไปแป๊บ แล้วโผล่จากด้านนั้น
+--   "vanish" เผยร่างแล้วหายวับ เงียบไปพักหนึ่ง แล้วโผล่ประชิดหน้าทันที
+local revealGrade = Instance.new("ColorCorrectionEffect")
+revealGrade.Name = "GhostReveal"
+revealGrade.Enabled = false
+revealGrade.Parent = Lighting
+
+local function revealGhost(key: string?, source: Instance?, plan: { [string]: any }): { side: number?, instant: boolean? }
+	local fx = (key and FX[key]) or DEFAULT_FX
+	local style = if type(plan.style) == "string" then plan.style else "lunge"
+	local reveal = if type(plan.reveal) == "number" then plan.reveal else 1.3
+	local pause = if type(plan.pause) == "number" then plan.pause else 0.25
+	local side = if plan.side == -1 then -1 else 1
+	local opts = { side = if style == "side" then side else 0, instant = style == "vanish" }
+	local cam = Workspace.CurrentCamera
+	local model, focus, roots = nil, nil, {}
+	if source and source:IsDescendantOf(Workspace) then
+		model, focus, roots = ghostModel(key, fx.focus, source)
+	end
+	if not (model and focus and cam) then
+		if model then
+			model:Destroy()
+		end
+		task.wait(reveal + pause)
+		return opts
+	end
+
+	-- ร่างผี (Clone) ซ้อนทับของจริง: ค่อยๆ ชัดขึ้น ส่วนของจริง (หน้าคนปกติ) ค่อยๆ จางไป
+	local fade: { { any } } = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			table.insert(fade, { d, d.Transparency })
+			d.Transparency = 1
+		end
+	end
+	local hidden: { any } = {}
+	for _, r in ipairs(roots) do
+		local list = r:GetDescendants()
+		table.insert(list, r)
+		for _, d in ipairs(list) do
+			if d:IsA("BasePart") or d:IsA("Decal") then
+				table.insert(hidden, d)
+			end
+		end
+	end
+	model.Name = "GhostReveal"
+	model.Parent = Workspace
+
+	local function setAlpha(a: number)
+		for _, f in ipairs(fade) do
+			f[1].Transparency = 1 + (f[2] - 1) * a
+		end
+	end
+	local function hideReal(a: number)
+		for _, d in ipairs(hidden) do
+			if d.Parent then
+				d.LocalTransparencyModifier = a
+			end
+		end
+	end
+
+	revealGrade.Enabled = true
+	revealGrade.Brightness = 0
+	revealGrade.Saturation = 0
+	revealGrade.Contrast = 0
+	local t0 = os.clock()
+	while true do
+		local a = math.clamp((os.clock() - t0) / reveal, 0, 1)
+		local e = a * a * (3 - 2 * a)
+		-- ครึ่งหลังกะพริบวูบวาบเล็กน้อย (ร่างผีไม่นิ่ง)
+		local flick = if a > 0.45 and a < 1 and math.random() < 0.18 then 0.35 else 0
+		setAlpha(math.max(0, e - flick))
+		hideReal(e)
+		revealGrade.Brightness = -0.12 * e
+		revealGrade.Saturation = -0.45 * e
+		revealGrade.Contrast = 0.15 * e
+		if a >= 1 then
+			break
+		end
+		RunService.RenderStepped:Wait()
+	end
+	setAlpha(1)
+
+	local start = model:GetPivot()
+	local camPos = cam.CFrame.Position
+	if style == "lunge" then
+		-- พุ่งเข้าหากล้อง (หยุดห่างราว 3 studs แล้วตัดเข้าจอผีหลอก)
+		local toCam = camPos - focus.Position
+		local travel = toCam * math.max(0, 1 - 3 / math.max(toCam.Magnitude, 3))
+		local t1 = os.clock()
+		while true do
+			local k = math.clamp((os.clock() - t1) / pause, 0, 1)
+			model:PivotTo(start + travel * (k * k))
+			if k >= 1 then
+				break
+			end
+			RunService.RenderStepped:Wait()
+		end
+	elseif style == "side" then
+		-- วูบหลบไปด้านข้าง (ซ้าย/ขวาของจอเรา) แล้วจางหาย รอแป๊บ ค่อยโผล่จากด้านนั้น
+		local dir = cam.CFrame.RightVector * side
+		local dash = math.min(0.25, pause)
+		local t1 = os.clock()
+		while true do
+			local k = math.clamp((os.clock() - t1) / dash, 0, 1)
+			model:PivotTo(start + dir * 9 * (k * k))
+			setAlpha(1 - k * 0.8)
+			if k >= 1 then
+				break
+			end
+			RunService.RenderStepped:Wait()
+		end
+		setAlpha(0)
+		task.wait(math.max(0, pause - dash))
+	else
+		-- หายวับ: เงียบ มืดลงนิดหนึ่ง แล้วโผล่ประชิด
+		setAlpha(0)
+		TweenService:Create(revealGrade, TweenInfo.new(0.3), { Brightness = -0.3 }):Play()
+		task.wait(pause)
+	end
+
+	model:Destroy()
+	TweenService:Create(revealGrade, TweenInfo.new(0.6), { Brightness = 0, Saturation = 0, Contrast = 0 }):Play()
+	task.delay(0.7, function()
+		revealGrade.Enabled = false
+	end)
+	-- ของจริงซ่อนไว้ต่อ (server ค่อยๆ ลบผี+รถทิ้งหลังหลอก) ถ้ายังอยู่อีกนานค่อยคืน
+	task.delay(5, function()
+		hideReal(0)
+	end)
+	return opts
+end
+
+local busy = false
+local function runScare(key: string?, source: Instance?, reason: string?, plan: any?)
+	if busy then
+		return
+	end
+	busy = true
+	local ok, err = pcall(function()
+		local opts = nil
+		if reason == "fueled" and type(plan) == "table" then
+			opts = revealGhost(key, source, plan)
+		end
+		showScare(key, source, reason, opts)
+	end)
+	if not ok then
+		warn("[Jumpscare] " .. tostring(err))
+		gui.Enabled = false
+		grey.Enabled = false
+		revealGrade.Enabled = false
+	end
 	busy = false
 end
-TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?, reason: string?)
-	runScare(key, source, reason)
+TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?, reason: string?, plan: any?)
+	runScare(key, source, reason, plan)
 end)
 -- ผีหลอกเฉพาะเครื่องนี้ (ผีฉาก: client/SceneryGhostWatch) ไม่ผ่านเซิร์ฟเวอร์ คนอื่นไม่เห็น
 _G.LocalJumpscare = function(key: string, source: Instance?)

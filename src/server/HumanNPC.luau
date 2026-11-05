@@ -70,6 +70,20 @@ local HAIRS_BY: { [string]: { string } } = {
 
 -- ความเร็วเดินที่ท่า walk ตั้งใจไว้ (studs/วินาที) ใช้ปรับความเร็วท่าให้เท้าไม่ไถลพื้น
 local WALK_CLIP_SPEED = 4.3
+-- ความเร็วตามธรรมชาติของแต่ละท่า (studs/วินาที ที่ความเร็วท่า 1 เท้าไม่ไถล) วัดจากระยะก้าวจริงของเท้าใน Studio
+-- 2026-11-05 (ปรับเทียบให้ human_base walk = 4.3) · walk_base = ท่าเดินของ human_base เล่นบนตัวละครนี้
+-- เดิมทุกตัวคิดเป็น 4.3 หมด: คนแก่/ผ้าซิ่นที่ก้าวสั้นมากเดินที่ 7 studs/วินาที -> ท่าเร่งจนสุด (1.8) แล้วเท้ายังไถล ดูเดินซอยเท้าไม่ชัด
+local NATURAL: { [string]: { [string]: number } } = {
+	human_base = { walk = 4.3, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
+	human_female = { walk = 3.9, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
+	human_child = { walk = 3.1, walk_base = 2.4, walk_skirt = 1.45, run = 10.5, run_skirt = 4.25 },
+	human_elder_male = { walk = 2.0, walk_base = 4.05, walk_skirt = 0.9, run = 7.7, run_skirt = 3.1 },
+	human_elder_female = { walk = 1.7, walk_base = 3.75, walk_skirt = 0.75, run = 6.4, run_skirt = 2.6 },
+}
+-- เลือกท่าแรกที่ต้องเร่งไม่เกินนี้ (เร่งมากกว่านี้ดูซอยเท้าถี่ผิดธรรมชาติ)
+local MAX_CLIP_RATE = 1.9
+local GAITS_SKIRT = { "walk_skirt", "run_skirt" } -- ผ้านุ่งยาว: ห้ามก้าวยาว (ขาทะลุผ้า) เร็วขึ้น = ก้าวสั้นถี่แบบรีบ
+local GAITS = { "walk", "walk_base", "run" }
 
 type Rig = {
 	animators: { Animator },
@@ -114,9 +128,11 @@ local function animIds(char: string?): { [string]: string }
 	local base = all[DEFAULT_CHAR] or {}
 	local own = char and all[char]
 	if not own or char == DEFAULT_CHAR then
-		return base
+		return setmetatable({ walk_base = base.walk }, { __index = base }) :: any
 	end
-	return setmetatable(table.clone(own), { __index = base }) :: any
+	local t = table.clone(own)
+	t.walk_base = base.walk -- ท่าเดินก้าวยาวชัดของ human_base (ยืมใช้ตอนต้องเดินเร็วกว่าท่าของตัวเองไหว)
+	return setmetatable(t, { __index = base }) :: any
 end
 
 local function pickOutfit(opts: { [string]: any }, char: string): { [string]: any }
@@ -386,7 +402,7 @@ local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack
 		tr.Looped = true
 		t[clip] = tr
 		-- โหลดท่ายืน/เดินไว้ล่วงหน้าตั้งแต่ครั้งแรก: ท่าที่ยังโหลดไม่เสร็จเล่นไม่ออก ตัวจะกลับเป็นท่า A แวบหนึ่ง
-		for _, c in ipairs({ "idle", "walk", "walk_skirt" }) do
+		for _, c in ipairs({ "idle", "walk", "walk_skirt", "walk_base", "run_skirt" }) do
 			if t[c] == nil and ids[c] then
 				local pa = Instance.new("Animation")
 				pa.AnimationId = ids[c]
@@ -496,6 +512,22 @@ function HumanNPC.Hold(m: Model, clip: string, on: boolean)
 	end
 end
 
+-- เดินเร็วสุดที่ท่ายังดูเป็นธรรมชาติ (เท้าไม่ไถล) ของตัวนี้ (nil = ไม่จำกัด / ไม่ใช่คนแบบมีกระดูก)
+--   คนแก่ใส่ผ้านุ่ง: ก้าวสั้นมาก สั่งเดิน 7 studs/วินาทีจะซอยเท้าถี่จนดูไม่ออกว่าเดิน -> Pedestrian.WalkTo เดินช้าลงเอง
+function HumanNPC.PaceLimit(m: Model): number?
+	local rig = rigs[m]
+	if not rig or rig.seated then
+		return nil
+	end
+	local nat = NATURAL[rig.char] or NATURAL.human_base
+	local list = if rig.skirt then GAITS_SKIRT else GAITS
+	local best = 0
+	for _, c in ipairs(list) do
+		best = math.max(best, nat[c] or 0)
+	end
+	return if best > 0 then best * 1.7 else nil
+end
+
 -- เดิน / ยืน (speed = studs ต่อวินาทีที่ตัวเลื่อนจริง)
 function HumanNPC.SetMoving(m: Model, moving: boolean, speed: number?)
 	local rig = rigs[m]
@@ -507,8 +539,27 @@ function HumanNPC.SetMoving(m: Model, moving: boolean, speed: number?)
 		return
 	end
 	if moving then
-		local clip = if rig.skirt then "walk_skirt" else "walk"
-		HumanNPC.Play(m, clip, math.clamp((speed or WALK_CLIP_SPEED) / WALK_CLIP_SPEED, 0.6, 1.8))
+		local spd = speed or WALK_CLIP_SPEED
+		local nat = NATURAL[rig.char] or NATURAL.human_base
+		local list = if rig.skirt then GAITS_SKIRT else GAITS
+		local clip, rate = list[#list], 1
+		for _, c in ipairs(list) do
+			local r = spd / (nat[c] or WALK_CLIP_SPEED)
+			if r <= MAX_CLIP_RATE then
+				clip, rate = c, r
+				break
+			end
+			clip, rate = c, r
+		end
+		-- เปลี่ยนท่าบ่อยๆ ตอนความเร็วก้ำกึ่งดูกระตุก: ท่าเดิมยังใช้ได้ (ไม่เร่งเกิน 2.2) ใช้ต่อ
+		local cur = rig.current
+		if cur and cur ~= clip and table.find(list, cur) then
+			local r = spd / (nat[cur] or WALK_CLIP_SPEED)
+			if r >= 0.6 and r <= 2.2 then
+				clip, rate = cur, r
+			end
+		end
+		HumanNPC.Play(m, clip, math.clamp(rate, 0.5, 2.2))
 	else
 		HumanNPC.Play(m, "idle")
 	end
