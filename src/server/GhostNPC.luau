@@ -97,6 +97,10 @@ local function prep(name: string): Model?
 	end
 	local m = t:Clone()
 	m:SetAttribute("GhostName", name)
+	local sc = ids().SCALE
+	if sc and sc[name] and sc[name] ~= 1 then
+		m:ScaleTo(sc[name])
+	end
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("BasePart") then
 			d.Anchored = true

@@ -310,6 +310,15 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 	local ct = plan.coffin and props and props:FindFirstChild("Coffin") :: Model?
 	if ct then
 		coffin = ct:Clone()
+		-- moved by script every frame: no physics, no pushing players (a push would count as a "Move" fault)
+		for _, d in ipairs((coffin :: Model):GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanTouch = false
+				d.CanQuery = false
+			end
+		end
 		;(coffin :: Model).Parent = group
 		for _, d in ipairs(live[1].m:GetDescendants()) do
 			if d:IsA("Bone") and d.Name == "hand.R" then
@@ -361,8 +370,12 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 		end
 		local a = math.clamp((os.clock() - phaseStart) / durations[phase], 0, 1)
 		for _, e in ipairs(live) do
-			if e.m.Parent and not e.g.mirrorOf then
+			-- right-pole bearers follow the coffin (carry); with no coffin they walk their own path like the others
+			if e.m.Parent and not (e.g.mirrorOf and coffin and hand) then
 				placeAt(e, phase, a)
+				if e.g.mirrorOf then
+					e.m:PivotTo(e.m:GetPivot() * CFrame.new(POLE_SPAN, 0, 0)) -- beside its partner, not inside it
+				end
 			end
 		end
 		carry()
@@ -370,8 +383,14 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 	local function setPhase(n: number)
 		-- จบช่วงเดิมให้ตรงจุดพอดี แล้วเริ่มช่วงใหม่
 		for _, e in ipairs(live) do
-			placeAt(e, phase, 1)
+			if not (e.g.mirrorOf and coffin and hand) then
+				placeAt(e, phase, 1)
+				if e.g.mirrorOf then
+					e.m:PivotTo(e.m:GetPivot() * CFrame.new(POLE_SPAN, 0, 0))
+				end
+			end
 		end
+		carry()
 		phase = n
 		phaseStart = os.clock()
 		for _, e in ipairs(live) do

@@ -27,7 +27,7 @@ end
 
 local CONFIG = {
 	FirstAfter = { 120, 240 }, -- หลังเปิดร้าน (วินาที) ผีตัวแรก
-	Every = { 240, 420 }, -- ห่างกันเท่านี้
+	Every = { 330, 540 }, -- ห่างกันเท่านี้ (เดิม 240-420 ผีมาถี่เกิน ผู้ใช้ 2026-11-05)
 	MaxPerNight = 3, -- คืนละไม่เกิน
 	KindsPerNight = 4, -- สุ่มชนิดผีไว้คืนละเท่านี้แบบ (ไม่ออกครบทุกตัว)
 	Stay = { 30, 45 }, -- โผล่ค้างกี่วินาที (ถ้าไม่มีใครหันไปเห็น ก็จางหายไปเอง)
@@ -37,6 +37,8 @@ local CONFIG = {
 	HuntSpeed = 7.5, -- เดินไล่ (studs/วินาที) ผู้เล่นเดิน 10 จึงเดินหนีได้
 	HuntReach = 5, -- ถึงตัวในระยะนี้ = ผีหลอก
 	HuntMax = 14, -- ไล่นานสุดกี่วินาที แล้วหลอกเลย (เดินหนีไม่พ้น ถ้ายังอยู่นอกร้าน)
+	WatchTime = 5, -- ร้านยังเปิด: ผีที่ถูกเห็นยืนมองนานเท่านี้แล้วจางหาย (ไม่เดินมาหา)
+	WatchTransparency = 0.55, -- ตอนยืนมองจางลงเหลือเท่านี้ (เห็นลางๆ)
 	GlowColor = Color3.fromRGB(185, 205, 255),
 	SwarmCount = 14, -- ศพห่อผ้าตอนไฟดับ
 	SwarmRadius = { 24, 72 },
@@ -67,7 +69,7 @@ local KINDS: { [string]: Kind } = {
 	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6 },
 	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, glow = Color3.fromRGB(255, 110, 40), focus = "Head" },
 	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "LickLips", moveClip = "TwitchWalk", speed = 2 },
-	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 4, path = true },
+	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 14, path = true }, -- 5x size (GhostAnimIds.SCALE): stride 5x longer too
 	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
 	Shadow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
@@ -138,6 +140,10 @@ local function spawnRigged(name: string): Model?
 		return nil
 	end
 	local m = t:Clone()
+	local sc = animIds.SCALE and animIds.SCALE[name]
+	if sc and sc ~= 1 then
+		m:ScaleTo(sc)
+	end
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("BasePart") then
 			d.Anchored = true
@@ -305,6 +311,26 @@ local function shutterClosed(): boolean
 	return door.Position.Y < (openY + closedY) / 2
 end
 
+-- ผู้เล่นอยู่ในร้านไหม (เหมือน CoreLoop.insideShop ฝั่ง server: ในกรอบเพิง และหลังแนวแผงสังกะสี)
+local function insideShop(pos: Vector3): boolean
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure") :: Model?
+	local props = Workspace:FindFirstChild("InteractiveProps")
+	local door = props and props:FindFirstChild("ShutterDoor") :: BasePart?
+	if not (shack and door) then
+		return false
+	end
+	local cf, size = shack:GetBoundingBox()
+	local lp = cf:PointToObjectSpace(pos)
+	return math.abs(lp.X) < size.X / 2 - 0.4 and pos.Z > door.Position.Z + 0.3 and lp.Z < size.Z / 2
+end
+
+-- ผีมาหาได้เฉพาะคนที่ถูกขังอยู่นอกร้าน (แผงปิดแล้ว) ร้านยังเปิดอยู่ = ผีแค่ยืนมองลางๆ แล้วจางหาย (ผู้ใช้ 2026-11-05)
+local function lockedOut(): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	return root ~= nil and shutterClosed() and not insideShop(root.Position)
+end
+
 -- ผีอยู่ในสายตาผู้เล่นตอนนี้ไหม (อยู่ค่อนไปทางกลางจอ ไม่ไกลเกิน ไม่มีของทึบบัง)
 local seeParams = RaycastParams.new()
 seeParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -430,9 +456,41 @@ local function showRigged(kind: string, def: Kind): Model?
 	local hunting = false
 	local struck = false
 	local huntStart = 0
-	local wasClosed = false
+	local watching = false
+	local watchUntil = 0
+	local function faceMe()
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local d = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+			if d.Magnitude > 0.1 then
+				place(pos, d.Unit)
+			end
+		end
+	end
+	local function startHunt()
+		hunting = true
+		watching = false
+		huntStart = os.clock()
+		fade(m, 0, 0.6)
+		if current and current.m == m then
+			current.hunting = true
+		end
+		play(m, def.moveClip or def.clip)
+	end
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not m.Parent or struck then
+			return
+		end
+		-- ร้านยังเปิด: ยืนนิ่งหันมามองคนที่เห็น จางๆ แล้วหายไป (แผงปิดลงระหว่างนั้นและคนนี้อยู่นอกร้าน = เริ่มมาหา)
+		if watching then
+			if lockedOut() then
+				startHunt()
+				return
+			end
+			faceMe()
+			if os.clock() >= watchUntil then
+				hide(2.5)
+			end
 			return
 		end
 		if hunting then
@@ -442,14 +500,24 @@ local function showRigged(kind: string, def: Kind): Model?
 				hide(1)
 				return
 			end
+			-- แผงเปิดขึ้น / หนีเข้าร้านได้แล้ว = เลิกไล่ กลับไปยืนมองแล้วจางหาย
+			if not lockedOut() then
+				hunting = false
+				watching = true
+				watchUntil = os.clock() + CONFIG.WatchTime
+				fade(m, CONFIG.WatchTransparency, 1)
+				if current and current.m == m then
+					current.hunting = false
+				end
+				play(m, def.clip)
+				return
+			end
 			local gap = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
-			local closed = shutterClosed()
-			if gap.Magnitude <= CONFIG.HuntReach or os.clock() - huntStart >= CONFIG.HuntMax or (closed and not wasClosed) then
+			if gap.Magnitude <= CONFIG.HuntReach or os.clock() - huntStart >= CONFIG.HuntMax then
 				struck = true
 				strike(kind)
 				return
 			end
-			wasClosed = closed
 			pos += gap.Unit * huntSpeed * dt
 			place(pos, gap.Unit)
 			return
@@ -459,13 +527,14 @@ local function showRigged(kind: string, def: Kind): Model?
 			local p = if focusBone then focusBone.WorldPosition else m:GetPivot().Position + Vector3.new(0, 4, 0)
 			seenFor = if inSight(p) then seenFor + dt else 0
 			if seenFor >= CONFIG.SeeTime then
-				hunting = true
-				huntStart = os.clock()
-				wasClosed = shutterClosed()
-				if current and current.m == m then
-					current.hunting = true
+				if lockedOut() then
+					startHunt()
+				else
+					watching = true
+					watchUntil = os.clock() + CONFIG.WatchTime
+					fade(m, CONFIG.WatchTransparency, 1)
+					play(m, def.clip)
 				end
-				play(m, def.moveClip or def.clip)
 				return
 			end
 		end

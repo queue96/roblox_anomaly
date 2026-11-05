@@ -8,6 +8,7 @@
 -- Phase 4: ชนิดผีทั้งหมดอยู่ใน AnomalyManager.luau (Apply ตอนเสกรถ, ResetAnomalies ตอนรถขี่ออกไป)
 -- พนมมือ (Prayer.luau, 2026-10-28): ผีเห็นได้เฉพาะคนที่พนมมือ / ลูกค้าทักคนที่พนมมือ / สวดตอนร้านว่างอาจเรียกผีมาเอง
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -46,10 +47,11 @@ local CONFIG = {
 	RejectGhostReward = 0, -- ดึงแผงปิดร้านใส่ผีได้ถูกต้อง (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 	-- เผลอเติมน้ำมันให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงินแล้ว ผู้ใช้ 2026-11-04)
 	StartIncense = 3,
-	AnomalyChance = 0.3, -- (เดิม 0.4 ผีมาถี่เกินไป)
+	AnomalyChance = 0.2, -- (เดิม 0.3 / 0.4 ผีมาถี่เกินไป เล่น 15 นาทีได้แค่ ~300 บาท ผู้ใช้ 2026-11-05)
 	WalkInChance = 0.35, -- ผีที่มาเป็นคนเดิน: ไม่แปลงร่าง เดินมาซื้อทั้งร่างผีเลย (เห็นได้ไม่ต้องพนมมือ)
 	MinNight = 900, -- คืนหนึ่งเล่นอย่างน้อยเท่านี้ (วินาที นับจากเปิดร้าน) เงินครบก่อนก็ยังไม่จบ
 	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
+	RevealDelay = { 4, 12 }, -- พนมมือเห็นผีของลูกค้ารายนี้ได้หลังจอดที่ร้านแล้วนานเท่านี้ (สุ่ม) ก่อนหน้านั้นพนมมือก็ไม่เห็น
 	DecisionTime = 75, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผีและเดินไปตู้)
 	DriveSpeed = 24, -- studs / วินาที
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
@@ -106,7 +108,7 @@ local CONFIG = {
 	PraySummonKeys = { "Anomaly_MonkRadio" },
 	-- ผีฉาก (โผล่ให้เห็นเป็นช่วงๆ) อยู่ฝั่ง client แล้ว: client/SceneryGhosts (แต่ละคนเห็นคนละตัว คนละเวลา)
 	-- ผีใหญ่บุกประชิด (server/BigEvents): ดับไฟที่สะพานไฟ + นั่งยองนิ่งๆ ให้ผีผ่านไป
-	BigEvery = { 360, 600 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง
+	BigEvery = { 480, 780 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง (เดิม 360-600)
 	BigMax = 2, -- คืนละไม่เกินเท่านี้
 	BigReward = 0, -- รอดได้ทั้งทีม (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 
@@ -121,10 +123,10 @@ local CONFIG = {
 	PrepTime = 60,
 	-- ศาลคุ้มครองตอนต้นคืน (นับจากเปิดร้าน): ยังไม่ถวายเมื่อครบเวลานี้ = ศาลไม่คุ้มครอง (ไม่เกิน PrepTime)
 	OfferingGrace = 45,
-	OfferingDuration = 150, -- ถวาย 1 ครั้งคุ้มครองนานเท่านี้
+	OfferingDuration = 150, -- ถวาย 1 ครั้งคุ้มครองนานเท่านี้ (ผู้ใช้ 2026-11-05: เท่าเดิม)
 	OfferingWarn = 25, -- เหลือเวลาคุ้มครองเท่านี้ เตือนทุกคน
 	CurseEvery = { 9, 16 }, -- ศาลไม่คุ้มครอง: อาการแปลกๆ ทุกๆ
-	CurseAnomalyChance = 0.75, -- ศาลไม่คุ้มครอง: ลูกค้าเป็นผีบ่อยขึ้น
+	CurseAnomalyChance = 0.3, -- ศาลไม่คุ้มครอง: ลูกค้าเป็นผีบ่อยขึ้น (เดิม 0.75, ผู้ใช้ 2026-11-05 ให้ 30%)
 	CurseSlowSpeed = 5, -- เดินช้า (ปกติ 10)
 
 	-- ปิดร้านใส่ผี (2026-11-03): ใครยังอยู่นอกร้านโดนผีหลอกทันที แล้วผีหายวับไป (ไม่ขี่/เดินออกไปให้ไล่ตาม)
@@ -502,6 +504,7 @@ end
 local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
 local Pedestrian = require(script.Parent:WaitForChild("Pedestrian"))
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
+local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 local Weather = require(script.Parent:WaitForChild("Weather"))
 local Power = require(script.Parent:WaitForChild("Power"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
@@ -1998,7 +2001,7 @@ local function spawnCustomer(kind: string?)
 			end
 		end
 	end
-	if not walking and anomaly ~= "Anomaly_Krasue" then
+	if not walking and (anomaly ~= "Anomaly_Krasue" or GhostNPC.Has("Krasue")) then
 		humanizeDriver(v :: Model, look)
 	end
 	if ghost then
@@ -2008,6 +2011,9 @@ local function spawnCustomer(kind: string?)
 			AnomalyManager.Apply(anomaly :: string, v)
 		end
 	end
+	-- praying doesn't show this customer's ghost parts yet (client/PrayerController checks the tag); serveCustomer
+	-- lifts it a random while after they stop at the shop, so players can't tell from the road (user 2026-11-05)
+	CollectionService:AddTag(v :: Model, "VeilLock")
 	local order = who.order
 	if k == "walker" then
 		order = pick(if raining then WALKER_ORDERS_RAIN else WALKER_ORDERS)
@@ -2730,6 +2736,11 @@ local function serveCustomer(c: Customer)
 	local speaker = { name = who.name, voice = who.voice, ghost = ghost }
 	currentSpeaker = speaker
 	local arrivedAt = os.clock()
+	task.delay(rand(CONFIG.RevealDelay), function()
+		if v.Parent then
+			CollectionService:RemoveTag(v, "VeilLock")
+		end
+	end)
 	customerTalking = true
 	currentHead = getHead(v)
 	local annoyed = 0
@@ -3134,17 +3145,32 @@ function CoreLoop.Rampage.down(p: Player)
 	end)
 end
 
+-- scenery ghosts live on the client, so the server can't see the hit itself: accept only known kinds, only from a
+-- player who is one of the victims (outside the shop), at most once per HIT_COOLDOWN per player; others are only
+-- knocked down when the lingering ghost really appears (otherwise just the reporter)
+local SCENERY_KINDS = { Tani = true, Dancer = true, MaeNak = true, Kuman = true, Child = true, Shroud = true, Krasue = true, Pop = true, Pret = true, Krahang = true, Scarecrow = true, Shadow = true }
+local HIT_COOLDOWN = 20
+local lastHit: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 remote("SceneryGhostHit").OnServerEvent:Connect(function(p: Player, kind: any)
 	local R = CoreLoop.Rampage
 	local scared = false
-	if type(kind) == "string" and not gameOver and remotes:GetAttribute("ShopOpen") == true and not CoreLoop.Big.running and os.clock() >= R.nextAt then
+	local fresh = os.clock() - (lastHit[p] or -math.huge) >= HIT_COOLDOWN
+	-- a scenery ghost only gets to players locked outside: shutter open = it just watches (client/SceneryGhosts)
+	if type(kind) == "string" and SCENERY_KINDS[kind] and fresh and not isShutterOpen and not gameOver and remotes:GetAttribute("ShopOpen") == true and not CoreLoop.Big.running and os.clock() >= R.nextAt then
+		lastHit[p] = os.clock()
 		local list = R.victims(p)
+		if not table.find(list, p) then
+			list = {} -- the reporter is not out where a scenery ghost can reach: ignore
+		end
 		if #list > 0 then
 			R.nextAt = os.clock() + R.Cooldown
 			if not CoreLoop.Linger.Active() then
 				CoreLoop.Linger.Start(true)
 			end
 			local group = CoreLoop.Linger.Group()
+			if not group then
+				list = { p }
+			end
 			for _, v in ipairs(list) do
 				print("👻 [" .. v.Name .. "] โดนผีฉากหลอก (" .. kind .. ") ล้มจนผีปั่นป่วนเสร็จ")
 				if v == p then
@@ -3171,7 +3197,8 @@ function CoreLoop.Big.run(kind: string?)
 	CoreLoop.Big.count += 1
 	remotes:SetAttribute("BigEvent", k) -- client/SceneryGhosts ไม่ปล่อยผีฉากระหว่างนี้
 	print("🌑 ผีใหญ่บุกประชิด: " .. k)
-	local r = CoreLoop.Big.mod.Run(k, {
+	-- a throw inside must not leave Big.running / BigEvent set (that would stop big events and scenery ghosts for good)
+	local okRun, r = pcall(CoreLoop.Big.mod.Run, k, {
 		notice = function(key: string, seconds: number, list: { Player }?)
 			if list then
 				for _, p in ipairs(list) do
@@ -3182,6 +3209,12 @@ function CoreLoop.Big.run(kind: string?)
 			end
 		end,
 	})
+	if not okRun then
+		warn("🌑 ผีใหญ่ error: " .. tostring(r))
+		CoreLoop.Big.running = false
+		remotes:SetAttribute("BigEvent", nil)
+		return
+	end
 	if r.ok then
 		money += CONFIG.BigReward
 		broadcastHUD()
@@ -3189,7 +3222,9 @@ function CoreLoop.Big.run(kind: string?)
 		print("✅ รอดจากผีใหญ่")
 	else
 		for p, why in pairs(r.faults :: { [Player]: string }) do
-			TriggerJumpscare:FireClient(p, "Big_" .. k, r.group)
+			if p.Parent then
+				TriggerJumpscare:FireClient(p, "Big_" .. k, r.group)
+			end
 			task.delay(2.2, function()
 				if p.Parent then
 					Notice:FireClient(p, "Big_Fail_" .. why, 5)

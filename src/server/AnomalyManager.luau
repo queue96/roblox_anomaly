@@ -503,6 +503,28 @@ AnomalyManager.Anomalies = {
 			if not d then
 				return
 			end
+			-- villager driver (HumanNPC): praying shows the rigged Krasue (floating head + organs) where the driver's
+			-- head is, and the driver vanishes (the block driver with neon tubes looked like an R15 toy, user 2026-11-05)
+			if d:GetAttribute("Human") and GhostNPC.Has("Krasue") then
+				local headPos: Vector3? = nil
+				for _, x in ipairs(d:GetDescendants()) do
+					if x:IsA("Bone") and x.Name == "head" then
+						headPos = x.WorldPosition
+						break
+					end
+				end
+				if headPos then
+					-- Krasue's origin is the centre of its head; front = -Z like the vehicle
+					local m = GhostNPC.Spawn("Krasue", CFrame.new(headPos + Vector3.new(0, 0.3, 0)) * v:GetPivot().Rotation, "Float")
+					if m then
+						m.Name = "KrasueModel"
+						m.Parent = v
+						ghostOnly(m)
+						normalOnly(d)
+						return
+					end
+				end
+			end
 			local legs = d:FindFirstChild("Legs")
 			if legs then
 				normalOnly(legs)

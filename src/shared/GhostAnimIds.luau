@@ -12,6 +12,8 @@ local function ids(t: { [string]: number }): { [string]: string }
 end
 
 return {
+	-- size multiplier applied when a ghost is cloned (Model:ScaleTo; clips scale with it). Pret: 5x (user 2026-11-05)
+	SCALE = { Pret = 5 },
 	ONCE = { Shriek = true, LandOnRoof = true, nak_reach = true, Lunge = true, Sniff = true, HairWhip = true, PossessedSnap = true },
 	ghost_headless = ids({ pillion_hug = 78873226456252 }),
 	ghost_mirror = ids({ pillion_hug = 91804513941402, pillion_look = 126959303493117 }),

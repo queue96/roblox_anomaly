@@ -1,0 +1,1204 @@
+﻿asset_id,type,used_at
+1091940,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_10.Leaf.Mesh
+1091942,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_10.Leaf.Mesh
+64374853,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_10.BananaBunch.Model.Banana.Mesh
+119574562,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_10.BananaBunch.Model.Banana.Mesh
+190872950,Audio,src/client/JumpscareController.client.luau:28 (Crows)
+199051208,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_14.Grass.Decal
+748228812,Audio,src/server/AnomalyManager.luau:993
+1845929179,Audio,src/shared/SoundBank.luau:747 (id)
+2643071410,Audio,src/shared/SoundBank.luau:389 (id); src/shared/SoundBank.luau:399 (id)
+4944940733,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_53.Leaves.Mesh
+4944968990,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_53.Trunk
+5161635723,Image,ServerStorage.ToolboxScarecrowTemplates.ScarecrowTemplate_3.Part.ParticleEmitter
+5799870105,Audio,src/server/AnomalyManager.luau:1000 (id)
+6498961570,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_53.Leaves.Mesh
+6502741308,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_53.Trunk.Texture
+6974375971,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_125.MeshPart
+6974376014,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_125.MeshPart
+6974377084,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_125.MeshPart
+6974377128,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_125.MeshPart
+7274930890,Audio,src/shared/SoundBank.luau:330 (id)
+8109376048,Audio,src/shared/SoundBank.luau:261 (id); src/shared/SoundBank.luau:323 (id)
+8243838297,?,src/server/AdminPanel.server.luau:16
+9040293936,Audio,src/server/CoreLoop.luau:2269 (PARTY_MUSIC); src/shared/SoundBank.luau:525 (id)
+9043078311,Audio,src/server/CoreLoop.luau:2271 (PARADE_DRUMS); src/shared/SoundBank.luau:546 (id)
+9112764023,?,src/client/AmbienceController.client.luau:26 (CricketBed); src/lobby/client/LobbyClient.client.luau:62
+9112764040,?,src/client/AmbienceController.client.luau:27 (CricketFar); src/lobby/client/LobbyClient.client.luau:63
+9112779173,?,src/server/CoreLoop.luau:2270 (PARADE_CROWD)
+9112807844,Audio,src/server/AnomalyManager.luau:1002 (id)
+9113542694,Audio,src/client/JumpscareController.client.luau:24 (Bone); src/shared/SoundBank.luau:456 (id)
+9113952977,Audio,src/server/AnomalyManager.luau:993
+9113956884,Audio,src/server/AnomalyManager.luau:993
+9114120102,Audio,src/shared/SoundBank.luau:569 (id); src/shared/SoundBank.luau:579 (id)
+9114244841,?,src/client/AmbienceController.client.luau:28 (EerieAir); src/lobby/client/LobbyClient.client.luau:64
+9114787449,Audio,src/server/AnomalyManager.luau:1008 (id)
+9116258071,Audio,src/server/AnomalyManager.luau:997 (id)
+9116258282,Audio,src/server/AnomalyManager.luau:998 (id)
+9116496074,Audio,src/server/CoreLoop.luau:406 (SoundId); src/shared/SoundBank.luau:355 (id)
+9117159106,Audio,src/client/JumpscareController.client.luau:27 (Static); src/server/AnomalyManager.luau:26 (RadioStatic)
+9117641837,Audio,src/client/JumpscareController.client.luau:30 (Glug); src/shared/SoundBank.luau:313 (id)
+9120016037,Audio,src/client/JumpscareController.client.luau:31 (Thunder); src/server/AnomalyManager.luau:1010 (THUNDER_ID)
+9125407169,Audio,src/server/AnomalyManager.luau:1004 (id)
+9126282474,Audio,src/server/AnomalyManager.luau:1006 (id)
+13039198193,?,src/client/WeatherController.client.luau:16 (RAIN_SOUND)
+70374890333990,Image,ServerStorage.ImportedProps.Umbrella.Umbrella_Canopy.SurfaceAppearance
+70382591021506,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.TvAntenna.SurfaceAppearance
+70435841291064,Image,Workspace.MapEnvironment.OuterTreeLine.BorderGrass_70.LemongrassClump.SurfaceAppearance
+70507599243671,Mesh,ServerStorage.GhostTemplates.ghost_kuman_thong.Cloth_ghost_kuman_belt
+70544510139982,Audio,src/shared/SoundBank.luau:169 (Wrong_NeedAir_F)
+70601407866329,Mesh,ServerStorage.HumanTemplates.human_elder_male.Skin_02
+70686411863328,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_band_tee.SurfaceAppearance
+70725023214434,Image,Workspace.Generator.Generator.SurfaceAppearance
+70740796031415,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_sabai.SurfaceAppearance
+70779238811202,Image,Workspace.MapEnvironment.RoadPowerPoles.WoodenPole.SurfaceAppearance
+70792328426027,Image,ServerStorage.ImportedProps.LeafSweets.LeafTray.SurfaceAppearance
+70819339725868,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim_jeans
+70848106303293,Image,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf.SurfaceAppearance
+70909429351205,Animation,src/shared/GhostAnimIds.luau:27 (kuman_sit)
+70955010884026,Image,Workspace.SpiritHouse.SpiritHouseOnStilts.SurfaceAppearance
+71011177242344,Animation,src/shared/GhostAnimIds.luau:23 (coffin_walk)
+71044758947275,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo.SurfaceAppearance
+71071901172533,Animation,src/shared/GhostAnimIds.luau:34 (TwitchWalk)
+71101982068825,Audio,src/shared/SoundBank.luau:107
+71105254276953,Audio,ReplicatedStorage.UploadedSounds.React_Fear_Tremble_M
+71176110444745,Image,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck.SurfaceAppearance
+71240009868095,Image,ServerStorage.ImportedProps.Umbrella.Umbrella_Canopy.SurfaceAppearance
+71398122894527,Animation,src/shared/GhostAnimIds.luau:31 (Idle)
+71461653776967,Image,Workspace.MapEnvironment.SacredBanyanZone.BrokenOfferings.BrokenOfferings.SurfaceAppearance
+71666012711737,?,src/shared/MapBuilder.luau:3459 (Roughness)
+71683230905495,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold_belt
+71738864041681,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f_sabai.SurfaceAppearance
+71773063993619,Audio,src/shared/SoundBank.luau:203 (Pray_After_2_F)
+71802157290225,Image,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanLeaves.LeafCard.Decal; src/client/CutsceneController.client.luau:795 (LEAF_TEXTURE); src/shared/MapBuilder.luau:5219 (BANYAN_LEAF_IMAGE)
+71805771595701,Animation,src/shared/HumanAnimIds.luau:43 (pump_air)
+71838016828408,Image,ServerStorage.BananaClumpNew.BananaClump_B.SurfaceAppearance
+71982611877798,Animation,src/shared/HumanAnimIds.luau:82 (wan_hands_up)
+72055878350598,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleRed.Wheels.Wheel_R
+72061500474396,Mesh,ServerStorage.GhostTemplates.ghost_shroud.Body
+72071102106520,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel_pants.SurfaceAppearance
+72125119973852,Image,Workspace.InteractiveProps.FuelPumps.DieselPump.GasPump.SurfaceAppearance
+72147294602733,Animation,src/shared/GhostAnimIds.luau:32 (Glide)
+72155896620366,Audio,ReplicatedStorage.UploadedSounds.React_Fear_Panic_F2
+72169238099056,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f_sin
+72199693184036,Mesh,ServerStorage.VehicleTemplates.ThaiPickupOld.Wheels.Wheel_RL
+72320229008688,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai.SurfaceAppearance
+72363056130491,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Cloth_ghost_white_m_trousers.SurfaceAppearance
+72396976201656,Audio,src/shared/SoundBank.luau:181 (Shutter_Open_2_F)
+72399034430881,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy_shoes
+72457408292010,Mesh,ServerStorage.HumanTemplates.human_elder_male.Hair_bald_grey
+72460357558889,Mesh,Workspace.MapEnvironment.ShackDressing.FuelBottleRack.FuelGreen; src/shared/MapBuilder.luau:3612 (FuelGreen)
+72511575703438,Image,Workspace.MapEnvironment.RiceField.RiceTiles.RiceTile.SurfaceAppearance
+72534084009959,Image,ServerStorage.GhostTemplates.ghost_headless.NeckStump.SurfaceAppearance
+72599687452978,Mesh,ServerStorage.GhostTemplates.Pop.Pop_Hair
+72670657294649,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_helmet.SurfaceAppearance
+72813629893319,Image,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Body.ThaiSedanSoluna_Interior.SurfaceAppearance
+72817334721590,Mesh,ServerStorage.ImportedProps.SpiritHouseOnStilts.SpiritHouseOnStilts
+72836818467953,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_shoulder_cloth.SurfaceAppearance
+72849932794555,Image,Workspace.AirCompressor.AirCompressor.SurfaceAppearance
+72902630760275,Image,ServerStorage.VehicleTemplates.ThaiBicycleBlue.Body.ThaiBicycleBlue.SurfaceAppearance
+72952252656173,Image,Workspace.AnomalyProps.Scarecrow.ScarecrowThai.SurfaceAppearance; src/shared/MapBuilder.luau:3798 (Roughness)
+72959965368176,Mesh,Workspace.AnomalyProps.OwnerPhoto.WallCalendar
+72985085794598,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Cloth_ghost_white_m_trousers.SurfaceAppearance
+73076320233683,Animation,src/shared/HumanAnimIds.luau:120 (wan_low_bounce)
+73112051931779,Animation,src/shared/HumanAnimIds.luau:53 (ghost_dance)
+73170987129285,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sin.SurfaceAppearance
+73195934713793,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom.SurfaceAppearance
+73231128639612,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Cloth_ghost_white_m_trousers.SurfaceAppearance
+73303762715875,Audio,src/shared/SoundBank.luau:127 (Walker_Order_3)
+73373745785997,Mesh,ServerStorage.GhostTemplates.ghost_mirror.Hair_ghost_long
+73392531333493,Audio,src/shared/SoundBank.luau:189 (Shutter_Closed_3_F)
+73482597546123,Mesh,Workspace.AnomalyProps.TinOuthouse.DragonJar
+73525451382652,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_pants.SurfaceAppearance
+73693894182782,Animation,src/shared/HumanAnimIds.luau:99 (wan_cool)
+73736589668729,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_visor.SurfaceAppearance
+73826563610958,Image,Workspace.SpiritHouse.SpiritHouseOnStilts.SurfaceAppearance
+73837285307043,Mesh,Workspace.MapEnvironment.RiceField.DistantRiceHut.DistantRiceHut
+73913392456098,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sin.SurfaceAppearance
+73926466286512,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer_jeans.SurfaceAppearance
+73930562689762,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel_pants.SurfaceAppearance
+73971070209712,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_ghost_white_f
+74040500962358,Mesh,ServerStorage.ImportedProps.LeafSweets.SweetCake
+74137075490148,Audio,ReplicatedStorage.UploadedSounds.sfx_pickup_diesel_idle
+74186517817405,Image,Workspace.MapEnvironment.SacredBanyanZone.BrokenOfferings.BrokenOfferings.SurfaceAppearance
+74240235259990,?,src/shared/MapBuilder.luau:3460 (Color)
+74290465935352,Mesh,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanAerialRoots
+74293561838753,Image,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanTwigs.SurfaceAppearance
+74307670216532,Audio,src/shared/SoundBank.luau:218 (Pray_Summon_3)
+74412877028908,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Wheels.Wheel_FL
+74448885549661,Animation,src/shared/HumanAnimIds.luau:101 (wan_hip_shake)
+74614840340667,Image,Workspace.SpiritHouse.Incense3.SurfaceAppearance
+74654897535271,Mesh,Workspace.InteractiveProps.CutoutSwitch.CutoutSwitch_Lever
+74667496771635,Image,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBlossom.SurfaceAppearance
+74731220477530,Image,ServerStorage.ImportedProps.Scarecrow.Scarecrow.SurfaceAppearance
+74757378889163,Mesh,ServerStorage.GhostTemplates.Krahang.Kradong.L
+74765094787834,Animation,src/shared/HumanAnimIds.luau:109 (ghost_idle)
+74793076954901,Image,ServerStorage.GhostTemplates.ghost_mirror.Cloth_ghost_thai_sabai.SurfaceAppearance
+74799133746322,Mesh,Workspace.InteractiveProps.ShutterDoor
+74873106276661,Audio,src/shared/SoundBank.luau:152 (Impatient_3_M)
+74928695416599,Audio,src/shared/SoundBank.luau:185 (Shutter_Closed_1_F)
+74945305108706,?,src/shared/MapBuilder.luau:3460 (Normal)
+74949556335534,Mesh,ServerStorage.GhostTemplates.ghost_headless.NeckStump
+74971187427572,Animation,src/shared/GhostAnimIds.luau:25 (coffin_walk)
+74974322876141,Audio,src/server/CoreLoop.luau:2267 (RACER_REV); src/shared/SoundBank.luau:282
+74989082694355,Mesh,ServerStorage.ImportedProps.PowerLines.PowerLine_40
+75190195619311,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sarong.SurfaceAppearance
+75210183555591,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_ghost_white_f_sabai
+75230743144279,Mesh,ServerStorage.VehicleTemplates.Saleng.RearWheel
+75262238131474,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop_pants.SurfaceAppearance
+75384336211217,Mesh,ServerStorage.ImportedProps.Umbrella.Umbrella_Frame
+75453641777008,Animation,src/shared/HumanAnimIds.luau:94 (run)
+75564537073589,Mesh,ServerStorage.GhostTemplates.ghost_shroud.Cloth_ghost_shroud_cord_wrists
+75654242196800,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt
+75664285683608,Audio,src/client/JumpscareController.client.luau:29 (Crying); src/shared/SoundBank.luau:409 (id)
+75670518288348,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f.SurfaceAppearance
+75686746403977,Animation,src/shared/GhostAnimIds.luau:20 (tani_peek)
+75699587729106,Image,ServerStorage.GhostTemplates.ghost_tani.Body.SurfaceAppearance
+75725392258187,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.TvAntenna.SurfaceAppearance
+75834270172201,Mesh,ServerStorage.HumanTemplates.human_base.Hair_student
+75878373477569,Mesh,ServerStorage.ImportedProps.JerryCan.JerryCan
+75945476038148,Image,Workspace.AnomalyProps.OwnerPhoto.SurfaceAppearance
+75963826001031,Audio,src/server/CoreLoop.luau:1329 (SoundId)
+76036670252019,Image,ServerStorage.GhostTemplates.Pop.Pop.SurfaceAppearance
+76041740345092,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck
+76185801196682,Image,ServerStorage.GhostTemplates.ghost_child.Cloth_ghost_child.SurfaceAppearance
+76276146672165,?,src/shared/MapBuilder.luau:3461 (Roughness)
+76301656152929,Mesh,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Body
+76386144363809,Image,Workspace.MapEnvironment.RoadPowerPoles.WoodenPole.SurfaceAppearance
+76419687286734,Mesh,ServerStorage.GhostTemplates.ghost_headless.Body
+76431576164821,Audio,ReplicatedStorage.UploadedSounds.React_Cold_Shiver_M2
+76519451572935,Mesh,ServerStorage.HumanTemplates.human_base.Skin_07
+76596056952178,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sandals.SurfaceAppearance
+76638424049932,Image,ServerStorage.GhostTemplates.ghost_child.Body.SurfaceAppearance
+76764261672932,Animation,src/shared/HumanAnimIds.luau:44 (pull_rope)
+76958365127744,Image,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m.SurfaceAppearance
+76991415181788,Animation,src/shared/GhostAnimIds.luau:24 (ghost_glide)
+77046318478662,Animation,src/shared/HumanAnimIds.luau:68 (wan_rock)
+77051091289615,Animation,src/shared/GhostAnimIds.luau:33 (HairWhip)
+77166664623815,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_mohom_sandals
+77258023396732,Animation,src/shared/HumanAnimIds.luau:78 (walk)
+77277047094371,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.MainSignBoard
+77297435003287,Mesh,ServerStorage.GhostTemplates.Krahang.Body
+77310868603089,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.TinWallPanel_Torn
+77367336731285,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sabai
+77376374092054,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai_sabai
+77396430804300,Image,ServerStorage.GhostTemplates.ghost_funeral_woman.Cloth_ghost_white_f.SurfaceAppearance
+77400784973674,Mesh,ServerStorage.VehicleTemplates.Saleng.Handlebar
+77470347559023,Mesh,Workspace.SpiritHouse.Incense2
+77530178287051,Audio,src/shared/SoundBank.luau:173 (Rejected_1_F)
+77555209716317,Image,ServerStorage.ImportedProps.Scarecrow.Scarecrow.SurfaceAppearance
+77567275295069,Mesh,ServerStorage.VehicleTemplates.CustomerBike.Handlebar
+77571430139085,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_ngob.SurfaceAppearance
+77632833566665,?,src/shared/MapBuilder.luau:3465 (OilStain_B)
+77687286749576,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai.SurfaceAppearance
+77739143578548,Animation,src/shared/HumanAnimIds.luau:74 (idle)
+77794026735607,Image,Workspace.MapEnvironment.ImportedYardProps.TireLoose.SurfaceAppearance
+77846246874029,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim_jeans.SurfaceAppearance
+77873992161499,Mesh,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench1
+77953440567621,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_boots.SurfaceAppearance
+78160704421641,Image,ServerStorage.ImportedProps.GhostHand.GhostHand.SurfaceAppearance
+78213403459821,Image,ServerStorage.GhostTemplates.Pret.Body.SurfaceAppearance
+78251814788761,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_sin
+78269655165222,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.StormLantern_Glass.SurfaceAppearance
+78369489238659,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_mohom
+78475956085259,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderGrass_66.WildGrassClump
+78486246052235,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel.SurfaceAppearance
+78499443357906,Image,Workspace.Generator.Generator.SurfaceAppearance
+78500366764814,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_sin.SurfaceAppearance
+78501861900846,Image,ServerStorage.GhostTemplates.ghost_child.Cloth_ghost_child.SurfaceAppearance
+78514124480838,Audio,src/shared/SoundBank.luau:222 (Shelter_Ask_F)
+78528498812411,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy_pants
+78592186662710,Image,Workspace.MapEnvironment.RiceField.DistantRiceHut.DistantRiceHut.SurfaceAppearance
+78602091892028,Mesh,Workspace.MapEnvironment.ImportedYardProps.PatchKitTin
+78612401292534,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleRed.Body.ThaiBicycleRed
+78613806465026,Mesh,ServerStorage.GhostTemplates.Pop.Pop_Fangs
+78657582324009,Image,Workspace.MapEnvironment.OuterTreeLine.BorderGrass_70.LemongrassClump.SurfaceAppearance
+78713645187370,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sarong.SurfaceAppearance
+78737353699695,Animation,src/shared/HumanAnimIds.luau:113 (run_skirt)
+78752359426779,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_plaid
+78796522434290,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_indigo_scarf_sin
+78834612064072,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai_sin
+78873226456252,Animation,src/shared/GhostAnimIds.luau:18 (pillion_hug)
+78962311883405,Image,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBunch.SurfaceAppearance
+78962524895296,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_blouse_sin.SurfaceAppearance
+78963402177429,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom.SurfaceAppearance
+78994031383062,Audio,src/shared/SoundBank.luau:201 (Pray_After_1_F)
+79000007807242,Audio,src/shared/SoundBank.luau:694 (id)
+79010387755689,Image,ServerStorage.GhostTemplates.Krasue.Krasue.SurfaceAppearance
+79057888594953,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_plaid_shoes
+79058297541178,Image,Workspace.MapEnvironment.RiceField.RiceTiles.RiceTile.SurfaceAppearance
+79086054577918,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sandals
+79254310246459,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sarong
+79441612073218,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.TinRoofPanel
+79444853737963,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_sabai_sin
+79468499056839,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_buckle
+79480712516056,Image,ServerStorage.VehicleTemplates.ThaiBicycleRed.Body.ThaiBicycleRed.SurfaceAppearance
+79635255602673,Audio,src/shared/SoundBank.luau:183 (Shutter_Open_3_F)
+79656601360432,Audio,src/shared/SoundBank.luau:202 (Pray_After_2_M)
+79694544831303,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani_sabai.SurfaceAppearance
+79732160157850,Audio,ReplicatedStorage.UploadedSounds.radio_lukthung_3_winyan_rak_nak_leng
+79798985723925,Mesh,ServerStorage.HumanTemplates.human_female.Skin_06
+79827534792794,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.StormLantern_Glass.SurfaceAppearance
+79889438728701,Image,ServerStorage.HumanTemplates.human_child.Cloth_mohom_child_shorts.SurfaceAppearance
+79899391883215,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_pants.SurfaceAppearance
+79902167851157,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Cloth_ghost_white_f_sin.SurfaceAppearance
+79939905019714,Mesh,Workspace.InteractiveProps.RejectRope
+79942340342131,Animation,src/shared/HumanAnimIds.luau:65 (wan_hip_shake)
+79980471421044,Audio,src/shared/SoundBank.luau:141 (Pay_2_F)
+80033367557123,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Wheels.Wheel_RL1
+80039780637239,Image,Workspace.InteractiveProps.RejectRope.SurfaceAppearance
+80064099541239,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer.SurfaceAppearance
+80141806673925,Mesh,ServerStorage.ImportedProps.Scarecrow.Scarecrow_EyeL_Neon
+80212962941041,Mesh,ServerStorage.GhostTemplates.Krasue.Krasue_Hair
+80236407185339,Mesh,ServerStorage.GhostTemplates.ghost_dancer.Body
+80261206109085,Animation,src/shared/GhostAnimIds.luau:27 (run)
+80302373966340,Image,Workspace.AnomalyProps.TinOuthouse.SquatToilet.SurfaceAppearance
+80361722006690,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_jeans.SurfaceAppearance
+80383433386927,Audio,src/shared/SoundBank.luau:125 (Walker_Order_1)
+80426444242642,Mesh,ServerStorage.HumanTemplates.human_elder_male.Skin_00
+80472486634364,Image,ServerStorage.ImportedProps.GhostHand.GhostHand.SurfaceAppearance
+80556688842911,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim.SurfaceAppearance
+80577580374208,Image,ServerStorage.GhostTemplates.ghost_ta_khon.Prop_TaKhonMask.SurfaceAppearance
+80628355865157,Mesh,ServerStorage.ImportedProps.GhostHand.GhostHand
+80628653137284,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_indigo_scarf_sandals
+80652066235181,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_helmet.SurfaceAppearance
+80686838044191,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.MainSignBoard.SurfaceAppearance
+80695574794517,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WelcomeSign.SurfaceAppearance
+80749077424250,Audio,src/shared/SoundBank.luau:149 (Impatient_1_F)
+80794222175800,Mesh,Workspace.InteractiveProps.MoneyTin.MoneyTin_Lid
+80876852814116,Mesh,Workspace.MapEnvironment.ImportedYardProps.TireLoose
+80951328962700,Mesh,ServerStorage.HumanTemplates.human_female.Skin_04
+80960269760576,Image,Workspace.MapEnvironment.OuterTreeLine.BorderGrass_70.LemongrassClump.SurfaceAppearance
+81097927143697,Image,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_sandals.SurfaceAppearance
+81100839957163,Image,ServerStorage.VehicleTemplates.ThaiPickupOld.Body.ThaiPickupOld_Interior.SurfaceAppearance
+81212861514342,Audio,ReplicatedStorage.UploadedSounds.React_Confused_Hmm_M
+81304412841528,Image,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin.SurfaceAppearance
+81364400259485,Image,ServerStorage.HumanTemplates.human_elder_female.Body.SurfaceAppearance
+81466808223561,Mesh,ServerStorage.GhostTemplates.Pop.Pop_Eyes
+81471313969014,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_116.BananaClump
+81499569870030,Image,Workspace.AnomalyProps.TinOuthouse.SquatToilet.SurfaceAppearance
+81516894106622,Animation,src/shared/HumanAnimIds.luau:116 (wan_bounce)
+81521408394168,Mesh,ServerStorage.HumanTemplates.human_female.Skin_05
+81605783252730,Audio,ReplicatedStorage.UploadedSounds.React_Question_Haa_M1
+81615093147261,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_helmet
+81641072874464,Animation,src/shared/GhostAnimIds.luau:33 (Float)
+81665326533926,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer.SurfaceAppearance
+81683782868046,Audio,src/shared/SoundBank.luau:705 (id)
+81771259507954,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.TvAntenna.SurfaceAppearance
+81937118275045,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt_shoes
+81956422200105,Mesh,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBunch
+81978789145807,Image,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanTwigs.SurfaceAppearance
+82105339098291,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.CounterTable
+82160269465258,Mesh,ServerStorage.VehicleTemplates.Saleng.Saleng
+82175294346390,Mesh,ServerStorage.HumanTemplates.human_elder_female.Hair_ghost_messy_white
+82277369190169,Animation,src/shared/GhostAnimIds.luau:29 (shroud_glide)
+82377970638315,Animation,src/shared/HumanAnimIds.luau:84 (wan_low_bounce)
+82388356442584,Animation,src/shared/HumanAnimIds.luau:72 (ghost_glide)
+82424550643585,Image,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m.SurfaceAppearance
+82449169099963,Image,Workspace.MapEnvironment.SacredBanyanZone.BrokenOfferings.BrokenOfferings.SurfaceAppearance
+82539328040844,Mesh,Workspace.AnomalyProps.IceBox.IceBox
+82565035351004,Audio,ReplicatedStorage.UploadedSounds.React_Fear_Panic_F1
+82643281891795,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt_shoes.SurfaceAppearance
+82644421830955,Mesh,ServerStorage.GhostTemplates.ghost_shroud.Cloth_ghost_shroud
+82720656302648,Image,Workspace.MapEnvironment.RiceField.RiceTiles.RiceTile.SurfaceAppearance
+82783583982805,Audio,src/shared/SoundBank.luau:155 (Queue_Chime_F)
+82815042141586,Image,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin_sandals.SurfaceAppearance
+82898367901622,Animation,src/shared/GhostAnimIds.luau:32 (LandOnRoof)
+83031465221433,Audio,src/shared/SoundBank.luau:283 (id)
+83075006910007,Mesh,ServerStorage.VehicleTemplates.ThaiRacingMoto.Body.ThaiRacingMoto
+83085771085331,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom_shorts.SurfaceAppearance
+83293583149036,Image,ServerStorage.GhostTemplates.ghost_child.Body.SurfaceAppearance
+83349777521459,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt_shoes.SurfaceAppearance
+83374283227384,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackLight.SurfaceAppearance
+83379531176585,Image,ServerStorage.VehicleTemplates.ThaiPickupOld.Body.ThaiPickupOld_Interior.SurfaceAppearance
+83469026538653,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop_pants.SurfaceAppearance
+83484145154444,Image,ServerStorage.GhostTemplates.Pop.Pop.SurfaceAppearance
+83504463731635,Mesh,ServerStorage.GhostTemplates.ghost_ta_khon.Prop_TaKhonMask
+83521166328401,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackShelf
+83559580599354,Animation,src/shared/HumanAnimIds.luau:35 (hold_umbrella)
+83659539890198,Image,Workspace.SpiritHouse.Incense3.SurfaceAppearance
+83683801682109,Image,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Body.ThaiSedanSoluna_Interior.SurfaceAppearance
+83717469279331,Image,Workspace.SpiritHouse.IncensePot.SurfaceAppearance
+83747600990627,Image,Workspace.AnomalyProps.OwnerPhoto.SurfaceAppearance
+83803384375744,Mesh,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleTable
+83832562118605,Audio,src/shared/SoundBank.luau:691 (id)
+83871222558672,Animation,src/shared/HumanAnimIds.luau:114 (walk)
+84024610720853,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Cloth_ghost_nak_sabai.SurfaceAppearance
+84024801721884,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_girl_jeans
+84037905827547,Image,ReplicatedStorage.Shared.HumanFaceSets.angry; assets/models/human_base/faces/face_ids.json:7 (angry); src/shared/HumanFaceSets.model.json:86 (ColorMap)
+84044521462182,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenPillar.SurfaceAppearance
+84055683209117,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenPillar
+84153612395086,Mesh,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Body
+84162680070714,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy_pants.SurfaceAppearance
+84178458464517,Mesh,ServerStorage.GhostTemplates.ghost_dancer.Cloth_ghost_dancer_crown
+84245106769410,Animation,src/shared/HumanAnimIds.luau:115 (walk_skirt)
+84248030881969,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Body.SurfaceAppearance
+84260085622636,Image,ServerStorage.HumanTemplates.human_female.Cloth_sabai_sabai.SurfaceAppearance
+84278109213466,Audio,src/shared/SoundBank.luau:197 (Pray_Ask_3_F)
+84335934482441,Image,Workspace.MapEnvironment.ImportedYardProps.TireIron.SurfaceAppearance
+84337349185043,Mesh,Workspace.MapEnvironment.RiceField.RiceTiles.RiceTile
+84465150042336,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_sin.SurfaceAppearance
+84470049214676,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_indigo_scarf.SurfaceAppearance
+84485245849886,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackShelf.SurfaceAppearance
+84519621483770,Image,ServerStorage.VehicleTemplates.CustomerBike.CustomerBike.SurfaceAppearance
+84527593180922,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_pants.SurfaceAppearance
+84546995088050,Audio,ReplicatedStorage.UploadedSounds.haunt_walk_dirt_hurry
+84666997992438,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom_sandals
+84805408194485,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_plaid_jeans
+84848657853610,Mesh,ServerStorage.BananaClumpNew.BananaClump_B
+84877934828480,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Cloth_ghost_nak.SurfaceAppearance
+84975141546058,Mesh,ServerStorage.HumanTemplates.human_female.Hair_ghost_floor
+85048345809154,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani_sabai.SurfaceAppearance
+85173546100985,Image,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m_trousers.SurfaceAppearance
+85328385232210,Image,ServerStorage.GhostTemplates.Krasue.Krasue.SurfaceAppearance
+85394293112007,Image,ServerStorage.GhostTemplates.ghost_shroud.Cloth_ghost_shroud.SurfaceAppearance
+85439558141657,Image,Workspace.AnomalyProps.TinOuthouse.TinOuthouse_Latch.SurfaceAppearance
+85457798270171,Mesh,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanRoots
+85479472881462,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom_shorts.SurfaceAppearance
+85498333280833,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_LED5_Neon
+85623443115766,Mesh,ServerStorage.VehicleTemplates.ThaiTukTuk.Wheels.Wheel_RR
+85631771373009,Mesh,ServerStorage.HumanTemplates.human_female.Hair_ghost_knee
+85639994755887,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_ghost_white_f.SurfaceAppearance
+85667304206572,Image,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_chong.SurfaceAppearance
+85728429011413,?,src/client/CutsceneController.client.luau:794 (GUST_SOUNDS)
+85731272711752,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Wheels.Wheel_FL
+85817985203392,Mesh,ServerStorage.GhostTemplates.ghost_tani.Body
+85873873057863,Image,ServerStorage.VehicleTemplates.ThaiTukTuk.Body.ThaiTukTuk_Handlebar.SurfaceAppearance
+85921914400493,Audio,src/shared/SoundBank.luau:697
+85975066051012,Image,Workspace.MapEnvironment.ImportedYardProps.TireIron.SurfaceAppearance
+86010216948772,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackLight
+86104104559634,Image,ServerStorage.GhostTemplates.ghost_headless.Cloth_ghost_headless_sin.SurfaceAppearance
+86112694608592,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sandals.SurfaceAppearance
+86218102077922,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom_sandals.SurfaceAppearance
+86240774569878,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_sabai
+86455297557631,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_ngob.SurfaceAppearance
+86474664561093,Animation,src/shared/GhostAnimIds.luau:26 (ghost_glide)
+86483542647908,Mesh,ServerStorage.VehicleTemplates.ThaiTukTuk.Wheels.Wheel_F
+86548910840415,Audio,ReplicatedStorage.UploadedSounds.haunt_climb_tree_2
+86598578740523,Mesh,Workspace.InteractiveProps.MoneyTin
+86633874737697,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt.SurfaceAppearance
+86655418231086,Audio,src/shared/SoundBank.luau:74 (React_Startle_Huh_F1)
+86671141079263,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless.SurfaceAppearance
+86686920333830,Animation,src/shared/GhostAnimIds.luau:21 (dancer_dance)
+86766589514506,Mesh,Workspace.MapEnvironment.DirtRoad.WoodenPole
+86793203131385,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer_boots
+86826626985185,Audio,src/shared/SoundBank.luau:164 (Wrong_NeedPetrol_M)
+86851276922466,Audio,src/client/JumpscareController.client.luau:33 (Jumpscare_2)
+86858898313662,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.TinWallPanel_Bent
+86963774329372,Animation,src/shared/HumanAnimIds.luau:93 (ramwong)
+86980106384417,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Cloth_ghost_white_f_sabai.SurfaceAppearance
+87009991873283,Image,ServerStorage.ImportedProps.Umbrella.Umbrella_Canopy.SurfaceAppearance
+87420590770644,Audio,src/shared/SoundBank.luau:163 (Wrong_NeedFuel_F)
+87431658575313,Audio,src/shared/SoundBank.luau:228 (Parade_Invite)
+87834972912668,Animation,src/shared/GhostAnimIds.luau:30 (ride_moto)
+88079501500316,Image,assets/models/human_base/faces/face_ids.json:4 (dead); src/shared/HumanFaceSets.model.json:47 (ColorMap)
+88665687649497,Audio,src/shared/SoundBank.luau:146 (Greet_Waited_M)
+88666908641530,Audio,src/shared/SoundBank.luau:186 (Shutter_Closed_2_M)
+88813450469689,Animation,src/shared/GhostAnimIds.luau:32 (FlapFly)
+89148599673738,Animation,src/shared/HumanAnimIds.luau:32 (wan_low_bounce)
+89252227044099,Animation,src/shared/GhostAnimIds.luau:34 (LickLips)
+89422788816781,Audio,src/shared/SoundBank.luau:166 (Wrong_NeedDiesel_M)
+89727972519219,Audio,src/shared/SoundBank.luau:138 (Pay_1_M)
+89768111947338,?,src/shared/MapBuilder.luau:3607 (FuelSign)
+89982569853810,Audio,src/shared/SoundBank.luau:117 (Greet_Student)
+90067699657732,?,src/shared/MapBuilder.luau:3803 (id)
+90123351793995,Image,assets/models/human_base/faces/face_ids.json:3 (squint); src/shared/HumanFaceSets.model.json:34 (ColorMap)
+90304011725352,Audio,src/shared/SoundBank.luau:122 (Normal_Farmer)
+90433543795714,Audio,src/shared/SoundBank.luau:157 (NoOne_1_F)
+90728172974668,Audio,src/shared/SoundBank.luau:109 (Intro_Brother_2)
+91118819618736,Animation,src/shared/HumanAnimIds.luau:57 (ramwong)
+91272160888434,Audio,src/client/JumpscareController.client.luau:25 (Laugh)
+91432823773006,?,src/shared/MapBuilder.luau:3612 (Glass)
+91516636427185,Animation,src/shared/HumanAnimIds.luau:22 (ghost_idle)
+91804513941402,Animation,src/shared/GhostAnimIds.luau:19 (pillion_hug)
+92175695828583,Audio,src/shared/SoundBank.luau:211 (Pray_GhostAfter_1_F)
+92289716313018,?,src/server/CoreLoop.luau:2268 (RACER_PASS)
+92409645819462,Animation,src/shared/HumanAnimIds.luau:81 (wan_cool)
+92833643435640,Animation,src/shared/HumanAnimIds.luau:61 (walk_skirt)
+93125176294677,Audio,src/shared/SoundBank.luau:192 (Pray_Ask_1_M)
+93177209830968,Animation,src/shared/HumanAnimIds.luau:26 (wan_rock)
+93232280469148,Audio,src/client/JumpscareController.client.luau:23 (Scream)
+93412543260590,Animation,src/shared/HumanAnimIds.luau:29 (wan_cool)
+93714483057730,Audio,src/server/AnomalyManager.luau:27 (DogHowl); src/server/AnomalyManager.luau:994 (id)
+93895985426542,Animation,src/shared/GhostAnimIds.luau:34 (KnockShutter)
+93982819043135,Audio,src/shared/SoundBank.luau:167 (Wrong_NeedDiesel_F)
+94049584992041,Animation,src/shared/HumanAnimIds.luau:85 (wan_point)
+94253655567417,Audio,src/shared/SoundBank.luau:700 (id)
+94261104886943,Animation,src/shared/GhostAnimIds.luau:21 (dancer_idle)
+94519920328005,?,src/server/JerryCan.luau:48 (front)
+95256866710286,Audio,src/shared/SoundBank.luau:159 (NoOne_2_F)
+95715750395399,Animation,src/shared/GhostAnimIds.luau:29 (shroud_idle)
+96127724983333,Animation,src/shared/HumanAnimIds.luau:76 (run)
+96146168762393,Animation,src/shared/HumanAnimIds.luau:112 (run)
+96401431887142,Animation,src/shared/HumanAnimIds.luau:63 (wan_cool)
+96531336289481,Audio,src/shared/SoundBank.luau:692 (id)
+96706447598577,Animation,src/shared/HumanAnimIds.luau:39 (jump)
+96741468634387,Animation,src/shared/HumanAnimIds.luau:36 (hold_flashlight)
+97016491508456,Animation,src/shared/HumanAnimIds.luau:41 (sit)
+97082285254450,Audio,src/shared/SoundBank.luau:165 (Wrong_NeedPetrol_F)
+97129306610044,Image,src/shared/HumanFaceSets.model.json:11 (ColorMap)
+97438185639559,?,src/shared/MapBuilder.luau:3802 (id)
+97648829291844,Audio,src/shared/SoundBank.luau:701 (id)
+97921269926730,Audio,src/client/JumpscareController.client.luau:21 (Sting)
+98016373246241,Audio,src/shared/SoundBank.luau:178 (Shutter_Open_1_M)
+98063047584423,?,src/client/LoadingScreen.client.luau:24 (KEY_ART_ID)
+98200845968694,Animation,src/shared/GhostAnimIds.luau:34 (PossessedSnap)
+98285445493290,Audio,src/shared/SoundBank.luau:140 (Pay_2_M)
+99326167547702,Audio,src/shared/SoundBank.luau:148 (Impatient_1_M)
+99671709230263,?,src/shared/MapBuilder.luau:3798 (Color)
+99672676947809,?,src/client/WeatherController.client.luau:15 (RAIN_TEXTURE)
+99726662578277,Animation,src/shared/GhostAnimIds.luau:23 (ghost_glide)
+99921307413540,Audio,src/shared/SoundBank.luau:134 (Bicycle_Order_1)
+100042904022492,Audio,src/shared/SoundBank.luau:227 (Coyote_Line)
+100345992732110,Animation,src/shared/HumanAnimIds.luau:73 (ghost_idle)
+100419658225308,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_collar
+100439808982557,Mesh,Workspace.InteractiveProps.FuelPumps.DieselPump.GasPump
+100461377264496,Mesh,ServerStorage.VehicleTemplates.CustomerBike.FrontWheel
+100464086565232,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_76.MangoTwigs.SurfaceAppearance
+100535593915166,Image,ServerStorage.GhostTemplates.ghost_tani.Cloth_ghost_tani_sabai.SurfaceAppearance
+100575103195579,Image,ServerStorage.GhostTemplates.ghost_shroud.Cloth_ghost_shroud_cord_ankles.SurfaceAppearance
+100702946690713,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackLight_Neon
+100740617637801,Audio,ReplicatedStorage.UploadedSounds.music_parade_1_rothe_isan
+100843651040677,Mesh,Workspace.AnomalyProps.TinOuthouse.DragonJar_Water
+100884586766878,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani
+100895784276316,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_ghost_white_m_trousers.SurfaceAppearance
+100905498951945,Animation,src/shared/HumanAnimIds.luau:117 (wan_cool)
+100912159804970,Mesh,ServerStorage.GhostTemplates.Krahang.Hair
+100994213937884,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenBench.SurfaceAppearance
+101007768903280,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_sabai_sandals
+101070031437923,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy_shoes.SurfaceAppearance
+101102991978987,Image,Workspace.AnomalyProps.TinOuthouse.TinOuthouse_Latch.SurfaceAppearance
+101106956499725,Image,ServerStorage.GhostTemplates.ghost_tani.Cloth_ghost_tani.SurfaceAppearance
+101136365333952,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f.SurfaceAppearance
+101144829072012,Image,ServerStorage.GhostTemplates.Pop.Pop_Eyes.SurfaceAppearance
+101156490081905,Audio,src/server/AnomalyManager.luau:24 (RadioMusic); src/shared/SoundBank.luau:732 (id)
+101183673604590,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_sash.SurfaceAppearance
+101314477906294,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom_shorts.SurfaceAppearance
+101456459220238,Mesh,ServerStorage.GhostTemplates.Pop.Pop_Tongue
+101512046595571,Audio,src/shared/SoundBank.luau:107
+101545229906837,Mesh,ServerStorage.VehicleTemplates.ThaiTukTuk.Body.ThaiTukTuk
+101776834740545,Image,Workspace.MapEnvironment.ShackDressing.Poster_Fertilizer.Decal; src/shared/MapBuilder.luau:3602 (Poster_Fertilizer)
+101780568525285,Image,Workspace.SpiritHouse.IncensePot.SurfaceAppearance
+101805405596808,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Wheels.Wheel_RL2
+101857467404726,Image,Workspace.MapEnvironment.DirtRoad.KilometerMilestone.SurfaceAppearance
+102105379670514,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_girl_jeans.SurfaceAppearance
+102110649492780,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt.SurfaceAppearance
+102172974414256,Mesh,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench4
+102225885173657,Image,src/shared/HumanFaceSets.model.json:12 (NormalMap); src/shared/HumanFaceSets.model.json:22 (NormalMap)
+102292459591211,?,src/shared/MapBuilder.luau:3461 (Normal)
+102329406504657,Image,Workspace.Generator.Generator.SurfaceAppearance
+102392828403853,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom_sash
+102452801560140,Mesh,ServerStorage.ImportedProps.SacredBanyanProps.SacredThaiRibbons
+102471817774851,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_ghost_white_m_trousers.SurfaceAppearance
+102483258420558,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sin.SurfaceAppearance
+102486028445487,Image,Workspace.MapEnvironment.ImportedYardProps.FuelDrum.SurfaceAppearance
+102536701792597,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_sabai
+102572288593653,Mesh,ServerStorage.HumanTemplates.human_base.Skin_00
+102606773876635,Mesh,ServerStorage.VehicleTemplates.ThaiRacingMoto.Wheels.Wheel_F
+102622535472935,Image,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_chong.SurfaceAppearance
+102657280831897,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Glass
+102693660057042,Mesh,ServerStorage.ImportedProps.LeafSweets.LeafTray
+102699892932422,Mesh,Workspace.MapEnvironment.ImportedYardProps.Wrench
+102851119012224,Mesh,ServerStorage.ImportedProps.PowerLines.PowerLine_Wood_30
+102927310075959,Audio,src/shared/SoundBank.luau:213 (Pray_GhostAfter_2_F)
+103028172957414,Image,ServerStorage.ImportedProps.RoadsideProps.DistantRiceHut.SurfaceAppearance
+103104139135100,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani_sin.SurfaceAppearance
+103144765284931,Mesh,ServerStorage.ImportedProps.Scarecrow.Scarecrow_EyeR_Neon
+103147845168324,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap
+103148851542448,Image,ServerStorage.GhostTemplates.Krahang.Body.SurfaceAppearance
+103179106226131,Image,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBlossom.SurfaceAppearance
+103216869960969,Animation,src/shared/HumanAnimIds.luau:31 (wan_hip_shake)
+103221332740357,Audio,src/shared/SoundBank.luau:200 (Pray_After_1_M)
+103236538356277,Image,Workspace.MapEnvironment.SacredBanyanZone.BrokenOfferings.BrokenOfferings.SurfaceAppearance
+103484887443801,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackShelf.SurfaceAppearance
+103530207639696,Image,Workspace.AnomalyProps.Scarecrow.ScarecrowThai.SurfaceAppearance; src/shared/MapBuilder.luau:3798 (Metalness)
+103533304365268,Image,ServerStorage.GhostTemplates.ghost_funeral_man.Body.SurfaceAppearance
+103585535082880,Animation,src/shared/HumanAnimIds.luau:45 (pull_start)
+103682227749164,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.StormLantern_Glass.SurfaceAppearance
+103715596216799,Audio,src/shared/SoundBank.luau:139 (Pay_1_F)
+103719526293525,Mesh,ServerStorage.HumanTemplates.human_child.Skin_02
+103768343553951,Mesh,Workspace.AirCompressor.ReliefValve
+103772410278082,Image,ReplicatedStorage.Shared.HumanFaceSets.ghost; assets/models/human_base/faces/face_ids.json:6 (ghost); src/shared/HumanFaceSets.model.json:73 (ColorMap)
+103773582554712,Animation,src/shared/HumanAnimIds.luau:60 (walk)
+103778100004371,Image,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin_sin.SurfaceAppearance
+103783501843951,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy.SurfaceAppearance
+103800868829848,Animation,src/shared/HumanAnimIds.luau:17 (idle)
+103870537479640,Audio,src/shared/SoundBank.luau:112 (Intro_Player_2_M)
+103914690216240,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Cloth_ghost_white_f.SurfaceAppearance
+104037531666306,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel_shoes
+104092120448401,Audio,ReplicatedStorage.UploadedSounds.React_Startle_Huh_M1
+104118166752554,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_76.MangoTrunk
+104143846255274,Image,ServerStorage.HumanTemplates.human_female.Body.SurfaceAppearance
+104311340770672,?,src/lobby/client/LobbyClient.client.luau:68 (LOBBY_MUSIC)
+104313735955210,?,src/server/JerryCan.luau:47 (side)
+104340330011959,Image,ServerStorage.GhostTemplates.ghost_kuman_thong.Body.SurfaceAppearance
+104357512032915,Mesh,ServerStorage.HumanTemplates.human_base.Skin_04
+104382522178307,Animation,src/shared/HumanAnimIds.luau:102 (wan_low_bounce)
+104393157752905,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sabai.SurfaceAppearance
+104396131538115,Animation,src/shared/HumanAnimIds.luau:89 (ghost_dance)
+104451489206775,Mesh,ServerStorage.HumanTemplates.human_elder_male.Skin_01
+104475190287800,Image,Workspace.InteractiveProps.FuelPumps.DieselPump.GasPump.SurfaceAppearance
+104486207482923,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenPillar.SurfaceAppearance
+104525316009719,Image,ServerStorage.GhostTemplates.ghost_kuman_thong.Body.SurfaceAppearance
+104554475759929,Mesh,ServerStorage.VehicleTemplates.Saleng.FrontWheel
+104597426747468,Animation,src/shared/HumanAnimIds.luau:118 (wan_hands_up)
+104613442195513,Mesh,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Cloth_ghost_white_f_sin
+104764148061621,Mesh,Workspace.AnomalyProps.OldMirror.OldMirror_Glass
+104782406458446,Image,ServerStorage.VehicleTemplates.CustomerBike.CustomerBike.SurfaceAppearance
+104870412130165,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_76.MangoTwigs
+104908350840519,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Prop_Baby.SurfaceAppearance
+104912762415903,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_116.BananaClump.SurfaceAppearance
+104921245691493,Animation,src/shared/HumanAnimIds.luau:34 (pray)
+105012119508747,Audio,src/client/JumpscareController.client.luau:32 (Jumpscare_1)
+105063801308289,Animation,src/shared/HumanAnimIds.luau:37 (carry_gallon)
+105082438789515,Image,ServerStorage.HumanTemplates.human_female.Cloth_sabai.SurfaceAppearance
+105117511187975,Image,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Interior.SurfaceAppearance
+105121298028225,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_indigo_scarf_sin.SurfaceAppearance
+105220057584990,Image,Workspace.MapEnvironment.ShackDressing.Calendar.Decal; src/shared/MapBuilder.luau:3605 (Calendar)
+105229316614420,Animation,src/shared/HumanAnimIds.luau:100 (wan_hands_up)
+105250719096311,Animation,src/shared/HumanAnimIds.luau:80 (wan_bounce)
+105290844528210,Image,ServerStorage.ImportedProps.LeafSweets.LeafTray.SurfaceAppearance
+105342851537725,Image,Workspace.InteractiveProps.RejectRope.SurfaceAppearance
+105344639843119,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_visor.SurfaceAppearance
+105349862859592,?,src/shared/MapBuilder.luau:3463 (PuddleMesh)
+105386966324540,Image,ServerStorage.HumanTemplates.human_base.Body.SurfaceAppearance
+105424353774393,Mesh,ServerStorage.VehicleTemplates.ThaiPickupOld.Body.ThaiPickupOld
+105448388105251,Audio,src/shared/SoundBank.luau:204 (Pray_Ghost_1_M)
+105522130035249,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_blouse_sin
+105550936683478,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_sabai.SurfaceAppearance
+105645573058601,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_indigo_scarf.SurfaceAppearance
+105653052995902,Mesh,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Wheels.Wheel_FR
+105712887186161,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt_shoes.SurfaceAppearance
+105716740933928,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold_chains
+105723267251459,Mesh,ServerStorage.GhostTemplates.ghost_mae_nak.Prop_Baby
+105754280128665,Animation,src/shared/HumanAnimIds.luau:27 (wan_bounce)
+105761680324511,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin
+105777944945343,Animation,src/shared/HumanAnimIds.luau:67 (wan_point)
+105824342481209,Animation,src/shared/HumanAnimIds.luau:42 (fuel_pump)
+106101303724281,Mesh,ServerStorage.VehicleTemplates.Saleng.Taillight
+106177323243644,Image,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck.SurfaceAppearance
+106302367189285,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_girl
+106305184513134,Audio,ReplicatedStorage.UploadedSounds.radio_lukthung_4_klom_khuen_duean_dap
+106380122455908,Mesh,Workspace.MapEnvironment.SacredBanyanZone.BrokenOfferings.BrokenOfferings
+106542926425806,Image,Workspace.InteractiveProps.RejectRope.SurfaceAppearance
+106566655492443,Mesh,ServerStorage.GhostTemplates.Krahang.Cloth
+106574397768769,Image,Workspace.SpiritHouse.Incense3.SurfaceAppearance
+106642850709884,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_blouse_sin_sandals
+106658585103812,Audio,src/shared/SoundBank.luau:693 (id)
+106700625047470,Image,Workspace.MapEnvironment.DirtRoad.KilometerMilestone.SurfaceAppearance
+106711472361589,Image,ServerStorage.HumanTemplates.human_female.Body.SurfaceAppearance
+106753230839156,Audio,ReplicatedStorage.UploadedSounds.React_Question_Haa_F1
+106758192539257,Audio,src/shared/SoundBank.luau:126 (Walker_Order_2)
+106825157155459,Audio,src/shared/SoundBank.luau:196 (Pray_Ask_3_M)
+106832530811053,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackShelf.SurfaceAppearance
+106838388076495,Image,ServerStorage.GhostTemplates.Pret.Body.SurfaceAppearance
+106855581004824,Audio,ReplicatedStorage.UploadedSounds.React_Shock_Aow_F
+106862923672586,Image,ServerStorage.ImportedProps.GhostHand.GhostHand.SurfaceAppearance
+106890759438342,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WelcomeSign.SurfaceAppearance
+106898724402841,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop_slides
+106947707514064,Animation,src/shared/HumanAnimIds.luau:28 (wan_point)
+106956023383412,Mesh,ServerStorage.GhostTemplates.ghost_dancer.Cloth_ghost_dancer_flowers
+107002018372576,Image,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m_trousers.SurfaceAppearance
+107134470510307,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m
+107147505998713,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer.SurfaceAppearance
+107204924598697,Image,Workspace.SpiritHouse.Incense3.SurfaceAppearance
+107214520751228,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim_visor
+107304725431314,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_pendant
+107405527295991,Audio,src/shared/SoundBank.luau:121 (Normal_Student)
+107439100957653,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderTree_116.BananaClump_Base
+107471836405152,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless
+107552549926925,Mesh,ServerStorage.HumanTemplates.human_elder_male.Hair_long_white_beard
+107662511921391,Image,Workspace.AnomalyProps.TinOuthouse.DragonJar.SurfaceAppearance
+107689588176196,Image,ServerStorage.GhostTemplates.Pret.Body.SurfaceAppearance
+107718528797788,Audio,src/shared/SoundBank.luau:156 (NoOne_1_M)
+107740410695503,Mesh,ServerStorage.HumanTemplates.human_child.Hair_pia
+107742251134980,Animation,src/shared/HumanAnimIds.luau:62 (wan_bounce)
+107782373965219,Audio,src/shared/SoundBank.luau:188 (Shutter_Closed_3_M)
+107804896261774,Mesh,ServerStorage.VehicleTemplates.Saleng.OldCoffin
+107823156545973,Audio,src/shared/SoundBank.luau:147 (Greet_Waited_F)
+107849018849574,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_jeans.SurfaceAppearance
+107991428157504,Image,Workspace.InteractiveProps.RejectRope.SurfaceAppearance
+108084129340860,Animation,src/shared/HumanAnimIds.luau:103 (wan_point)
+108089860705309,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_ghost_white_m_trousers.SurfaceAppearance
+108147959293862,Animation,src/shared/HumanAnimIds.luau:59 (run_skirt)
+108248573149395,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_plaid.SurfaceAppearance
+108270256893390,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_cuffs2
+108343501119445,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_ghost_white_m.SurfaceAppearance
+108460330628678,Image,Workspace.InteractiveProps.FuelPumps.DieselPump.GasPump.SurfaceAppearance
+108479238317845,Image,ServerStorage.GhostTemplates.ghost_headless.Body.SurfaceAppearance
+108512385797815,Mesh,Workspace.MapEnvironment.OuterTreeLine.BorderGrass_70.LemongrassClump
+108703525965245,Image,Workspace.AnomalyProps.TinOuthouse.DragonJar.SurfaceAppearance
+108707952184868,Image,Workspace.AnomalyProps.Scarecrow.ScarecrowThai.SurfaceAppearance; src/shared/MapBuilder.luau:3798 (Normal)
+108757623287464,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Body.SurfaceAppearance
+108765476380825,Audio,src/shared/SoundBank.luau:221 (RainTalk_1_M)
+108796976030380,Image,ServerStorage.VehicleTemplates.ThaiPickupOld.Body.ThaiPickupOld_Interior.SurfaceAppearance
+108981678638998,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.HangingTire.SurfaceAppearance
+109144091128673,Image,ServerStorage.GhostTemplates.ghost_headless.Cloth_ghost_headless.SurfaceAppearance
+109144120681366,Mesh,ServerStorage.BananaClumpNew.BananaClump
+109309121482505,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f_sabai.SurfaceAppearance
+109361495528854,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf
+109429992064846,Audio,src/shared/SoundBank.luau:158 (NoOne_2_M)
+109515457797724,Audio,src/shared/SoundBank.luau:168 (Wrong_NeedAir_M)
+109540370810953,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.StormLantern_Glass.SurfaceAppearance
+109563353022854,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_sabai_sabai
+109567570608709,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Cloth_ghost_nak_sin.SurfaceAppearance
+109652720326443,Animation,src/shared/GhostAnimIds.luau:25 (ghost_glide)
+109683481678681,?,src/shared/MapBuilder.luau:3461 (Color)
+109705914500909,Image,ServerStorage.VehicleTemplates.ThaiBicycleRed.Body.ThaiBicycleRed.SurfaceAppearance
+109731832760802,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel.SurfaceAppearance
+109770687233734,Animation,src/shared/GhostAnimIds.luau:24 (coffin_walk)
+109789859384784,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Body.SurfaceAppearance
+109804213562959,Image,ServerStorage.ImportedProps.PowerLines.PowerLine_40.SurfaceAppearance
+109953200095230,Animation,src/shared/GhostAnimIds.luau:32 (PeekOverEdge)
+109976651673999,Animation,src/shared/HumanAnimIds.luau:24 (ghost_dance)
+110032305427779,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_116.BananaClump.SurfaceAppearance
+110099884649585,?,src/shared/MapBuilder.luau:3462 (Roughness)
+110163902502505,Audio,ReplicatedStorage.UploadedSounds.music_parade_2_klongyao_brass
+110222914704304,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer_sash
+110288350760656,Mesh,ServerStorage.VehicleTemplates.CustomerBike.RearWheel
+110604685495169,Mesh,ServerStorage.VehicleTemplates.CustomerBike.Headlight
+110722727951252,Audio,ReplicatedStorage.UploadedSounds.React_Question_Haa_F2
+110781092472201,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.StormLantern_Neon
+110816229044045,Mesh,ServerStorage.GhostTemplates.Krasue.Krasue_Eyes
+110910342680855,Audio,src/shared/SoundBank.luau:205 (Pray_Ghost_1_F)
+110922093323568,Mesh,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Wheels.Wheel_RR
+110944145567053,Mesh,Workspace.SpiritHouse.Incense3_Neon
+110964156480540,Animation,src/shared/GhostAnimIds.luau:33 (Sniff)
+110982523142545,Mesh,ServerStorage.VehicleTemplates.ThaiPickupOld.Wheels.Wheel_RR
+111264836665123,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom
+111284507084657,?,src/shared/MapBuilder.luau:3459 (Normal)
+111405788989042,Mesh,Workspace.MapEnvironment.ImportedYardProps.FuelDrum
+111438100874990,?,src/client/DeathScreen.client.luau:162 (DEATH_MUSIC_ID)
+111442887245112,Audio,src/shared/SoundBank.luau:216 (Pray_Summon_1)
+111554616771379,Image,ServerStorage.GhostTemplates.ghost_funeral_man.Body.SurfaceAppearance
+111561241190258,Mesh,Workspace.Generator.Generator
+111806258841550,Animation,src/shared/HumanAnimIds.luau:119 (wan_hip_shake)
+111941526850204,?,src/shared/MapBuilder.luau:3460 (Roughness)
+112002298210648,?,src/client/LoadingScreen.client.luau:27 (INTRO_MUSIC_ID)
+112013935104538,Image,ServerStorage.VehicleTemplates.ThaiRacingMoto.Body.ThaiRacingMoto.SurfaceAppearance
+112151506419784,Image,ServerStorage.HumanTemplates.human_child.Cloth_mohom_child.SurfaceAppearance
+112296334883862,Mesh,ServerStorage.VehicleTemplates.CustomerBike.CustomerBike
+112322747065818,Mesh,ServerStorage.GhostTemplates.Pret.Tongue
+112363049316751,Image,Workspace.AnomalyProps.TinOuthouse.TinOuthouse_Latch.SurfaceAppearance
+112529469344788,Image,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Body.ThaiSedanSoluna_Interior.SurfaceAppearance
+112590492539071,Mesh,Workspace.AnomalyProps.OldMirror
+112592122590868,Audio,src/shared/SoundBank.luau:182 (Shutter_Open_3_M)
+112638971195468,Audio,src/shared/SoundBank.luau:303 (id)
+112655926519278,Mesh,ServerStorage.GhostTemplates.ghost_funeral_man.Body
+112686839465193,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.TinRoofPanel.ShackRust; src/shared/MapBuilder.luau:3608 (RustStreaks_A)
+112775322191063,Image,ServerStorage.VehicleTemplates.ThaiBicycleBlue.Body.ThaiBicycleBlue.SurfaceAppearance
+112814150762695,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_pants
+112822729368135,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_mohom_sash
+112856201333345,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleBlue.Body.ThaiBicycleBlue
+112882251614388,Mesh,ServerStorage.GhostTemplates.Pret.Hair
+112932734360299,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_band_tee.SurfaceAppearance
+112976525425398,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_ghost_white_m.SurfaceAppearance
+113010667573351,Image,Workspace.AnomalyProps.OwnerPhoto.SurfaceAppearance
+113014706358263,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani.SurfaceAppearance
+113021327547361,Mesh,Workspace.SpiritHouse.Incense3
+113056958931899,Mesh,ServerStorage.HumanTemplates.human_female.Hair_ghost_messy
+113082132363913,Audio,src/shared/SoundBank.luau:170 (Pay_Slow_M)
+113153843662589,Animation,src/shared/GhostAnimIds.luau:30 (mask_tilt)
+113169882084394,Animation,src/shared/HumanAnimIds.luau:55 (ghost_idle)
+113190909831666,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold_sandals
+113223003379609,?,src/shared/MapBuilder.luau:3462 (Normal)
+113240588106326,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackShelf.SurfaceAppearance
+113256411164589,Mesh,ServerStorage.ImportedProps.ThaiGrasses.RiceSeedling
+113320019507050,Image,ReplicatedStorage.Shared.HumanFaceSets.blink; assets/models/human_base/faces/face_ids.json:2 (blink); src/shared/HumanFaceSets.model.json:21 (ColorMap)
+113372008039618,Mesh,ServerStorage.HumanTemplates.human_female.Skin_02
+113439075181207,Audio,ReplicatedStorage.UploadedSounds.React_Startle_Huh_F2
+113441046458228,Mesh,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanLimbs
+113448283579869,Image,ServerStorage.GhostTemplates.ghost_funeral_woman.Cloth_ghost_white_f.SurfaceAppearance
+113508307082559,Audio,src/shared/SoundBank.luau:153 (Impatient_3_F)
+113578229600896,Mesh,Workspace.MapEnvironment.ShackDressing.FuelBottleRack.Caps; src/shared/MapBuilder.luau:3612 (Caps)
+113586378147289,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop
+113642193083137,Audio,src/shared/SoundBank.luau:108 (Intro_Brother_1)
+113642855980355,Image,ServerStorage.HumanTemplates.human_child.Body.SurfaceAppearance
+113775785716896,Mesh,Workspace.MapEnvironment.ImportedYardProps.BucketWater
+113832725887308,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodPlankWallPanel.SurfaceAppearance
+113949562141083,Audio,src/shared/SoundBank.luau:110 (Intro_Brother_3)
+113965823398340,Audio,src/shared/SoundBank.luau:154 (Queue_Chime_M)
+114027126806663,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_plaid.SurfaceAppearance
+114069950036168,Audio,ReplicatedStorage.UploadedSounds.React_Shock_Aow_M
+114087252777494,Audio,src/shared/SoundBank.luau:75 (React_Startle_Huh_F2)
+114152273892732,Mesh,ServerStorage.GhostTemplates.Krasue.Krasue_Organs
+114240873257209,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Wheels.Wheel_RR1
+114257947419805,Image,ServerStorage.VehicleTemplates.ThaiTukTuk.Body.ThaiTukTuk_Handlebar.SurfaceAppearance
+114317810849582,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenPillar.SurfaceAppearance
+114362749683740,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Cloth_ghost_nak_sin.SurfaceAppearance
+114539123130997,Image,Workspace.MapEnvironment.ImportedYardProps.FuelDrum.SurfaceAppearance
+114646258071509,Animation,src/shared/HumanAnimIds.luau:77 (run_skirt)
+114651251602415,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_armlets.SurfaceAppearance
+114659360345248,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenBench.SurfaceAppearance
+114692550341339,Mesh,ServerStorage.GhostTemplates.ghost_funeral_woman.Cloth_ghost_white_f_sin
+114728864525559,Mesh,Workspace.InteractiveProps.FuelPumps.DieselPump.GlassTube
+114766366110358,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer.SurfaceAppearance
+114803847578334,Mesh,ServerStorage.GhostTemplates.ghost_ta_khon.Body
+114846271235008,Mesh,Workspace.InteractiveProps.FuelPumps.DieselPump.FuelLiquid
+114999698716069,Audio,src/shared/SoundBank.luau:180 (Shutter_Open_2_M)
+115035686543508,Audio,src/shared/SoundBank.luau:193 (Pray_Ask_1_F)
+115037195700895,Audio,src/shared/SoundBank.luau:225 (Party_Line)
+115042184410585,Image,Workspace.MapEnvironment.DirtRoad.KilometerMilestone.SurfaceAppearance
+115057278587175,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.HangingHoseCoil
+115151233187430,Image,src/shared/HumanFaceSets.model.json:13 (RoughnessMap); src/shared/HumanFaceSets.model.json:23 (RoughnessMap)
+115232217803810,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer_jeans
+115233996891759,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_ghost_white_f.SurfaceAppearance
+115269516257144,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani.SurfaceAppearance
+115278622322950,Mesh,ServerStorage.HumanTemplates.human_child.Hair_child_short
+115287544853637,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_shoulder_cloth.SurfaceAppearance
+115303737562476,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Cloth_ghost_nak_sabai.SurfaceAppearance
+115339354794592,Mesh,Workspace.AnomalyProps.OwnerPhoto.OwnerPhoto_Image
+115429224536039,Mesh,ServerStorage.GhostTemplates.Pop.Pop
+115467953845431,Mesh,ServerStorage.ImportedProps.TinOuthouse.DragonJar
+115507798868399,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_sabai.SurfaceAppearance
+115543677028746,Mesh,Workspace.MapEnvironment.RoadPowerPoles.WoodenPole
+115646264437823,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_mohom_child_sandals
+115735550087965,Image,ServerStorage.HumanTemplates.human_elder_female.Body.SurfaceAppearance
+115739406615926,Image,ServerStorage.HumanTemplates.human_elder_female.Body.SurfaceAppearance
+115759523231507,Image,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin_sin.SurfaceAppearance
+115816716889853,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo.SurfaceAppearance
+115861834812769,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer_jeans.SurfaceAppearance
+115862055133282,Image,ServerStorage.HumanTemplates.human_base.Body.SurfaceAppearance
+115869153609204,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer.SurfaceAppearance
+115871933365177,Mesh,Workspace.MapEnvironment.ShackDressing.FuelBottleRack.Rack; src/shared/MapBuilder.luau:3612 (Rack)
+115893928171834,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai_sabai.SurfaceAppearance
+115903709587419,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf_scarf
+116040863745352,Mesh,ServerStorage.HumanTemplates.human_female.BodyHead
+116111768404862,Animation,src/shared/HumanAnimIds.luau:98 (wan_bounce)
+116150993341323,Mesh,Workspace.Generator.PullStartHandle
+116164650040661,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy
+116213191170180,Image,ServerStorage.HumanTemplates.human_female.Cloth_sabai.SurfaceAppearance
+116218320131605,Mesh,Workspace.InteractiveProps.CutoutSwitch
+116289295384539,Audio,ReplicatedStorage.UploadedSounds.sfx_racer_moto_rev_cut
+116359942803396,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sin
+116407449945212,Image,ServerStorage.HumanTemplates.human_child.Cloth_mohom_child_shorts.SurfaceAppearance
+116581919501760,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_mohom_sash_tails
+116589727004100,Mesh,ServerStorage.HumanTemplates.human_female.Hair_ponytail_bow
+116716502874361,Image,Workspace.MapEnvironment.ShackDressing.Poster_Energy.Decal; src/shared/MapBuilder.luau:3603 (Poster_Energy)
+116827997071173,Audio,src/client/HauntEffects.client.luau:250 (WHISPER_ID); src/server/AnomalyManager.luau:995
+116836694647618,Audio,src/shared/SoundBank.luau:128 (Walker_Order_4)
+116878429009248,Mesh,ServerStorage.HumanTemplates.human_base.Hair_side_part
+116893915864843,Audio,src/shared/SoundBank.luau:129 (Car_Order_1)
+116904368605085,Mesh,Workspace.InteractiveProps.FuelPumps.DieselPump.Nozzle
+116917354322731,Image,Workspace.SpiritHouse.IncensePot.SurfaceAppearance
+116986735147346,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop_slides.SurfaceAppearance
+117024318189225,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer
+117031989129739,Image,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Interior.SurfaceAppearance
+117043157965488,Image,Workspace.MapEnvironment.ImportedYardProps.TireIron.SurfaceAppearance
+117092280985123,Image,ServerStorage.VehicleTemplates.Saleng.FrontWheel.SurfaceAppearance
+117225562688135,Animation,src/shared/GhostAnimIds.luau:31 (Shriek)
+117244087769631,Mesh,ServerStorage.ImportedProps.SacredBanyanProps.OldMarbleBenchSet
+117250831347904,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_girl_jeans.SurfaceAppearance
+117298671237057,Image,ServerStorage.HumanTemplates.human_female.Cloth_sabai_sin.SurfaceAppearance
+117327241522853,Mesh,ServerStorage.HumanTemplates.human_elder_female.BodyHead
+117420494627878,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_sash.SurfaceAppearance
+117602672144148,Mesh,ServerStorage.GhostTemplates.Krahang.Sak
+117645321414270,Mesh,ServerStorage.GhostTemplates.ghost_tani.Cloth_ghost_tani_sin
+117677053753844,Animation,src/shared/HumanAnimIds.luau:121 (wan_point)
+117698431171273,Mesh,Workspace.AnomalyProps.TinOuthouse.WaterDipper
+117709617765446,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_sarong_sarong
+117758248464276,Animation,src/shared/GhostAnimIds.luau:33 (Lunge)
+117760547063833,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f_sabai.SurfaceAppearance
+117913151276903,Audio,ReplicatedStorage.UploadedSounds.sfx_coin_tin_drop_2
+117991472861544,Image,ServerStorage.GhostTemplates.ghost_mirror.Cloth_ghost_thai.SurfaceAppearance
+118008900453715,Audio,ReplicatedStorage.UploadedSounds.React_Cold_Shiver_F2
+118022427429678,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom_sandals.SurfaceAppearance
+118042869785522,Audio,ReplicatedStorage.UploadedSounds.chant_thai_4_namo_tassa; src/server/AnomalyManager.luau:25 (MonkChant); src/shared/SoundBank.luau:48 (Chant1_Kusala_Normal)
+118059493618246,Mesh,ServerStorage.HumanTemplates.human_base.Skin_02
+118142651483151,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_ghost_white_f_sin
+118143256077504,Image,ServerStorage.ImportedProps.Scarecrow.Scarecrow.SurfaceAppearance
+118203855044367,Audio,src/shared/SoundBank.luau:695 (id)
+118231068641116,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold
+118268650812731,Audio,src/shared/SoundBank.luau:120 (Normal_Aunt)
+118456508809360,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_girl_shoes
+118483226356267,Audio,ReplicatedStorage.UploadedSounds.React_Question_Haa_M2
+118550575176141,Image,ServerStorage.ImportedProps.PowerLines.PowerLine_40.SurfaceAppearance
+118557860002230,Image,Workspace.AnomalyProps.TinOuthouse.DragonJar.SurfaceAppearance
+118604954563012,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.HangingTire.SurfaceAppearance
+118613079122215,Audio,src/shared/SoundBank.luau:206 (Pray_Ghost_2_M)
+118635405092067,Audio,ReplicatedStorage.UploadedSounds.radio_lukthung_5_am_detuned_ghost
+118671124546707,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom_sash_tails
+118704825470823,Audio,src/shared/SoundBank.luau:107
+118755911163939,Animation,src/shared/HumanAnimIds.luau:107 (ghost_dance)
+118800353777246,Image,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck.SurfaceAppearance
+118865631954966,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_farmer_boots
+118917645458936,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_LED3_Neon
+118938997976988,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani_sabai
+118963743589533,Image,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanTwigs.SurfaceAppearance
+119036997369870,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt_trousers.SurfaceAppearance
+119118926158034,Image,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench3.SurfaceAppearance
+119186204230994,Image,ServerStorage.GhostTemplates.ghost_dancer.Cloth_ghost_dancer.SurfaceAppearance
+119338239942215,Animation,src/shared/GhostAnimIds.luau:31 (TallSlowWalk)
+119389838082303,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_sarong.SurfaceAppearance
+119442911375487,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_flowers
+119445319966378,Audio,src/client/JumpscareController.client.luau:26 (Bells); src/shared/SoundBank.luau:337 (id)
+119644102585370,Animation,src/shared/HumanAnimIds.luau:40 (fall)
+119774551429097,Image,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_chong.SurfaceAppearance
+119880019054884,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck_Windows
+119955123536112,Mesh,Workspace.AnomalyProps.TinOuthouse.SquatToilet_Water
+119985308194771,Mesh,ServerStorage.HumanTemplates.human_elder_male.BodyHead
+119991308430268,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_boots.SurfaceAppearance
+120032932806966,Image,ServerStorage.HumanTemplates.human_elder_female.Cloth_blouse_sin_sin.SurfaceAppearance
+120044982285484,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_armlets.SurfaceAppearance
+120106369068060,Image,ServerStorage.VehicleTemplates.ThaiRacingMoto.Body.ThaiRacingMoto.SurfaceAppearance
+120111047239636,Animation,src/shared/HumanAnimIds.luau:30 (wan_hands_up)
+120210620976113,Animation,src/shared/HumanAnimIds.luau:79 (walk_skirt)
+120267745816751,Mesh,ServerStorage.GhostTemplates.ghost_headless.Cloth_ghost_headless_sin
+120279660829613,Mesh,Workspace.MapEnvironment.ShackDressing.FuelBottleRack.FuelRed; src/shared/MapBuilder.luau:3612 (FuelRed)
+120477697082606,Image,ServerStorage.HumanTemplates.human_child.Body.SurfaceAppearance
+120520965103699,Animation,src/shared/GhostAnimIds.luau:22 (coffin_walk)
+120540504172146,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_plaid_jeans.SurfaceAppearance
+120552622314012,Animation,src/shared/HumanAnimIds.luau:64 (wan_hands_up)
+120582364940552,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_LED4_Neon
+120600505393931,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim
+120600783973300,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_band_tee_jeans.SurfaceAppearance
+120692485125305,Mesh,ServerStorage.HumanTemplates.human_elder_female.Hair_ghost_floor_white
+120821323829869,Image,ServerStorage.GhostTemplates.ghost_tani.Cloth_ghost_tani_sin.SurfaceAppearance
+120833178064455,Animation,src/shared/HumanAnimIds.luau:90 (ghost_glide)
+120888304289755,Image,ServerStorage.VehicleTemplates.CustomerBike.CustomerBike.SurfaceAppearance
+120972764473707,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel_pants
+121334422530006,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.TinWallPanel
+121497903379847,Audio,src/shared/SoundBank.luau:133 (TukTuk_Order_2)
+121599686684336,Image,ServerStorage.GhostTemplates.ghost_tani.Cloth_ghost_tani_sabai.SurfaceAppearance
+121640898094592,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_bracelets
+121739306363357,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.MainSignBoard.SurfaceAppearance
+121820674567376,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.WelcomeSign
+121825306406956,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf_sandals
+121838029217506,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_sarong_shoulder_cloth
+121857683656072,Animation,src/shared/HumanAnimIds.luau:91 (ghost_idle)
+121877001426917,?,src/shared/MapBuilder.luau:3462 (Color)
+121925640454139,Image,Workspace.MapEnvironment.RiceField.DistantRiceHut.DistantRiceHut.SurfaceAppearance
+122018934403584,Image,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench3.SurfaceAppearance
+122053270632363,Image,ServerStorage.GhostTemplates.ghost_ta_khon.Prop_TaKhonMask.SurfaceAppearance
+122075620374831,Image,ServerStorage.VehicleTemplates.Saleng.FrontWheel.SurfaceAppearance
+122170793041438,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodPlankWallPanel.SurfaceAppearance
+122268794944058,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_76.MangoTwigs.SurfaceAppearance
+122274398218344,Image,ServerStorage.ImportedProps.LeafSweets.LeafTray.SurfaceAppearance
+122295809724424,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim_jeans.SurfaceAppearance
+122384108785062,Image,ReplicatedStorage.Shared.HumanFaceSets.ghost_cry; assets/models/human_base/faces/face_ids.json:9 (ghost_cry); src/shared/HumanFaceSets.model.json:115 (ColorMap)
+122414933650234,Mesh,ServerStorage.ImportedProps.ShackPorchKit.PorchSteps
+122425593365529,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Horns
+122449143272750,Image,ServerStorage.HumanTemplates.human_base.Cloth_mohom.SurfaceAppearance
+122508820984005,Animation,src/shared/GhostAnimIds.luau:28 (nak_reach)
+122588785850046,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleBlue.Wheels.Wheel_R
+122677831744462,Audio,src/shared/SoundBank.luau:179 (Shutter_Open_1_F)
+122779148368795,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenPillar.SurfaceAppearance
+122802010323614,Mesh,ServerStorage.HumanTemplates.human_base.Skin_06
+122847751459335,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom.SurfaceAppearance
+122862121554380,Mesh,ServerStorage.HumanTemplates.human_female.Hair_ghost_long
+122919608561661,Audio,ReplicatedStorage.UploadedSounds.React_Startle_Huh_M2
+122927726611288,Audio,src/shared/SoundBank.luau:143 (Pay_3_F)
+122941362270230,Animation,src/shared/HumanAnimIds.luau:71 (ghost_dance)
+123010882457849,Audio,src/shared/SoundBank.luau:212 (Pray_GhostAfter_2_M)
+123039031290763,Audio,ReplicatedStorage.UploadedSounds.haunt_walk_shop_wood_1
+123185428314556,Audio,src/shared/SoundBank.luau:704 (id)
+123205072000301,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.TvAntenna
+123228168339406,?,src/server/JerryCan.luau:49 (top)
+123246066483033,Image,ServerStorage.GhostTemplates.Pop.Pop.SurfaceAppearance
+123257766396647,Mesh,Workspace.AirCompressor.AirCompressor
+123298089970620,Image,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Interior.SurfaceAppearance
+123300403939358,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold_anklets
+123314010660698,?,src/client/PrayerController.client.luau:311 (GHOST_SIGHT_ID); src/client/SceneryGhostWatch.client.luau:18 (SIGHT_ID)
+123532358154818,Audio,src/shared/SoundBank.luau:171 (Pay_Slow_F)
+123603068735237,Audio,src/shared/SoundBank.luau:135 (Bicycle_Order_2)
+123660392975282,Image,ServerStorage.GhostTemplates.ghost_funeral_man.Cloth_ghost_white_m_trousers.SurfaceAppearance
+123675393049758,Image,ServerStorage.GhostTemplates.ghost_child.Body.SurfaceAppearance
+123777800569917,Mesh,ServerStorage.HumanTemplates.human_child.Body
+123827846619534,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_indigo_scarf_scarf
+123829252801227,Image,ServerStorage.HumanTemplates.human_base.Body.SurfaceAppearance
+123868244970834,Image,Workspace.SpiritHouse.IncensePot.SurfaceAppearance
+124005766523360,Image,ServerStorage.GhostTemplates.Pop.Pop_Eyes.SurfaceAppearance
+124079216219424,Audio,src/shared/SoundBank.luau:115 (Greet_Uncle)
+124100574441548,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_LED2_Neon
+124268127961145,Image,ServerStorage.GhostTemplates.ghost_dancer.Cloth_ghost_dancer_sin.SurfaceAppearance
+124315963545474,Animation,src/shared/GhostAnimIds.luau:28 (nak_cradle)
+124323618888677,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin_sandals
+124362004257897,Mesh,ServerStorage.HumanTemplates.human_base.BodyHead
+124552497952901,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_farmer_jeans
+124605998199785,Image,ServerStorage.HumanTemplates.human_elder_male.Cloth_mohom_shorts.SurfaceAppearance
+124631754030717,Mesh,ServerStorage.HumanTemplates.human_female.Hair_bob
+124631886498420,Mesh,ServerStorage.GhostTemplates.ghost_child.Body
+124698400785577,Image,Workspace.MapEnvironment.RoadPowerPoles.WoodenPole.SurfaceAppearance
+124708651070318,Mesh,ServerStorage.HumanTemplates.human_child.Hair_juk
+124744279417591,Image,ServerStorage.GhostTemplates.ghost_dancer.Cloth_ghost_dancer.SurfaceAppearance
+124747645986293,Audio,src/shared/SoundBank.luau:118 (Greet_Farmer)
+124752630643530,Image,ServerStorage.GhostTemplates.ghost_mae_nak.Cloth_ghost_nak.SurfaceAppearance
+124821956471157,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodPlankWallPanel.SurfaceAppearance
+124858649763823,Mesh,ServerStorage.ImportedProps.Umbrella.Umbrella_Canopy
+124876791481490,Mesh,ServerStorage.VehicleTemplates.CustomerBike.LicensePlateFrame
+124883772234827,Animation,src/shared/GhostAnimIds.luau:26 (ghost_idle)
+124994188158936,Image,ServerStorage.GhostTemplates.ghost_child.Cloth_ghost_child_shorts.SurfaceAppearance
+125085687419308,Mesh,ServerStorage.VehicleTemplates.ThaiTukTuk.Wheels.Wheel_RL
+125181117148593,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel.SurfaceAppearance
+125190748789677,Image,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold.SurfaceAppearance
+125229810760608,Animation,src/shared/HumanAnimIds.luau:111 (ramwong)
+125254564581895,Image,ServerStorage.ImportedProps.PowerLines.PowerLine_40.SurfaceAppearance
+125269580005509,Image,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf_scarf.SurfaceAppearance
+125312309692669,Audio,src/shared/SoundBank.luau:198 (Pray_Ask_4_M)
+125360035921189,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_visor
+125395137668895,Audio,src/shared/SoundBank.luau:172 (Rejected_1_M)
+125435746716683,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Cloth_ghost_white_m.SurfaceAppearance
+125436387383355,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_mohom_child_shorts
+125491945975569,Mesh,Workspace.Generator.Generator_Neon
+125518194149482,Image,ServerStorage.GhostTemplates.ghost_dancer.Body.SurfaceAppearance
+125530788809363,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_farmer_ngob
+125685947008192,Audio,src/shared/SoundBank.luau:150 (Impatient_2_M)
+125754114861794,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.HangingTire.SurfaceAppearance
+125922850927736,Image,ServerStorage.VehicleTemplates.ThaiTukTuk.Body.ThaiTukTuk_Handlebar.SurfaceAppearance
+125925099853056,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleBlue.Body.ThaiBicycleBlue_Handlebar
+125987227952125,Image,ServerStorage.HumanTemplates.human_female.Cloth_blouse_sin.SurfaceAppearance
+126010055350772,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_farmer_ngob
+126057121855576,Image,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m.SurfaceAppearance
+126094630920023,Mesh,Workspace.MapEnvironment.SacredBanyanZone.SacredBanyanTree.BanyanTwigs
+126135755891811,Audio,src/shared/SoundBank.luau:131 (Car_Order_3)
+126182407706187,Mesh,ServerStorage.VehicleTemplates.ThaiPickupOld.Wheels.Wheel_FL
+126204413532524,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai_sabai.SurfaceAppearance
+126334956966662,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.TinWallPanel_Bent.ShackRust; src/shared/MapBuilder.luau:3609 (RustStreaks_B)
+126336859699149,Audio,ReplicatedStorage.UploadedSounds.React_Cold_Shiver_F1
+126358332565938,Mesh,Workspace.AnomalyProps.TinOuthouse.TinOuthouse_Door
+126472662229762,Audio,ReplicatedStorage.UploadedSounds.sfx_moto_approach_idle
+126546172371924,Mesh,Workspace.AnomalyProps.TinOuthouse.TinOuthouse
+126624366422592,Image,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Interior.SurfaceAppearance
+126738508473178,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop.SurfaceAppearance
+126775500193812,Audio,src/shared/SoundBank.luau:699 (id)
+126875754116050,Audio,ReplicatedStorage.UploadedSounds.React_Cold_Shiver_M1
+126910157062464,?,src/shared/MapBuilder.luau:5365 (MANGO_LEAF_IMAGE)
+126959303493117,Animation,src/shared/GhostAnimIds.luau:19 (pillion_look)
+127020974081865,Mesh,ServerStorage.HumanTemplates.human_child.Hair_ko
+127025308969012,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_crop.SurfaceAppearance
+127092387402202,Image,ServerStorage.GhostTemplates.ghost_shroud.Cloth_ghost_shroud.SurfaceAppearance
+127138821714472,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenBench.SurfaceAppearance
+127148962116757,Image,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBunch.SurfaceAppearance
+127214743955829,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Body.SurfaceAppearance
+127215231812105,Image,ServerStorage.HumanTemplates.human_female.Body.SurfaceAppearance
+127453239549908,Image,ServerStorage.GhostTemplates.ghost_shroud.Cloth_ghost_shroud.SurfaceAppearance
+127456756304366,Animation,src/shared/HumanAnimIds.luau:23 (ghost_glide)
+127709670953007,Audio,src/server/AnomalyManager.luau:253
+127722535641568,Audio,src/shared/SoundBank.luau:175 (Rejected_2_F)
+127746707203952,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_wan_flannel
+127799262940117,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_ghost_white_m_trousers
+127819622920859,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_boots.SurfaceAppearance
+127881304792192,Audio,src/shared/SoundBank.luau:132 (TukTuk_Order_1)
+127898514376688,Mesh,ServerStorage.GhostTemplates.Krasue.Krasue
+127905560169049,Mesh,ServerStorage.HumanTemplates.human_female.Skin_09
+127951005728487,Mesh,ServerStorage.HumanTemplates.human_child.Hair_klae
+127990611938313,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f_sin.SurfaceAppearance
+128089223214975,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenBench
+128115008189120,Image,ReplicatedStorage.Shared.HumanFaceSets.cry; assets/models/human_base/faces/face_ids.json:5 (cry); src/shared/HumanFaceSets.model.json:60 (ColorMap)
+128117301146048,Animation,src/shared/HumanAnimIds.luau:21 (run_skirt)
+128148726008685,Mesh,Workspace.MapEnvironment.ImportedYardProps.TireWithRim
+128152988065718,Image,ServerStorage.GhostTemplates.ghost_headless.NeckStump.SurfaceAppearance
+128223472901448,Image,Workspace.MapEnvironment.OuterTreeLine.BorderTree_116.BananaClump.SurfaceAppearance
+128258716321901,Mesh,Workspace.InteractiveProps.FuelPumps.DieselPump.HandCrank
+128458612909478,Audio,ReplicatedStorage.UploadedSounds.React_Fear_Panic_M2
+128476230517414,Image,ServerStorage.HumanTemplates.human_female.Cloth_wan_band_tee_jeans.SurfaceAppearance
+128527349956696,Audio,ReplicatedStorage.UploadedSounds.React_Fear_Panic_M1
+128575611906473,Audio,src/shared/SoundBank.luau:217 (Pray_Summon_2)
+128858322441131,Animation,src/shared/HumanAnimIds.luau:75 (ramwong)
+128951615187070,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_armlets.SurfaceAppearance
+129004893394572,Image,Workspace.InteractiveProps.FuelPumps.DieselPump.GasPump.SurfaceAppearance
+129074712887611,Audio,src/shared/SoundBank.luau:194 (Pray_Ask_2_M)
+129287586147989,Audio,src/shared/SoundBank.luau:162 (Wrong_NeedFuel_M)
+129369161172079,Animation,src/shared/HumanAnimIds.luau:56 (idle)
+129476554217488,Audio,src/shared/SoundBank.luau:226 (Teen_Line)
+129479578391960,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_man.Cloth_ghost_white_m.SurfaceAppearance
+129501251224637,Mesh,ServerStorage.GhostTemplates.ghost_kuman_thong.Cloth_ghost_kuman_chains
+129503151043569,Animation,src/shared/HumanAnimIds.luau:47 (drive_car)
+129504909316795,Mesh,ServerStorage.HumanTemplates.human_base.Skin_03
+129516755007389,Audio,ReplicatedStorage.UploadedSounds.React_Fear_Tremble_F
+129579163034290,Mesh,ServerStorage.ImportedProps.ShackSigns.NeonSignFrame
+129631914908386,Audio,src/shared/SoundBank.luau:72 (React_Startle_Huh_M1)
+129656732045299,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_mohom_shorts
+129700657811557,Animation,src/shared/HumanAnimIds.luau:19 (run)
+129938755754966,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_LED1_Neon
+129949515130403,Image,ServerStorage.GhostTemplates.ghost_headless.NeckStump.SurfaceAppearance
+129983865348128,Image,ServerStorage.GhostProps.Coffin.Coffin.SurfaceAppearance
+129997024196313,Image,Workspace.Generator.Generator.SurfaceAppearance
+130010242853051,Mesh,ServerStorage.HumanTemplates.human_child.BodyHead
+130021302371799,Mesh,ServerStorage.HumanTemplates.human_elder_female.Hair_bun_grey
+130060854610044,Image,ServerStorage.VehicleTemplates.ThaiBicycleRed.Body.ThaiBicycleRed.SurfaceAppearance
+130119679305008,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_band_tee
+130130124294281,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf_sin
+130133915972706,Audio,ReplicatedStorage.UploadedSounds.sfx_fuel_glug_loop
+130158442655576,Audio,src/shared/SoundBank.luau:73 (React_Startle_Huh_M2)
+130186067715106,Mesh,ServerStorage.ImportedProps.TvAntennaAndPoles.ConcretePole
+130203952113077,Audio,src/shared/SoundBank.luau:111 (Intro_Player_1_M)
+130247096894596,?,src/lobby/client/LobbyClient.client.luau:68 (LOBBY_MUSIC)
+130247430236659,Mesh,Workspace.AnomalyProps.IceBox.IceBox_Lid
+130260861945028,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_denim_jeans.SurfaceAppearance
+130324052527918,Mesh,ServerStorage.HumanTemplates.human_child.Skin_00
+130330083609961,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_cuffs
+130370047284164,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy.SurfaceAppearance
+130406208011508,Animation,src/shared/GhostAnimIds.luau:27 (kuman_giggle)
+130438590137122,Image,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBlossom.SurfaceAppearance
+130542985686069,Image,Workspace.AnomalyProps.TinOuthouse.SquatToilet.SurfaceAppearance
+130601847430696,Mesh,ServerStorage.ImportedProps.HandLights.Flashlight
+130706698260780,Animation,src/shared/HumanAnimIds.luau:54 (ghost_glide)
+130914258727862,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_wan_band_tee_jeans
+130917584057118,Image,Workspace.MapEnvironment.ShackDressing.Poster_Oil.Decal; src/shared/MapBuilder.luau:3604 (Poster_Oil)
+130952196600475,Mesh,Workspace.SpiritHouse.SpiritHouseOnStilts
+131044226335748,Audio,src/shared/SoundBank.luau:702 (id)
+131064354919944,Image,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Body.SurfaceAppearance
+131143966474701,Audio,src/shared/SoundBank.luau:174 (Rejected_2_M)
+131151578301093,Audio,ReplicatedStorage.UploadedSounds.haunt_roof_tin_steps
+131222294293200,Image,ServerStorage.GhostTemplates.Pret.Body.SurfaceAppearance
+131224706318160,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_belt
+131235381770907,Image,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBunch.SurfaceAppearance
+131284900199063,Image,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf_sin.SurfaceAppearance
+131298722495556,Image,Workspace.AnomalyProps.TinOuthouse.DragonJar.SurfaceAppearance
+131460441007142,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleBlue.Wheels.Wheel_F
+131498664469603,Audio,src/shared/SoundBank.luau:207 (Pray_Ghost_2_F)
+131614255954885,Image,Workspace.MapEnvironment.ImportedYardProps.TireIron.SurfaceAppearance
+131678989238062,Audio,ReplicatedStorage.UploadedSounds.haunt_climb_tree_1
+131690345082347,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.MainSignBoard.SurfaceAppearance
+131695284992255,Audio,src/shared/SoundBank.luau:199 (Pray_Ask_4_F)
+131786192428104,Animation,src/shared/HumanAnimIds.luau:108 (ghost_glide)
+131840592658253,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo_visor.SurfaceAppearance
+131844784880437,Image,ServerStorage.GhostTemplates.ghost_tani.Cloth_ghost_tani.SurfaceAppearance
+131959302837021,Mesh,ServerStorage.HumanTemplates.human_female.Skin_08
+132186726790658,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani.SurfaceAppearance
+132238328155463,Mesh,ServerStorage.ImportedProps.PowerLines.PowerLine_60
+132294356917846,Animation,src/shared/HumanAnimIds.luau:104 (wan_rock)
+132365498901351,Image,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench3.SurfaceAppearance
+132408927006595,Animation,src/shared/HumanAnimIds.luau:48 (ride_moto)
+132476130005011,Mesh,ServerStorage.VehicleTemplates.ThaiPickupOld.Wheels.Wheel_FR
+132570886382304,Image,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_belt.SurfaceAppearance
+132599788461957,Image,ServerStorage.HumanTemplates.human_female.Cloth_indigo_scarf.SurfaceAppearance
+132619334853140,Animation,src/shared/HumanAnimIds.luau:92 (idle)
+132644909447241,Mesh,ServerStorage.HumanTemplates.human_elder_female.Hair_curly_grey
+132772288033847,Mesh,ServerStorage.BananaClumpNew.BananaClump_Base
+132822592476604,Animation,src/shared/HumanAnimIds.luau:18 (walk)
+132865049500153,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_sarong_shoulder_cloth
+132894536569628,Audio,src/shared/SoundBank.luau:195 (Pray_Ask_2_F)
+132997223408377,Image,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold.SurfaceAppearance
+133140234979044,Mesh,ServerStorage.HumanTemplates.human_base.Skin_05
+133154379973033,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_armlets
+133197740266793,Mesh,Workspace.MapEnvironment.ImportedYardProps.TireStack_4
+133206909891901,Animation,src/shared/HumanAnimIds.luau:96 (walk)
+133209269700088,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck_Interior
+133266935292019,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackLight.SurfaceAppearance
+133331195669091,Image,ServerStorage.BananaClumpNew.BananaClump_B.SurfaceAppearance
+133433855757137,Mesh,Workspace.SpiritHouse.IncensePot
+133502162805753,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_ghost_thai
+133548461502627,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.StormLantern
+133598978275442,Image,ServerStorage.ImportedProps.JerryCan.JerryCan
+133648227507231,Mesh,ServerStorage.HumanTemplates.human_female.Skin_01
+133661463255254,Mesh,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Wheels.Wheel_RL
+133701611239115,?,src/shared/MapBuilder.luau:3464 (OilStain_A)
+133823304425459,Animation,src/shared/GhostAnimIds.luau:20 (ghost_idle)
+133902014082374,Mesh,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap_chong
+133922548758676,Audio,ReplicatedStorage.UploadedSounds.haunt_walk_dirt_circle
+133991518040916,Mesh,ServerStorage.VehicleTemplates.ThaiRacingMoto.Body.ThaiRacingMoto_Handlebar
+134135005546548,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_ngob.SurfaceAppearance
+134160000008351,Image,ServerStorage.VehicleTemplates.Saleng.FrontWheel.SurfaceAppearance
+134175778866197,Image,ServerStorage.GhostTemplates.ghost_funeral_man.Cloth_ghost_white_m_trousers.SurfaceAppearance
+134222070686303,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy_shoes.SurfaceAppearance
+134302863405326,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.TvAntenna.SurfaceAppearance
+134471109033763,Mesh,ServerStorage.ImportedProps.JerryCan.JerryCanFuel
+134492548143267,Animation,src/shared/HumanAnimIds.luau:83 (wan_hip_shake)
+134586539690273,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless_sabai.SurfaceAppearance
+134627986195791,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck
+134690050450846,Audio,src/client/JumpscareController.client.luau:22 (Sting2)
+134908139865752,Animation,src/shared/HumanAnimIds.luau:49 (drive_tuktuk)
+134927536916241,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_white_f_sin.SurfaceAppearance
+134944182421650,Animation,src/shared/HumanAnimIds.luau:122 (wan_rock)
+135134803205211,Mesh,ServerStorage.VehicleTemplates.Saleng.SidecarWheel
+135138483666732,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer.SurfaceAppearance
+135171697217682,Audio,src/shared/SoundBank.luau:208 (Pray_Ghost_3_M)
+135236414490615,Audio,src/shared/SoundBank.luau:696 (id)
+135294891217213,Image,ServerStorage.GhostTemplates.ghost_child.Cloth_ghost_child_shorts.SurfaceAppearance
+135327015268099,Mesh,ServerStorage.HumanTemplates.human_base.Hair_rong_song_sung
+135328352028078,Mesh,ServerStorage.VehicleTemplates.ThaiPickupOld.Body.ThaiPickupOld_Glass
+135357196019075,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_headless.SurfaceAppearance
+135362256541891,Animation,src/shared/HumanAnimIds.luau:50 (ride_bicycle)
+135374321896494,Mesh,ServerStorage.VehicleTemplates.ThaiSoundTruck.Body.ThaiSoundTruck_Interior
+135460193481424,Audio,ReplicatedStorage.UploadedSounds.radio_lukthung_1_lamnam_thung_mued
+135519924599414,Animation,src/shared/HumanAnimIds.luau:25 (ramwong)
+135629295621384,Animation,src/shared/HumanAnimIds.luau:86 (wan_rock)
+135632171384227,Image,ServerStorage.GhostTemplates.ghost_funeral_man.Cloth_ghost_white_m.SurfaceAppearance
+135684387590380,Audio,src/shared/SoundBank.luau:116 (Greet_Aunt)
+135700532522053,Audio,ReplicatedStorage.UploadedSounds.sfx_incense_extinguish
+135718492168682,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.SodaCrate
+135730438006835,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_baggy_shoes.SurfaceAppearance
+135777550005340,Image,ServerStorage.HumanTemplates.human_base.Cloth_red_shirt_trousers.SurfaceAppearance
+135903629667712,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WelcomeSign.SurfaceAppearance
+135952279207329,Audio,src/client/AmbienceController.client.luau:830 (SoundId); src/shared/SoundBank.luau:422 (id)
+135959861316582,Animation,src/shared/HumanAnimIds.luau:66 (wan_low_bounce)
+136143234948704,Mesh,ServerStorage.VehicleTemplates.ThaiBicycleRed.Body.ThaiBicycleRed_Handlebar
+136195998464356,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Body.ThaiParadeTruck_Glass
+136259240799899,Image,ServerStorage.HumanTemplates.human_child.Body.SurfaceAppearance
+136334373178752,Image,Workspace.AirCompressor.AirCompressor.SurfaceAppearance
+136496556353385,Mesh,ServerStorage.ImportedProps.PowerLines.ServiceDrop
+136698150599354,Image,ServerStorage.HumanTemplates.human_base.Cloth_wan_camo.SurfaceAppearance
+136941547644862,Animation,src/shared/GhostAnimIds.luau:22 (ghost_glide)
+136967158255758,Mesh,ServerStorage.HumanTemplates.human_elder_male.Cloth_ghost_white_m_trousers
+137030979524563,Mesh,ServerStorage.ImportedProps.LeafSweets.OpenWrap
+137077217871618,Image,ServerStorage.ImportedProps.Scarecrow.Scarecrow.SurfaceAppearance
+137131228611137,Animation,src/shared/HumanAnimIds.luau:97 (walk_skirt)
+137151411489015,Mesh,ServerStorage.VehicleTemplates.ThaiSedanSoluna.Body.ThaiSedanSoluna
+137201616752424,Image,Workspace.MapEnvironment.ShackDressing.Yantra.Decal; src/shared/MapBuilder.luau:3606 (Yantra)
+137204654697077,Audio,src/shared/SoundBank.luau:151 (Impatient_2_F)
+137212304147279,Image,ServerStorage.HumanTemplates.human_female.Cloth_chest_wrap.SurfaceAppearance
+137314034356664,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackLight.SurfaceAppearance
+137330604096391,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_dancer_sabai.SurfaceAppearance
+137332217812444,Audio,src/shared/SoundBank.luau:184 (Shutter_Closed_1_M)
+137397349191394,Image,ServerStorage.GhostTemplates.ghost_child.Cloth_ghost_child.SurfaceAppearance
+137413955456093,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Wheels.Wheel_FR
+137418155440140,?,src/client/CutsceneController.client.luau:794 (GUST_SOUNDS)
+137518179265897,Image,ServerStorage.VehicleTemplates.ThaiTukTuk.Body.ThaiTukTuk_Handlebar.SurfaceAppearance
+137552369001796,Image,ServerStorage.ImportedProps.GhostHand.GhostHand.SurfaceAppearance
+137573589051035,Audio,ReplicatedStorage.UploadedSounds.React_Confused_Hmm_F
+137619306973532,Audio,src/shared/SoundBank.luau:209 (Pray_Ghost_3_F)
+137794284780721,?,src/shared/MapBuilder.luau:3466 (TireTracks)
+137886126273872,Mesh,ServerStorage.HumanTemplates.human_elder_male.Body
+137905220707032,Animation,src/shared/HumanAnimIds.luau:20 (walk_skirt)
+138010968990233,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_sabai_sandals
+138025499029648,Animation,src/shared/HumanAnimIds.luau:110 (idle)
+138230893125902,Audio,src/shared/SoundBank.luau:142 (Pay_3_M)
+138236005040297,Mesh,ServerStorage.HumanTemplates.human_child.Cloth_chong_gold_bracelets
+138260260495028,Image,ServerStorage.HumanTemplates.human_base.Cloth_sarong_shoulder_cloth.SurfaceAppearance
+138305290817385,Mesh,ServerStorage.VehicleTemplates.ThaiTukTuk.Body.ThaiTukTuk_Glass
+138396975841629,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.WoodenBench.SurfaceAppearance
+138469024592722,Mesh,Workspace.AnomalyProps.Scarecrow.ScarecrowThai; src/shared/MapBuilder.luau:3801 (id)
+138536454349166,Mesh,ServerStorage.ImportedProps.Scarecrow.Scarecrow
+138714888247474,Mesh,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench3
+138780977608882,Mesh,ServerStorage.ImportedProps.LeafSweets.Wrapped
+138787121928225,Audio,src/shared/SoundBank.luau:130 (Car_Order_2)
+138814406067201,Image,ServerStorage.GhostTemplates.ghost_child.Cloth_ghost_child_shorts.SurfaceAppearance
+138855960005673,Image,ServerStorage.HumanTemplates.human_female.Cloth_ghost_tani_sin.SurfaceAppearance
+138950273308352,Audio,src/shared/SoundBank.luau:703 (id)
+138971215285958,Image,ServerStorage.GhostTemplates.ghost_headless.Cloth_ghost_headless_sabai.SurfaceAppearance
+139006307854487,Image,ServerStorage.HumanTemplates.human_elder_male.Body.SurfaceAppearance
+139014279883307,Audio,ReplicatedStorage.UploadedSounds.sfx_racer_wheelie_pass
+139066205446953,Image,ServerStorage.VehicleTemplates.ThaiPickupOld.Body.ThaiPickupOld_Interior.SurfaceAppearance
+139184012941604,Mesh,Workspace.MapEnvironment.ShackStructure.ImportedShack.HangingTire
+139228963989343,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.ShackLight.SurfaceAppearance
+139275720750367,Image,ServerStorage.GhostTemplates.ghost_funeral_man.Body.SurfaceAppearance
+139294863178343,Image,Workspace.SpiritHouse.SpiritHouseOnStilts.SurfaceAppearance
+139366566783527,Mesh,ServerStorage.HumanTemplates.human_elder_female.Cloth_blouse_sin_sin
+139389052551624,Mesh,ServerStorage.GhostTemplates.ghost_funeral_elder_woman.Hair_bun_grey
+139470602602087,Mesh,ServerStorage.HumanTemplates.human_elder_female.Hair_ghost_knee_white
+139555385393520,Image,Workspace.MapEnvironment.RoadPowerPoles.WoodenPole.SurfaceAppearance
+139596742310286,Mesh,Workspace.SpiritHouse.Incense1
+139712219705473,Mesh,ServerStorage.HumanTemplates.human_base.Cloth_farmer_sash
+139719738458972,Image,ReplicatedStorage.Shared.HumanFaceSets.injured; assets/models/human_base/faces/face_ids.json:8 (injured); src/shared/HumanFaceSets.model.json:99 (ColorMap)
+139761823425207,Image,ServerStorage.GhostTemplates.ghost_tani.Body.SurfaceAppearance
+139796578586671,Audio,src/shared/SoundBank.luau:210 (Pray_GhostAfter_1_M)
+139802079821396,Image,Workspace.MapEnvironment.ShackStructure.ImportedShack.HangingTire.SurfaceAppearance
+139849679279000,Image,ServerStorage.HumanTemplates.human_elder_male.Body.SurfaceAppearance
+139895172295914,Mesh,Workspace.MapEnvironment.SacredBanyanZone.OldMarbleBenchSet.MarbleBench2
+140018318442177,?,src/shared/MapBuilder.luau:3459 (Color)
+140024244457676,Audio,ReplicatedStorage.UploadedSounds.React_Startle_Huh_F1
+140044696079853,Audio,src/shared/SoundBank.luau:187 (Shutter_Closed_2_F)
+140095080768913,Mesh,ServerStorage.VehicleTemplates.Saleng.OldCoffin_Lid
+140167830796828,Animation,src/shared/HumanAnimIds.luau:58 (run)
+140179870683386,Mesh,ServerStorage.GhostProps.Coffin.Coffin
+140210160820494,Animation,src/shared/HumanAnimIds.luau:95 (run_skirt)
+140359821272241,Mesh,ServerStorage.HumanTemplates.human_elder_female.Hair_ghost_long_white
+140441801362803,Mesh,ServerStorage.ImportedProps.RoadsideProps.KilometerMilestone
+140535397838889,Mesh,ServerStorage.GhostTemplates.ghost_funeral_woman.Hair_ghost_messy
+140550447608308,Image,ServerStorage.HumanTemplates.human_base.Cloth_farmer_jeans.SurfaceAppearance
+140552794422782,Mesh,Workspace.MapEnvironment.BananaGrove.BananaTree_11.BananaBlossom
+140569712863000,Audio,src/shared/SoundBank.luau:119 (Normal_Uncle)
+140667807267172,Mesh,Workspace.MapEnvironment.ImportedYardProps.FuelDrum_Red
+140706127647220,Mesh,ServerStorage.VehicleTemplates.ThaiParadeTruck.Wheels.Wheel_RR2

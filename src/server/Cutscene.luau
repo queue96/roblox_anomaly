@@ -554,9 +554,41 @@ local function wait_(t: number, seconds: number): boolean
 	return alive(t)
 end
 
+-- ความยาวจริงของเสียงพากย์คัทซีน (วัดตอนเริ่มเซิร์ฟ) — เดิม hold ตายตัวสั้นกว่าเสียง: พูดยังไม่จบฉากก็ไปต่อ
+-- (Intro_Brother_3 เสียง 3.7 วิ แต่รอแค่ 3.0 แล้วขับออกเลย / Intro_Player_1 เสียง 4.6 รอ 2.6 · ผู้ใช้ 2026-11-05)
+local VOICE_TAIL = 0.35 -- เผื่อหลังเสียงจบนิดหนึ่งก่อนบรรทัดถัดไป
+local voiceLen: { [string]: number } = {}
+task.spawn(function()
+	local folder = Instance.new("Folder")
+	folder.Name = "CutsceneVoiceProbe"
+	folder.Parent = game:GetService("SoundService")
+	for k, id in pairs(SoundBank.DialogueUploadedIds) do
+		if string.sub(k, 1, 6) == "Intro_" or string.sub(k, 1, 6) == "Outro_" then
+			local s = Instance.new("Sound")
+			s.SoundId = id
+			s.Volume = 0
+			s.Parent = folder
+			task.spawn(function()
+				local t0 = os.clock()
+				while not s.IsLoaded and os.clock() - t0 < 20 do
+					task.wait(0.2)
+				end
+				if s.TimeLength > 0 then
+					voiceLen[k] = s.TimeLength
+				end
+				s:Destroy()
+			end)
+		end
+	end
+end)
+local function lineLength(key: string): number
+	return math.max(voiceLen[key] or 0, voiceLen[key .. "_M"] or 0, voiceLen[key .. "_F"] or 0)
+end
+
 local function say(t: number, key: string, who: { [string]: any }, head: BasePart?, hold: number): boolean
 	fire("say", key, who, head)
-	return wait_(t, hold)
+	local len = lineLength(key)
+	return wait_(t, if len > 0 then math.max(hold, len + VOICE_TAIL) else hold)
 end
 
 -- ทำงานยาวๆ (ขับรถ/เดิน) แบบไม่บล็อก แล้วรอจนเสร็จหรือข้ามครบ
@@ -1105,6 +1137,11 @@ local function introBody(t: number)
 	if not say(t, "Intro_Brother_3", BROTHER, headOf(bro), 3.0) then
 		return v, bro
 	end
+	-- พูดจบแล้วหยุดนิ่งสักครู่ก่อนขึ้นรถขับออก (ผู้ใช้ 2026-11-05)
+	fire("say", nil)
+	if not wait_(t, 1.0) then
+		return v, bro
+	end
 	bro:Destroy()
 	showDriver(v, true)
 	-- กล้องมองพี่ชายขี่ออก: ตั้งฝั่งถนน (ตรงข้ามร้าน) — ผู้เล่นยืนฝั่งร้านของรถ รถจึงอยู่หน้าผู้เล่นตลอดทาง ไม่โดนตัวผู้เล่นบัง
@@ -1498,6 +1535,10 @@ local function outroBody(t: number)
 		return v
 	end
 	fire("say", nil)
+	-- เหมือนตอนเปิดเกม: พูดจบ เว้นนิดหนึ่งก่อนขึ้นรถ
+	if not wait_(t, 0.8) then
+		return v
+	end
 	-- 5) ขึ้นรถ ขี่ออกไปรับแสงเช้า
 	-- ขึ้นรถทีละคน ที่นั่งตามลำดับเดียวกับขามา (ไม่นั่งซ้อนกัน)
 	local spots = seatSpots(v, n)

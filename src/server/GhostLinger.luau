@@ -254,6 +254,9 @@ function GhostLinger.Start(mustStay: boolean?): boolean
 	end
 
 	if not root then
+		if conn then
+			conn:Disconnect()
+		end
 		group:Destroy()
 		return false
 	end

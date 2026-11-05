@@ -70,7 +70,7 @@
    "name": "ghost",
    "className": "SurfaceAppearance",
    "properties": {
-    "ColorMap": "rbxassetid://129950928893142",
+    "ColorMap": "rbxassetid://103772410278082",
     "NormalMap": "rbxassetid://102225885173657",
     "RoughnessMap": "rbxassetid://115151233187430",
     "AlphaMode": "Overlay"
@@ -96,7 +96,7 @@
    "name": "injured",
    "className": "SurfaceAppearance",
    "properties": {
-    "ColorMap": "rbxassetid://127938374689136",
+    "ColorMap": "rbxassetid://139719738458972",
     "NormalMap": "rbxassetid://102225885173657",
     "RoughnessMap": "rbxassetid://115151233187430",
     "AlphaMode": "Overlay"
@@ -112,7 +112,7 @@
     "Uploaded": true
    },
    "properties": {
-    "ColorMap": "rbxassetid://85133452370743",
+    "ColorMap": "rbxassetid://122384108785062",
     "NormalMap": "rbxassetid://102225885173657",
     "RoughnessMap": "rbxassetid://115151233187430",
     "AlphaMode": "Overlay"

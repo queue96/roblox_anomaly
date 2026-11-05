@@ -38,7 +38,28 @@ local function inWorld(d: Instance): boolean
 	return d:IsDescendantOf(Workspace) or d:IsDescendantOf(game:GetService("SoundService"))
 end
 
+-- ลูกค้าที่ยังไม่ได้จอดที่ร้านนานพอ (server ติด tag VeilLock ไว้ที่รถ/คน): พนมมือยังไม่เห็นผีของรายนี้
+local LOCK_TAG = "VeilLock"
+local function locked(d: Instance): boolean
+	local a = d.Parent
+	while a and a ~= Workspace do
+		if CollectionService:HasTag(a, LOCK_TAG) then
+			return true
+		end
+		a = a.Parent
+	end
+	return CollectionService:HasTag(d, LOCK_TAG)
+end
+
 local function setVeil(d: Instance, visible: boolean, instant: boolean)
+	if locked(d) then
+		-- ยังล็อก: ผีซ่อนไว้ ของปกติยังเห็น (เหมือนไม่ได้พนมมือ)
+		if CollectionService:HasTag(d, "GhostOnly") then
+			visible = false
+		elseif CollectionService:HasTag(d, "NormalOnly") then
+			visible = true
+		end
+	end
 	local prop = d:GetAttribute("VeilProp")
 	if type(prop) ~= "string" then
 		return
@@ -81,6 +102,12 @@ end)
 CollectionService:GetInstanceAddedSignal(NORMAL_TAG):Connect(function(d)
 	if inWorld(d) then
 		setVeil(d, not sightOpen, sightOpen)
+	end
+end)
+-- ปลดล็อก (จอดที่ร้านนานพอแล้ว): คนที่พนมมืออยู่เห็นผีทันที
+CollectionService:GetInstanceRemovedSignal(LOCK_TAG):Connect(function()
+	if sightOpen then
+		applyAll(false)
 	end
 end)
 -- Server เอา tag ออก (ผีไปแล้ว) -> คืนค่าปกติ
@@ -206,11 +233,19 @@ local currentChantIndex = 0
 local currentChantScared = false
 
 local function isGhostDetectedNow(): boolean
-	if remotes:GetAttribute("IsAnomaly") == true then
+	-- ลูกค้าที่ยังล็อกอยู่: เสียงสวดยังไม่เปลี่ยน (ไม่บอกใบ้ก่อนเห็นผี)
+	local anyLocked = false
+	for _, l in ipairs(CollectionService:GetTagged(LOCK_TAG)) do
+		if l:IsDescendantOf(Workspace) then
+			anyLocked = true
+			break
+		end
+	end
+	if remotes:GetAttribute("IsAnomaly") == true and not anyLocked then
 		return true
 	end
 	for _, d in ipairs(CollectionService:GetTagged(GHOST_TAG)) do
-		if d:IsDescendantOf(Workspace) then
+		if d:IsDescendantOf(Workspace) and not locked(d) then
 			return true
 		end
 	end
@@ -309,6 +344,9 @@ local function onGhostCheck()
 	end)
 end
 remotes:GetAttributeChangedSignal("IsAnomaly"):Connect(onGhostCheck)
+CollectionService:GetInstanceRemovedSignal(LOCK_TAG):Connect(function()
+	task.defer(onGhostCheck)
+end)
 CollectionService:GetInstanceAddedSignal(GHOST_TAG):Connect(function()
 	task.defer(onGhostCheck)
 end)

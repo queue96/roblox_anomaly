@@ -244,7 +244,54 @@ curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	end
 end)
 
--- (เอาเสียงกระซิบธี่หยด + ตาเบลอแบบอยู่ดีๆ ออกแล้ว ผู้ใช้ 2026-11-05 · ตาปรือเหลือเฉพาะตอนล้มเพราะผีปั่นป่วน)
+-- เสียงกระซิบธี่หยด (เจ้าของเกมอัปโหลด ~28 วิ) ข้างหูคนเดียว เล่นแค่ WHISPER_LEN วิ เบา 10% ระหว่างนั้นตาปรือจะหลับ
+--   ดังเมื่อ: สุ่มเองตอนร้านเปิด / สวดเรียกผี (บทพูด WhisperSpeaker)
+--   ไม่เกิน 1 ครั้งต่อ WHISPER_COOLDOWN ต่อเครื่อง ไม่ว่ามาจากทางไหน (ผู้ใช้ 2026-11-05: เอากลับมา แต่ 20 นาทีครั้งเดียวพอ)
+local WHISPER_ID = "rbxassetid://116827997071173"
+local WHISPER_VOLUME = 0.1
+local WHISPER_LEN = 15
+local WHISPER_FADE = 3 -- เฟดเข้า / เฟดออก (วินาที)
+local WHISPER_COOLDOWN = 20 * 60
+local WHISPER_EVERY = { 15 * 60, 25 * 60 } -- สุ่มรอบละ (นับจากครั้งล่าสุด)
+local lastWhisper = -math.huge
+local function whisper()
+	if os.clock() - lastWhisper < WHISPER_COOLDOWN or Lighting:GetAttribute("Cutscene") == true or isDowned then
+		return
+	end
+	lastWhisper = os.clock()
+	local s = Instance.new("Sound")
+	s.Name = "HauntWhisper"
+	s.SoundId = WHISPER_ID
+	s.Volume = 0
+	s.Parent = game:GetService("SoundService")
+	s:Play()
+	-- ค่อยๆ ดังขึ้น / ค่อยๆ เบาลงจนหาย ตาปรือจนเสียงหายพอดี (พนมมืออยู่ = ไม่ปรือ ดู drowsy)
+	TweenService:Create(s, TweenInfo.new(WHISPER_FADE, Enum.EasingStyle.Sine), { Volume = WHISPER_VOLUME }):Play()
+	drowsy(WHISPER_LEN, WHISPER_FADE)
+	task.delay(WHISPER_LEN - WHISPER_FADE, function()
+		TweenService:Create(s, TweenInfo.new(WHISPER_FADE, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+	end)
+	task.delay(WHISPER_LEN + 0.1, function()
+		s:Destroy()
+	end)
+end
+
+local speechRemote = remotes:WaitForChild("CustomerSpeech") :: RemoteEvent
+speechRemote.OnClientEvent:Connect(function(key: string?, _head: any, who: any)
+	if key and type(who) == "table" and who.ghost == "WhisperSpeaker" then
+		whisper()
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(WHISPER_EVERY[1] + math.random() * (WHISPER_EVERY[2] - WHISPER_EVERY[1]))
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if remotes:GetAttribute("ShopOpen") == true and hum and hum.Health > 0 then
+			whisper()
+		end
+	end
+end)
 
 -- ตาย / เกิดใหม่ / คัทซีน: ล้างอาการ
 local function clear()
