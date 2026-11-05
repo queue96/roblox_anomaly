@@ -25,6 +25,12 @@
         },
         "SoundBank": {
           "$path": "src/shared/SoundBank.luau"
+        },
+        "UiFit": {
+          "$path": "src/shared/UiFit.luau"
+        },
+        "BookPortrait": {
+          "$path": "src/shared/BookPortrait.luau"
         }
       }
     },

@@ -320,6 +320,10 @@ LanguageModule.UI = {
 	BookLockedHint = { th = "ยังไม่เคยรอดจากผีตัวนี้", en = "You have not survived this one yet." },
 	BookSurvived = { th = "รอดมาแล้ว {n} ครั้ง", en = "Survived {n} times" },
 	BookNew = { th = "บันทึกผีใหม่ลงสมุด", en = "New journal entry" },
+	BookDetails = { th = "ลักษณะ", en = "Details" },
+	BookNotFound = { th = "ยังไม่พบ", en = "Not found yet" },
+	BookBack = { th = "กลับ", en = "Back" },
+	BookTraits = { th = "ลักษณะและวิธีสังเกต", en = "What to look for" },
 	-- จอตาย (แพ้)
 	AskRestart = { th = "เริ่มคืนใหม่ไหม?", en = "Start a new night?" },
 	Restart = { th = "เริ่มใหม่", en = "Restart" },

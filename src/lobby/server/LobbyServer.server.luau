@@ -2,7 +2,8 @@
 -- สคริปต์ฝั่ง Server ของ place "Lobby" (Start Place) — sync ผ่าน lobby.project.json พอร์ต 34873
 -- 1) บรรยากาศวัดร้างตอนเที่ยงคืน
 -- 2) โซนสร้างห้อง: เดินเข้าวง RoomPad ที่ว่าง = เป็นเจ้าของห้อง เลือกจำนวนผู้เล่น (1–6) + ความยาก
---    คนอื่นเดินเข้าวงเดียวกัน = เข้าห้อง (จนเต็ม), ระหว่างรอถูกกั้นในวงและออกจากปุ่ม UI เท่านั้น
+--    คนอื่นเดินเข้าวงเดียวกัน = เข้าห้อง (จนเต็ม), ระหว่างรอสมาชิกถูกกั้นในวง (แสงจากพื้น + ขอบล่องหนที่ชนเฉพาะสมาชิก)
+--    และออกจากปุ่ม UI เท่านั้น
 --    เจ้าของห้องกด "เริ่มเกม" = ReserveServer + TeleportAsync ไป Pump Lot ทันที; ห้องเต็มนับ 5 วิแล้วส่งอัตโนมัติ
 --    พร้อม TeleportData { roomId, difficulty, maxPlayers, hostUserId } (ดูสัญญาใน Shared.Difficulty)
 --    ตั้งค่าไม่เสร็จใน 30 วิ = ดีดกลับจุดเกิด; ห้องรอผู้เล่นได้ 60 วิ แล้วปิดและดีดทุกคนกลับ
@@ -168,23 +169,167 @@ local rooms: { [BasePart]: Room } = {}
 local pendingHost: { [BasePart]: Player } = {}
 local pendingSince: { [BasePart]: number } = {}
 
--- กำแพงม่านพลังรอบวง (TempleLobby.RoomPads.RoomPadWall_n จาก MapBuilder): เปิดตอนกำลังตั้งห้อง
-local function setWall(pad: BasePart, on: boolean)
-	local wall = pad.Parent and pad.Parent:FindFirstChild("RoomPadWall_" .. tostring(pad:GetAttribute("PadIndex")))
+-- ขอบวง (TempleLobby.RoomPads.RoomPadWall_n จาก MapBuilder): ไม่มีกรงให้เห็นแล้ว
+--   ภาพ = แสงแดงสาดขึ้นจากพื้นรอบวง (Beam จางหายด้านบน) เปิดตอนตั้งห้อง/มีห้อง
+--   ชน = WallSeg ล่องหน อยู่กลุ่ม RoomWall ที่ชนเฉพาะกลุ่ม RoomMember (สมาชิกห้อง)
+--   คนข้างนอกเดินทะลุเข้ามาร่วมห้องได้ ส่วนสมาชิกเดินออกไม่ได้ (ออกจากปุ่ม UI เท่านั้น)
+local PhysicsService = game:GetService("PhysicsService")
+local WALL_GROUP = "RoomWall"
+local MEMBER_GROUP = "RoomMember"
+local PLAYER_GROUP = "LobbyPlayer" -- ผู้เล่นทั่วไปใน lobby: เดินทะลุกันได้
+for _, g in ipairs({ WALL_GROUP, MEMBER_GROUP, PLAYER_GROUP }) do
+	if not PhysicsService:IsCollisionGroupRegistered(g) then
+		PhysicsService:RegisterCollisionGroup(g)
+	end
+end
+PhysicsService:CollisionGroupSetCollidable(WALL_GROUP, "Default", false)
+PhysicsService:CollisionGroupSetCollidable(WALL_GROUP, WALL_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(WALL_GROUP, MEMBER_GROUP, true)
+PhysicsService:CollisionGroupSetCollidable(WALL_GROUP, PLAYER_GROUP, false)
+-- ผู้เล่นทุกคนไม่ชนกันเอง (ทั้งคนทั่วไปและสมาชิกห้อง) แต่ยังชนพื้น/ฉากตามปกติ
+PhysicsService:CollisionGroupSetCollidable(PLAYER_GROUP, PLAYER_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(PLAYER_GROUP, MEMBER_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable(MEMBER_GROUP, MEMBER_GROUP, false)
+
+local LIGHT_HEIGHT = 6 -- ความสูงแสงที่สาดขึ้นจากพื้น (จางหมดที่ยอด)
+local LIGHT_COLOR = Color3.fromRGB(255, 60, 40)
+
+local function padWall(pad: BasePart): Instance?
+	return pad.Parent and pad.Parent:FindFirstChild("RoomPadWall_" .. tostring(pad:GetAttribute("PadIndex")))
+end
+
+-- แปลงกำแพงเดิมในไฟล์ place: ซ่อนถาวร, ชนเฉพาะสมาชิก, ใส่ Beam แสงจากพื้น (ปิดไว้ก่อน)
+local function prepareWall(pad: BasePart)
+	local wall = padWall(pad)
 	if not wall then
 		return
 	end
 	for _, w in ipairs(wall:GetChildren()) do
 		if w:IsA("BasePart") then
-			w.CanCollide = on
-			w.Transparency = if on then 0.15 else 1
+			w.Transparency = 1
+			w.CanCollide = true
+			w.CanQuery = false
+			w.CollisionGroup = WALL_GROUP
+			if not w:FindFirstChild("FloorLight") then
+				local half = w.Size.Y / 2
+				local floorY = pad.Position.Y - 0.15 - w.Position.Y -- ระดับพื้นลานในพิกัดของชิ้น
+				local a0 = Instance.new("Attachment")
+				a0.Name = "LightBottom"
+				a0.Position = Vector3.new(0, math.max(floorY, -half), 0)
+				-- แกนรองของ attachment กำหนดทิศความกว้างของ Beam: หมุนให้ชี้ตามแนวสัมผัสวง (แกน Z ของชิ้น)
+				-- ไม่งั้นความกว้างขนานกับทิศ Beam แผ่นแสงจะแบนหายไป
+				a0.Orientation = Vector3.new(90, 0, 0)
+				a0.Parent = w
+				local a1 = Instance.new("Attachment")
+				a1.Name = "LightTop"
+				a1.Position = a0.Position + Vector3.new(0, LIGHT_HEIGHT, 0)
+				a1.Orientation = Vector3.new(90, 0, 0)
+				a1.Parent = w
+				local beam = Instance.new("Beam")
+				beam.Name = "FloorLight"
+				beam.Attachment0 = a0
+				beam.Attachment1 = a1
+				beam.Width0 = w.Size.Z
+				beam.Width1 = w.Size.Z
+				beam.FaceCamera = false
+				beam.Segments = 1
+				beam.Color = ColorSequence.new(LIGHT_COLOR)
+				beam.LightEmission = 1
+				beam.LightInfluence = 0
+				beam.Brightness = 4
+				beam.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.1),
+					NumberSequenceKeypoint.new(0.4, 0.65),
+					NumberSequenceKeypoint.new(1, 1),
+				})
+				beam.Enabled = false
+				beam.Parent = w
+			end
 		end
 	end
 end
+
+local function setWall(pad: BasePart, on: boolean)
+	local wall = padWall(pad)
+	if not wall then
+		return
+	end
+	for _, w in ipairs(wall:GetChildren()) do
+		local beam = w:FindFirstChild("FloorLight") :: Beam?
+		if beam then
+			beam.Enabled = on
+		end
+	end
+end
+
+-- ล็อก/ปลดล็อกตัวผู้เล่นกับขอบวง
+local lockedPlayers: { [Player]: boolean } = {}
+local function applyGroup(player: Player)
+	local char = player.Character
+	if not char then
+		return
+	end
+	local group = if lockedPlayers[player] then MEMBER_GROUP else PLAYER_GROUP
+	for _, d in ipairs(char:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.CollisionGroup = group
+		end
+	end
+end
+local function setLocked(player: Player, locked: boolean)
+	lockedPlayers[player] = if locked then true else nil
+	applyGroup(player)
+end
+local function hookCharacter(player: Player)
+	local function onChar(char: Model)
+		applyGroup(player)
+		char.DescendantAdded:Connect(function(d)
+			if d:IsA("BasePart") then
+				d.CollisionGroup = if lockedPlayers[player] then MEMBER_GROUP else PLAYER_GROUP
+			end
+		end)
+	end
+	if player.Character then
+		onChar(player.Character)
+	end
+	player.CharacterAdded:Connect(onChar)
+end
+for _, p in ipairs(Players:GetPlayers()) do
+	hookCharacter(p)
+end
+Players.PlayerAdded:Connect(hookCharacter)
+Players.PlayerRemoving:Connect(function(p)
+	lockedPlayers[p] = nil
+end)
+
+-- ดึงตัวผู้เล่นเข้ามาด้านในวง (กันตัวคร่อมขอบตอนเพิ่งถูกล็อก หรือหลุดออกไปนอกวง)
+local function pullInside(player: Player, pad: BasePart)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (char and root) then
+		return
+	end
+	local inner = pad.Size.Y / 2 - 3.5
+	local d = root.Position - pad.Position
+	local flat = Vector3.new(d.X, 0, d.Z)
+	if flat.Magnitude > inner then
+		local dir = if flat.Magnitude > 0.01 then flat.Unit else Vector3.new(1, 0, 0)
+		local target = pad.Position + dir * inner
+		char:PivotTo(CFrame.new(Vector3.new(target.X, root.Position.Y, target.Z)) * root.CFrame.Rotation)
+	end
+end
+
 local function setPending(pad: BasePart, player: Player?)
+	local before = pendingHost[pad]
 	pendingHost[pad] = player
 	pendingSince[pad] = if player then os.clock() else nil
 	setWall(pad, player ~= nil)
+	if player then
+		pullInside(player, pad)
+		setLocked(player, true)
+	elseif before and not (rooms[pad] and table.find(rooms[pad].members, before)) then
+		setLocked(before, false)
+	end
 end
 local onPad: { [Player]: BasePart? } = {}
 local cooldownUntil: { [Player]: number } = {}
@@ -288,6 +433,7 @@ local function closeRoom(pad: BasePart, th: string, en: string, keepPosition: bo
 	rooms[pad] = nil
 	setWall(pad, false)
 	for _, p in ipairs(room.members) do
+		setLocked(p, false)
 		RoomState:FireClient(p, nil)
 		Notice:FireClient(p, th, en)
 		cooldownUntil[p] = os.clock() + REJOIN_COOLDOWN
@@ -319,6 +465,7 @@ local function leaveRoom(player: Player, pad: BasePart)
 		return
 	end
 	table.remove(room.members, idx)
+	setLocked(player, false)
 	room.fullCountdown = nil
 	room.fullDeadline = nil
 	RoomState:FireClient(player, nil)
@@ -352,6 +499,8 @@ local function enterPad(player: Player, pad: BasePart)
 			return
 		end
 		table.insert(room.members, player)
+		pullInside(player, pad)
+		setLocked(player, true)
 		startFullCountdown(room)
 		refresh(pad)
 	elseif not pendingHost[pad] then
@@ -443,8 +592,9 @@ ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, diff
 		launching = false,
 	}
 	rooms[pad] = room
-	-- ผู้เล่นที่เข้าห้องถูกกั้นไว้จนกว่าจะกดออกจาก UI หรือเกมเริ่ม
+	-- ผู้เล่นที่เข้าห้องถูกกั้นไว้จนกว่าจะกดออกจาก UI หรือเกมเริ่ม (คนข้างนอกยังเดินเข้ามาร่วมได้)
 	setWall(pad, true)
+	setLocked(player, true)
 	-- คนที่ยืนรออยู่ในวงก่อนแล้วได้เข้าห้องเลย
 	for other, p in pairs(onPad) do
 		if p == pad and other ~= player then
@@ -511,8 +661,10 @@ end
 
 task.spawn(function()
 	local function addPad(p: Instance)
-		if p:IsA("BasePart") and not table.find(pads, p) then
+		-- เฉพาะวงใน Workspace (ชุดเก่าที่ถูก archive ไว้ ServerStorage ก็ยังติด tag อยู่)
+		if p:IsA("BasePart") and p:IsDescendantOf(workspace) and not table.find(pads, p) then
 			table.insert(pads, p)
+			prepareWall(p)
 			refresh(p)
 		end
 	end
@@ -532,7 +684,11 @@ task.spawn(function()
 			-- สมาชิกห้องถูกล็อกไว้: เดินออกจากวงไม่ใช่วิธีออกห้อง
 			local isRoomMember = before and rooms[before] and table.find(rooms[before].members, player)
 			-- ทำงานเฉพาะตอนเดินเข้า/ออกวงสำหรับผู้ที่ยังไม่ได้อยู่ในห้อง
-			if not isRoomMember and now ~= before then
+			if isRoomMember and now ~= before and before then
+				-- หลุดออกนอกวง / เกิดใหม่: ดึงกลับเข้าวงและล็อกใหม่
+				pullInside(player, before)
+				setLocked(player, true)
+			elseif not isRoomMember and now ~= before then
 				onPad[player] = now
 				if before then
 					leaveRoom(player, before)

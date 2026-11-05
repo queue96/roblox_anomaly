@@ -1,5 +1,7 @@
 -- LobbyLeaderboards.server.luau
 -- อัปเดตป้ายอันดับวัดจาก OrderedDataStore ทุก 2 นาที
+-- และตั้ง attribute บน Player ให้ป้ายชื่อเหนือหัว (LobbyNameplates.server) ใช้:
+--   Completions = จำนวนรอบที่เล่นจบ, CompletionsRank = อันดับบนป้าย "จบเกมมากที่สุด" (nil = ไม่ติดอันดับ)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +15,23 @@ local BOARDS = {
 }
 
 local names: { [number]: string } = {}
+local lastCompletionRanks: { [number]: { rank: number, value: number } } = {}
+
+-- จำนวนรอบที่จบของคนที่เพิ่งเข้ามา (อันดับใช้ผลรอบล่าสุดของป้าย)
+local function loadCompletions(p: Player)
+	local r = lastCompletionRanks[p.UserId]
+	if r then
+		p:SetAttribute("CompletionsRank", r.rank)
+	end
+	local value = LeaderboardStats.GetValue("completions", p.UserId)
+	if value and p.Parent then
+		p:SetAttribute("Completions", value)
+	end
+end
+Players.PlayerAdded:Connect(loadCompletions)
+for _, p in ipairs(Players:GetPlayers()) do
+	task.spawn(loadCompletions, p)
+end
 
 local function displayName(userId: number): string
 	if names[userId] then
@@ -76,6 +95,20 @@ local function refreshBoard(spec: { [string]: any })
 		return
 	end
 	local rows = LeaderboardStats.GetTop(spec.category, 5)
+	if spec.category == "completions" then
+		local rankOf = {}
+		for rank, row in ipairs(rows) do
+			rankOf[row.userId] = { rank = rank, value = row.value }
+		end
+		for _, p in ipairs(Players:GetPlayers()) do
+			local r = rankOf[p.UserId]
+			p:SetAttribute("CompletionsRank", if r then r.rank else nil)
+			if r then
+				p:SetAttribute("Completions", r.value)
+			end
+		end
+		lastCompletionRanks = rankOf
+	end
 	local lines = { spec.title, "────────────" }
 	if #rows == 0 then
 		table.insert(lines, "ยังไม่มีข้อมูล")

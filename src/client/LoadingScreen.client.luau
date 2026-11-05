@@ -568,6 +568,7 @@ task.spawn(function()
 
 	if inLobby then
 		-- แมพ Lobby: ปิดหน้าโหลดเมื่อฉากพร้อมจริง (ไม่มีปุ่มข้าม: เคยเข้าไปทั้งที่ฉากยังโหลดไม่เสร็จ)
+		local lobbyStart = os.clock()
 		setProgressMode(true)
 		ui.skipBtn.Visible = false
 		setProgress(0.05, tr("กำลังเตรียมฉาก...", "Preparing scene..."))
@@ -579,11 +580,18 @@ task.spawn(function()
 			return ReplicatedStorage:GetAttribute("SceneReady") == true
 		end, 120)
 		preloadWorld(0.15, 0.92)
-		setProgress(0.95, tr("กำลังเตรียมตัวละคร...", "Preparing your character..."))
+		setProgress(0.93, tr("กำลังเตรียมตัวละคร...", "Preparing your character..."))
 		waitFor(function()
 			local c = player.Character
 			return c ~= nil and c:FindFirstChild("HumanoidRootPart") ~= nil
 		end, 30)
+		-- ฉากเปิด Lobby (LobbyIntro.client): ค้างหน้าโหลดไว้จนฉากเปิดพร้อมจริง (วางตัว/หมอก/โหลดประตูกับป้ายเสร็จ)
+		--   ปิดหน้าโหลดแล้วตัดเข้าม่านหมอกทันที ไม่มีจอดำคั่น (ฉากเปิดไม่มา/ไม่พร้อมใน 25 วิ ก็ปิดตามปกติ)
+		setProgress(0.97, tr("กำลังเตรียมฉากเปิด...", "Preparing the opening scene..."))
+		waitFor(function()
+			return player:GetAttribute("IntroReady") == true
+				or (player:GetAttribute("IntroPending") ~= true and os.clock() - lobbyStart > 3)
+		end, 25)
 		setProgress(1, tr("พร้อมแล้ว", "Ready"))
 		task.wait(0.3)
 	else
@@ -624,6 +632,8 @@ task.spawn(function()
 	end
 
 	task.spawn(endIntro) -- แยก thread: เพลงพังอะไรก็ไม่ทำให้หน้าโหลดค้าง
+	-- สัญญาณฝั่ง client ให้ฉากเปิดตัวใน Lobby (LobbyIntro.client) เริ่มพร้อมจังหวะหน้าโหลดจางหาย
+	player:SetAttribute("LoadingScreenDone", true)
 	fadeOutGui(0.55)
 end)
 

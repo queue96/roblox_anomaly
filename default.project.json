@@ -58,6 +58,9 @@
       "$ignoreUnknownInstances": true,
       "DevCommand": {
         "$path": "src/lobby/dev/DevCommand.luau"
+      },
+      "BuildBookPortraits": {
+        "$path": "tools/studio/BuildBookPortraits.luau"
       }
     },
     "StarterPlayer": {

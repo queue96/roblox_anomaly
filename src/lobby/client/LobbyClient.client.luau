@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
@@ -291,6 +292,11 @@ local function new(className: string, props: { [string]: any }, parent: Instance
 	return o
 end
 
+-- มือถือ/แท็บเล็ต (จอสัมผัส ไม่มีคีย์บอร์ด): ตัวหนังสือใหญ่ขึ้น ปุ่มกดง่ายขึ้น ป้ายคีย์ไม่ทับปุ่มกระโดด
+-- (จอสัมผัส + จอเตี้ย ก็นับด้วย: เครื่องจำลองมือถือใน Studio รายงานว่ามีคีย์บอร์ด แต่โน้ตบุ๊กจอสัมผัสจอสูงเกิน 500 อยู่แล้ว)
+local IS_TOUCH = UserInputService.TouchEnabled
+	and (not UserInputService.KeyboardEnabled or (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y < 500))
+
 local gui = new("ScreenGui", {
 	Name = "LobbyRoomGui",
 	ResetOnSpawn = false,
@@ -515,6 +521,17 @@ end)
 -- ---------------------------------------------------------------- แผงห้อง (ขวาบน ใต้ปุ่มสมุดผี/ตั้งค่า)
 -- เจ้าของกดเริ่มได้ตลอดช่วงรอ; ห้องเต็มนับ 5 วิแล้วไปเอง; ออกจากห้องด้วยปุ่มนี้เท่านั้น
 local status = panelFrame("RoomStatus", 320, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 60) })
+if IS_TOUCH then
+	-- ขยายหน้าต่างตั้งห้อง/สถานะห้องให้นิ้วกดโดน (ปุ่ม 30 px เล็กเกินไปบนจอมือถือ)
+	-- จอเตี้ยมาก (มือถือแนวนอน ~360 px) ไม่ขยายเกินจนล้นจอ
+	local cam = workspace.CurrentCamera
+	local h = if cam then cam.ViewportSize.Y else 400
+	local scale = math.clamp(h / 330, 1, 1.2)
+	new("UIScale", { Scale = scale }, setup)
+	new("UIScale", { Scale = scale }, status)
+	-- มุมขวาบนบนมือถือมีปุ่มสมุดผีอยู่แล้ว: เลื่อนสถานะห้องลงมาอีกนิด
+	status.Position = UDim2.new(1, -14, 0, 64)
+end
 local statusHead = header(status)
 statusHead.TextSize = 19
 local function infoRow(order: number): (TextLabel, TextLabel)
@@ -611,57 +628,6 @@ task.spawn(function()
 	end
 end)
 
--- ---------------------------------------------------------------- คำอธิบายปุ่ม (ขวาล่าง แบบป้ายกระดาษเหมือน HUD ในเกม)
-local hints = new("Frame", { Name = "KeyHints", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -54), Size = UDim2.new(0, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.XY, BackgroundTransparency = 1 }, gui)
-new("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, hints)
--- ป้ายปุ่มคีย์แบบเดียวกับ HUD ในเกม (ป้ายดำเล็ก ตัวครีม คำอธิบายสีหม่น)
-local function keyHint(order: number): (TextLabel, TextLabel)
-	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, 0, 0, 20), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, hints)
-	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, holder)
-	local badge = new("TextLabel", {
-		BackgroundColor3 = C.Panel,
-		BackgroundTransparency = 0.15,
-		Size = UDim2.new(0, 0, 0, 20),
-		AutomaticSize = Enum.AutomaticSize.X,
-		FontFace = FONT_BODY,
-		TextColor3 = C.Cream,
-		TextSize = 12,
-		LayoutOrder = 1,
-	}, holder)
-	new("UICorner", { CornerRadius = UDim.new(0, 2) }, badge)
-	new("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }, badge)
-	new("UIStroke", { Color = Color3.fromRGB(75, 68, 56), Thickness = 1, Transparency = 0.2 }, badge)
-	local label = new("TextLabel", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(0, 0, 0, 20),
-		AutomaticSize = Enum.AutomaticSize.X,
-		FontFace = FONT_BODY,
-		TextColor3 = C.Dim,
-		TextSize = 13,
-		LayoutOrder = 0, -- คำอธิบายอยู่ซ้าย ป้ายคีย์อยู่ขวา
-	}, holder)
-	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.35 }, label)
-	return badge, label
-end
--- { ป้าย TH, ป้าย EN, คำอธิบาย TH, คำอธิบาย EN }
-local HINTS = {
-	{ "WASD", "WASD", "เดิน", "Walk" },
-	{ "วงแดง", "Ring", "เดินเข้าวง สร้าง / เข้าห้อง", "Walk into a ring to host / join" },
-	{ "ออกห้อง", "Leave", "ใช้ปุ่มออกจากห้อง", "Use the Leave button" },
-}
-local hintLabels = {}
-for i in ipairs(HINTS) do
-	hintLabels[i] = { keyHint(i) }
-end
-local function drawHints()
-	for i, h in ipairs(HINTS) do
-		hintLabels[i][1].Text = tr(h[1], h[2])
-		hintLabels[i][2].Text = tr(h[3], h[4])
-	end
-end
-table.insert(refreshers, drawHints)
-drawHints()
-
 -- ---------------------------------------------------------------- ข้อความแจ้งเตือนสั้นๆ (กลางจอบน ไม่บังพื้นที่พื้น/วงห้อง)
 local toast = new("TextLabel", {
 	AnchorPoint = Vector2.new(0.5, 0),
@@ -670,9 +636,16 @@ local toast = new("TextLabel", {
 	BackgroundTransparency = 1,
 	FontFace = FONT_BODY,
 	TextColor3 = C.Cream,
-	TextSize = 20,
+	TextSize = if IS_TOUCH then 22 else 20,
+	TextWrapped = true,
 	Text = "",
 }, gui)
+if IS_TOUCH then
+	-- จอมือถือแคบ: กว้างตามจอ ไม่ล้น
+	-- ต่ำลงมาจากแถบบน (มุมขวาบนมีกล่องสถานะห้อง) กว้างไม่เกินกลางจอ
+	toast.Size = UDim2.new(0.55, 0, 0, 52)
+	toast.Position = UDim2.new(0.5, 0, 0.24, 0)
+end
 new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.2 }, toast)
 local toastId = 0
 Notice.OnClientEvent:Connect(function(th: string, en: string)

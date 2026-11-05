@@ -50,6 +50,22 @@ function LeaderboardStats.Increment(category: string, userId: number, amount: nu
 	end)
 end
 
+-- ค่าของผู้เล่นคนเดียว (ยังไม่เคยมีสถิติ = 0, อ่านไม่สำเร็จ = nil)
+function LeaderboardStats.GetValue(category: string, userId: number): number?
+	local store = getStore(category)
+	if not store then
+		return nil
+	end
+	local ok, value = pcall(function()
+		return store:GetAsync("u" .. tostring(userId))
+	end)
+	if not ok then
+		warn("[LeaderboardStats] อ่านค่า " .. category .. " ไม่สำเร็จ:", value)
+		return nil
+	end
+	return if type(value) == "number" then math.floor(value) else 0
+end
+
 function LeaderboardStats.GetTop(category: string, count: number): { { userId: number, value: number } }
 	local store = getStore(category)
 	if not store then
