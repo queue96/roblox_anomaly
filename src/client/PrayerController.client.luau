@@ -490,8 +490,30 @@ local function onPray(_name: string, state: Enum.UserInputState, _input: InputOb
 	return Enum.ContextActionResult.Sink
 end
 ContextActionService:BindAction("Pray", onPray, true, Enum.KeyCode.G, Enum.KeyCode.ButtonY)
+
+-- ปุ่มบนมือถือ (ContextActionService): ใหญ่ขึ้นให้นิ้วกดง่าย + จางลงไม่บังฉาก
+local function styleTouchButton(action: string, pos: UDim2)
+	task.spawn(function()
+		for _ = 1, 20 do
+			local b = ContextActionService:GetButton(action)
+			if b then
+				b.Size = UDim2.fromOffset(80, 80)
+				b.ImageTransparency = 0.5
+				local title = b:FindFirstChild("ActionTitle")
+				if title and title:IsA("TextLabel") then
+					title.TextSize = 20
+					title.TextTransparency = 0.15
+				end
+				ContextActionService:SetPosition(action, pos)
+				return
+			end
+			task.wait(0.25)
+		end
+	end)
+end
 ContextActionService:SetTitle("Pray", "สวด")
-ContextActionService:SetPosition("Pray", UDim2.new(1, -170, 1, -150))
+-- จัดรอบปุ่มกระโดด (มุมขวาล่าง): สวดอยู่เหนือปุ่มกระโดด / นั่งยองอยู่ซ้ายปุ่มกระโดด (Animate.client)
+styleTouchButton("Pray", UDim2.new(1, -125, 1, -215))
 
 -- เกิดใหม่: รีเซ็ตค่าดีเลย์ปุ่ม
 localPlayer.CharacterAdded:Connect(function()

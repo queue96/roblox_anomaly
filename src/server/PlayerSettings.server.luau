@@ -7,6 +7,7 @@
 --   ShowLabels  boolean       แสดงป้ายชื่อตามวัตถุในฉาก (ZoneLabel)
 --   FlashHand   "R" | "L"     มือที่ถือไฟฉาย (ค่าเริ่มต้นขวา) แกลลอน/ขนมอยู่มืออีกข้าง (shared/HeadTurn.Sides)
 --   LangChosen  boolean       ผู้เล่นยืนยันภาษาเองแล้ว (หน้าเลือกภาษาครั้งแรกก่อนฉากเปิด Lobby)
+--   TutSeen     string        เรื่องที่สอนเล่นไปแล้ว (คั่นด้วย ,) สอนแล้วไม่สอนซ้ำ (TutorialController)
 -- Client เปลี่ยนค่าผ่าน Remotes.SetSetting:FireServer(name, value) (หน้าตั้งค่าใน SettingsController)
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -62,6 +63,13 @@ local SETTINGS: { [string]: { default: any, check: (any) -> any } } = {
 	},
 	-- เลือกภาษาเองแล้วหรือยัง (หน้าเลือกภาษาก่อนฉากเปิด Lobby ครั้งแรก: LobbyIntro.client) ยืนยันแล้ว = ไม่ถามอีก
 	LangChosen = { default = false, check = bool },
+	-- เรื่องที่เคยสอนแล้ว (TutorialController): "flash,shop,gen,fuel,offer,ghost" สอนแล้วไม่สอนซ้ำ
+	TutSeen = {
+		default = "",
+		check = function(v)
+			return if type(v) == "string" and #v <= 120 and string.match(v, "^[%w_,]*$") then v else nil
+		end,
+	},
 }
 
 local function keyFor(player: Player): string

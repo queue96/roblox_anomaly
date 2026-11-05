@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 pcall(function()
@@ -61,38 +62,64 @@ local function isLobbyPlace(): boolean
 	return Workspace:FindFirstChild("TempleLobby") ~= nil
 end
 
+-- คำแนะนำบนหน้าโหลด (ตรงกับเกมปัจจุบัน: CoreLoop.CONFIG / ItemSlots / PrayerController)
+--   thTouch / enTouch = ข้อความสำหรับมือถือ (แตะปุ่มแทนการกดคีย์) / lobby = แสดงเฉพาะตอนโหลดเข้า Lobby
 local TIPS = {
 	{
 		th = "คำแนะนำ: กด G เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
 		en = "Tip: Press G to put your hands together in prayer and reveal hidden anomalies.",
+		thTouch = "คำแนะนำ: แตะปุ่ม สวด เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
+		enTouch = "Tip: Tap the Pray button to put your hands together and reveal hidden anomalies.",
 	},
 	{
-		th = "คำแนะนำ: หากพบความผิดปกติ ห้ามเติมน้ำมันเด็ดขาด ให้รีบวิ่งไปดึงเชือกปิดแผงสังกะสีหน้าร้าน",
+		th = "คำแนะนำ: หากพบความผิดปกติ ห้ามเติมน้ำมันเด็ดขาด ให้รีบไปดึงเชือกปิดแผงสังกะสีหน้าร้าน",
 		en = "Tip: If you spot an anomaly, NEVER refuel them — pull the rope to close the tin shutter.",
 	},
 	{
-		th = "คำแนะนำ: ธูป 3 ดอกที่ศาลพระภูมิคือพลังชีวิตของทีม หากเผลอเติมน้ำมันให้ผี ธูปจะดับทีละดอก",
-		en = "Tip: The 3 incense sticks at the spirit house are your team's lives.",
+		th = "คำแนะนำ: ธูป 3 ดอกที่ศาลพระภูมิคือชีวิตของทีม เผลอเติมน้ำมันให้ผีเมื่อไร ธูปจะดับทีละดอก",
+		en = "Tip: The 3 incense sticks at the spirit house are your team's lives. Serve a ghost and one goes out.",
 	},
 	{
-		th = "คำแนะนำ: สังเกตป้ายทะเบียน เสียงวิทยุ เงาในดงกล้วย และระดับน้ำมันในหลอดแก้วให้ดี",
-		en = "Tip: Check license plates, radio static, the banana grove, and the glass fuel cylinder carefully.",
+		th = "คำแนะนำ: สังเกตป้ายทะเบียน เสียงวิทยุ เงาในดงกล้วย และสีน้ำมันในหลอดแก้วให้ดี",
+		en = "Tip: Check license plates, the radio, the banana grove and the fuel in the glass cylinder carefully.",
 	},
 	{
-		th = "คำแนะนำ: เก็บเงินให้ครบ 800 บาทก่อนที่ธูปทั้ง 3 ดอกจะดับลงเพื่อเอาชีวิตรอดผ่านคืนนี้",
-		en = "Tip: Earn 800 Baht before all 3 incense sticks burn out to survive the night.",
+		th = "คำแนะนำ: เก็บเงินให้ครบ 800 บาทก่อนธูปทั้ง 3 ดอกจะดับ เพื่อเอาชีวิตรอดผ่านคืนนี้",
+		en = "Tip: Earn 800 Baht before all 3 incense sticks go out to survive the night.",
 	},
 	{
 		th = "คำแนะนำ: เริ่มคืนมาไฟดับ กด 1 เปิดไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",
 		en = "Tip: The night starts in a blackout — press 1 for your flashlight, open the shutter, then start the generator.",
+		thTouch = "คำแนะนำ: เริ่มคืนมาไฟดับ แตะช่องไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",
+		enTouch = "Tip: The night starts in a blackout — tap the flashlight slot, open the shutter, then start the generator.",
 	},
 	{
 		th = "คำแนะนำ: เอาขนมไทย (ช่อง 2) ไปถวายศาลพระภูมิเป็นระยะ ไม่งั้นจะโดนหลอกไม่หยุด",
 		en = "Tip: Keep offering Thai sweets (slot 2) at the spirit house, or the haunting won't stop.",
+		thTouch = "คำแนะนำ: แตะช่องขนมไทย แล้วไปถวายศาลพระภูมิเป็นระยะ ไม่งั้นจะโดนหลอกไม่หยุด",
+		enTouch = "Tip: Tap the Thai sweets slot and keep offering them at the spirit house, or the haunting won't stop.",
 	},
 	{
-		th = "คำแนะนำ: น้ำมันในตู้หมดได้ หยิบแกลลอนในร้าน ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้",
-		en = "Tip: Pumps run dry — grab the jerry can, fill it at the drum behind the shop, and pour it in.",
+		th = "คำแนะนำ: น้ำมันในตู้หมดได้ หยิบแกลลอน (ช่อง 3) ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้",
+		en = "Tip: Pumps run dry — grab the jerry can (slot 3), fill it at the drum behind the shop, and pour it in.",
+		thTouch = "คำแนะนำ: น้ำมันในตู้หมดได้ แตะช่องแกลลอน ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้",
+		enTouch = "Tip: Pumps run dry — tap the jerry can slot, fill it at the drum behind the shop, and pour it in.",
+	},
+	-- ---- Lobby
+	{
+		lobby = true,
+		th = "คำแนะนำ: เดินเข้าวงแดงเพื่อสร้างห้อง เพื่อนเดินเข้าวงเดียวกันเพื่อร่วมทีมได้จนกว่าห้องจะเต็ม",
+		en = "Tip: Walk into a red ring to host a room. Friends walk into the same ring to join until it's full.",
+	},
+	{
+		lobby = true,
+		th = "คำแนะนำ: เปิดสมุดผีมุมขวาบน ดูผีที่เคยรอดมาแล้ว และวิธีสังเกตของแต่ละตัว",
+		en = "Tip: Open the Ghost Book (top right) to see the ghosts you've survived and how to spot them.",
+	},
+	{
+		lobby = true,
+		th = "คำแนะนำ: ป้ายอันดับในวัดบอกคนที่ทำบุญมากที่สุด จบเกมมากที่สุด และสะสมผีได้มากที่สุด",
+		en = "Tip: The boards in the temple rank top donors, most nights survived and most ghosts collected.",
 	},
 }
 
@@ -398,11 +425,32 @@ task.spawn(function()
 	end
 end)
 
--- สลับคำแนะนำทุก 4.5 วินาที
+-- สลับคำแนะนำทุก 4.5 วินาที: ใน Lobby แสดงทุกข้อ (รวมข้อของ Lobby) / ในเกมแสดงเฉพาะข้อของเกม
+--   มือถือ (จอสัมผัส ไม่มีคีย์บอร์ด หรือจอเตี้ย) ใช้ข้อความแบบแตะปุ่ม
+do
+	local inLobbyTips = isLobbyPlace()
+	local filtered = {}
+	for _, t in ipairs(TIPS) do
+		if inLobbyTips or not t.lobby then
+			table.insert(filtered, t)
+		end
+	end
+	TIPS = filtered
+end
+local function isTouchDevice(): boolean
+	local cam = Workspace.CurrentCamera
+	return UserInputService.TouchEnabled
+		and (not UserInputService.KeyboardEnabled or (cam ~= nil and cam.ViewportSize.Y < 500))
+end
 local currentTipIdx = math.random(1, #TIPS)
 local function updateTipText()
 	local tip = TIPS[currentTipIdx]
-	ui.tipLabel.Text = if isTH() then tip.th else tip.en
+	local touch = isTouchDevice()
+	if isTH() then
+		ui.tipLabel.Text = if touch and tip.thTouch then tip.thTouch else tip.th
+	else
+		ui.tipLabel.Text = if touch and tip.enTouch then tip.enTouch else tip.en
+	end
 end
 updateTipText()
 
@@ -536,7 +584,7 @@ task.spawn(function()
 		then tr("  วัดท้ายทุ่ง · LOBBY  ", "  TEMPLE LOBBY  ")
 		else tr("  กะดึกท้ายทุ่ง · NIGHT SHIFT  ", "  NIGHT SHIFT  ")
 	ui.subtitle.Text = if inLobby
-		then tr("จุดรวมตัวก่อนออกกะดึก · เลือกความยากและสมาชิกทีม", "Gather your crew and choose your difficulty")
+		then tr("จุดรวมตัวก่อนออกกะดึก · เดินเข้าวงแดงเพื่อสร้างหรือร่วมห้อง", "Gather before the night shift · walk into a red ring to host or join")
 		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost")
 
 	-- ก่อนโหลดภาพพื้นหลัง (รอได้หลายวินาที) อย่าให้เห็นข้อความตั้งต้น "Label" / ปุ่มข้ามในแมพเล่นเกม

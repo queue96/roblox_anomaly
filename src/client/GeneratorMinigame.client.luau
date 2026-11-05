@@ -2,7 +2,7 @@
 -- GeneratorMinigame.client.luau
 -- หน้าจอสตาร์ทเครื่องปั่นไฟ (ระบบหลักอยู่ server/Power.luau) สีและฟอนต์ชุดเดียวกับ HUD (หมึกดำ ครีม แดงเลือด พิมพ์ดีดเก่า)
 --   แถบความคืบหน้า: ขึ้นเองตอนยืนซ่อมอยู่ใกล้เครื่อง
---   วงจังหวะ: เข็มหมุนรอบวง กด Space (มือถือแตะวง) ตอนเข็มอยู่ในช่อง
+--   วงจังหวะ: เข็มหมุนรอบวง กด Space / คลิกหรือแตะตรงไหนก็ได้บนจอ ตอนเข็มอยู่ในช่อง
 --     ส่วนแดง = บูสต์ แถบขึ้นเยอะ รอบถัดไปมาเร็วขึ้น / ช่องขาว = แถบขึ้นนิดเดียว (ค่าอยู่ใน Power.Config)
 --     นอกช่องหรือไม่กด = โดนไฟช็อต: จอแวบฟ้า สั่น กระเด็นถอยจากเครื่อง มินิเกมปิด ต้องเดินกลับไปกดที่เครื่องใหม่
 local Players = game:GetService("Players")
@@ -14,6 +14,8 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Generator") :: RemoteEvent
+-- มือถือ (จอสัมผัส): ปุ่มกลางวงเขียน "Tap" แทน "Space" / แตะตรงไหนก็ได้บนจอ = ดึง
+local IS_TOUCH = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any).TouchMode == true
 
 -- สีชุดเดียวกับ HUDController
 local C = {
@@ -151,6 +153,16 @@ local function press()
 	end
 end
 key.Activated:Connect(press)
+-- แตะ/คลิกตรงไหนก็ได้บนจอระหว่างซ่อม = ดึง (ไม่บังคับให้แตะปุ่มกลางวง) ยกเว้นแตะโดนปุ่มอื่น/จอยสติ๊ก (processed)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if not open or processed then
+		return
+	end
+	local t = input.UserInputType
+	if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
+		press()
+	end
+end)
 
 -- Space ปกติคือกระโดด: ระหว่างซ่อมให้ Space เป็นปุ่มดึงแทน (ไม่ให้ตัวกระโดดหนีจากเครื่อง)
 local function onSpace(_: string, state: Enum.UserInputState): Enum.ContextActionResult
@@ -176,7 +188,7 @@ RunService.RenderStepped:Connect(function()
 		zoneAt = 110 + math.random() * (300 - 110 - ZONE)
 		drawZone(zoneAt)
 		needle.Rotation = 0
-		key.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then "Tap" else "Space"
+		key.Text = if IS_TOUCH then "Tap" else "Space"
 		ring.Visible = true
 	end
 end)

@@ -149,7 +149,29 @@ ContextActionService:BindAction("VillagerCrouch", function(_, state)
 	end
 	return Enum.ContextActionResult.Sink
 end, true, Enum.KeyCode.C, Enum.KeyCode.ButtonB)
+
+-- ปุ่มบนมือถือ (ContextActionService): ใหญ่ขึ้นให้นิ้วกดง่าย + จางลงไม่บังฉาก
+local function styleTouchButton(action: string, pos: UDim2)
+	task.spawn(function()
+		for _ = 1, 20 do
+			local b = ContextActionService:GetButton(action)
+			if b then
+				b.Size = UDim2.fromOffset(80, 80)
+				b.ImageTransparency = 0.5
+				local title = b:FindFirstChild("ActionTitle")
+				if title and title:IsA("TextLabel") then
+					title.TextSize = 20
+					title.TextTransparency = 0.15
+				end
+				ContextActionService:SetPosition(action, pos)
+				return
+			end
+			task.wait(0.25)
+		end
+	end)
+end
 ContextActionService:SetTitle("VillagerCrouch", LanguageModule.GetUI("Crouch", player:GetAttribute("Lang")))
+styleTouchButton("VillagerCrouch", UDim2.new(1, -215, 1, -125))
 player:GetAttributeChangedSignal("Lang"):Connect(function()
 	ContextActionService:SetTitle("VillagerCrouch", LanguageModule.GetUI("Crouch", player:GetAttribute("Lang")))
 end)

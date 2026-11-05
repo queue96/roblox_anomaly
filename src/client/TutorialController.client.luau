@@ -3,10 +3,12 @@
 -- แผงมุมซ้ายกลางจอ ทำ 2 อย่างในแผงเดียว (เดิมแยกกล่องเตรียมร้านไว้กลางจอ ซ้ำซ้อน):
 --   1) ช่วงเตรียมร้าน (ทุกคืน): ดึงเชือกเปิดร้านแล้ว "ลูกค้ามาใน 0:24" + รายการงาน (รูป + ข้อความ) ทำแล้วขึ้นสีเขียว
 --      (server/CoreLoop: Remotes.PrepLeft / PrepOffered, ไฟ = ReplicatedStorage.PowerOn, น้ำมัน = PetrolLevel/DieselLevel)
---   2) สอนเล่นทีละขั้น (ครั้งแรกที่เข้าเกม หลังคัทซีนเปิดคืน): ข้อความ + รูปของที่ต้องไปทำ + กรอบเรืองแสงที่ของในฉาก
---      ทำขั้นนั้นสำเร็จ (ใครในทีมทำก็ได้ ยกเว้นไฟฉาย/แกลลอนที่เป็นของตัวเอง) -> ไปขั้นถัดไปเอง
+--   2) สอนเล่น 6 เรื่อง ทีละเรื่อง "เมื่อเหตุการณ์นั้นมาถึงจริง" (ไม่สอนรวดเดียวตั้งแต่เริ่ม): ไฟฉาย · เปิดร้าน ·
+--      เครื่องปั่นไฟ · เติมน้ำมัน (หยิบ/ตัก/เท บอกทีละขั้น) · ถวายขนม (เวลาคุ้มครองใกล้หมด) · ดูผี (ลูกค้าคนแรกมา)
+--      ทำสำเร็จ -> จำว่าเรียนแล้ว (PlayerSettings.TutSeen ใน DataStore) ครั้งหน้าไม่สอนซ้ำ
+--      แสดงทีละอย่าง: ระหว่างสอนไม่โชว์รายการเตรียมร้าน / ช่วงเตรียมร้านโชว์แค่งานถัดไปที่ยังไม่ทำ
 --   รูปทั้งหมดเป็นโมเดล 3D จริงในฉาก (shared/ModelIcon) บางคนไม่อ่าน ดูแต่รูป
---   กด H ซ่อน/แสดง  ·  ขั้นที่ทำเสร็จไปก่อนแล้ว (เช่น เพื่อนเปิดร้านแล้ว) ข้ามไปเลย
+--   กด H (มือถือ: แตะกล่อง) ซ่อน/แสดง  ·  เรื่องที่ทำเสร็จไปก่อนแล้ว (เช่น เพื่อนเปิดร้านแล้ว) ไม่ต้องสอน
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -77,12 +79,37 @@ local function shrine(): Instance?
 	return s and (s:FindFirstChild("SpiritHouseOnStilts") or s)
 end
 
--- ขั้นตอน: key = ข้อความใน LanguageModule.UI, done() = ทำเสร็จแล้ว, targets() = ของที่ทำกรอบเรืองแสง,
---          icon() = ของที่เอามาทำรูปในแผง (โมเดลจริง)
-type Step = { key: string, done: () -> boolean, targets: () -> { Instance }, icon: () -> Instance?, hold: number? }
+-- ขั้นตอน: id = ชื่อที่จำไว้ใน TutSeen, trigger() = เหตุการณ์มาถึงแล้ว (เริ่มสอนตอนนี้), done() = ทำเสร็จแล้ว,
+--          key = ข้อความใน LanguageModule.UI (ฟังก์ชันได้: เรื่องที่มีหลายขั้นย่อยบอกทีละขั้น),
+--          targets() = ของที่ทำกรอบเรืองแสง, icon() = ของที่เอามาทำรูปในแผง (โมเดลจริง), hold = แสดงกี่วิแล้วจบเอง
+type Step = {
+	id: string,
+	key: string | () -> string,
+	trigger: () -> boolean,
+	done: () -> boolean,
+	targets: () -> { Instance },
+	icon: () -> Instance?,
+	hold: number?,
+}
+local seenCustomer = false -- ลูกค้าคนแรกของคืนมาแล้ว (CustomerSpeech) -> สอนดูผี
+local powerOff = function(): boolean
+	return ReplicatedStorage:GetAttribute("PowerOn") == false
+end
+local shopOpen = function(): boolean
+	return remotes:GetAttribute("ShopOpen") == true
+end
+local function canState(): string
+	local can = findTool("FuelCan")
+	if not can then
+		return "none"
+	end
+	return if can:GetAttribute("Full") == true then "full" else "empty"
+end
 local STEPS: { Step } = {
 	{
+		id = "flash",
 		key = "Tut_Flashlight",
+		trigger = powerOff, -- มืด (เริ่มคืนไฟดับ)
 		done = function()
 			local c = player.Character
 			return c ~= nil and c:FindFirstChild("FrogFlashlight") ~= nil
@@ -95,10 +122,12 @@ local STEPS: { Step } = {
 		end,
 	},
 	{
+		id = "shop",
 		key = "Tut_OpenShop",
-		done = function()
-			return remotes:GetAttribute("ShopOpen") == true
+		trigger = function()
+			return not shopOpen()
 		end,
+		done = shopOpen,
 		targets = function()
 			return { interactive("RejectRope") }
 		end,
@@ -107,9 +136,13 @@ local STEPS: { Step } = {
 		end,
 	},
 	{
+		id = "gen",
 		key = "Tut_Generator",
+		trigger = function()
+			return shopOpen() and powerOff()
+		end,
 		done = function()
-			return ReplicatedStorage:GetAttribute("PowerOn") ~= false
+			return not powerOff()
 		end,
 		targets = function()
 			return { generator() }
@@ -117,38 +150,44 @@ local STEPS: { Step } = {
 		icon = generator,
 	},
 	{
-		key = "Tut_TakeCan",
-		done = function()
-			return findTool("FuelCan") ~= nil or fuelled()
+		-- ตู้น้ำมันหมด: หยิบแกลลอน -> ตักที่ถัง -> เทใส่ตู้ (เรื่องเดียว บอกทีละขั้นตามของในมือ)
+		id = "fuel",
+		key = function()
+			local st = canState()
+			return if st == "none" then "Tut_TakeCan" elseif st == "empty" then "Tut_FillCan" else "Tut_Pour"
 		end,
-		targets = function()
-			return { interactive("FuelCanSpot") }
+		trigger = function()
+			return shopOpen() and not fuelled()
 		end,
-		icon = function()
-			return interactive("FuelCanSpot")
-		end,
-	},
-	{
-		key = "Tut_FillCan",
-		done = function()
-			local can = findTool("FuelCan")
-			return (can ~= nil and can:GetAttribute("Full") == true) or fuelled()
-		end,
-		targets = drums,
-		icon = function()
-			return drums()[1]
-		end,
-	},
-	{
-		key = "Tut_Pour",
 		done = fuelled,
 		targets = function()
+			local st = canState()
+			if st == "none" then
+				return { interactive("FuelCanSpot") }
+			elseif st == "empty" then
+				return drums()
+			end
 			return { interactive("FuelPumps") }
 		end,
-		icon = pumps,
+		icon = function()
+			local st = canState()
+			if st == "none" then
+				return interactive("FuelCanSpot")
+			elseif st == "empty" then
+				return drums()[1]
+			end
+			return pumps()
+		end,
 	},
 	{
+		-- เวลาคุ้มครองของศาลใกล้หมด (หรือช่วงเตรียมร้านยังไม่ถวาย)
+		id = "offer",
 		key = "Tut_Offer",
+		trigger = function()
+			local left = remotes:GetAttribute("OfferingLeft")
+			local prepping = type(remotes:GetAttribute("PrepLeft")) == "number" and remotes:GetAttribute("PrepOffered") ~= true
+			return prepping or (type(left) == "number" and left <= 60)
+		end,
 		done = function()
 			-- ถวายแล้ว = เวลาคุ้มครองเด้งขึ้นเกินช่วงผ่อนผันตอนเปิดร้าน
 			local left = remotes:GetAttribute("OfferingLeft")
@@ -163,7 +202,12 @@ local STEPS: { Step } = {
 		end,
 	},
 	{
+		-- ลูกค้าคนแรกมาถึง: พนมมือดูผี / ผีห้ามเติม ปิดแผง (คำอธิบาย แสดงแล้วจบเอง)
+		id = "ghost",
 		key = "Tut_Ghosts",
+		trigger = function()
+			return seenCustomer
+		end,
 		done = function()
 			return false
 		end,
@@ -173,7 +217,7 @@ local STEPS: { Step } = {
 		icon = function()
 			return interactive("ShutterDoor")
 		end,
-		hold = 12, -- ขั้นสุดท้ายเป็นคำอธิบาย: แสดงแล้วจบเอง
+		hold = 12,
 	},
 }
 
@@ -210,9 +254,10 @@ gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local panel = Instance.new("Frame")
-panel.AnchorPoint = Vector2.new(0, 0.5)
-panel.Position = UDim2.new(0, 16, 0.42, 0)
-panel.Size = UDim2.fromOffset(260, 0)
+-- มุมซ้ายบน ใต้แถบปุ่มของ Roblox (โลโก้ เมนู แชต ~58px) ไม่ทับปุ่มบนจอเตี้ยแบบมือถือ
+panel.AnchorPoint = Vector2.new(0, 0)
+panel.Position = UDim2.new(0, 16, 0, 72)
+panel.Size = UDim2.fromOffset(224, 0) -- เล็กลง ไม่รกจอ
 panel.AutomaticSize = Enum.AutomaticSize.Y
 panel.BackgroundColor3 = C.Ink
 panel.BackgroundTransparency = 0.2
@@ -227,6 +272,31 @@ pad.PaddingTop, pad.PaddingBottom, pad.PaddingLeft, pad.PaddingRight = UDim.new(
 local list = Instance.new("UIListLayout", panel)
 list.Padding = UDim.new(0, 4)
 list.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- มือถือ (ไม่มีปุ่ม H): แตะกล่องคำแนะนำ = ย่อเหลือป้ายเล็ก / แตะป้ายเล็ก = เปิดกลับ
+local IS_TOUCH = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any).TouchMode == true
+local tipsTab = Instance.new("TextButton")
+tipsTab.Name = "TipsTab"
+tipsTab.AnchorPoint = Vector2.new(0, 0)
+tipsTab.Position = UDim2.new(0, 16, 0, 72)
+tipsTab.Size = UDim2.fromOffset(0, 34)
+tipsTab.AutomaticSize = Enum.AutomaticSize.X
+tipsTab.BackgroundColor3 = C.Ink
+tipsTab.BackgroundTransparency = 0.2
+tipsTab.BorderSizePixel = 0
+tipsTab.AutoButtonColor = false
+tipsTab.FontFace = FONT
+tipsTab.TextSize = 16
+tipsTab.TextColor3 = C.Cream
+tipsTab.Visible = false
+tipsTab.Parent = gui
+Instance.new("UICorner", tipsTab).CornerRadius = UDim.new(0, 3)
+local tabStroke = Instance.new("UIStroke", tipsTab)
+tabStroke.Color = C.Line
+tabStroke.Transparency = 0.2
+tabStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+local tabPad = Instance.new("UIPadding", tipsTab)
+tabPad.PaddingLeft, tabPad.PaddingRight = UDim.new(0, 12), UDim.new(0, 12)
 
 local function label(parent: Instance, order: number, size: number, color: Color3, h: number?): TextLabel
 	local l = Instance.new("TextLabel")
@@ -287,16 +357,16 @@ for i, t in ipairs(PREP) do
 	local row = Instance.new("Frame")
 	row.LayoutOrder = i
 	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, 0, 0, 40)
+	row.Size = UDim2.new(1, 0, 0, 34)
 	row.Parent = prepBox
 	local rl = Instance.new("UIListLayout", row)
 	rl.FillDirection = Enum.FillDirection.Horizontal
 	rl.VerticalAlignment = Enum.VerticalAlignment.Center
 	rl.Padding = UDim.new(0, 8)
 	rl.SortOrder = Enum.SortOrder.LayoutOrder
-	local icon = iconWell(row, 40, 1) -- รูปใหญ่พอให้ดูรูปอย่างเดียวก็รู้ว่าต้องทำอะไร
-	local text = label(row, 2, 13, C.Cream, 40)
-	text.Size = UDim2.new(1, -48, 0, 40)
+	local icon = iconWell(row, 34, 1) -- รูปพอให้ดูรูปอย่างเดียวก็รู้ว่าต้องทำอะไร
+	local text = label(row, 2, 12, C.Cream, 34)
+	text.Size = UDim2.new(1, -42, 0, 34)
 	table.insert(prepRows, { frame = row, icon = icon, text = text, task = t, shown = nil })
 end
 local divider = Instance.new("Frame")
@@ -329,9 +399,9 @@ local srl = Instance.new("UIListLayout", stepRow)
 srl.FillDirection = Enum.FillDirection.Horizontal
 srl.Padding = UDim.new(0, 7)
 srl.SortOrder = Enum.SortOrder.LayoutOrder
-local stepIcon = iconWell(stepRow, 60, 1)
-local body = label(stepRow, 2, 13, C.Cream)
-body.Size = UDim2.new(1, -67, 0, 0)
+local stepIcon = iconWell(stepRow, 44, 1)
+local body = label(stepRow, 2, 12, C.Cream)
+body.Size = UDim2.new(1, -51, 0, 0)
 local hint = label(stepBox, 3, 10, C.Dim, 12)
 
 -- จอเตี้ย (โน้ตบุ๊ก 14 นิ้ว) ย่อทั้งแผงตามความสูงจอ (shared/UiFit ค่าเดียวกันทุกกล่อง)
@@ -375,7 +445,7 @@ local function draw()
 		return
 	end
 	title.Text = string.format("%s  (%d/%d)", ui("Tut_Title"), current, #STEPS)
-	body.Text = ui(s.key)
+	body.Text = ui(if type(s.key) == "function" then s.key() else s.key)
 	hint.Text = ui("Tut_Hide")
 end
 
@@ -393,18 +463,27 @@ end
 -- อัปเดตทั้งแผง (เรียกบ่อยๆ): ส่วนเตรียมร้าน, ส่วนสอน, แสดง/ซ่อนทั้งแผง
 local function refresh()
 	local left = remotes:GetAttribute("PrepLeft")
-	local prepping = type(left) == "number"
+	local teachingNow = running and current > 0 and STEPS[current] ~= nil
+	-- ทีละอย่าง: ระหว่างสอนไม่โชว์รายการเตรียมร้าน
+	local prepping = type(left) == "number" and not teachingNow
 	prepBox.Visible = prepping
 	if prepping then
 		prepTitle.Text = ui("PrepTitle")
 		prepTime.Text = string.format("%d:%02d", left // 60, left % 60)
 		prepTime.TextColor3 = if left <= 10 then C.Blood else C.Ember
+		-- โชว์แค่งานถัดไปที่ยังไม่ทำ (ทำครบแล้ว = โชว์แต่เวลา)
+		local shownOne = false
 		for _, r in ipairs(prepRows) do
 			local done = r.task.done()
-			r.text.Text = (if done then "✓ " else "") .. ui(r.task.key)
-			r.text.TextColor3 = if done then C.Done else C.Cream
-			r.icon.ImageTransparency = if done then 0.55 else 0
-			r.shown = setIcon(r.icon, r.task.icon(), r.shown)
+			local show = not done and not shownOne
+			r.frame.Visible = show
+			if show then
+				shownOne = true
+				r.text.Text = ui(r.task.key)
+				r.text.TextColor3 = C.Cream
+				r.icon.ImageTransparency = 0
+				r.shown = setIcon(r.icon, r.task.icon(), r.shown)
+			end
 		end
 	end
 	local teaching = running and current > 0 and STEPS[current] ~= nil
@@ -415,53 +494,128 @@ local function refresh()
 	end
 	local any = prepping or teaching
 	local cutscene = ReplicatedStorage:GetAttribute("CutsceneRunning") == true
-	gui.Enabled = any and not hidden and not cutscene
+	-- มือถือ: ซ่อนแล้วยังเหลือป้ายเล็กให้แตะเปิดกลับ / คอม: ซ่อนทั้งหมด (กด H เปิดกลับ)
+	gui.Enabled = any and not cutscene and (not hidden or IS_TOUCH)
+	panel.Visible = not hidden
+	tipsTab.Visible = IS_TOUCH and hidden
+	tipsTab.Text = ui("Tut_Title") .. "  ▸"
 	for _, h in ipairs(highlights) do
 		h.Enabled = teaching and not hidden and not cutscene
 	end
 end
 
-local function run()
-	if running then
+-- เรื่องที่เรียนแล้ว (จำใน DataStore ผ่าน PlayerSettings.TutSeen)
+local setSetting = remotes:WaitForChild("SetSetting") :: RemoteEvent
+local function seenSet(): { [string]: boolean }
+	local out = {}
+	local raw = player:GetAttribute("TutSeen")
+	if type(raw) == "string" then
+		for id in string.gmatch(raw, "[%w_]+") do
+			out[id] = true
+		end
+	end
+	return out
+end
+local function markSeen(id: string)
+	local set = seenSet()
+	if set[id] then
 		return
 	end
-	running = true
-	for i, s in ipairs(STEPS) do
-		if s.done() and not s.hold then
-			continue -- ทำไปแล้ว (เพื่อนทำ / ทำก่อนสอน)
+	set[id] = true
+	local ids = {}
+	for _, st in ipairs(STEPS) do
+		if set[st.id] then
+			table.insert(ids, st.id)
 		end
-		current = i
-		iconShown = nil
-		draw()
-		highlight(s.targets())
-		local t0 = os.clock()
-		while true do
-			refresh()
-			if s.hold and os.clock() - t0 >= s.hold then
-				break
-			end
-			if not s.hold and s.done() then
-				break
-			end
-			-- จบคืนระหว่างสอน: เลิกสอน
-			if remotes:GetAttribute("GameOver") == true then
-				clearHighlights()
-				running = false
-				current = 0
-				refresh()
-				return
-			end
-			task.wait(0.3)
-		end
-		-- สำเร็จ: แผงแวบสีทองก่อนไปขั้นต่อไป
-		stroke.Color = C.Gold
-		task.wait(0.6)
-		stroke.Color = C.Line
 	end
+	local v = table.concat(ids, ",")
+	player:SetAttribute("TutSeen", v)
+	setSetting:FireServer("TutSeen", v)
+end
+
+-- สอน 1 เรื่องจนทำเสร็จ (หรือครบเวลา hold) คืน false = จบคืนระหว่างสอน
+local function teach(i: number, s: Step): boolean
+	running = true
+	current = i
+	iconShown = nil
+	local lastKey = nil
+	draw()
+	highlight(s.targets())
+	local t0 = os.clock()
+	while true do
+		-- เรื่องที่มีขั้นย่อย (เติมน้ำมัน): ข้อความ/กรอบเรืองแสง/รูปเปลี่ยนตามขั้น
+		local k = if type(s.key) == "function" then s.key() else s.key
+		if k ~= lastKey then
+			lastKey = k
+			iconShown = nil
+			draw()
+			highlight(s.targets())
+		end
+		refresh()
+		if s.hold and os.clock() - t0 >= s.hold then
+			break
+		end
+		if not s.hold and s.done() then
+			break
+		end
+		if remotes:GetAttribute("GameOver") == true then
+			clearHighlights()
+			running = false
+			current = 0
+			refresh()
+			return false
+		end
+		task.wait(0.3)
+	end
+	markSeen(s.id)
+	-- สำเร็จ: แผงแวบสีทองก่อนปิด
+	stroke.Color = C.Gold
+	task.wait(0.6)
+	stroke.Color = C.Line
 	clearHighlights()
 	running = false
 	current = 0
 	refresh()
+	return true
+end
+
+-- คอยดูเหตุการณ์ตลอดคืน: เรื่องไหนยังไม่เคยเรียน + เหตุการณ์มาถึง + ยังไม่เสร็จ = สอนเรื่องนั้น (ทีละเรื่อง ตามลำดับ)
+local watching = false
+local function run()
+	if watching then
+		return
+	end
+	watching = true
+	while remotes:GetAttribute("GameOver") ~= true do
+		local seen = seenSet()
+		local allSeen = true
+		for i, st in ipairs(STEPS) do
+			if not seen[st.id] then
+				allSeen = false
+				local cutscene = ReplicatedStorage:GetAttribute("CutsceneRunning") == true
+				if not cutscene and st.trigger() and (st.hold or not st.done()) then
+					if not teach(i, st) then
+						watching = false
+						return
+					end
+					break -- ดูใหม่ตั้งแต่ต้น (เรื่องก่อนหน้าอาจเกิดขึ้นอีก)
+				end
+			end
+		end
+		if allSeen then
+			break
+		end
+		task.wait(0.5)
+	end
+	watching = false
+end
+
+-- ลูกค้าคนแรกพูดขึ้นมา = ลูกค้ามาแล้ว (ใช้เริ่มสอนดูผี)
+local speech = remotes:FindFirstChild("CustomerSpeech")
+if speech and speech:IsA("RemoteEvent") then
+	speech.OnClientEvent:Connect(function()
+		seenCustomer = true
+	end)
 end
 
 -- ช่วงเตรียมร้านเกิดทุกคืน (สอนจบไปแล้วก็ยังขึ้น)
@@ -478,6 +632,19 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		refresh()
 	end
 end)
+if IS_TOUCH then
+	panel.Active = true
+	panel.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+			hidden = true
+			refresh()
+		end
+	end)
+	tipsTab.Activated:Connect(function()
+		hidden = false
+		refresh()
+	end)
+end
 player:GetAttributeChangedSignal("Lang"):Connect(function()
 	draw()
 	refresh()

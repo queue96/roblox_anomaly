@@ -322,6 +322,148 @@ do
 	end)
 end
 
+-- ---------------------------------------------------------------- ปุ่มควบคุม (ย้ายมาจากป้ายปุ่มคีย์บน HUD)
+-- แยกเป็นหน้าย่อย (กด "ดู") เพราะรายการยาว จอมือถือเตี้ย / รายการตามอุปกรณ์ (คอม = คีย์, มือถือ = ปุ่มบนจอ)
+-- และตามที่อยู่ (Lobby / ในเกม) ให้ตรงกับที่เกมมีตอนนี้ (HUDController, PrayerController, Animate, ItemSlots,
+-- GeneratorMinigame, TutorialController, CutsceneController)
+local IS_TOUCH = LanguageModule.TouchMode
+local IN_LOBBY = workspace:FindFirstChild("TempleLobby") ~= nil
+type Control = { key: { th: string, en: string } | string, th: string, en: string }
+local CONTROLS: { Control }
+if IN_LOBBY and IS_TOUCH then
+	CONTROLS = {
+		{ key = { th = "จอยซ้าย", en = "Left stick" }, th = "เดิน", en = "Move" },
+		{ key = { th = "ลากจอ", en = "Drag screen" }, th = "หมุนกล้อง", en = "Turn the camera" },
+		{ key = { th = "ปุ่มกระโดด", en = "Jump button" }, th = "กระโดด", en = "Jump" },
+		{ key = { th = "วงแดง", en = "Red ring" }, th = "เดินเข้าวง สร้าง / ร่วมห้อง", en = "Walk in to host / join a room" },
+		{ key = { th = "สมุดผี", en = "Ghost Book" }, th = "ดูผีที่เคยรอดมาแล้ว", en = "See the ghosts you've survived" },
+	}
+elseif IN_LOBBY then
+	CONTROLS = {
+		{ key = "WASD", th = "เดิน", en = "Move" },
+		{ key = { th = "คลิกขวาค้าง + ลาก", en = "Hold right-click + drag" }, th = "หมุนกล้อง", en = "Turn the camera" },
+		{ key = "Space", th = "กระโดด", en = "Jump" },
+		{ key = { th = "วงแดง", en = "Red ring" }, th = "เดินเข้าวง สร้าง / ร่วมห้อง", en = "Walk in to host / join a room" },
+		{ key = { th = "สมุดผี", en = "Ghost Book" }, th = "ดูผีที่เคยรอดมาแล้ว", en = "See the ghosts you've survived" },
+	}
+elseif IS_TOUCH then
+	CONTROLS = {
+		{ key = { th = "จอยซ้าย", en = "Left stick" }, th = "เดิน", en = "Move" },
+		{ key = { th = "ลากจอ", en = "Drag screen" }, th = "มองรอบตัว", en = "Look around" },
+		{ key = { th = "ปุ่มที่ขึ้นมา", en = "Pop-up button" }, th = "แตะ / แตะค้าง ใช้ของ เติมน้ำมัน ดึงเชือก ถวาย", en = "Tap / hold to use, refuel, pull the rope, offer" },
+		{ key = { th = "สวด", en = "Pray" }, th = "พนมมือเปิดตาทิพย์ ดูผี", en = "Pray to see ghosts" },
+		{ key = { th = "นั่งยอง", en = "Crouch" }, th = "นั่งยองหลบผีใหญ่", en = "Crouch and hide from big ghosts" },
+		{ key = { th = "ช่องด้านล่าง", en = "Bottom slots" }, th = "ไฟฉาย · ขนมไทย · แกลลอน", en = "Flashlight · Thai sweets · Jerry can" },
+		{ key = { th = "แตะตรงไหนก็ได้", en = "Tap anywhere" }, th = "มินิเกม สูบ / อัดลม / สตาร์ทเครื่อง", en = "Minigames: pump / air / start the generator" },
+		{ key = "✕", th = "ปิดมินิเกม", en = "Close a minigame" },
+		{ key = { th = "แตะกล่องคำแนะนำ", en = "Tap the tips box" }, th = "ซ่อน / แสดงคำแนะนำ", en = "Hide / show tips" },
+		{ key = { th = "ปุ่ม ข้าม", en = "Skip button" }, th = "โหวตข้ามคัทซีน (ทุกคนต้องโหวต)", en = "Vote to skip a cutscene (everyone must vote)" },
+	}
+else
+	CONTROLS = {
+		{ key = "WASD", th = "เดิน", en = "Move" },
+		{ key = { th = "เมาส์", en = "Mouse" }, th = "มองรอบตัว", en = "Look around" },
+		{ key = "V / Alt", th = "ปลดล็อกเมาส์", en = "Free the mouse" },
+		{ key = { th = "E (กดค้าง)", en = "E (hold)" }, th = "ใช้ของ เติมน้ำมัน ดึงเชือก ถวาย", en = "Use, refuel, pull the rope, offer" },
+		{ key = "G", th = "พนมมือเปิดตาทิพย์ ดูผี", en = "Pray to see ghosts" },
+		{ key = "C", th = "นั่งยองหลบผีใหญ่", en = "Crouch and hide from big ghosts" },
+		{ key = "1 · 2 · 3", th = "ไฟฉาย · ขนมไทย · แกลลอน", en = "Flashlight · Thai sweets · Jerry can" },
+		{ key = { th = "Space / คลิก", en = "Space / Click" }, th = "มินิเกม สูบ / อัดลม / สตาร์ทเครื่อง", en = "Minigames: pump / air / start the generator" },
+		{ key = "X", th = "ปิดมินิเกม", en = "Close a minigame" },
+		{ key = "H", th = "ซ่อน / แสดงคำแนะนำ", en = "Hide / show tips" },
+		{ key = "Enter", th = "โหวตข้ามคัทซีน (ทุกคนต้องโหวต)", en = "Vote to skip a cutscene (everyone must vote)" },
+	}
+end
+
+local controlsPage = new("Frame", {
+	Name = "Controls",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.new(0, 460, 0.86, 0),
+	BackgroundColor3 = C.Ink,
+	BackgroundTransparency = 0.12,
+	BorderSizePixel = 0,
+	Visible = false,
+}, gui)
+new("UISizeConstraint", { MaxSize = Vector2.new(460, 520) }, controlsPage)
+new("UIStroke", { Color = C.Line, Thickness = 1 }, controlsPage)
+local controlsHeader = new("TextLabel", {
+	Size = UDim2.new(1, 0, 0, 34),
+	BackgroundColor3 = C.Bar,
+	BackgroundTransparency = 0.05,
+	BorderSizePixel = 0,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+	TextSize = 22,
+}, controlsPage)
+local controlsList = new("ScrollingFrame", {
+	Position = UDim2.new(0, 0, 0, 40),
+	Size = UDim2.new(1, 0, 1, -94),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 4,
+	ScrollBarImageColor3 = C.Line,
+	CanvasSize = UDim2.new(0, 0, 0, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, controlsPage)
+new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }, controlsList)
+new("UIPadding", { PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 18) }, controlsList)
+for i, c in ipairs(CONTROLS) do
+	local r = new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = i }, controlsList)
+	-- ปุ่ม/คีย์ซ้าย (ป้ายเข้ม ตัวครีม) · คำอธิบายขวา
+	local keyLabel = new("TextLabel", {
+		Size = UDim2.new(0, 132, 0, 26),
+		Position = UDim2.new(0, 0, 0, 4),
+		BackgroundColor3 = Color3.fromRGB(16, 14, 12),
+		BorderSizePixel = 0,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Cream,
+		TextSize = 15,
+		TextWrapped = true,
+	}, r)
+	new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.25, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, keyLabel)
+	local desc = new("TextLabel", {
+		Position = UDim2.new(0, 144, 0, 0),
+		Size = UDim2.new(1, -144, 0, 34),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Dim,
+		TextSize = 16,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, r)
+	table.insert(refreshers, function()
+		local th = lang() == "th"
+		local k = c.key
+		keyLabel.Text = if type(k) == "string" then k elseif th then k.th else k.en
+		desc.Text = if th then c.th else c.en
+	end)
+end
+local controlsBack = button(controlsPage, {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -12),
+	Size = UDim2.new(0, 140, 0, 36),
+})
+-- แถวในหน้าตั้งค่า: "ปุ่มควบคุม  [ดู ▸]"
+do
+	local r = row(6, "Controls")
+	local open = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
+	open.Activated:Connect(function()
+		panel.Visible = false
+		controlsPage.Visible = true
+	end)
+	controlsBack.Activated:Connect(function()
+		controlsPage.Visible = false
+		panel.Visible = true
+	end)
+	table.insert(refreshers, function()
+		open.Text = ui("ControlsOpen")
+		controlsHeader.Text = ui("Controls")
+		controlsBack.Text = ui("ControlsBack")
+	end)
+end
+
 -- ปุ่มปิด ✕ มุมขวาบนของหัวหน้าต่าง (Modal = ปลดล็อกเมาส์ตอนเปิดหน้าตั้งค่า)
 local closeBtn = new("TextButton", {
 	Name = "Close",
@@ -373,6 +515,7 @@ end
 
 local function setOpen(open: boolean)
 	panel.Visible = open
+	controlsPage.Visible = false
 	gearOpen = open
 	gear.BackgroundColor3 = if open then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
 	gear.TextColor3 = if open then C.Cream else C.Dim

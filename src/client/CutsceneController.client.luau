@@ -80,28 +80,32 @@ fade.Size = UDim2.fromScale(1, 1)
 fade.ZIndex = 5
 fade.Parent = gui
 
+-- ซับคัทซีน: ตัวหนังสือใหญ่ขึ้น (จอเล็กอ่านยาก) มือถือใหญ่สุด
+local IS_TOUCH = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any).TouchMode == true
+local SUB_SPEAKER = if IS_TOUCH then 21 else 18
+local SUB_LINE = if IS_TOUCH then 27 else 23
 local subtitle = Instance.new("Frame")
 subtitle.AnchorPoint = Vector2.new(0.5, 1)
 subtitle.Position = UDim2.new(0.5, 0, 0.86, -10)
-subtitle.Size = UDim2.new(0.7, 0, 0, 62)
+subtitle.Size = UDim2.new(if IS_TOUCH then 0.86 else 0.74, 0, 0, if IS_TOUCH then 86 else 74)
 subtitle.BackgroundTransparency = 1
 subtitle.Visible = false
 subtitle.ZIndex = 3
 subtitle.Parent = gui
 local speakerLbl = Instance.new("TextLabel")
 speakerLbl.BackgroundTransparency = 1
-speakerLbl.Size = UDim2.new(1, 0, 0, 20)
+speakerLbl.Size = UDim2.new(1, 0, 0, SUB_SPEAKER + 4)
 speakerLbl.FontFace = FONT
-speakerLbl.TextSize = 16
+speakerLbl.TextSize = SUB_SPEAKER
 speakerLbl.TextColor3 = C.Gold
 speakerLbl.ZIndex = 3
 speakerLbl.Parent = subtitle
 local lineLbl = Instance.new("TextLabel")
 lineLbl.BackgroundTransparency = 1
-lineLbl.Position = UDim2.fromOffset(0, 22)
-lineLbl.Size = UDim2.new(1, 0, 1, -22)
+lineLbl.Position = UDim2.fromOffset(0, SUB_SPEAKER + 6)
+lineLbl.Size = UDim2.new(1, 0, 1, -(SUB_SPEAKER + 6))
 lineLbl.FontFace = FONT
-lineLbl.TextSize = 20
+lineLbl.TextSize = SUB_LINE
 lineLbl.TextWrapped = true
 lineLbl.TextColor3 = C.Cream
 lineLbl.ZIndex = 3
@@ -689,9 +693,20 @@ summaryRemote.OnClientEvent:Connect(function(kind: string, n: number?, total: nu
 end)
 
 -- ---------------------------------------------------------------- เริ่ม / จบ / ข้าม
+-- ข้ามแบบโหวต: กดแล้วส่งโหวต รอจนทุกคนโหวตครบ Server จึงส่ง "end" (เล่นคนเดียว = ข้ามทันที)
+local voted = false
+local voteCount, voteTotal = 0, 0
 local function setSkipText()
-	skipBtn.Text = ui("SkipBtn")
-	skipHint.Text = ui("SkipCutscene")
+	if voted then
+		skipBtn.Text = (string.gsub(string.gsub(ui("SkipVoted"), "{n}", tostring(voteCount)), "{total}", tostring(voteTotal)))
+	else
+		skipBtn.Text = ui("SkipBtn")
+	end
+	if voteTotal > 1 and voteCount > 0 then
+		skipHint.Text = (string.gsub(string.gsub(ui("SkipVotes"), "{n}", tostring(voteCount)), "{total}", tostring(voteTotal)))
+	else
+		skipHint.Text = ui("SkipCutscene")
+	end
 end
 
 local function startCutscene(kind: string)
@@ -777,10 +792,10 @@ local function endCutscene(kind: string)
 end
 
 local function skip()
-	if active then
-		local kind = active
+	if active and not voted then
+		voted = true
 		remote:FireServer("skip")
-		endCutscene(kind)
+		setSkipText()
 	end
 end
 skipBtn.Activated:Connect(skip)
@@ -860,7 +875,13 @@ end
 
 remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 	if kind == "start" then
+		voted, voteCount, voteTotal = false, 0, 0
 		startCutscene(a)
+		setSkipText()
+	elseif kind == "skipvote" then
+		voteCount = if type(a) == "number" then a else 0
+		voteTotal = if type(b) == "number" then b else 0
+		setSkipText()
 	elseif kind == "cam" then
 		setCam(a)
 	elseif kind == "say" then

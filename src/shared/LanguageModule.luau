@@ -320,6 +320,9 @@ LanguageModule.UI = {
 	BookLockedHint = { th = "ยังไม่เคยรอดจากผีตัวนี้", en = "You have not survived this one yet." },
 	BookSurvived = { th = "รอดมาแล้ว {n} ครั้ง", en = "Survived {n} times" },
 	BookNew = { th = "บันทึกผีใหม่ลงสมุด", en = "New journal entry" },
+	Controls = { th = "ปุ่มควบคุม", en = "Controls" },
+	ControlsOpen = { th = "ดู ▸", en = "View ▸" },
+	ControlsBack = { th = "กลับ", en = "Back" },
 	BookDetails = { th = "ลักษณะ", en = "Details" },
 	BookNotFound = { th = "ยังไม่พบ", en = "Not found yet" },
 	BookBack = { th = "กลับ", en = "Back" },
@@ -346,11 +349,27 @@ LanguageModule.UI = {
 	MG_FuelBtn_Touch = { th = "แตะค้างเพื่อสูบ [Tap]", en = "Hold to Pump [Tap]" },
 	MG_AirHint_Touch = { th = "แตะตอนเข็มตรงขีดสีทอง", en = "Tap on the gold zone" },
 	MG_AirBtn_Touch = { th = "อัดลม! [Tap]", en = "Pump Air! [Tap]" },
+	-- ข้อความอื่นที่บอกปุ่มคีย์บอร์ด: มือถือใช้ฉบับ _Touch อัตโนมัติ (LanguageModule.TouchMode, ตั้งจาก Shared.DeviceInput)
+	--   ปุ่มโต้ตอบ (ProximityPrompt) บนมือถือขึ้นเป็นปุ่มให้แตะ / พนมมือ = ปุ่ม "สวด" / ไฟฉาย ขนม แกลลอน = แตะช่องด้านล่าง
+	MG_CancelHint_Touch = { th = "แตะ ✕ เพื่อปิด", en = "Tap ✕ to close" },
+	SkipCutscene_Touch = { th = "แตะ ข้าม เพื่อโหวตข้าม", en = "Tap Skip to vote" },
+	WaitOpen_Touch = { th = "ไฟดับ... แตะช่องไฟฉาย ดึงเชือกเปิดแผงร้าน แล้วไปสตาร์ทเครื่องปั่นไฟ", en = "The power's out... tap the flashlight slot, pull the shutter rope, then go start the generator." },
+	Tut_Hide_Touch = { th = "แตะกล่องนี้เพื่อซ่อน/แสดงคำแนะนำ", en = "Tap this box to hide/show tips" },
+	Tut_Flashlight_Touch = { th = "ไฟดับมืดตื้อ... แตะช่องไฟฉายด้านล่างก่อน", en = "It's pitch dark... tap the flashlight slot below first." },
+	Tut_OpenShop_Touch = { th = "เดินไปที่เชือกหลังโต๊ะ แล้วแตะปุ่มที่ขึ้นมาเพื่อดึงเปิดแผงร้าน", en = "Go to the rope behind the counter and tap the button that appears to raise the shutter." },
+	Tut_Generator_Touch = { th = "ไฟร้านยังดับ: ไปที่เครื่องปั่นไฟข้างร้าน แตะปุ่มที่ขึ้นมา แล้วแตะตามจังหวะจนเครื่องติด", en = "Still no power: go to the generator beside the shop, tap the button that appears, and tap in rhythm until it starts." },
+	Tut_TakeCan_Touch = { th = "ตู้ยังไม่มีน้ำมัน: หยิบแกลลอนมุมหลังร้าน (แตะปุ่มที่ขึ้นมา)", en = "The pumps are empty: take the jerry can in the back corner of the shop (tap the button that appears)." },
+	Tut_FillCan_Touch = { th = "ไปที่ถังน้ำมันหลังร้าน แตะปุ่มค้างไว้เพื่อตักน้ำมันใส่แกลลอน (ถังไหนก็ได้ เทได้ทั้งตู้ซ้ายและขวา)", en = "Go to the fuel drums behind the shop and hold the button to fill the can (any drum works for either pump)." },
+	Tut_Pour_Touch = { th = "กลับมาที่ตู้น้ำมันหน้าร้าน แตะปุ่มค้างไว้เพื่อเทน้ำมันใส่ตู้ (ตู้หมดเมื่อไหร่ทำแบบนี้อีก)", en = "Back at the pumps, hold the button to pour the fuel in (repeat whenever a pump runs dry)." },
+	Tut_Offer_Touch = { th = "หยิบขนมไทยที่ถาดบนเคาน์เตอร์ ไปที่ศาลพระภูมิ แตะปุ่มค้างไว้เพื่อถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Take the Thai sweets from the tray on the counter, go to the spirit house and hold the button to offer them (protection timer is top-right)." },
+	Tut_Ghosts_Touch = { th = "ลูกค้ามาแล้วแตะปุ่ม สวด ค้างไว้เพื่อพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน", en = "When customers arrive, hold the Pray button to see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside." },
 	MG_AirMiss = { th = "ผิดจังหวะ! รอเข็มวิ่งกลับ", en = "Missed! Wait for needle" },
 	MG_Success = { th = "สำเร็จ!", en = "Complete!" },
 	MG_CancelHint = { th = "[X] ปิด", en = "[X] Close" },
 	-- คัทซีน
-	SkipCutscene = { th = "กด [Enter] / แตะค้างเพื่อข้าม", en = "Press [Enter] / hold to skip" },
+	SkipCutscene = { th = "กด [Enter] เพื่อโหวตข้าม", en = "Press [Enter] to vote skip" },
+	SkipVoted = { th = "รอคนอื่น {n}/{total}", en = "Waiting {n}/{total}" },
+	SkipVotes = { th = "โหวตข้ามแล้ว {n}/{total} คน (ข้ามเมื่อครบทุกคน)", en = "Skip votes {n}/{total} (skips when everyone votes)" },
 	SkipBtn = { th = "ข้าม ▶▶", en = "Skip ▶▶" },
 	-- น้ำมันในตู้ + ถังน้ำมัน
 	FuelEmpty = { th = "น้ำมันในตู้หมด! หยิบแกลลอนในร้าน ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้", en = "The pump is empty! Grab the jerry can in the shop, fill it at the drum behind the shop, then pour it into the pump." },
@@ -582,8 +601,14 @@ function LanguageModule.Normalize(lang: string?): string
 	return "en"
 end
 
+-- มือถือ: ตั้งเป็น true จากฝั่ง Client (Shared.DeviceInput) -> GetUI ใช้ฉบับ "<key>_Touch" ถ้ามี
+LanguageModule.TouchMode = false
+
 function LanguageModule.GetUI(key: string, localeId: string?): string
 	local entry = LanguageModule.UI[key]
+	if LanguageModule.TouchMode and string.sub(key, -6) ~= "_Touch" then
+		entry = LanguageModule.UI[key .. "_Touch"] or entry
+	end
 	if not entry then
 		return key
 	end
@@ -607,6 +632,19 @@ function LanguageModule.GetText(key: string, localeId: string?, vars: { [string]
 		end)
 	end
 	return s
+end
+
+
+-- ฝั่ง Client: เครื่องจอสัมผัส (ไม่มีคีย์บอร์ด หรือจอเตี้ยแบบมือถือ) ใช้ข้อความแบบ "แตะ" แทนปุ่มคีย์
+--   (จอเตี้ย < 500 ครอบเครื่องจำลองมือถือใน Studio ที่รายงานว่ามีคีย์บอร์ด / โน้ตบุ๊กจอสัมผัสจอสูงกว่านี้)
+do
+	local RunService = game:GetService("RunService")
+	if RunService:IsClient() then
+		local UserInputService = game:GetService("UserInputService")
+		local cam = workspace.CurrentCamera
+		LanguageModule.TouchMode = UserInputService.TouchEnabled
+			and (not UserInputService.KeyboardEnabled or (cam ~= nil and cam.ViewportSize.Y < 500))
+	end
 end
 
 return LanguageModule

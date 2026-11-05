@@ -45,9 +45,10 @@ end
 local function ui(key: string): string
 	return LanguageModule.GetUI(key, lang())
 end
--- มือถือ (จอสัมผัส ไม่มีคีย์บอร์ด): คำแนะนำมินิเกมบอก "แตะ / Tap" แทน [Space]
+-- มือถือ: LanguageModule.TouchMode เลือกข้อความ "<key>_Touch" ให้เองแล้ว (คำแนะนำมินิเกมบอก "แตะ" แทน [Space])
+local IS_TOUCH = LanguageModule.TouchMode
 local function mgKey(key: string): string
-	return if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then key .. "_Touch" else key
+	return key
 end
 
 print("✅ [Client] ยินดีต้อนรับสู่ปั๊มหลอดท้ายทุ่ง:", localPlayer.Name, "| ภาษา:", lang())
@@ -115,37 +116,6 @@ local function fadeEdges(frame: GuiObject, edge: number)
 	}, frame)
 end
 
--- ป้ายปุ่มคีย์แบบดาร์กคุมโทน [G] + คำอธิบายขนาดกะทัดรัด
-local function keyHint(parent: Instance, key: string, order: number): (TextLabel, TextLabel)
-	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0, 0, 0, 20), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, parent)
-	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, holder)
-	local badge = new("TextLabel", {
-		BackgroundColor3 = Color3.fromRGB(22, 20, 17),
-		BackgroundTransparency = 0.15,
-		Size = UDim2.new(0, 0, 0, 20),
-		AutomaticSize = Enum.AutomaticSize.X,
-		FontFace = FONT_BODY,
-		TextColor3 = C.Cream,
-		TextSize = 12,
-		Text = key,
-		LayoutOrder = 1,
-	}, holder)
-	new("UICorner", { CornerRadius = UDim.new(0, 2) }, badge)
-	new("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }, badge)
-	new("UIStroke", { Color = Color3.fromRGB(75, 68, 56), Thickness = 1, Transparency = 0.2 }, badge)
-	local label = new("TextLabel", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(0, 0, 0, 20),
-		AutomaticSize = Enum.AutomaticSize.X,
-		FontFace = FONT_BODY,
-		TextColor3 = C.Dim,
-		TextSize = 13,
-		LayoutOrder = 0, -- คำอธิบายอยู่ซ้าย ป้ายคีย์อยู่ขวา (ชิดขอบจอขวา)
-	}, holder)
-	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.35 }, label)
-	return badge, label
-end
-
 -- ---------------------------------------------------------------- ตัวหนังสือสั่นๆ (หวั่นไหว)
 -- จดตำแหน่งเดิมไว้ แล้วสุ่มขยับทีละนิด + กะพริบจางๆ เป็นพักๆ
 local trembling: { { obj: GuiObject, base: UDim2, px: number, flicker: boolean } } = {}
@@ -183,9 +153,24 @@ local gui = new("ScreenGui", {
 -- จอเตี้ย (โน้ตบุ๊ก 14 นิ้ว) ย่อ HUD ตามความสูงจอ (shared/UiFit ค่าเดียวกันทุกกล่อง)
 require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui)
 
+-- ภาพทับเต็มจอของ HUD (ขอบจอมืด + จอแดงวาบ) อยู่ ScreenGui แยก เต็มจอถึงขอบจริง (มือถือมีติ่ง/ขอบโค้ง)
+--   HUD หลักยังอยู่ใน safe area (ปุ่ม/ตัวเลขไม่โดนติ่งบัง) / ชั้นนี้อยู่ใต้ HUD และเปิด-ปิดตาม HUD
+local fxGui = new("ScreenGui", {
+	Name = "PumpHUDScreenFX",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	ScreenInsets = Enum.ScreenInsets.None,
+	DisplayOrder = gui.DisplayOrder - 1,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, localPlayer:WaitForChild("PlayerGui"))
+fxGui.Enabled = gui.Enabled
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	fxGui.Enabled = gui.Enabled
+end)
+
 -- ขอบจอมืด (Vignette) จาก 4 ด้าน
 for _, side in ipairs({ { "Top", 90, UDim2.new(1, 0, 0.22, 0), UDim2.fromScale(0, 0) }, { "Bottom", 270, UDim2.new(1, 0, 0.3, 0), UDim2.fromScale(0, 0.7) }, { "Left", 0, UDim2.new(0.18, 0, 1, 0), UDim2.fromScale(0, 0) }, { "Right", 180, UDim2.new(0.18, 0, 1, 0), UDim2.fromScale(0.82, 0) } }) do
-	local f = new("Frame", { Name = "Vignette" .. side[1], BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, Size = side[3], Position = side[4], ZIndex = 0 }, gui)
+	local f = new("Frame", { Name = "Vignette" .. side[1], BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, Size = side[3], Position = side[4], ZIndex = 0 }, fxGui)
 	new("UIGradient", { Rotation = side[2], Transparency = NumberSequence.new(0.45, 1) }, f)
 end
 
@@ -200,6 +185,11 @@ local panel = new("Frame", {
 	BorderSizePixel = 0,
 }, gui)
 new("UIStroke", { Color = Color3.fromRGB(70, 64, 54), Thickness = 1, Transparency = 0.25 }, panel)
+if IS_TOUCH then
+	-- มือถือ: มุมขวาล่างเป็นปุ่มกระโดด/สวด/นั่งยองของ Roblox -> ย้ายแผงเงินขึ้นมุมขวาบน ใต้รูปศาล (ItemSlots.ShrineTimer 60px ที่ y 56)
+	panel.AnchorPoint = Vector2.new(1, 0)
+	panel.Position = UDim2.new(1, -16, 0, 124)
+end
 local function shadow(t: TextLabel)
 	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.35 }, t)
 end
@@ -259,7 +249,7 @@ lobbyBtn.Activated:Connect(function()
 end)
 
 -- จอแดงวาบตอนผีหลอก
-local flash = new("Frame", { Name = "ScareFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(90, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 10 }, gui)
+local flash = new("Frame", { Name = "ScareFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(90, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 10 }, fxGui)
 
 local bannerKey: string? = nil
 local bannerToken = 0
@@ -292,30 +282,33 @@ end
 
 -- ---------------------------------------------------------------- ซับไตเติลคำพูดลูกค้า (แถบบางโปร่งแสงล่างจอ ไม่บังสายตา)
 local DIALOG_BG_TRANSPARENCY = 0.38
+-- ตัวหนังสือใหญ่ขึ้น (จอเล็กอ่านยาก): มือถือใหญ่สุด กล่องกว้าง/สูงตาม
+local DIALOG_H = if IS_TOUCH then 78 else 62
+local DIALOG_HEAD = if IS_TOUCH then 20 else 17
 local dialog = new("Frame", {
 	Name = "Dialogue",
 	ZIndex = 5,
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -74), -- เหนือแถบช่องไอเทม (ItemSlots สูง 46 + ขอบ 12) ไม่บังกลางจอ
-	Size = UDim2.new(0.52, 0, 0, 48),
+	Size = UDim2.new(if IS_TOUCH then 0.72 else 0.56, 0, 0, DIALOG_H),
 	BackgroundColor3 = C.Ink,
 	BackgroundTransparency = DIALOG_BG_TRANSPARENCY,
 	BorderSizePixel = 0,
 	Visible = false,
 }, gui)
-new("UISizeConstraint", { MinSize = Vector2.new(260, 0), MaxSize = Vector2.new(520, 52) }, dialog)
+new("UISizeConstraint", { MinSize = Vector2.new(280, 0), MaxSize = Vector2.new(if IS_TOUCH then 680 else 600, DIALOG_H) }, dialog)
 fadeEdges(dialog, 0.18)
-local dialogHeader = new("Frame", { Name = "Header", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 16), Position = UDim2.new(0, 0, 0, 3) }, dialog)
-local speaker = text(dialogHeader, { Name = "Speaker", Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Dim, MaxTextSize = 13 })
+local dialogHeader = new("Frame", { Name = "Header", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, DIALOG_HEAD), Position = UDim2.new(0, 0, 0, 3) }, dialog)
+local speaker = text(dialogHeader, { Name = "Speaker", Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Dim, MaxTextSize = if IS_TOUCH then 17 else 14 })
 shadow(speaker)
 local line = text(dialog, {
 	Name = "Line",
-	Position = UDim2.new(0, 16, 0, 19),
-	Size = UDim2.new(1, -32, 1, -22),
+	Position = UDim2.new(0, 16, 0, DIALOG_HEAD + 4),
+	Size = UDim2.new(1, -32, 1, -(DIALOG_HEAD + 7)),
 	TextXAlignment = Enum.TextXAlignment.Center,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	TextWrapped = true,
-	MaxTextSize = 15,
+	MaxTextSize = if IS_TOUCH then 23 else 19,
 })
 shadow(line)
 
@@ -1212,11 +1205,7 @@ ServiceMinigame.OnClientEvent:Connect(function(action: string, stationType: stri
 	end
 end)
 
--- ---------------------------------------------------------------- แถบปุ่มคีย์ (ขวาล่าง เหนือแผงเงิน: V ปลดล็อกเมาส์ / G พนมมือ)
-local hints = new("Frame", { Name = "KeyHints", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -54), Size = UDim2.new(0, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.XY, BackgroundTransparency = 1 }, gui)
-new("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, hints)
-local _hintVKey, hintV = keyHint(hints, "V", 1) -- ปลดล็อกเมาส์ในมุมมองบุคคลที่ 1
-local _hintGKey, hintG = keyHint(hints, "G", 2) -- พนมมือ (PrayerController)
+-- ป้ายปุ่มคีย์ (V ปลดล็อกเมาส์ / G พนมมือ) ย้ายไปอยู่หน้า ตั้งค่า > ปุ่มควบคุม (SettingsController) แล้ว
 
 -- ปุ่ม Modal ล่องหนสำหรับปลดล็อกเมาส์ในมุมมองบุคคลที่ 1 (กด V หรือ LeftAlt เพื่อสลับปลดล็อก/ล็อกเมาส์)
 local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -1270,7 +1259,7 @@ local function isAnyModalOpen(): boolean
 	return false
 end
 local function updateMouseHint()
-	hintV.Text = ui(if mouseUnlocked then "HintLockMouse" else "HintUnlockMouse")
+	-- (ป้าย [V] ย้ายไปหน้าตั้งค่าแล้ว)
 end
 local function setMouseUnlocked(unlocked: boolean)
 	mouseUnlocked = unlocked
@@ -1342,7 +1331,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 				setFuelHolding(true)
 			end
 			return
-		elseif input.UserInputType == Enum.UserInputType.MouseButton1 and not processed then
+		elseif (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not processed then
+			-- คลิก/แตะตรงไหนก็ได้บนจอ (ที่ไม่ใช่ปุ่มอื่นหรือจอยสติ๊ก) = สูบ/อัดลม ไม่ต้องเล็งปุ่ม
 			if activeMGType == "air" then
 				tryAirStrike()
 			else
@@ -1362,7 +1352,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 UserInputService.InputEnded:Connect(function(input)
 	if mgFrame.Visible and (activeMGType == "fuel" or activeMGType == "diesel") then
-		if input.KeyCode == Enum.KeyCode.Space or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.KeyCode == Enum.KeyCode.Space or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			setFuelHolding(false)
 		end
 	end
@@ -1372,7 +1362,6 @@ end)
 local function applyShowHUD()
 	local show = localPlayer:GetAttribute("ShowHUD") ~= false
 	panel.Visible = show
-	hints.Visible = show
 	updateFlashlightSlot()
 end
 applyShowHUD()
@@ -1556,7 +1545,6 @@ end
 local function refreshLanguage()
 	moneyTitle.Text = ui("Money")
 	updateMouseHint()
-	hintG.Text = ui("HintPray")
 	slotLabel.Text = ui("FlashlightSlot")
 	drawSpeaker()
 	drawReplies()

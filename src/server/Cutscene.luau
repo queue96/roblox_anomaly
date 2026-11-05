@@ -7,13 +7,14 @@
 --          -> ลงรถ พี่ชายเดินอ้อมไปหลังร้าน ดึงเชือกเปิดแผง -> ขี่รถออกไป -> ผู้เล่นเดินเข้าร้าน -> ตะวันตก เข้ากลางคืน
 --   Outro: ตะวันขึ้น ผู้เล่นปิดร้านอยู่หลังร้าน -> พี่ชายขี่รถกลับมารับ -> ผู้เล่นเดินออกมาหา -> "เมื่อคืนเป็นไงบ้าง"
 --          -> "ผ่านไปได้ด้วยดี" -> ขึ้นรถออกไป -> หน้าจอสรุปผล
---   แต่ละคนกดข้ามได้เอง (Client ส่ง "skip"): คนนั้นได้ตัวคืนทันที (Intro: ยืนในร้าน) คัทซีนเล่นต่อให้คนอื่น
---   ข้ามครบทุกคน = จบคัทซีนทันที (Intro: เปิดร้านให้เลย)
+--   ข้ามแบบโหวต (Client ส่ง "skip"): นับคะแนนแล้วบอกทุกคน ("skipvote", โหวต, ทั้งหมด) ยังไม่มีใครออกจากคัทซีน
+--   โหวตครบทุกคนที่ดูอยู่ = ข้ามพร้อมกันทั้งหมด (Intro: ยืนในร้าน เปิดร้านให้เลย) / เล่นคนเดียว = ข้ามทันที
 --
 -- Remote: Remotes.Cutscene
 --   S->C ("start", kind) / ("cam", spec) / ("say", key, who, head) / ("fade", black, seconds) / ("sunset", seconds)
 --        ("end", kind) / ("summary", data)
---   C->S ("ready") หลังหน้าโหลดหาย / ("skip")
+--   C->S ("ready") หลังหน้าโหลดหาย / ("skip") = โหวตข้าม
+--   S->C ("skipvote", votes, total) จำนวนโหวตข้ามตอนนี้
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -28,6 +29,8 @@ local remote: RemoteEvent = nil
 local ready: { [Player]: boolean } = {}
 local participants: { [Player]: boolean } = {}
 local skipped: { [Player]: boolean } = {}
+local skipVotes: { [Player]: boolean } = {} -- โหวตข้ามคัทซีนรอบนี้ (ข้ามเมื่อครบทุกคนที่ดูอยู่)
+local checkSkipVotes: () -> ()
 local follow: { [Player]: { v: Model, cf: CFrame } } = {}
 local running: string? = nil
 local introWaiting = false -- คัทซีนเปิดคืนกำลังรอผู้เล่นโหลดเสร็จ (ผู้เล่นใหม่ที่ ready ช่วงนี้ = ได้ดูคัทซีน)
@@ -1321,6 +1324,7 @@ local function begin(kind: string): number
 	setRunning(kind)
 	table.clear(participants)
 	table.clear(skipped)
+	table.clear(skipVotes)
 	shopSlots = 0
 	for _, p in ipairs(Players:GetPlayers()) do
 		if ready[p] and p.Character then
@@ -1611,6 +1615,48 @@ function Cutscene.Running(): string?
 	return running
 end
 
+-- นับโหวตข้าม: ผู้เล่นจริงที่ยังดูคัทซีนอยู่ (หุ่นทดสอบใน Studio นับว่าโหวตแล้ว) ครบ = ข้ามพร้อมกันทุกคน
+checkSkipVotes = function()
+	if not running then
+		return
+	end
+	local viewers: { Player } = {}
+	for p in pairs(participants) do
+		if not isFake(p) and p.Parent and not skipped[p] then
+			table.insert(viewers, p)
+		end
+	end
+	if #viewers == 0 then
+		return
+	end
+	local votes = 0
+	for _, p in ipairs(viewers) do
+		if skipVotes[p] then
+			votes += 1
+		end
+	end
+	for _, p in ipairs(viewers) do
+		remote:FireClient(p, "skipvote", votes, #viewers)
+	end
+	if votes < #viewers then
+		return
+	end
+	local kind = running
+	for _, p in ipairs(viewers) do
+		skipped[p] = true
+		remote:FireClient(p, "end", kind)
+		-- จุดยืนในร้านไม่ซ้ำกัน (Outro เดิมใช้จุดที่ 1 ทุกคน = ยืนทับกัน)
+		release(p, nextShopSpot())
+	end
+	-- หุ่นทดสอบ: ข้ามไปด้วย (ไม่มีใครดูต่อแล้ว)
+	for _, f in ipairs(fakes) do
+		if participants[f] and not skipped[f] then
+			skipped[f] = true
+		end
+	end
+	print("⏭️ ทุกคนโหวตครบ: ข้ามคัทซีน " .. tostring(kind))
+end
+
 function Cutscene.Init(deps: { [string]: any })
 	D = deps
 	remote = deps.remote("Cutscene")
@@ -1625,12 +1671,10 @@ function Cutscene.Init(deps: { [string]: any })
 			if not introWaiting then
 				remote:FireClient(p, "nocutscene")
 			end
-		elseif action == "skip" and running and participants[p] and not skipped[p] then
-			skipped[p] = true
-			remote:FireClient(p, "end", running)
-			-- จุดยืนในร้านไม่ซ้ำกัน (เดิมนับลำดับจาก pairs(skipped) / Outro ใช้จุดที่ 1 ทุกคน = ยืนทับกัน)
-			release(p, nextShopSpot())
-			print("⏭️ [" .. p.Name .. "] ข้ามคัทซีน " .. tostring(running))
+		elseif action == "skip" and running and participants[p] and not skipped[p] and not skipVotes[p] then
+			skipVotes[p] = true
+			print("⏭️ [" .. p.Name .. "] โหวตข้ามคัทซีน " .. tostring(running))
+			checkSkipVotes()
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(p)
@@ -1639,6 +1683,9 @@ function Cutscene.Init(deps: { [string]: any })
 		participants[p] = nil
 		skipped[p] = nil
 		follow[p] = nil
+		skipVotes[p] = nil
+		-- คนที่ยังไม่โหวตออกไป: ที่เหลืออาจโหวตครบแล้ว
+		task.defer(checkSkipVotes)
 	end)
 	-- ตายแล้วเกิดใหม่ระหว่างคัทซีน: ตัวใหม่ไม่ต้องยึด
 	Players.PlayerAdded:Connect(function(p)
