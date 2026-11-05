@@ -315,8 +315,8 @@ end
 -- ---------------------------------------------------------------- ซับไตเติลคำพูดลูกค้า (แถบบางโปร่งแสงล่างจอ ไม่บังสายตา)
 local DIALOG_BG_TRANSPARENCY = 0.38
 -- ตัวหนังสือใหญ่ขึ้น (จอเล็กอ่านยาก): มือถือใหญ่สุด กล่องกว้าง/สูงตาม
-local DIALOG_H = if IS_TOUCH then 78 else 62
-local DIALOG_HEAD = if IS_TOUCH then 20 else 17
+local DIALOG_H = if IS_TOUCH then 78 else 84 -- คอม: ใหญ่ขึ้น (ผู้ใช้ 2026-11-06 ซับบนคอมเล็กไป)
+local DIALOG_HEAD = if IS_TOUCH then 20 else 21
 local dialog = new("Frame", {
 	Name = "Dialogue",
 	ZIndex = 5,
@@ -328,10 +328,10 @@ local dialog = new("Frame", {
 	BorderSizePixel = 0,
 	Visible = false,
 }, gui)
-new("UISizeConstraint", { MinSize = Vector2.new(280, 0), MaxSize = Vector2.new(if IS_TOUCH then 680 else 600, DIALOG_H) }, dialog)
+new("UISizeConstraint", { MinSize = Vector2.new(280, 0), MaxSize = Vector2.new(if IS_TOUCH then 680 else 780, DIALOG_H) }, dialog)
 fadeEdges(dialog, 0.18)
 local dialogHeader = new("Frame", { Name = "Header", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, DIALOG_HEAD), Position = UDim2.new(0, 0, 0, 3) }, dialog)
-local speaker = text(dialogHeader, { Name = "Speaker", Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Dim, MaxTextSize = if IS_TOUCH then 17 else 14 })
+local speaker = text(dialogHeader, { Name = "Speaker", Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.Dim, MaxTextSize = if IS_TOUCH then 17 else 18 })
 shadow(speaker)
 local line = text(dialog, {
 	Name = "Line",
@@ -340,7 +340,7 @@ local line = text(dialog, {
 	TextXAlignment = Enum.TextXAlignment.Center,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	TextWrapped = true,
-	MaxTextSize = if IS_TOUCH then 23 else 19,
+	MaxTextSize = if IS_TOUCH then 23 else 26,
 })
 shadow(line)
 
