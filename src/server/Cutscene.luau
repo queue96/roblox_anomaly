@@ -1289,21 +1289,31 @@ local function introBody(t: number)
 end
 
 -- รอให้ผู้เล่นโหลดเสร็จ (หน้าโหลดหาย) ก่อนเริ่ม Intro (คืนแรก server เริ่มก่อนผู้เล่นเข้า)
+-- ระหว่างรอ: ReplicatedStorage.IntroWaiting / ReadyCount / ReadyTotal -> หน้าโหลด (client/LoadingScreen) ค้างที่ 100%
+-- พร้อมบอก "รอผู้เล่นคนอื่น x/y" แทนจอดำ (ผู้ใช้ 2026-11-06)
 local function waitReady(maxWait: number)
 	local t0 = os.clock()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	ReplicatedStorage:SetAttribute("IntroWaiting", true)
 	while os.clock() - t0 < maxWait do
 		local ps = Players:GetPlayers()
 		local allReady = #ps > 0
+		local n = 0
 		for _, p in ipairs(ps) do
 			if not ready[p] or not p.Character then
 				allReady = false
+			else
+				n += 1
 			end
 		end
+		ReplicatedStorage:SetAttribute("ReadyCount", n)
+		ReplicatedStorage:SetAttribute("ReadyTotal", #ps)
 		if allReady then
-			return
+			break
 		end
 		task.wait(0.25)
 	end
+	ReplicatedStorage:SetAttribute("IntroWaiting", false)
 end
 
 local function begin(kind: string): number

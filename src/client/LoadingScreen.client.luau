@@ -716,6 +716,19 @@ task.spawn(function()
 		if elapsed < GAME_SPLASH_MIN_SECONDS then
 			task.wait(GAME_SPLASH_MIN_SECONDS - elapsed)
 		end
+		-- รอคนอื่นในห้องโหลดเสร็จที่หน้านี้ (ไม่ใช่จอดำ) ผู้ใช้ 2026-11-06
+		-- LoadReady -> client/CutsceneController บอก server ว่าเครื่องนี้พร้อม / server ตั้ง IntroWaiting จนครบทุกคน
+		player:SetAttribute("LoadReady", true)
+		task.wait(0.6) -- ให้ server นับเครื่องนี้ก่อน
+		waitFor(function()
+			if ReplicatedStorage:GetAttribute("IntroWaiting") ~= true then
+				return true
+			end
+			local n = ReplicatedStorage:GetAttribute("ReadyCount") or 0
+			local total = ReplicatedStorage:GetAttribute("ReadyTotal") or 0
+			setProgress(1, tr(("กำลังรอผู้เล่นคนอื่นโหลด... (%d / %d)"):format(n, total), ("Waiting for other players... (%d / %d)"):format(n, total)))
+			return false
+		end, 90)
 	end
 
 	task.spawn(endIntro) -- แยก thread: เพลงพังอะไรก็ไม่ทำให้หน้าโหลดค้าง
