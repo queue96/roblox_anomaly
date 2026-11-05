@@ -394,7 +394,7 @@ end)
 task.spawn(function()
 	while true do
 		-- คัทซีน (CutsceneController) ตั้งหมอกเย็น/เช้าเอง: ไม่ลอยทับ
-		if isPraying() or Lighting:GetAttribute("Cutscene") then
+		if isPraying() or Lighting:GetAttribute("Cutscene") or Lighting:GetAttribute("Dawn") then
 			task.wait(1)
 			continue
 		end

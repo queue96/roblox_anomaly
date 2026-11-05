@@ -787,6 +787,7 @@ local function canShow(): boolean
 	return remotes:GetAttribute("ShopOpen") == true
 		and remotes:GetAttribute("BigEvent") == nil
 		and Lighting:GetAttribute("Cutscene") ~= true
+		and Lighting:GetAttribute("Dawn") ~= true
 		and hum ~= nil
 		and hum.Health > 0
 end
@@ -806,8 +807,8 @@ task.spawn(function()
 		local nextAt = os.clock() + rand(CONFIG.FirstAfter)
 		while remotes:GetAttribute("ShopOpen") == true do
 			task.wait(1)
-			if current and remotes:GetAttribute("BigEvent") ~= nil then
-				hide(1) -- ผีใหญ่มา: ผีฉากหลบไปก่อน
+			if current and (remotes:GetAttribute("BigEvent") ~= nil or Lighting:GetAttribute("Dawn") == true) then
+				hide(1) -- ผีใหญ่มา / ฟ้าสางจบคืน: ผีฉากหลบไปก่อน
 			end
 			if shown < CONFIG.MaxPerNight and os.clock() >= nextAt and not current and canShow() then
 				show(tonight[math.random(#tonight)])

@@ -83,12 +83,12 @@ fade.Parent = gui
 
 -- ซับคัทซีน: ตัวหนังสือใหญ่ขึ้น (จอเล็กอ่านยาก) มือถือใหญ่สุด
 local IS_TOUCH = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any).TouchMode == true
-local SUB_SPEAKER = if IS_TOUCH then 21 else 18
-local SUB_LINE = if IS_TOUCH then 27 else 23
+local SUB_SPEAKER = if IS_TOUCH then 21 else 22 -- คอม: ใหญ่ขึ้น (ผู้ใช้ 2026-11-06 ซับบนคอมเล็กไป)
+local SUB_LINE = if IS_TOUCH then 27 else 30
 local subtitle = Instance.new("Frame")
 subtitle.AnchorPoint = Vector2.new(0.5, 1)
 subtitle.Position = UDim2.new(0.5, 0, 0.86, -10)
-subtitle.Size = UDim2.new(if IS_TOUCH then 0.86 else 0.74, 0, 0, if IS_TOUCH then 86 else 74)
+subtitle.Size = UDim2.new(if IS_TOUCH then 0.86 else 0.74, 0, 0, if IS_TOUCH then 86 else 100)
 subtitle.BackgroundTransparency = 1
 subtitle.Visible = false
 subtitle.ZIndex = 3
@@ -181,6 +181,8 @@ local PRESETS = {
 local saved: { [string]: any }? = nil
 local function snapshot()
 	if saved then
+		-- จำแสงกลางคืนไว้แล้ว (ฟ้าสาง dawnbreak ก่อนคัทซีนจบ): ยังต้องตั้งธงคัทซีน
+		Lighting:SetAttribute("Cutscene", true)
 		return
 	end
 	local s = { light = {}, atmo = {}, grade = {} }
@@ -240,6 +242,7 @@ local function restoreNight()
 		saved = nil
 	end
 	Lighting:SetAttribute("Cutscene", nil)
+	Lighting:SetAttribute("Dawn", nil)
 end
 
 -- ปุ่มกดในฉาก (E / F / G ค้าง ฯลฯ) ไม่ขึ้นระหว่างคัทซีน: ปิดทั้งระบบเฉพาะเครื่องตัวเอง
@@ -752,6 +755,17 @@ local function endCutscene(kind: string)
 		if kind == "outro" then
 			showSummary()
 		end
+		-- ฟ้าสางแล้วจอดำค้าง (dawnbreak) แต่เครื่องนี้ไม่ได้ดูคัทซีน: เอาจอดำออก คืนแสง
+		if saved and not active then
+			restoreNight()
+			local t = TweenService:Create(fade, TweenInfo.new(0.8), { BackgroundTransparency = 1 })
+			t:Play()
+			t.Completed:Connect(function()
+				if not active then
+					gui.Enabled = false
+				end
+			end)
+		end
 		return
 	end
 	active = nil
@@ -960,6 +974,27 @@ remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 		pcall(SoundBank.PlayDialogueVoice, a, who, c)
 	elseif kind == "fade" then
 		TweenService:Create(fade, TweenInfo.new(b or 0.8), { BackgroundTransparency = if a then 0 else 1 }):Play()
+	elseif kind == "dawnbreak" then
+		-- ครบยอดขาย (หรือ admin กดชนะ): ฟ้าค่อยๆ สางเป็นเช้ามืดระหว่างยังเล่นอยู่ แล้วจอค่อยๆ ดำ เข้าคัทซีนจบ
+		-- (ผู้ใช้ 2026-11-06: เดิมเช้าทันทีตอนคัทซีนเริ่ม) ไม่ตั้ง Lighting.Cutscene: ยังหันตัว/เดินได้ตามปกติ
+		-- Lighting.Dawn = หมอกลอย (AmbienceController) / ผีฉาก (SceneryGhosts) หยุดระหว่างนี้
+		local t = if type(a) == "number" then a else 12
+		local blackAt = if type(b) == "number" then b else 1.6
+		snapshot()
+		Lighting:SetAttribute("Cutscene", nil)
+		Lighting:SetAttribute("Dawn", true)
+		apply(PRESETS.dawn, t)
+		task.delay(math.max(0, t - blackAt), function()
+			if active then
+				return
+			end
+			barTop.Position = UDim2.fromScale(0, 0)
+			barBottom.Position = UDim2.fromScale(0, 1)
+			subtitle.Visible = false
+			fade.BackgroundTransparency = 1
+			gui.Enabled = true
+			TweenService:Create(fade, TweenInfo.new(blackAt, Enum.EasingStyle.Sine), { BackgroundTransparency = 0 }):Play()
+		end)
 	elseif kind == "sunset" then
 		-- ตะวันตกดิน: แสงส้มค่อยๆ หม่นลงจนมืด (ก่อนจอดำเข้ากลางคืน)
 		local t = a or 4
@@ -1086,7 +1121,8 @@ task.spawn(function()
 	local t0 = os.clock()
 	while os.clock() - t0 < 90 do
 		local ls = pg:FindFirstChild("RuralLoadingScreen")
-		if (not ls or not (ls :: ScreenGui).Enabled) and player.Character then
+		-- LoadReady = หน้าโหลดถึง 100% แล้ว (ค้างรอคนอื่นต่อที่หน้าโหลด ไม่ต้องรอให้หายก่อน)
+		if (not ls or not (ls :: ScreenGui).Enabled or player:GetAttribute("LoadReady") == true) and player.Character then
 			break
 		end
 		task.wait(0.25)

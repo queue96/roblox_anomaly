@@ -23,6 +23,9 @@ local Cutscene: any -- (require ทีหลัง หลังฟังก์�
 
 -- ---------------------------------------------------------------- ค่าปรับเกม
 local CONFIG = {
+	-- ครบยอดแล้ว: ฟ้าค่อยๆ สางนานเท่านี้ (วินาที) ระหว่างยังเล่นอยู่ แล้วจอดำ BlackFade วิ ค่อยเข้าคัทซีนเช้า (ผู้ใช้ 2026-11-06)
+	DawnSeconds = 14,
+	DawnBlackFade = 1.8,
 	TargetMoney = 800, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที = ~15-30 นาทีต่อคืน (เดิม 1200 นานเกิน, ผู้ใช้ 2026-11-05)
 	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ) [น้ำมันหลอด]
 	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
@@ -3538,7 +3541,14 @@ local function winSequence()
 	ServiceMinigame:FireAllClients("close")
 	CustomerSpeech:FireAllClients(nil)
 	remotes:SetAttribute("Cursed", false)
-	-- เช้าแล้ว ขายหมด: ตู้และแผงน้ำมันขวดว่างเปล่าในคัทซีนจบ
+	-- ฟ้าค่อยๆ สาง (ทุกเครื่อง client/CutsceneController "dawnbreak") แล้วจอค่อยๆ ดำ ก่อนเข้าคัทซีนเช้า
+	-- admin กด "ชนะ" ก็มาทางนี้ (ตั้งเงินครบยอด -> ลูปหลักเรียก winSequence)
+	local cutRemote = remotes:FindFirstChild("Cutscene") :: RemoteEvent?
+	if cutRemote then
+		cutRemote:FireAllClients("dawnbreak", CONFIG.DawnSeconds, CONFIG.DawnBlackFade)
+		task.wait(CONFIG.DawnSeconds)
+	end
+	-- เช้าแล้ว ขายหมด: ตู้และแผงน้ำมันขวดว่างเปล่าในคัทซีนจบ (เปลี่ยนตอนจอดำแล้ว ไม่ให้เห็นน้ำมันหายต่อหน้า)
 	petrolLevel, dieselLevel = 0, 0
 	setFuelLevel(0, 0.3)
 	setDieselLevel(0, 0.3)
