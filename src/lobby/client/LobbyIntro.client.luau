@@ -197,6 +197,17 @@ prompt.TextColor3 = C.Ember
 prompt.TextSize = 24
 prompt.TextTransparency = 1
 prompt.Parent = gui
+-- มือถือ: ขอบล่างมีแถบ Home/ขอบโค้ง -> ย้ายข้อความเข้ากรอบปลอดภัย (shared/SafeArea) ชิดล่างของกรอบนั้นแทน
+do
+	local safeMod = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SafeArea", 5)
+	local SafeArea = if safeMod then (require(safeMod) :: any) else nil
+	if SafeArea and SafeArea.Pad() > 0 then
+		local safe = SafeArea.Frame(gui)
+		prompt.AnchorPoint = Vector2.new(0.5, 1)
+		prompt.Position = UDim2.fromScale(0.5, 1)
+		prompt.Parent = safe
+	end
+end
 
 local function applyText()
 	local th = isThai()
