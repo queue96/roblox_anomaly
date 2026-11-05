@@ -206,6 +206,10 @@ local function isHat(n: string): boolean
 	end
 	return false
 end
+-- ไม่มีใครใส่หมวกกันน็อก (ผู้ใช้ 2026-11-05: เห็นหน้า/หัวลูกค้าชัดๆ จับผิดผีได้) ชุดที่มากับหมวก = ถอดหมวกแล้วใส่ผมแทน
+local function isHelmet(n: string): boolean
+	return string.sub(n, -7) == "_helmet" or string.sub(n, -6) == "_visor"
+end
 
 function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 	if opts.noHat then
@@ -216,7 +220,7 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 	local char = opts.char or DEFAULT_CHAR
 	local outfit = pickOutfit(opts, char)
 	local hairs = HAIRS_BY[char] or HAIRS
-	local hair = if outfit.helmet then nil else (if opts.hair and table.find(hairs, opts.hair) then opts.hair else hairs[math.random(#hairs)])
+	local hair = if opts.hair and table.find(hairs, opts.hair) then opts.hair else hairs[math.random(#hairs)]
 	local skin = skinParts(char)
 	for _, c in ipairs(d:GetChildren()) do
 		if c:IsA("MeshPart") and c.Name ~= "Body" and c.Name ~= "BodyHead" then
@@ -226,7 +230,7 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 				keep = not table.find(skin[n] or {}, outfit.name)
 			elseif string.sub(n, 1, 6) == "Cloth_" or string.sub(n, 1, 5) == "Hair_" then
 				keep = n == "Cloth_" .. outfit.name or string.sub(n, 1, #outfit.name + 7) == "Cloth_" .. outfit.name .. "_" or (hair ~= nil and n == "Hair_" .. hair)
-				if keep and opts.noHat and isHat(n) then
+				if keep and ((opts.noHat and isHat(n)) or isHelmet(n)) then
 					keep = false
 				end
 			else

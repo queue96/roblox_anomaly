@@ -122,6 +122,73 @@ CollectionService:GetInstanceRemovedSignal(NORMAL_TAG):Connect(function(d)
 	end
 end)
 
+-- ---------------------------------------------------------------- ตาทิพย์เปิด: ผีเรืองแสงชัดๆ ค้างไว้ (ไม่ใช่เห็นแว็บๆ)
+-- ของผี (GhostOnly) บางอย่างต่างจากของปกตินิดเดียว (หน้า/ป้าย/เงา) จับผิดยากตอนจอสว่าง+เบลอ
+-- -> ตัวผีทั้งตัว (รถ+คนที่มีของผีติดอยู่) มีขอบเรืองแดงซีดค้างตลอดที่ตาทิพย์เปิด (ลูกค้าที่ยังล็อกอยู่ไม่เรือง)
+local HIGHLIGHT_FILL = Color3.fromRGB(150, 20, 20)
+local HIGHLIGHT_LINE = Color3.fromRGB(255, 190, 170)
+local glows: { [Instance]: Highlight } = {}
+local function ghostOwner(d: Instance): Instance?
+	local a = d
+	while a.Parent and a.Parent ~= Workspace and not a.Parent:IsA("Folder") do
+		a = a.Parent
+	end
+	if a.Parent == nil or a == Workspace then
+		return nil
+	end
+	return if a:IsA("Model") or a:IsA("BasePart") then a else nil
+end
+local refreshQueued = false
+local function refreshGlows()
+	refreshQueued = false
+	local want: { [Instance]: boolean } = {}
+	if sightOpen then
+		for _, d in ipairs(CollectionService:GetTagged(GHOST_TAG)) do
+			if inWorld(d) and not locked(d) and (d:IsA("BasePart") or d:IsA("Decal")) then
+				local owner = ghostOwner(d)
+				-- ไม่เอาตัวผู้เล่น และไม่เรืองทั้งแมพ (ของผีที่อยู่ตรงๆ ใต้ Workspace = ชิ้นเดียว ก็เรืองชิ้นนั้น)
+				if owner and not Players:GetPlayerFromCharacter(owner) then
+					want[owner] = true
+				end
+			end
+		end
+	end
+	for owner, h in pairs(glows) do
+		if not want[owner] or not owner.Parent then
+			glows[owner] = nil
+			TweenService:Create(h, TweenInfo.new(0.35), { FillTransparency = 1, OutlineTransparency = 1 }):Play()
+			task.delay(0.4, function()
+				h:Destroy()
+			end)
+		end
+	end
+	for owner in pairs(want) do
+		if not glows[owner] then
+			local h = Instance.new("Highlight")
+			h.Name = "PrayerGhostGlow"
+			h.Adornee = owner
+			h.DepthMode = Enum.HighlightDepthMode.Occluded -- ไม่ทะลุกำแพง ต้องมองเห็นตัวจริง
+			h.FillColor = HIGHLIGHT_FILL
+			h.OutlineColor = HIGHLIGHT_LINE
+			h.FillTransparency = 1
+			h.OutlineTransparency = 1
+			h.Parent = owner
+			glows[owner] = h
+			TweenService:Create(h, TweenInfo.new(0.6, Enum.EasingStyle.Sine), { FillTransparency = 0.7, OutlineTransparency = 0.05 }):Play()
+		end
+	end
+end
+local function queueGlows()
+	if not refreshQueued then
+		refreshQueued = true
+		task.defer(refreshGlows)
+	end
+end
+CollectionService:GetInstanceAddedSignal(GHOST_TAG):Connect(queueGlows)
+CollectionService:GetInstanceRemovedSignal(GHOST_TAG):Connect(queueGlows)
+CollectionService:GetInstanceRemovedSignal(LOCK_TAG):Connect(queueGlows)
+CollectionService:GetInstanceAddedSignal(LOCK_TAG):Connect(queueGlows)
+
 -- ---------------------------------------------------------------- จอโทนเย็นซีดตอนตาทิพย์เปิด
 local grade = Instance.new("ColorCorrectionEffect")
 grade.Name = "PrayerSight"
@@ -367,6 +434,7 @@ local function setSight(open: boolean)
 	end
 	sightOpen = open
 	applyAll(false)
+	queueGlows()
 	grade.Enabled = true
 	grade:SetAttribute("Open", open) -- AmbienceController ฟังค่านี้เพื่อปรับ blur / vignette ตอนตาทิพย์เปิด
 	TweenService:Create(grade, TweenInfo.new(if open then 0.8 else 0.5), if open then SIGHT_GRADE else NO_GRADE):Play()
