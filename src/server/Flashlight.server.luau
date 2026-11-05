@@ -189,9 +189,11 @@ refillEvent.Event:Connect(function(player: Player, amount: number?)
 	print(("🔋 [%s] เติมถ่านไฟฉาย -> %d%%"):format(player.Name, math.floor(b * 100 + 0.5)))
 end)
 
--- ซื้อถ่าน = ได้ "ถ่านไฟฉาย" เข้าช่องของที่ 4 (client/ItemSlots) ซ้อนได้หลายก้อน (attribute Count) กด 4 = ใส่ถ่านก้อนใหม่ (ถ่านเต็ม)
---   ปุ่ม "+ ถ่าน" ใต้ไฟฉาย / ปุ่ม B: ช่วงนี้ฟรี (ยังไม่มี Developer Product ผู้ใช้ 2026-11-05)
---   ทีหลังเปลี่ยนเป็น MarketplaceService:PromptProductPurchase(player, BATTERY_PRODUCT_ID) แล้วเรียก giveBattery ใน ProcessReceipt แทน
+-- ซื้อถ่าน = ได้ "ถ่านไฟฉาย" เข้าช่องของที่ 4 (client/ItemSlots) ซ้อนได้หลายก้อน (attribute Count)
+--   ถือไฟฉาย (1) + ถ่านต่ำกว่าครึ่ง แล้วกด 4 = ใส่ถ่านก้อนใหม่ (ถ่านเต็ม)
+--   ซื้อที่ "กล่องถ่านไฟฉาย" วางบนเคาน์เตอร์ในร้าน (ไม่มีปุ่มบนจอ ไม่บังคับ ผู้เล่นเห็นแล้วไปกดเอง ผู้ใช้ 2026-11-05)
+--   ช่วงนี้ฟรี (ยังไม่มี Developer Product): ทีหลังเปลี่ยนเป็น MarketplaceService:PromptProductPurchase(player, BATTERY_PRODUCT_ID)
+--   แล้วเรียก giveBattery ใน ProcessReceipt แทน
 local FREE_BATTERY = true
 local BATTERY_TOOL = "FlashlightBattery"
 local MAX_BATTERIES = 9
@@ -326,12 +328,6 @@ task.spawn(function()
 		last[player] = os.clock()
 		return false
 	end
-	-- C->S ซื้อถ่าน (ฟรีช่วงนี้)
-	remote("BuyBattery").OnServerEvent:Connect(function(player: Player)
-		if FREE_BATTERY and not throttled(player) then
-			giveBattery(player, 1)
-		end
-	end)
 	-- C->S ใช้ถ่าน 1 ก้อนจากช่องที่ 4
 	remote("UseBattery").OnServerEvent:Connect(function(player: Player)
 		if not throttled(player) then
@@ -339,3 +335,75 @@ task.spawn(function()
 		end
 	end)
 end)
+
+-- ---------------------------------------------------------------- กล่องถ่านไฟฉายบนเคาน์เตอร์ (ที่ซื้อถ่าน)
+-- วางระหว่างกระป๋องเงินกับวิทยุ ข้อความปุ่มแปลตามภาษาใน client/HUDController (PROMPTS.BuyBatteryPrompt)
+local function buildBatteryBox()
+	local ip = workspace:WaitForChild("InteractiveProps", 60)
+	if not ip or ip:FindFirstChild("BatteryBox") then
+		return
+	end
+	local counter = workspace:FindFirstChild("CounterTable", true)
+	local top = if counter and counter:IsA("BasePart") then counter.Position.Y + counter.Size.Y / 2 else 5.84
+	local z = if counter and counter:IsA("BasePart") then counter.Position.Z + 0.3 else 13.3
+	local base = CFrame.new(1.2, top, z) * CFrame.Angles(0, math.rad(12), 0)
+	local m = Instance.new("Model")
+	m.Name = "BatteryBox"
+	local function box(name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = base * cf
+		p.Color = color
+		p.Material = mat
+		p.Anchored = true
+		p.CanCollide = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Parent = m
+		return p
+	end
+	-- กล่องกระดาษแข็งเปิดฝา (พื้น + 4 ด้าน)
+	local W, D, H, T = 1.3, 0.8, 0.45, 0.05
+	local card = Color3.fromRGB(176, 138, 88)
+	local floor = box("Floor", Vector3.new(W, T, D), CFrame.new(0, T / 2, 0), card, Enum.Material.Cardboard)
+	box("Front", Vector3.new(W, H, T), CFrame.new(0, H / 2, -D / 2), Color3.fromRGB(196, 60, 40), Enum.Material.Cardboard)
+	box("Back", Vector3.new(W, H + 0.25, T), CFrame.new(0, (H + 0.25) / 2, D / 2), card, Enum.Material.Cardboard)
+	box("Left", Vector3.new(T, H, D), CFrame.new(-W / 2, H / 2, 0), card, Enum.Material.Cardboard)
+	box("Right", Vector3.new(T, H, D), CFrame.new(W / 2, H / 2, 0), card, Enum.Material.Cardboard)
+	-- ถ่านตั้งเรียงในกล่อง 2 แถว
+	for row = 0, 1 do
+		for i = 0, 3 do
+			local x = -0.45 + i * 0.3
+			local zz = -0.16 + row * 0.32
+			local c = CFrame.new(x, 0.35, zz) * CFrame.Angles(0, 0, math.rad(90))
+			local body = box("Cell", Vector3.new(0.6, 0.24, 0.24), c, Color3.fromRGB(25, 24, 24), Enum.Material.SmoothPlastic)
+			body.Shape = Enum.PartType.Cylinder
+			local band = box("CellBand", Vector3.new(0.2, 0.25, 0.25), c * CFrame.new(0.16, 0, 0), Color3.fromRGB(190, 32, 28), Enum.Material.SmoothPlastic)
+			band.Shape = Enum.PartType.Cylinder
+			local tip = box("CellTip", Vector3.new(0.05, 0.09, 0.09), c * CFrame.new(0.32, 0, 0), Color3.fromRGB(205, 205, 200), Enum.Material.Metal)
+			tip.Shape = Enum.PartType.Cylinder
+		end
+	end
+	m.PrimaryPart = floor
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "BuyBatteryPrompt"
+	prompt.ActionText = "Buy battery"
+	prompt.ObjectText = "Battery box"
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = 7
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = floor
+	m.Parent = ip
+	local last: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+	prompt.Triggered:Connect(function(player: Player)
+		if not FREE_BATTERY or os.clock() - (last[player] or 0) < 0.8 then
+			return
+		end
+		last[player] = os.clock()
+		if not giveBattery(player, 1) then
+			notice(player, "BatteryFull")
+		end
+	end)
+end
+task.spawn(buildBatteryBox)

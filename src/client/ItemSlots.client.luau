@@ -131,52 +131,6 @@ task.spawn(function()
 		end
 		stack.Parent = fs
 		flashIcon = slotIcon(fs)
-		-- ปุ่มซื้อถ่าน (ถ่านไม่ชาร์จเองแล้ว) ขึ้นตอนถ่านไม่เต็ม -> ได้ถ่านเข้าช่องที่ 4 · ช่วงนี้ฟรี ทีหลังเป็นซื้อด้วย Robux (server/Flashlight)
-		--   คอม: กด B ได้เลย (เมาส์ล็อกกลางจอ) / มือถือ: แตะปุ่ม
-		local remotes = ReplicatedStorage:WaitForChild("Remotes")
-		local buy = remotes:WaitForChild("BuyBattery", 20) :: RemoteEvent?
-		if buy then
-			local touch = LanguageModule.TouchMode == true
-			local btn = Instance.new("TextButton")
-			btn.Name = "BuyBattery"
-			btn.LayoutOrder = 3
-			btn.Size = UDim2.fromOffset(0, SLOT_H - 14)
-			btn.AutomaticSize = Enum.AutomaticSize.X
-			btn.BackgroundColor3 = Color3.fromRGB(48, 22, 20)
-			btn.BackgroundTransparency = 0.1
-			btn.BorderSizePixel = 0
-			btn.AutoButtonColor = true
-			btn.FontFace = FONT
-			btn.TextColor3 = C.Cream
-			btn.TextSize = if touch then 16 else 13
-			btn.Visible = false
-			btn.Parent = fs
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
-			local bp = Instance.new("UIPadding", btn)
-			bp.PaddingLeft, bp.PaddingRight = UDim.new(0, 8), UDim.new(0, 8)
-			local bs = Instance.new("UIStroke", btn)
-			bs.Color = C.Ember
-			bs.Transparency = 0.3
-			bs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			local function draw()
-				btn.Text = ui(if touch then "BuyBattery" else "BuyBattery_Key")
-				local b = player:GetAttribute("Battery")
-				btn.Visible = type(b) == "number" and b < 0.99
-			end
-			draw()
-			player:GetAttributeChangedSignal("Battery"):Connect(draw)
-			player:GetAttributeChangedSignal("Lang"):Connect(draw)
-			local function request()
-				buy:FireServer()
-			end
-			btn.Activated:Connect(request)
-			game:GetService("ContextActionService"):BindAction("BuyBattery", function(_, state)
-				if state == Enum.UserInputState.Begin then
-					request()
-				end
-				return Enum.ContextActionResult.Pass
-			end, false, Enum.KeyCode.B)
-		end
 	end
 end)
 
