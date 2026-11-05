@@ -1933,7 +1933,8 @@ local GHOST_VANISH_FADE = 0.8 -- จางหายในกี่วินา�
 local FUELED_REVEAL = 1.3 -- วินาทีที่ร่างผีค่อยๆ ชัดขึ้น
 local function fueledPlan(): { [string]: any }
 	local style = pick({ "lunge", "side", "vanish" })
-	local pause = if style == "lunge" then 0.22 elseif style == "side" then 0.75 else 0.9 + math.random() * 0.7
+	-- (lunge / side นานพอให้เห็นท่าวิ่ง/ลอยของผี)
+	local pause = if style == "lunge" then 0.45 elseif style == "side" then 0.95 else 0.9 + math.random() * 0.7
 	return { style = style, reveal = FUELED_REVEAL, pause = pause, side = if math.random() < 0.5 then -1 else 1 }
 end
 local ENGINE_RANGE = 200 -- เสียงเครื่องยนต์รถลูกค้าได้ยินไกลเท่านี้ (studs)

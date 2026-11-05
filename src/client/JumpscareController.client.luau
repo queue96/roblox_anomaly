@@ -582,6 +582,87 @@ revealGrade.Name = "GhostReveal"
 revealGrade.Enabled = false
 revealGrade.Parent = Lighting
 
+-- ท่าตอนผีวิ่งหนี / พุ่งเข้าหา (ไม่ใช่ค้างท่าขี่มอไซ): เลือกจากชุดท่าของตัวนั้น
+--   ชาวบ้าน (attribute Char): วิ่ง (ผ้านุ่งยาว = วิ่งก้าวสั้น) · พุ่งเข้าหา = ลอยร่อนแบบผี (ghost_glide)
+--   ผีมีกระดูก (attribute GhostName): ท่าเคลื่อนที่ที่มี เช่น กระสือ Float/Lunge, กระหัง FlapFly, ปอบ TwitchWalk, เปรต TallSlowWalk
+--   ท่าลอย (FLOAT_CLIPS) = ลอยอยู่ระดับเดิม / นอกนั้นลงมายืนบนพื้นก่อนวิ่ง
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local HumanAnimIds = require(Shared:WaitForChild("HumanAnimIds")) :: any
+local GhostAnimIds = require(Shared:WaitForChild("GhostAnimIds")) :: any
+local SKIRT_OUTFITS = { sarong = true, blouse_sin = true, indigo_scarf = true, sabai = true }
+local FLOAT_CLIPS = { Float = true, FlapFly = true, Glide = true, shroud_glide = true, Lunge = true }
+local GHOST_MOVE_SIDE = { "run", "TwitchWalk", "ghost_glide", "Float", "FlapFly", "Glide", "shroud_glide", "coffin_walk", "TallSlowWalk" }
+local GHOST_MOVE_LUNGE = { "Lunge", "ghost_glide", "run", "Float", "FlapFly", "Glide", "shroud_glide", "TwitchWalk", "coffin_walk", "TallSlowWalk" }
+
+type Mover = { rig: Model, track: AnimationTrack?, floats: boolean }
+local function prepareMove(model: Model, style: string): { Mover }
+	local list: { Mover } = {}
+	for _, rig in ipairs(model:GetDescendants()) do
+		if not rig:IsA("Model") then
+			continue
+		end
+		local id: string? = nil
+		local floats = false
+		local char = rig:GetAttribute("Char")
+		local gname = rig:GetAttribute("GhostName")
+		if type(char) == "string" then
+			local set = HumanAnimIds[char] or HumanAnimIds.human_base
+			local skirt = SKIRT_OUTFITS[rig:GetAttribute("Outfit") :: any] == true
+			local clip = if style == "lunge" then "ghost_glide" elseif skirt then "run_skirt" else "run"
+			id = set[clip] or HumanAnimIds.human_base[clip]
+		elseif type(gname) == "string" and GhostAnimIds[gname] then
+			local set = GhostAnimIds[gname]
+			for _, c in ipairs(if style == "lunge" then GHOST_MOVE_LUNGE else GHOST_MOVE_SIDE) do
+				if set[c] then
+					id = set[c]
+					floats = FLOAT_CLIPS[c] == true
+					break
+				end
+			end
+		else
+			continue
+		end
+		local an = rig:FindFirstChildWhichIsA("Animator", true)
+		local track: AnimationTrack? = nil
+		if id and an then
+			local a = Instance.new("Animation")
+			a.AnimationId = id
+			local ok, tr = pcall(function()
+				return (an :: Animator):LoadAnimation(a)
+			end)
+			if ok and tr then
+				tr.Looped = true
+				track = tr
+			end
+		end
+		table.insert(list, { rig = rig, track = track, floats = floats })
+	end
+	return list
+end
+
+-- ลงจากรถมายืนบนพื้น หันไปทาง dir แล้วเริ่มท่า (ท่าโหลดไว้ตั้งแต่เริ่มเผยร่าง)
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Include
+groundParams.FilterDescendantsInstances = { Workspace.Terrain }
+local function startMove(movers: { Mover }, dir: Vector3, speed: number)
+	local flat = Vector3.new(dir.X, 0, dir.Z)
+	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.new(0, 0, -1)
+	for _, mv in ipairs(movers) do
+		local p = mv.rig:GetPivot().Position
+		local y = p.Y
+		if not mv.floats then
+			local hit = Workspace:Raycast(p + Vector3.new(0, 4, 0), Vector3.new(0, -40, 0), groundParams)
+			if hit then
+				y = hit.Position.Y
+			end
+		end
+		mv.rig:PivotTo(CFrame.lookAt(Vector3.new(p.X, y, p.Z), Vector3.new(p.X, y, p.Z) + flat))
+		if mv.track then
+			mv.track:Play(0.1, 1, speed)
+		end
+	end
+end
+
 local function revealGhost(key: string?, source: Instance?, plan: { [string]: any }): { side: number?, instant: boolean? }
 	local fx = (key and FX[key]) or DEFAULT_FX
 	local style = if type(plan.style) == "string" then plan.style else "lunge"
@@ -622,6 +703,8 @@ local function revealGhost(key: string?, source: Instance?, plan: { [string]: an
 	end
 	model.Name = "GhostReveal"
 	model.Parent = Workspace
+	-- โหลดท่าวิ่ง/ลอยไว้ตั้งแต่เริ่มเผยร่าง (1.3 วิ) ถึงตอนขยับท่าพร้อมเล่นทันที
+	local movers = if style ~= "vanish" then prepareMove(model, style) else {}
 
 	local function setAlpha(a: number)
 		for _, f in ipairs(fade) do
@@ -658,8 +741,13 @@ local function revealGhost(key: string?, source: Instance?, plan: { [string]: an
 	end
 	setAlpha(1)
 
-	local start = model:GetPivot()
 	local camPos = cam.CFrame.Position
+	if style == "lunge" then
+		startMove(movers, camPos - focus.Position, 1.4)
+	elseif style == "side" then
+		startMove(movers, cam.CFrame.RightVector * side, 1.2)
+	end
+	local start = model:GetPivot()
 	if style == "lunge" then
 		-- พุ่งเข้าหากล้อง (หยุดห่างราว 3 studs แล้วตัดเข้าจอผีหลอก)
 		local toCam = camPos - focus.Position
@@ -667,7 +755,7 @@ local function revealGhost(key: string?, source: Instance?, plan: { [string]: an
 		local t1 = os.clock()
 		while true do
 			local k = math.clamp((os.clock() - t1) / pause, 0, 1)
-			model:PivotTo(start + travel * (k * k))
+			model:PivotTo(start + travel * (k * (0.6 + 0.4 * k)))
 			if k >= 1 then
 				break
 			end
@@ -676,12 +764,13 @@ local function revealGhost(key: string?, source: Instance?, plan: { [string]: an
 	elseif style == "side" then
 		-- วูบหลบไปด้านข้าง (ซ้าย/ขวาของจอเรา) แล้วจางหาย รอแป๊บ ค่อยโผล่จากด้านนั้น
 		local dir = cam.CFrame.RightVector * side
-		local dash = math.min(0.25, pause)
+		local dash = math.min(0.6, pause)
 		local t1 = os.clock()
 		while true do
 			local k = math.clamp((os.clock() - t1) / dash, 0, 1)
-			model:PivotTo(start + dir * 9 * (k * k))
-			setAlpha(1 - k * 0.8)
+			model:PivotTo(start + dir * 8 * k)
+			-- วิ่งออกไปเห็นชัดก่อน แล้วค่อยจางช่วงท้าย
+			setAlpha(1 - math.max(0, k - 0.6) / 0.4)
 			if k >= 1 then
 				break
 			end
