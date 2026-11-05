@@ -1,22 +1,24 @@
 -- Weather.luau (ModuleScript ฝั่ง Server)
--- ฝนตกเป็นช่วงๆ ระหว่างคืน: สถานะอยู่ที่ ReplicatedStorage.Remotes:GetAttribute("Weather") = "Clear" | "Rain"
+-- ฝนเป็นเอกลักษณ์ของคืน: บางคืนตกรอบเดียวยาวๆ คืนอื่นไม่ตกเลย (ผู้ใช้ 2026-11-05)
+--   สถานะอยู่ที่ ReplicatedStorage.Remotes:GetAttribute("Weather") = "Clear" | "Rain"
 --   Client (WeatherController) อ่านแล้วทำเม็ดฝน เสียงฝน พื้นเปียก แอ่งน้ำ
---   CoreLoop อ่าน Weather.IsRaining() เพื่อปรับลูกค้า (มาน้อยลง / เดินมากางร่ม / มาหลบฝน)
--- ทดสอบ: ServerStorage.DevDecision:Fire("rain") / Fire("clear")
+--   CoreLoop อ่าน Weather.IsRaining() เพื่อปรับลูกค้า (เดินมากางร่ม / บทพูด) แต่ความถี่ลูกค้าเท่าตอนไม่ตก
+-- ทดสอบ: ServerStorage.DevDecision:Fire("rain") / Fire("clear") สั่งแล้วจะยกเลิกฝนที่สุ่มไว้ของคืนนั้น
+--   และ "rain" จะตกไปจนกว่าจะสั่ง "clear" หรือจบคืน
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Weather = {}
 
 Weather.Config = {
-	ClearSpell = { 70, 150 }, -- ฟ้าโปร่งนานเท่านี้ก่อนลุ้นฝน (วินาที)
-	RainChance = 0.45, -- ครบเวลาแล้วมีโอกาสฝนตกเท่านี้ (ไม่ตกก็รอรอบใหม่)
-	RainSpell = { 80, 160 }, -- ฝนตกนานเท่านี้
+	RainNightChance = 0.35, -- โอกาสที่คืนนี้จะเป็นคืนฝน (สุ่มครั้งเดียวตอนเปิดร้าน)
+	RainStartAfter = { 180, 540 }, -- ฝนเริ่มหลังเปิดร้านเท่านี้ (วินาที)
+	RainDuration = { 240, 420 }, -- ฝนตกนานเท่านี้ (วินาที)
 }
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local raining = false
-local token = 0 -- เปลี่ยนเมื่อถูกสั่งจาก Dev (ตัดรอบสุ่มเดิม)
+local token = 0 -- เปลี่ยนเมื่อจบคืนหรือถูกสั่งจาก Dev (ยกเลิกฝนที่สุ่มไว้)
 
 local function set(rain: boolean)
 	if raining == rain then
@@ -40,29 +42,36 @@ local function rand(r: { number }): number
 	return r[1] + math.random() * (r[2] - r[1])
 end
 
--- สุ่มฝนวนไปเรื่อยๆ ขณะที่ active() เป็นจริง (เช่น ร้านเปิดอยู่)
-function Weather.Start(active: () -> boolean)
+function Weather.Start()
 	remotes:SetAttribute("Weather", "Clear")
-	task.spawn(function()
-		while true do
-			local my = token
-			local wait = rand(if raining then Weather.Config.RainSpell else Weather.Config.ClearSpell)
-			local t0 = os.clock()
-			while os.clock() - t0 < wait and my == token do
-				task.wait(1)
-			end
-			if my == token then
-				if raining then
-					set(false)
-				elseif active() and math.random() < Weather.Config.RainChance then
-					set(true)
-				end
-			end
+end
+
+-- เปิดร้าน: สุ่มว่าคืนนี้ฝนตกไหม ถ้าตกจะตกรอบเดียว
+function Weather.BeginNight()
+	token += 1
+	local my = token
+	set(false)
+	if math.random() >= Weather.Config.RainNightChance then
+		print("🌤️ คืนนี้ไม่มีฝน")
+		return
+	end
+	local startAfter = rand(Weather.Config.RainStartAfter)
+	local duration = rand(Weather.Config.RainDuration)
+	print(string.format("🌧️ คืนนี้ฝนจะตกหลังเปิดร้าน %.0f วิ นาน %.0f วิ", startAfter, duration))
+	task.delay(startAfter, function()
+		if my ~= token then
+			return
 		end
+		set(true)
+		task.delay(duration, function()
+			if my == token then
+				set(false)
+			end
+		end)
 	end)
 end
 
--- เริ่มคืนใหม่: ฟ้าโปร่ง
+-- จบคืน / เริ่มคืนใหม่: ฟ้าโปร่ง และยกเลิกฝนที่สุ่มไว้
 function Weather.Reset()
 	token += 1
 	set(false)

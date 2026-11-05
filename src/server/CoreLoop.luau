@@ -49,7 +49,6 @@ local CONFIG = {
 	StartIncense = 3,
 	AnomalyChance = 0.2, -- (เดิม 0.3 / 0.4 ผีมาถี่เกินไป เล่น 15 นาทีได้แค่ ~300 บาท ผู้ใช้ 2026-11-05)
 	WalkInChance = 0.35, -- ผีที่มาเป็นคนเดิน: ไม่แปลงร่าง เดินมาซื้อทั้งร่างผีเลย (เห็นได้ไม่ต้องพนมมือ)
-	MinNight = 900, -- คืนหนึ่งเล่นอย่างน้อยเท่านี้ (วินาที นับจากเปิดร้าน) เงินครบก่อนก็ยังไม่จบ
 	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
 	RevealDelay = { 4, 12 }, -- พนมมือเห็นผีของลูกค้ารายนี้ได้หลังจอดที่ร้านแล้วนานเท่านี้ (สุ่ม) ก่อนหน้านั้นพนมมือก็ไม่เห็น
 	DecisionTime = 75, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผีและเดินไปตู้)
@@ -61,11 +60,7 @@ local CONFIG = {
 		{ kind = "quiet", weight = 2, count = 1, rest = { 30, 45 } }, -- มาคันเดียว แล้วเงียบไปนาน (เดิม 40-60)
 	},
 	FirstWaveDelay = { 12, 18 }, -- หลังเปิดร้าน รอให้เงียบสักพักก่อนคันแรกจะมา (เดิม 18-28)
-	-- ฝนตก: ลูกค้ามาน้อยลงและทิ้งช่วงห่างขึ้น (มาทีละ 1 ราย ไม่ซ้อนกัน)
-	RainPacing = {
-		{ kind = "single", weight = 3, count = 1, rest = { 22, 32 } }, -- (เดิม 30-45)
-		{ kind = "quiet", weight = 2, count = 1, rest = { 38, 52 } }, -- (เดิม 50-70)
-	},
+	-- ฝนตกใช้ Pacing เดียวกัน ความยาวคืนจะได้ไม่แกว่งตามฝน (ผู้ใช้ 2026-11-05: คุมให้ได้ 15-22 นาที)
 	WalkerChance = 0.25, -- ลูกค้าเดินมาถือแกลลอน (ปกติ)
 	WalkerChanceRain = 0.5, -- (ฝนตก) เดินกางร่มมา
 	WalkSpeed = 7,
@@ -511,8 +506,8 @@ local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 -- ผีใหญ่ (server/BigEvents) เก็บในตารางเดียว: ไฟล์นี้ใช้ local ระดับบนสุดเต็มขีดจำกัด 200 ตัวของ Luau แล้ว
 CoreLoop.Big = { mod = require(script.Parent:WaitForChild("BigEvents")), running = false, count = 0 } :: any
 CoreLoop.Linger = require(script.Parent:WaitForChild("GhostLinger")) :: any
--- คืนนี้: เปิดร้านเมื่อไหร่ (เล่นขั้นต่ำ MinNight) / ใครเจอศพห่อผ้าตอนไฟดับไปแล้ว (นับ 1 อีเวนต์ต่อคืน)
-CoreLoop.Night = { openedAt = math.huge, warned = false, sawSwarm = {} } :: any
+-- คืนนี้: ใครเจอศพห่อผ้าตอนไฟดับไปแล้ว (นับ 1 อีเวนต์ต่อคืน)
+CoreLoop.Night = { sawSwarm = {} } :: any
 -- ไฟดับแล้วพนมมือ เห็นศพห่อผ้าขาวเต็มทุ่ง (client/SceneryGhosts): ลงสมุดเป็น 1 อีเวนต์ คนละครั้งต่อคืน
 remote("OutageSwarm").OnServerEvent:Connect(function(p: Player)
 	if Power.IsOn() or CoreLoop.Night.sawSwarm[p] then
@@ -1556,7 +1551,6 @@ devDecision.Event:Connect(function(choice: string)
 		task.spawn(Cutscene.Intro) -- เล่นคัทซีนเปิดคืนซ้ำ (ร้านเปิดอยู่แล้วก็เล่นได้)
 	elseif choice == "win" then
 		money = math.max(money, CONFIG.TargetMoney) -- ลูปเกมจับได้แล้วเข้าคัทซีนเช้า + สรุปผล
-		CoreLoop.Night.openedAt = -math.huge -- admin: ข้ามเวลาเล่นขั้นต่ำ
 		broadcastHUD()
 	else
 		CoreLoop.Decide(choice, "DevDecision")
@@ -1732,8 +1726,9 @@ local function serviceTarget(service: string): Vector3
 end
 
 -- คนเดินมาซื้อน้ำมันใส่แกลลอน: บอกว่าจะเอาไปเติมอะไร
-local WALKER_ORDERS = { "Walker_Order_1", "Walker_Order_2", "Walker_Order_3", "Walker_Order_4" }
-local WALKER_ORDERS_RAIN = { "Walker_Order_Rain_1", "Walker_Order_Rain_2" }
+-- แต่ละไฟล์อัดเสียงคนเดียว (ดู assets/sounds/VoiceScript.xlsx) จึงแยกตามเพศคนพูด ไม่งั้นผู้หญิงจะพูดเป็นเสียงผู้ชาย
+local WALKER_ORDERS = { M = { "Walker_Order_1", "Walker_Order_2", "Walker_Order_4" }, F = { "Walker_Order_3" } }
+local WALKER_ORDERS_RAIN = { M = { "Walker_Order_Rain_1" }, F = { "Walker_Order_Rain_2" } }
 
 local function backDir(): Vector3
 	local stop = stopPoint.Position
@@ -1743,9 +1738,10 @@ end
 -- ---------------------------------------------------------------- รถไทย (แม่แบบจาก MapBuilder.BuildThaiVehicleTemplates)
 local CAR_TEMPLATES = { "ThaiPickupOld", "ThaiSedanSoluna" }
 local BICYCLE_TEMPLATES = { "ThaiBicycleRed", "ThaiBicycleBlue" }
+-- รถยนต์ / ตุ๊กตุ๊ก มีแต่เสียงผู้ชาย spawnCustomer จึงสุ่มคนขับเฉพาะผู้ชาย
 local CAR_ORDERS = { "Car_Order_1", "Car_Order_2", "Car_Order_3" }
 local TUKTUK_ORDERS = { "TukTuk_Order_1", "TukTuk_Order_2" }
-local BICYCLE_ORDERS = { "Bicycle_Order_1", "Bicycle_Order_2" }
+local BICYCLE_ORDERS = { M = { "Bicycle_Order_1" }, F = { "Bicycle_Order_2" } }
 
 -- ไฟหน้าส่องถนนให้เห็นแสงมาก่อนตัวรถ: ดันจุดกำเนิดแสงออกไปหน้าเลนส์ (เดิมอยู่กลางชิ้นไฟที่ฝังในตัวถัง
 -- SpotLight ที่เปิดเงาจึงโดนตัวถังบังจนแทบไม่มีแสงลงพื้น) แล้วส่องไกลขึ้น
@@ -1957,7 +1953,7 @@ local function spawnCustomer(kind: string?)
 	-- เลือกคนก่อน แล้วสร้างตัวละครให้ตรงกับเสียงพากย์ (ชาย/หญิง/คนแก่)
 	-- ผีพูดเหมือนคนปกติทุกประโยค ไม่มีคำใบ้ (ผู้ใช้ 2026-11-03: ให้รู้ว่าเป็นผีจากการเห็นตัวเองเท่านั้น)
 	local useAnomalyLine = false
-	local who = pickCharacter(nil)
+	local who = pickCharacter(if k == "car" or k == "tuktuk" then "M" else nil)
 	local look = { char = who.char, teen = who.teen, outfit = who.outfit }
 	local v: Model
 	local service = "petrol"
@@ -2016,13 +2012,13 @@ local function spawnCustomer(kind: string?)
 	CollectionService:AddTag(v :: Model, "VeilLock")
 	local order = who.order
 	if k == "walker" then
-		order = pick(if raining then WALKER_ORDERS_RAIN else WALKER_ORDERS)
+		order = pick((if raining then WALKER_ORDERS_RAIN else WALKER_ORDERS)[who.voice])
 	elseif k == "car" then
 		order = pick(CAR_ORDERS)
 	elseif k == "tuktuk" then
 		order = pick(TUKTUK_ORDERS)
 	elseif k == "bicycle" then
-		order = pick(BICYCLE_ORDERS)
+		order = pick(BICYCLE_ORDERS[who.voice])
 	end
 	local c: Customer = {
 		v = v,
@@ -2587,7 +2583,7 @@ end
 
 -- เลือกจังหวะครั้งถัดไป
 local function pickPacing()
-	local list = if Weather.IsRaining() then CONFIG.RainPacing else CONFIG.Pacing
+	local list = CONFIG.Pacing
 	local total = 0
 	for _, p in ipairs(list) do
 		total += p.weight
@@ -3540,9 +3536,7 @@ function CoreLoop.Start()
 	AnomalyManager.Init()
 	task.spawn(prayerSummonLoop)
 	task.spawn(CoreLoop.Big.loop)
-	Weather.Start(function()
-		return remotes:GetAttribute("ShopOpen") == true and not gameOver
-	end)
+	Weather.Start()
 	Power.Start(function()
 		return remotes:GetAttribute("ShopOpen") == true and not gameOver
 	end)
@@ -3551,10 +3545,9 @@ function CoreLoop.Start()
 			resetGame()
 			-- (คืนใหม่: ไฟดับรอสตาร์ทเครื่องปั่นไฟ — waitForShopOpen ตัดไฟให้)
 			waitForShopOpen()
-			CoreLoop.Night.openedAt = os.clock()
-			CoreLoop.Night.warned = false
 			table.clear(CoreLoop.Night.sawSwarm)
 			CoreLoop.Big.count = 0
+			Weather.BeginNight()
 			task.spawn(spawnerLoop)
 			while not gameOver do
 				local front = queue[1]
@@ -3562,17 +3555,6 @@ function CoreLoop.Start()
 					-- ธูปดับหมด (เติมให้ผีครบ หรือทดสอบ) จบเกม
 					gameOver = true
 					print("💀 ธูปดับครบ 3 ดอก Game Over")
-				elseif money >= CONFIG.TargetMoney and os.clock() - CoreLoop.Night.openedAt < CONFIG.MinNight then
-					-- เงินครบแล้วแต่ยังไม่ถึงรุ่งเช้า (เล่นขั้นต่ำ MinNight): บอกครั้งเดียว แล้วเฝ้าร้านต่อ
-					if not CoreLoop.Night.warned then
-						CoreLoop.Night.warned = true
-						Notice:FireAllClients("NightNotOver", 6)
-					end
-					if front and front.atPump and not front.serving then
-						serveCustomer(front)
-					else
-						task.wait(0.2)
-					end
 				elseif money >= CONFIG.TargetMoney then
 					-- ครบโควตา (หลังลูกค้าคนล่าสุด หรือ admin สั่งชนะ)
 					gameOver = true
@@ -3586,6 +3568,7 @@ function CoreLoop.Start()
 					task.wait(0.2)
 				end
 			end
+			Weather.Reset() -- จบคืน: ฝนไม่ตกค้างเข้าคัทซีนเช้าหรือจอตาย
 			if incense <= 0 then
 				-- แพ้: ทุกคนล้มนอนตาย จอแดง ถามว่าจะเริ่มใหม่ไหม รอจนมีคนกด
 				losePending = true

@@ -1161,7 +1161,7 @@ function AnomalyManager.StartAmbience()
 	end)
 	task.spawn(function()
 		while true do
-			task.wait(math.random(18, 40))
+			task.wait(math.random(40, 80)) -- (เดิม 18-40 ฝนตกยาวขึ้นแล้วถี่เกิน)
 			if remotes:GetAttribute("Weather") == "Rain" and not game:GetService("ReplicatedStorage"):GetAttribute("CutsceneRunning") then
 				remotes:SetAttribute("ThunderAt", os.clock()) -- Client: ฟ้าแลบก่อน
 				task.wait(0.4 + math.random() * 0.8) -- แล้วเสียงตามมา

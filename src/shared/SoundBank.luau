@@ -108,8 +108,6 @@ SoundBank.DialogueUploadedIds = {
 	Intro_Brother_1 = "rbxassetid://113642193083137",
 	Intro_Brother_2 = "rbxassetid://90728172974668",
 	Intro_Brother_3 = "rbxassetid://113949562141083",
-	Intro_Player_1_M = "rbxassetid://130203952113077",
-	Intro_Player_2_M = "rbxassetid://103870537479640",
 
 	-- ลูกค้าทักทาย / คุยระหว่างรอ (ตามโปรไฟล์ลูกค้า ไม่แยกเพศ)
 	Greet_Uncle = "rbxassetid://124079216219424",

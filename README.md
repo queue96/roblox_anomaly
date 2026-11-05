@@ -7,7 +7,7 @@
 - **แนวเกม:** Co-op Anomaly Observation / Job Simulator Horror (1–6 คน, แยก 2 Place: **Lobby วัดไทยชนบท** `70980777393906` & **Pump Lot แมพปั๊มหลอด** `114125276809667`)
 - **บรรยากาศ:** เพิงสังกะสีปั๊มน้ำมันหลอดแก้วและร้านปะยางริมถนนดินลูกรัง กลางทุ่งนาและดงกล้วยตานี
 - **กลไกหลัก (พนมมือสวดมนต์เปิดตาทิพย์):** กดค้าง **G** (PC) / **Y** (จอย) / ปุ่ม **🙏** (มือถือ) พนมมือ 1.5 วินาทีเพื่อเปิด **"ตาทิพย์" (`PrayerSight`)** เห็นสิ่งผิดปกติ (`GhostOnly`) และซ่อนภาพลวงตา (`NormalOnly`) เฉพาะบนจอคนที่สวด · ไฟฉายกบ `FrogFlashlight` ใช้ส่องทางอย่างเดียว
-- **เป้าหมายการชนะ (Win Quota):** เก็บเงินครบ **800 บาท** และเล่นอย่างน้อย 15 นาที · เงินมาจากลูกค้าเท่านั้น (เบนซิน 100฿ / ดีเซล 300฿ / เติมลม 20฿ / ผีไม่จ่าย) · ค่าเฝ้าร้านตอนจบคืนแยกต่างหาก คูณตามความยาก Easy ×1, Normal ×1.5, Hard ×2, Nightmare ×3
+- **เป้าหมายการชนะ (Win Quota):** เก็บเงินครบ **800 บาท** (ครบเมื่อไหร่เข้าคัทซีนจบทันที) · เงินมาจากลูกค้าเท่านั้น (เบนซิน 100฿ / ดีเซล 300฿ / เติมลม 20฿ / ผีไม่จ่าย) · ค่าเฝ้าร้านตอนจบคืนแยกต่างหาก คูณตามความยาก Easy ×1, Normal ×1.5, Hard ×2, Nightmare ×3
 - **พลังชีวิตทีม:** ธูปที่ศาลพระภูมิ **3 ดอก** (ไม่โชว์บน HUD ต้องเดินไปดูเอง — เติมให้ผี = ธูปดับ 1 ดอก + หัก 100฿, ดับครบ 3 = Game Over)
 - **การรองรับภาษา:** 2 ภาษา ไทย / อังกฤษ (`TH` / `EN`)
 
@@ -23,9 +23,9 @@
 - สมุดสะสมผีและหน้าตั้งค่าใช้ร่วมกับในเกม (DataStore เดียวกัน)
 
 ### 🎬 คัทซีน
-- **เปิดคืน:** พี่ชายขี่รถพาผู้เล่นมาตอนเย็น (รถเปลี่ยนตามจำนวนคน: มอไซค์ / ตุ๊กตุ๊ก / เก๋ง / กระบะ) → คุยกัน → เดินไปดึงเชือกยกแผงร้าน → ขี่ออก → ผู้เล่นเดินเข้าร้าน → ตะวันตกดิน → กลางคืน ไฟดับ
+- **เปิดคืน:** พี่ชายขี่รถพาผู้เล่นมาตอนเย็น (รถเปลี่ยนตามจำนวนคน: มอไซค์ / ตุ๊กตุ๊ก / เก๋ง / กระบะ) → พี่ชายคุยด้วย → เดินไปดึงเชือกยกแผงร้าน → ขี่ออก → ผู้เล่นเดินเข้าร้าน → ตะวันตกดิน → กลางคืน ไฟดับ
 - **จบคืน (ชนะ):** เช้ามืด พี่ชายขี่มารับ → หน้าสรุปผล (ทีม + รายคน: เติมกี่ครั้ง ทำเงิน ไล่ผี ถวาย ค่าเฝ้าร้าน) → ทุกคนกด "เฝ้าต่ออีกคืน" เพื่อเริ่มคืนใหม่
-- **เสียงพากย์อีสานคนจริง:** บทพี่ชายและผู้เล่น (ชาย) ในคัทซีนเปิด · ลูกค้าทักทาย/คุย/สั่งน้ำมัน/จ่ายเงิน/เร่ง/เติมผิดตู้/พูดตอนเปิดปิดแผง/ทักคนพนมมือ · รถเครื่องเสียงและรถแห่ · พูดทีละประโยคไม่ทับกัน · **ผู้เล่นพูดเฉพาะในคัทซีน** (ระหว่างเล่นเหลือแค่เสียงสวดตอนพนมมือ) · เด็กแว้นไม่พูดและไม่มีซับ · รายการบทที่ต้องพากย์: [assets/sounds/VoiceScript.xlsx](assets/sounds/VoiceScript.xlsx)
+- **เสียงพากย์อีสานคนจริง:** บทพี่ชายในคัทซีน · ลูกค้าทักทาย/คุย/สั่งน้ำมัน/จ่ายเงิน/เร่ง/เติมผิดตู้/พูดตอนเปิดปิดแผง/ทักคนพนมมือ · รถเครื่องเสียงและรถแห่ · พูดทีละประโยคไม่ทับกัน · **ผู้เล่นไม่มีบทพูด รวมทั้งในคัทซีน** (มีแค่เสียงสวดตอนพนมมือ) · เด็กแว้นไม่พูดและไม่มีซับ · รายการบทที่ต้องพากย์: [assets/sounds/VoiceScript.xlsx](assets/sounds/VoiceScript.xlsx)
 - ข้ามได้ (Enter / ปุ่ม B / แตะค้าง) · ระหว่างคัทซีนปุ่มในฉากไม่ขึ้นและเสียงสุ่มรอบทุ่งเงียบ · กล้องเลือกมุมที่ไม่โดนตู้ปั๊ม/เสา/รถบังเอง (`clearCamPos`)
 
 ### 🌙 หนึ่งคืนในร้าน (Core Loop)
@@ -35,7 +35,7 @@
 4. **ถวายขนมที่ศาลพระภูมิ:** หยิบขนม [2] ที่ถาดบนเคาน์เตอร์ → ถวาย = คุ้มครอง 150 วิ (แถบเวลามุมขวาบน) มือผีเหี่ยวๆ ยื่นออกมาจากศาลคว้าขนมเข้าไป · ไม่คุ้มครอง = ผีมาบ่อยขึ้น + อาการหลอน (จอเขย่า / เดินช้า / สะดุดล้ม)
 5. **ลูกค้ามาทีละคน (ราว 85 วิต่อราย):** รถไทยหลายแบบ + คนเดินเท้าถือแกลลอน/กางร่ม (ชาวบ้านแบบใหม่ สุ่มชุด/ทรงผม/เสียง) ทักทาย สั่ง แล้วตอบราคา → เล่นมินิเกม **เติมน้ำมัน** (กดค้างให้หยุดในขีดทอง) / **เติมลมจักรยาน** (กดตรงจังหวะ 3 ครั้ง) — มือถือขึ้นคำว่า "แตะ / Tap"
 6. **ดูผีก่อนเติม:** พนมมือเปิดตาทิพย์ ถ้าเป็นผี ห้ามเติม → ดึงเชือกปิดแผงร้าน (ไม่ได้เงิน แต่นับเป็นผลงานในค่าเฝ้าร้าน) · **ใครอยู่นอกร้านตอนปิดใส่ผี: โดนหลอก ล้ม ตาปรือ ลุกไม่ได้จนผีปั่นป่วนเสร็จ** (เคาะแผง / วิ่งรอบร้าน / ขึ้นหลังคา 14–22 วิ) · เติมให้ผี = เสียงจั๊มสแกร์ `Jumpscare_1/2` · ลูกค้าผีพูดเหมือนคนปกติ ไม่มีป้ายบอกว่าเติมให้ผี
-7. เก็บครบ 800฿ (และเล่นครบ 15 นาที) = ชนะ (คัทซีนเช้า) · ธูปดับครบ 3 = จอตาย (เริ่มใหม่ / กลับ Lobby)
+7. เก็บครบ 800฿ = ชนะทันที (คัทซีนเช้า) · ธูปดับครบ 3 = จอตาย (เริ่มใหม่ / กลับ Lobby)
 
 ### 👻 ผี
 - **ผีที่มากับลูกค้า (9 แบบ):** คนซ้อนไร้หัว (`Headless`), ป้ายทะเบียนป่าช้า 4444 (`Cemetery`), ผมพันล้อ (`WheelHair`), คอหมุน (`NeckTwist`), ยิ้มแสยะ (`CreepySmile`), กระสือ (`Krasue`), วิทยุสวดศพ (`MonkRadio`), น้ำมันเลือด (`BloodFuel`), เดินตากฝนไม่กางร่ม (`NoUmbrella`) — ไม่มีเสียงเตือนตอนเจอ ต้องสังเกตเอง เผลอเติม = Jumpscare
@@ -49,7 +49,7 @@
 - คลังไอเดียผีไทย 92 ตัวสำหรับทำเพิ่ม: [art_refs/ghosts/GHOSTS.md](art_refs/ghosts/GHOSTS.md)
 
 ### 🌧️ เหตุการณ์และบรรยากาศ
-- ฝนตกเป็นช่วงๆ (ไม่ทะลุหลังคาเพิง พื้นเปียก ฟ้าแลบ คนแวะหลบฝน ลูกค้ากางร่ม)
+- บางคืนฝนตก (โอกาส 35% ตกรอบเดียวนาน 4–7 นาที ไม่ทะลุหลังคาเพิง พื้นเปียก ฟ้าแลบ คนแวะหลบฝน ลูกค้ากางร่ม)
 - ขาจรบนถนน: เด็กแว้น / รถซิ่งเปิดเพลง / ขบวนรถแห่งานบวช
 - วิทยุทรานซิสเตอร์บนโต๊ะ (เล่นเพลง `radio_song` เพลงเดียว ไม่มีเสียงผีร้องโอเปร่าแทรกแล้ว เสียงสวดแว่วแทรกแค่แป๊บเดียวตอนมีผีวิทยุหรือสวดเรียกผี) · เสียงจิ้งหรีดที่เงียบกริบเป็นพักๆ · เสียงธรรมชาติรอบทุ่งสุ่มทุก 1 นาที · ลมพัดหญ้า/ข้าว/ใบไม้ · ไฟเสาไม้กะพริบ · หมอกเรี่ยพื้น
 
@@ -81,7 +81,7 @@
 1. **[GEMINI.md](GEMINI.md)** — คู่มือส่งมอบงานสำหรับ AI (AI Context & Handoff Guide) อธิบายโครงสร้างโค้ด โฟลเดอร์ใน `Workspace`/`ServerStorage` ระบบ Rojo 2 Place และกฎการแก้ไขฉากแบบไม่ทำลายตำแหน่งที่จัดวางไว้
 2. **[GDD.md](GDD.md)** & **[art_refs/ghosts/GHOSTS.md](art_refs/ghosts/GHOSTS.md)** — เอกสาร Game Design Document ฉบับเต็ม และคลังข้อมูลอ้างอิงผีไทย 92 ตัว (Rig, Status, Animation)
 3. **[src/shared/MapBuilder.luau](src/shared/MapBuilder.luau)** — โมดูลสร้างฉากปั๊มหลอดและวัด Lobby (`BuildTempleLobby`) พร้อมฟังก์ชันอัปเดตเฉพาะจุด (`PaintTerrainRoad`, `AddSacredBanyanZone`, `AddSideRiceFields`, `SplitSideRiceFields`, `BuildCompactPerimeter`, `SpreadBananaGrove`, `TagWindPlants`, `BuildThaiVehicleTemplates`, `OptimizeShadowsAndCleanup`, `RemoveZoneLabels`, `DarkenRiceAndFoliage`)
-4. **[src/server/GameManager.server.luau](src/server/GameManager.server.luau)** — สคริปต์ควบคุมเกมฝั่ง Server (สลับแสงกลางคืนไร้ดาวเมื่อกด Play, ล็อก First-Person + ปิดกระโดด, ไฟนีออนเสาไม้กะพริบทุก 25–55 วิ, เชือกดึงแผงสังกะสี `ShutterDoor`, กระจายดงกล้วย, ปิดเงาใบไม้/ทุ่งนา, ลบป้ายลอย `ZoneLabel`, กดสีต้นข้าวให้กลืนกับความมืด)
+4. **[src/server/GameManager.server.luau](src/server/GameManager.server.luau)** — สคริปต์ควบคุมเกมฝั่ง Server (สลับแสงกลางคืนไร้ดาวเมื่อกด Play, ล็อก First-Person + ปิดกระโดด, ไฟนีออนเสาไม้กะพริบทุก 60–120 วิ, เชือกดึงแผงสังกะสี `ShutterDoor`, กระจายดงกล้วย, ปิดเงาใบไม้/ทุ่งนา, ลบป้ายลอย `ZoneLabel`, กดสีต้นข้าวให้กลืนกับความมืด)
 5. **[src/server/Prayer.luau](src/server/Prayer.luau)** & **[src/client/PrayerController.client.luau](src/client/PrayerController.client.luau)** — ระบบพนมมือสวดมนต์ (กด G ค้าง ยืนนิ่งพนมมือ R15 + เสียงสวดตัวเองที่เปลี่ยนเป็นสวดรัวเร็วเมื่อเจอผี + เปิดม่านตาทิพย์เห็น `GhostOnly` / ซ่อน `NormalOnly`)
 6. **[src/server/CoreLoop.luau](src/server/CoreLoop.luau)** — ลูปหลัก: คิวรถทีละคัน (`MaxQueue = 1`), บทสนทนาไหลอัตโนมัติ, มินิเกมเติมน้ำมัน 2 ตู้ (เบนซิน/ดีเซล) + เติมลมจักรยาน (`ServiceMinigame`), ดึงแผงปิดร้าน, เป้าหมายเงิน `1,500฿`, ธูป 3 ดอก, ลูกค้าทักคนพนมมือ (`watchPrayers`), สวดตอนร้านว่างสุ่มเรียกผี (`prayerSummonLoop`), จบเกมกลับ Lobby (`TeleportAsync`) · ทดสอบด้วย `ServerStorage.DevDecision:Fire("fuel" | "reject")`
 7. **[src/server/AnomalyManager.luau](src/server/AnomalyManager.luau)** — ผีลูกค้า 9 ตัว (Headless, Cemetery 4444, WheelHair, NeckTwist, CreepySmile, Krasue, MonkRadio, BloodFuel, NoUmbrella) + ผีฉาก 3 ตัว (Tani, Scarecrow, Shadow — `ShowScenery`) ใช้ระบบม่านตาทิพย์ `ghostOnly()` / `normalOnly()` / `unveil()` / `apparition()` + วิทยุทรานซิสเตอร์ (`E` เปิด/ปิด) + ระบบสุ่มเสียงธรรมชาติรอบทุ่งทุกๆ 1 นาที (`DogHowl`, `WindLeaves1..2`, `WindGust`, `NightFrogs`, `TreeBranchCreak`, `ShackTinWoodCreak`, `NightBirdWings`) · บังคับผีตัวถัดไปด้วย `ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue")`
@@ -89,7 +89,7 @@
 9. **[src/shared/LanguageModule.luau](src/shared/LanguageModule.luau)** & **[src/shared/SoundBank.luau](src/shared/SoundBank.luau)** — ระบบข้อความ 2 ภาษา (`TH`/`EN`) และคลังเสียงพูดลูกค้า/เสียงสวดมนต์อีสาน-ไทย/เสียงเหตุการณ์ริมถนน
 10. **[src/client/HUDController.client.luau](src/client/HUDController.client.luau)** & **[src/client/ObjectLabels.client.luau](src/client/ObjectLabels.client.luau)** — HUD ยอดเงิน `฿0 / ฿1500`, ซับไตเติลคำพูดลูกค้าด้านล่าง, มินิเกมเติมน้ำมัน/เติมลม (`FuelView` / `AirView`), ช่องถือไฟฉาย `[1] ไฟฉาย`, โมเดลไฟฉาย 3D ล็อกตามกล้อง (`CameraFlashlightViewmodel`), ระบบสลับเมาส์ `V` / `LeftAlt`, และตัดป้ายชื่อลอย `ZoneLabel` เหนืออุปกรณ์ออกทั้งหมด
 11. **[src/client/AmbienceController.client.luau](src/client/AmbienceController.client.luau)** & **[src/client/GrassWind.client.luau](src/client/GrassWind.client.luau)** — บรรยากาศกลางคืนตามสูตร Atmosphere Blueprint (ท้องฟ้าไร้ดาว `StarCount = 0` เหลือเฉพาะดวงจันทร์ + หมอกยามวิกาล + โทนสีหนังผีไทยยุค 90s + เสียงจิ้งหรีดเหงาๆ + เสียงฝีเท้าธรรมชาติเบาๆ แยกตามพื้นผิว) และระบบลมพัดหญ้า/ต้นข้าว/ใบไม้ไหวที่ปรับระยะตามหมอกกลางคืน (`ACTIVE_RANGE = 85`, `LEAF_RANGE = 60`) พร้อม Batch Registration ตอนเริ่มเกม
-12. **[src/server/Weather.luau](src/server/Weather.luau)** + **[src/client/WeatherController.client.luau](src/client/WeatherController.client.luau)** — ระบบฝนตกเป็นช่วงๆ แบ่งโซนปล่อยเม็ดฝน 4 ด้านรอบนอกเพิงกันฝนทะลุหลังคา พื้นเปียก ฟ้าแลบ คนแวะหลบฝน
+12. **[src/server/Weather.luau](src/server/Weather.luau)** + **[src/client/WeatherController.client.luau](src/client/WeatherController.client.luau)** — ระบบฝนตกเฉพาะบางคืน แบ่งโซนปล่อยเม็ดฝน 4 ด้านรอบนอกเพิงกันฝนทะลุหลังคา พื้นเปียก ฟ้าแลบ คนแวะหลบฝน
 13. **[src/server/Pedestrian.luau](src/server/Pedestrian.luau)** & **[src/shared/ThaiVehicleRigs.luau](src/shared/ThaiVehicleRigs.luau)** + **[src/server/ThaiVehicleDrive.server.luau](src/server/ThaiVehicleDrive.server.luau)** — ลูกค้าเดินเท้าถือแกลลอน/ร่ม, รถไทย 8 คัน (กระบะเก่า, เก๋ง, จักรยาน 2 แบบ, ตุ๊กตุ๊ก, เวฟซิ่ง, รถแห่กระบะ, รถแห่ 6 ล้อ) และขาจรช่วงพัก
 14. **[src/client/JumpscareController.client.luau](src/client/JumpscareController.client.luau)** & **[src/client/DeathScreen.client.luau](src/client/DeathScreen.client.luau)** — ผีโผล่เต็มจอตอนเผลอเติมให้ผี และหน้าจอตาย/กลับ Lobby
 15. **[src/server/AnomalyBook.luau](src/server/AnomalyBook.luau)** + **[src/client/BookController.client.luau](src/client/BookController.client.luau)** & **[src/server/PlayerSettings.server.luau](src/server/PlayerSettings.server.luau)** + **[src/client/SettingsController.client.luau](src/client/SettingsController.client.luau)** — สมุดสะสมผีไทยและหน้าตั้งค่าผู้เล่น (บันทึกใน DataStore ร่วมกันทั้ง Lobby และเกม)

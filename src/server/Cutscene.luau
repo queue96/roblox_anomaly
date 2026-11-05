@@ -522,12 +522,6 @@ local function headOf(m: Instance?): BasePart?
 	return if h and h:IsA("BasePart") then h else nil
 end
 
-local function playerHead(p: Player): BasePart?
-	local c = p.Character
-	local h = c and c:FindFirstChild("Head")
-	return if h and h:IsA("BasePart") then h else nil
-end
-
 -- ---------------------------------------------------------------- จังหวะ
 -- คัทซีนยังเล่นต่อไหม: ยังมีผู้เล่นจริงดูอยู่ (หุ่นทดสอบไม่นับ: ผู้เล่นจริงกดข้ามครบ = จบเลย ไม่เล่นต่อให้หุ่นดู)
 local function alive(t: number): boolean
@@ -1021,15 +1015,11 @@ local function introBody(t: number)
 	if not say(t, "Intro_Brother_1", BROTHER, drvHead, 3.4) then
 		return v, bro
 	end
-	local first = active()[1]
-	if not first then
-		return v, bro
-	end
-	if not say(t, "Intro_Player_1", { player = first.DisplayName }, playerHead(first), 2.6) then
+	fire("say", nil)
+	if not wait_(t, 0.8) then -- ผู้เล่นไม่มีบทพูด (ผู้ใช้ 2026-11-05): เว้นจังหวะก่อนลงรถ
 		return v, bro
 	end
 	-- 3) ลงจากรถ: ผู้เล่นยืนหน้าร้าน พี่ชายลงเดิน
-	fire("say", nil)
 	vp = v:GetPivot()
 	-- จุดลงรถคิดจากขนาดรถจริง: ฝั่งร้าน พ้นขอบตัวรถ (เดิม 2.6 จาก pivot = ยืนจมในเก๋ง/กระบะ)
 	local halfW, vMid = extentAlong(v, P.shopDir)
@@ -1284,11 +1274,6 @@ local function introBody(t: number)
 	if not wait_(t, 0.7) then
 		return
 	end
-	local who = active()[1]
-	if who and not say(t, "Intro_Player_2", { player = who.DisplayName }, playerHead(who), 2.2) then
-		return
-	end
-	fire("say", nil)
 	fire("sunset", 3.5)
 	if not wait_(t, 2.8) then
 		return
@@ -1524,11 +1509,8 @@ local function outroBody(t: number)
 	if not say(t, "Outro_Brother_1", BROTHER, headOf(driverOf(v)), 3.0) then
 		return v
 	end
-	local first = active()[1]
-	if not first then
-		return v
-	end
-	if not say(t, "Outro_Player_1", { player = first.DisplayName }, playerHead(first), 3.4) then
+	fire("say", nil)
+	if not wait_(t, 1.0) then -- ผู้เล่นไม่มีบทพูด: เว้นจังหวะระหว่างประโยคพี่ชาย
 		return v
 	end
 	if not say(t, "Outro_Brother_2", BROTHER, headOf(driverOf(v)), 2.6) then
