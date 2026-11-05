@@ -802,6 +802,10 @@ local function runScare(key: string?, source: Instance?, reason: string?, plan: 
 	if busy then
 		return
 	end
+	-- คัทซีนกำลังเล่น: ห้ามผีหลอก (ผู้ใช้ 2026-11-05)
+	if ReplicatedStorage:GetAttribute("CutsceneRunning") == true or Lighting:GetAttribute("Cutscene") == true then
+		return
+	end
 	busy = true
 	local ok, err = pcall(function()
 		local opts = nil

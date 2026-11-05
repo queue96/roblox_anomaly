@@ -229,6 +229,11 @@ end)
 local curseRemote = remotes:WaitForChild("Curse") :: RemoteEvent
 curseRemote.OnClientEvent:Connect(function(symptom: string, seconds: number?)
 	local s = seconds or 4
+	-- คัทซีนกำลังเล่น: ไม่มีอาการผีหลอก (ล้มนอน/ตื่นยังทำงาน)
+	local cut = ReplicatedStorage:GetAttribute("CutsceneRunning") == true or Lighting:GetAttribute("Cutscene") == true
+	if cut and symptom ~= "downed" and symptom ~= "wake" then
+		return
+	end
 	if symptom == "downed" then
 		-- นอนล้มตาปรือจนกว่า server สั่ง "wake" (ผีปั่นป่วนเสร็จ)
 		drowsy(3600, nil, true)

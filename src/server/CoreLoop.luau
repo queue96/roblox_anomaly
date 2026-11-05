@@ -2397,7 +2397,7 @@ local function eventRacers()
 				return
 			end
 			local root = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
-			eventSound(root :: Instance, "RacerMotoRevCut", 0.48, true, 160, false)
+			eventSound(root :: Instance, "RacerMotoRevCut", 0.53, true, 160, false) -- (+10%)
 			local stop = stopPoint.Position
 			local wheelieAt = stop - ROAD_DIR * 14 + Vector3.new(0, 0, 2.5 * (i - 1))
 			driveTo(v, wheelieAt, false, 40)
@@ -2529,7 +2529,7 @@ local function runRoadEvent(kind: string?, force: boolean?)
 		end
 		return
 	end
-	if not force and (#queue > 0 or #shelters > 0) then
+	if not force and (#queue > 0 or #shelters > 0 or ReplicatedStorage:GetAttribute("CutsceneRunning") == true) then
 		return
 	end
 	local raining = Weather.IsRaining()
@@ -2626,8 +2626,9 @@ local function spawnerLoop()
 	end, rand(CONFIG.FirstWaveDelay))
 	while not gameOver do
 		-- รอจนไม่มีลูกค้าหรือคนหลบฝนค้างอยู่ในฉาก และไม่มีขาจรบนถนน
+		-- (คัทซีนกำลังเล่น: ห้ามปล่อยลูกค้า/ผี/ขาจรออกมาเด็ดขาด ผู้ใช้ 2026-11-05)
 		waitWhile(function()
-			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or CoreLoop.Linger.Active()
+			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or CoreLoop.Linger.Active() or ReplicatedStorage:GetAttribute("CutsceneRunning") == true
 		end)
 		if gameOver then
 			return
@@ -3259,7 +3260,7 @@ function CoreLoop.Big.loop()
 		-- รอร้านว่าง (ไม่มีลูกค้า คนหลบฝน ขาจรบนถนน) ไม่เกิน 2 นาที
 		local t0 = os.clock()
 		while os.clock() - t0 < 120 do
-			if remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and #shelters == 0 and not roadEventRunning and not CoreLoop.Linger.Active() then
+			if remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and #shelters == 0 and not roadEventRunning and not CoreLoop.Linger.Active() and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true then
 				CoreLoop.Big.run()
 				break
 			end
@@ -3274,7 +3275,7 @@ local function prayerSummonLoop()
 		task.wait(0.5)
 		-- ไฟดับ: พนมมือแทนไฟฉาย (ตาทิพย์เห็นในมืด) ผีมาหาถี่และบ่อยกว่าปกติ ไม่ต้องรอร้านว่าง
 		local dark = not Power.IsOn()
-		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and (dark or #queue == 0) and not roadEventRunning and summoned == nil and not CoreLoop.Big.running
+		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and (dark or #queue == 0) and not roadEventRunning and summoned == nil and not CoreLoop.Big.running and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true
 		local cooldown = if dark then CONFIG.PraySummonCooldown / 3 else CONFIG.PraySummonCooldown
 		local after = if dark then CONFIG.PraySummonAfter / 2 else CONFIG.PraySummonAfter
 		local chance = if dark then math.min(0.9, CONFIG.PraySummonChance * 2.5) else CONFIG.PraySummonChance
@@ -3551,7 +3552,7 @@ function CoreLoop.Start()
 	task.spawn(CoreLoop.Big.loop)
 	Weather.Start()
 	Power.Start(function()
-		return remotes:GetAttribute("ShopOpen") == true and not gameOver
+		return remotes:GetAttribute("ShopOpen") == true and not gameOver and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true
 	end)
 	task.spawn(function()
 		while true do
