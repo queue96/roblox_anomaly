@@ -462,7 +462,15 @@ end)
 ---------------------------------------------------------------------
 local ambienceGroup = SoundService:FindFirstChild("Ambience") or Instance.new("SoundGroup")
 ambienceGroup.Name = "Ambience"
-ambienceGroup.Volume = 1
+-- มือถือดังขึ้นเท่ากับกลุ่มเสียงอื่น (Shared.DeviceInfo.VolumeBoost) อุปกรณ์อื่น = 1 เท่าเดิม
+local deviceModule = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DeviceInfo", 5)
+local DeviceInfo = if deviceModule then require(deviceModule) :: any else { VolumeBoost = function() return 1 end }
+ambienceGroup.Volume = DeviceInfo.VolumeBoost()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		ambienceGroup.Volume = DeviceInfo.VolumeBoost()
+	end)
+end
 ambienceGroup.Parent = SoundService
 
 -- ตัดเสียงทุ้ม (รถไกลๆ ในไฟล์ต้นฉบับ) ออก + reverb กว้างๆ ให้ทุ่งดูโล่งและเหงา

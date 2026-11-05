@@ -31,6 +31,9 @@
         },
         "BookPortrait": {
           "$path": "src/shared/BookPortrait.luau"
+        },
+        "DeviceInfo": {
+          "$path": "src/shared/DeviceInfo.luau"
         }
       }
     },

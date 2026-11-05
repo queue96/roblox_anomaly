@@ -55,12 +55,21 @@ for _, root in ipairs({ Workspace, SoundService, ReplicatedStorage, localPlayer 
 end
 
 -- 100% ในหน้าตั้งค่า = ดัง 50% ของเสียงจริง (ไม่ให้ดังแสบหู โดยเฉพาะตอนผีหลอก)
+--   มือถือ: คูณเพิ่ม (ลำโพงมือถือเบากว่าคอมมาก) Shared.DeviceInfo.VolumeBoost / อุปกรณ์อื่นเท่าคอม
+-- ไม่มีโมดูล (เช่น place ที่ยังไม่ sync) = ไม่ค้าง ใช้ความดังเท่าคอม
+local deviceModule = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DeviceInfo", 5)
+local DeviceInfo = if deviceModule then require(deviceModule) :: any else nil
 local MASTER_SCALE = 0.5
 local function applyVolumes()
-	musicGroup.Volume = ((localPlayer:GetAttribute("MusicVolume") or 0.7) :: number) * MASTER_SCALE
-	sfxGroup.Volume = ((localPlayer:GetAttribute("SfxVolume") or 0.8) :: number) * MASTER_SCALE
+	local boost = if DeviceInfo then DeviceInfo.VolumeBoost() else 1
+	musicGroup.Volume = ((localPlayer:GetAttribute("MusicVolume") or 0.7) :: number) * MASTER_SCALE * boost
+	sfxGroup.Volume = ((localPlayer:GetAttribute("SfxVolume") or 0.8) :: number) * MASTER_SCALE * boost
 end
 applyVolumes()
+-- ขนาดจอจริงมาทีหลังได้ (มือถือ/แท็บเล็ตตัดสินจากขนาดจอ): คิดใหม่เมื่อจอเปลี่ยน
+if Workspace.CurrentCamera then
+	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(applyVolumes)
+end
 localPlayer:GetAttributeChangedSignal("MusicVolume"):Connect(applyVolumes)
 localPlayer:GetAttributeChangedSignal("SfxVolume"):Connect(applyVolumes)
 
