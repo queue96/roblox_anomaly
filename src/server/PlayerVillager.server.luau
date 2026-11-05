@@ -84,8 +84,9 @@ local function buildStarterCharacter(): Model?
 	c.PrimaryPart = hrp
 	local hum = Instance.new("Humanoid")
 	-- สะโพกสูง HIP จากพื้น: ก้นของ HumanoidRootPart อยู่สูงจากพื้น HIP - ครึ่งความสูงของมัน
-	-- วัดในเกม: ตั้งตามสูตรแล้วตัวจมพื้น 0.36 (ปลายเท้าอยู่ใต้พื้น) -> บวกชดเชยให้รองเท้าวางบนพื้นพอดี
-	hum.HipHeight = HIP - HRP_SIZE.Y / 2 + 0.36
+	-- วัดในเกม 2026-11-06 (เดินเองบนดินและบนพื้นไม้ ไม่ถูกคัทซีนยึดตัว): ค่าเดิม (+0.36) เท้าลอย 0.54 ทุกพื้น
+	-- -> ลบชดเชยให้นิ้วเท้าแตะพื้นพอดี
+	hum.HipHeight = HIP - HRP_SIZE.Y / 2 - 0.16
 	hum.RequiresNeck = false
 	hum.BreakJointsOnDeath = false
 	hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None

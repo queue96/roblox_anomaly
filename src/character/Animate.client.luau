@@ -110,14 +110,110 @@ hum.Running:Connect(function(s)
 end)
 
 -- ---------------------------------------------------------------- นั่งยอง (C / ปุ่มบนจอมือถือ)
--- หลบผีใหญ่ (server/BigEvents): ตัวต่ำลง เดินไม่ได้ ท่านั่ง เซิร์ฟเวอร์รู้ผ่าน Remotes.Crouch -> player attribute "Crouching"
+-- หลบผีใหญ่ (server/BigEvents): ตัวต่ำลง เซิร์ฟเวอร์รู้ผ่าน Remotes.Crouch -> player attribute "Crouching"
+-- (ผู้ใช้ 2026-11-06) นั่งยองแล้วยังหันตัวตามกล้องได้ ย่องเดินช้าๆ ได้ เท้าติดพื้น (ไม่ใช่ท่านั่งเก้าอี้ขาลอย)
+--   ท่า = ท่ายืน/เดินของตัวเอง + IK ขา (IKControl ต้นขา -> เท้า) ดึงเท้าลงพื้น เข่างอไปข้างหน้าเอง
+--   เท้าก้าวสลับเป็นจังหวะตามระยะที่ย่องไป (ไม่ใช่ลากเท้า)
 local ContextActionService = game:GetService("ContextActionService")
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
 local CROUCH_DROP = 1.3
+local CROUCH_SPEED = 0.4 -- ย่องได้เท่านี้ของความเร็วเดิน (ผีใหญ่ที่ห้ามขยับ: ย่องก็นับว่าขยับ)
+local FOOT_H = 0.28 -- ข้อเท้า (กระดูก foot) สูงจากพื้นตอนยืน (วัดในเกม)
 local crouching = false
 local standHip = hum.HipHeight
 local standSpeed = hum.WalkSpeed
 local crouchRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Crouch", 10) :: RemoteEvent?
+
+local function findBone(name: string): Bone?
+	for _, d in ipairs(char:GetDescendants()) do
+		if d:IsA("Bone") and d.Name == name then
+			return d
+		end
+	end
+	return nil
+end
+-- IK ขาทั้งสองข้าง: เป้าเท้า + จุดชี้เข่า เป็น Attachment ใน Terrain (ตำแหน่งในโลก ตั้งทุกเฟรม)
+-- Transform IK: ตำแหน่ง + มุมเท้า (มุมเท้าตอนยืน เทียบกับตัว) ไม่งั้นเข่างอแล้วเท้าเอียง ปลายเท้าลอย
+type Leg = { ik: IKControl, target: Attachment, pole: Attachment, side: number, foot: Bone, rel: CFrame?, ankle: number? }
+local legs: { Leg } = {}
+local legRoot = char:FindFirstChild("RootPart") :: BasePart?
+for _, s in ipairs({ { "L", -1 }, { "R", 1 } }) do
+	local thigh, foot = findBone("thigh." .. s[1]), findBone("foot." .. s[1])
+	if thigh and foot and legRoot then
+		local target = Instance.new("Attachment")
+		target.Name = "CrouchFoot" .. s[1]
+		target.Parent = workspace.Terrain
+		local pole = Instance.new("Attachment")
+		pole.Name = "CrouchKnee" .. s[1]
+		pole.Parent = workspace.Terrain
+		local ik = Instance.new("IKControl")
+		ik.Name = "CrouchLeg" .. s[1]
+		ik.Type = Enum.IKControlType.Transform
+		ik.ChainRoot = thigh
+		ik.EndEffector = foot
+		ik.Target = target
+		ik.Pole = pole
+		ik.Weight = 0
+		ik.Parent = hum
+		table.insert(legs, { ik = ik, target = target, pole = pole, side = s[2] :: number, foot = foot })
+	end
+end
+char.AncestryChanged:Connect(function()
+	if not char.Parent then
+		for _, l in ipairs(legs) do
+			l.target:Destroy()
+			l.pole:Destroy()
+		end
+	end
+end)
+local stridePhase = 0
+local crouchBlend = 0
+local legParams = RaycastParams.new()
+legParams.FilterType = Enum.RaycastFilterType.Exclude
+legParams.FilterDescendantsInstances = { char }
+-- ทุกเฟรมก่อนท่าทางคำนวณ: วางเป้าเท้าบนพื้นใต้สะโพก ก้าวสลับตามระยะที่ย่อง
+RunService.PreAnimation:Connect(function(dt)
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or #legs == 0 then
+		return
+	end
+	crouchBlend += ((if crouching then 1 else 0) - crouchBlend) * math.min(1, dt * 10)
+	local w = if crouchBlend < 0.02 then 0 else crouchBlend
+	local rcf = root.CFrame
+	local flat = Vector3.new(rcf.LookVector.X, 0, rcf.LookVector.Z)
+	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.new(0, 0, -1)
+	local right = Vector3.new(-flat.Z, 0, flat.X)
+	local vel = root.AssemblyLinearVelocity
+	local hv = Vector3.new(vel.X, 0, vel.Z)
+	local moving = hv.Magnitude > 0.3
+	if moving then
+		stridePhase += hv.Magnitude * dt * 2.4 -- ก้าวสั้นถี่แบบย่อง
+	end
+	local moveDir = if moving then hv.Unit else flat
+	local groundY = root.Position.Y - root.Size.Y / 2 - hum.HipHeight
+	for _, l in ipairs(legs) do
+		-- จำมุมเท้า/ความสูงข้อเท้าตอนยืนนิ่ง (ก่อนนั่งยองครั้งแรก) ไว้ใช้วางเท้าตอนนั่ง
+		if w == 0 and not crouching and speedNow < 0.3 and hum.FloorMaterial ~= Enum.Material.Air then
+			local f = l.foot.TransformedWorldCFrame
+			l.rel = rcf.Rotation:ToObjectSpace(f.Rotation)
+			l.ankle = f.Position.Y - groundY
+		end
+		l.ik.Weight = w
+		if w > 0 then
+			local base = root.Position + right * (l.side * 0.42) + flat * 0.35
+			local swing = math.sin(stridePhase + (if l.side < 0 then 0 else math.pi))
+			local lift = if moving then math.max(0, math.cos(stridePhase + (if l.side < 0 then 0 else math.pi))) * 0.35 else 0
+			local foot = base + moveDir * (if moving then swing * 0.55 else 0)
+			-- พื้นจริงใต้เท้า (ขั้นบันได / พื้นเอียง) ถ้าเจอใกล้ๆ ระดับพื้นที่ยืน
+			local hit = workspace:Raycast(Vector3.new(foot.X, groundY + 1.5, foot.Z), Vector3.new(0, -3, 0), legParams)
+			local gy = if hit then hit.Position.Y else groundY
+			l.target.WorldCFrame = CFrame.new(foot.X, gy + (l.ankle or FOOT_H) + lift, foot.Z) * (rcf.Rotation * (l.rel or CFrame.identity))
+			-- เข่าชี้ไปข้างหน้า กางออกนิดๆ
+			l.pole.WorldPosition = root.Position + flat * 4 + right * (l.side * 0.8) + Vector3.new(0, -0.5, 0)
+		end
+	end
+end)
+
 local function setCrouch(on: boolean)
 	if on == crouching then
 		return
@@ -131,11 +227,11 @@ local function setCrouch(on: boolean)
 		standHip = hum.HipHeight
 		standSpeed = hum.WalkSpeed
 		hum.HipHeight = standHip - CROUCH_DROP
-		hum.WalkSpeed = 0
+		hum.WalkSpeed = standSpeed * CROUCH_SPEED
 	else
 		hum.HipHeight = standHip
 		-- ระหว่างนั่งถูกอย่างอื่นตั้งความเร็วใหม่ (โดนช็อต ฯลฯ) = ไม่ทับ
-		if hum.WalkSpeed == 0 then
+		if math.abs(hum.WalkSpeed - standSpeed * CROUCH_SPEED) < 0.01 then
 			hum.WalkSpeed = standSpeed
 		end
 	end
@@ -277,6 +373,8 @@ RunService:BindToRenderStep("VillagerBodyYaw", Enum.RenderPriority.Camera.Value 
 	end
 	if not free or cutscene then
 		headYaw, headPitch = 0, 0
+		-- ถูกยึดตัว / คัทซีน: แขนไฟฉายค่อยๆ ลดลง (เดิมค้างค่าเดิม = แขนยกชี้ค้างในคัทซีนจบทั้งที่เก็บไฟฉายแล้ว)
+		armAim += (0 - armAim) * math.min(1, dt * 8)
 		return
 	end
 	if hum.AutoRotate then
@@ -391,6 +489,11 @@ RunService.Heartbeat:Connect(function(dt)
 	-- นั่งซ้อนรถในคัทซีน (Server ยึดตัว anchored + Sit = true): ท่านั่ง ไม่ใช่ท่าล้มนิ่ง
 	-- (คัทซีนยึดตัวยืนรอ = ยืนหายใจปกติ ไม่ใช่ท่าล้มนิ่ง)
 	local downed = root ~= nil and root.Anchored and not hum.Sit and game:GetService("Lighting"):GetAttribute("Cutscene") ~= true
+	-- ถูกยึดตัว (คัทซีนวางให้ยืน): Humanoid ไม่ส่ง Running อีก ความเร็วล่าสุดค้าง = ท่าเดินค้างทั้งที่ยืนนิ่ง
+	-- (ผู้ใช้ 2026-11-06: คัทซีนจบช็อตแรกยังเดินอยู่) -> ยึดตัวอยู่ = ไม่ได้เดิน
+	if root and root.Anchored then
+		speedNow = 0
+	end
 	-- ท่าตามบทคัทซีน (Server ตั้ง attribute PoseClip เช่น "pull_rope" ตอนดึงเชือกปิดร้าน)
 	local pose = hum:GetAttribute("PoseClip")
 	if type(pose) == "string" and ids[pose] then
@@ -408,8 +511,13 @@ RunService.Heartbeat:Connect(function(dt)
 		if hum.Sit or (root and root.Anchored) then
 			setCrouch(false)
 		end
+		-- ตัวบนใช้ท่ายืน/เดินช้าๆ ขาให้ IK ด้านบนดึงลงพื้น (ไม่ใช่ท่านั่งเก้าอี้ที่ขาลอย)
 		setTurnStep(false)
-		setBase("sit")
+		if speedNow > 0.6 then
+			setBase("walk", 0.6)
+		else
+			setBase("idle", 1)
+		end
 	elseif hum.Sit or state == Enum.HumanoidStateType.Seated then
 		-- ท่านั่งเฉพาะ (Server ตั้ง attribute SitClip): ซ้อนมอไซค์ในคัทซีน = "ride_moto" ขากางคร่อมเบาะ ไม่หนีบเข่าแบบนั่งเก้าอี้
 		local clip = hum:GetAttribute("SitClip")
