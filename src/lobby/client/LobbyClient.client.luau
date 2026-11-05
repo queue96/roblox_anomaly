@@ -306,6 +306,12 @@ local gui = new("ScreenGui", {
 	DisplayOrder = 4,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, player:WaitForChild("PlayerGui"))
+do
+	local fit = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit", 5)
+	if fit then
+		(require(fit) :: any).Attach(gui) -- คอมจอใหญ่ขยาย / จอเตี้ยย่อ (shared/UiFit)
+	end
+end
 
 local function panelFrame(name: string, width: number, props: { [string]: any }): Frame
 	local p = new("Frame", {

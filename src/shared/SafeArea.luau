@@ -96,6 +96,11 @@ function SafeArea.Frame(parent: Instance): Frame
 		left, right = side + pad, side + pad
 		top += pad
 		bottom += pad
+		-- ScreenGui ที่มี UIScale (shared/UiFit): ระยะ offset ถูกคูณ scale อีกที หารกลับให้เป็นพิกเซลจริง
+		local sg = f:FindFirstAncestorWhichIsA("LayerCollector")
+		local us = sg and sg:FindFirstChildOfClass("UIScale")
+		local k = if us and us.Scale > 0 then us.Scale else 1
+		left, right, top, bottom = left / k, right / k, top / k, bottom / k
 		f.Position = UDim2.fromOffset(left, top)
 		f.Size = UDim2.new(1, -(left + right), 1, -(top + bottom))
 	end
@@ -109,6 +114,7 @@ function SafeArea.Frame(parent: Instance): Frame
 	end
 	fit()
 	task.defer(fit)
+	task.delay(1, fit) -- UIScale (UiFit) อาจใส่ทีหลังกรอบนี้
 	return f
 end
 

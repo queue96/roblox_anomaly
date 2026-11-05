@@ -170,6 +170,12 @@ gui.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถ�
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 50
 gui.Parent = playerGui
+do
+	local fit = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("UiFit", 5)
+	if fit then
+		(require(fit) :: any).Attach(gui) -- คอมจอใหญ่ขยาย / จอเตี้ยย่อ (shared/UiFit)
+	end
+end
 
 -- แถบดำบน-ล่างแบบภาพยนตร์
 local bars = {}

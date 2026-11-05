@@ -57,6 +57,7 @@ gui.AutoLocalize = false
 gui.DisplayOrder = 60
 gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui) -- คอมจอใหญ่ขยาย / จอเตี้ยย่อ (shared/UiFit)
 
 local function bar(top: boolean): Frame
 	local f = Instance.new("Frame")
@@ -531,6 +532,7 @@ local function showSummary()
 	sg.AutoLocalize = false
 	sg.DisplayOrder = 70
 	sg.Parent = player.PlayerGui
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(sg)
 	-- หน้าสรุปขึ้น = ปลดล็อกเมาส์ให้กดปุ่มได้ทันที (มุมมองบุคคลที่ 1 ล็อกเมาส์กลางจอจนกว่าจะมีปุ่ม Modal)
 	-- เคอร์เซอร์โชว์จาก HUDController.isAnyModalOpen (เห็น ScreenGui "Summary") · ปิดหน้าสรุป = ลบทิ้งพร้อม sg
 	local modal = Instance.new("TextButton")

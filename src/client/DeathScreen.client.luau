@@ -65,6 +65,7 @@ local gui = new("ScreenGui", {
 	DisplayOrder = 20,
 	Enabled = false,
 }, localPlayer:WaitForChild("PlayerGui"))
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui) -- คอมจอใหญ่ขยาย / จอเตี้ยย่อ (shared/UiFit)
 
 local red = new("Frame", { Name = "Red", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(110, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0 }, gui)
 -- ขอบจอดำ

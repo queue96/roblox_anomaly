@@ -69,6 +69,7 @@ local gui = new("ScreenGui", {
 	DisplayOrder = 6,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, localPlayer:WaitForChild("PlayerGui"))
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(gui) -- คอมจอใหญ่ขยาย / จอเตี้ยย่อ (shared/UiFit)
 
 -- ปุ่มสมุด: แสดงเฉพาะใน lobby (ในเกมซ่อนไว้ตามคำขอเดิม ไม่ให้รกจอ) — ดูสมุดได้ที่ lobby ก่อนออกกะ
 local LOBBY_PLACE_ID = 70980777393906
@@ -105,7 +106,10 @@ task.spawn(function()
 		return
 	end
 	local function place()
-		local right = gui.AbsoluteSize.X - sb.AbsolutePosition.X + 10
+		-- ScreenGui นี้มี UIScale (UiFit): offset ถูกคูณ scale -> หารกลับ
+		local us = gui:FindFirstChildOfClass("UIScale")
+		local k = if us and us.Scale > 0 then us.Scale else 1
+		local right = (gui.AbsoluteSize.X - sb.AbsolutePosition.X) / k + 10
 		bookBtn.Position = UDim2.new(1, -right, 0, 14)
 	end
 	place()
