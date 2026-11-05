@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
+local Bilingual = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual")) -- ปุ่มกดแสดงตามภาษาของแต่ละคน
 local store = DataStoreService:GetDataStore("TempleMerit_v1")
 local profiles: { [Player]: { balance: number, prayerDay: string, donated: number } } = {}
 
@@ -78,8 +79,7 @@ local function prayerPrompt(): ProximityPrompt?
 	end
 	local prompt = plaques:FindFirstChild("DailyPrayerPrompt") or Instance.new("ProximityPrompt")
 	prompt.Name = "DailyPrayerPrompt"
-	prompt.ActionText = "สวดมนต์ · รับ 10 บาท/วัน"
-	prompt.ObjectText = "พระประธาน"
+	Bilingual.Prompt(prompt, "สวดมนต์ · รับ 10 บาท/วัน", "Pray · get ฿10 a day", "พระประธาน", "Principal Buddha")
 	prompt.HoldDuration = 2
 	prompt.MaxActivationDistance = 12
 	prompt.RequiresLineOfSight = false
@@ -95,8 +95,7 @@ local function donationPrompt(): ProximityPrompt?
 	end
 	local prompt = box:FindFirstChild("MockDonationPrompt") or Instance.new("ProximityPrompt")
 	prompt.Name = "MockDonationPrompt"
-	prompt.ActionText = "ร่วมทำบุญ 10 บาท · MOCK"
-	prompt.ObjectText = "ตู้ร่วมทำบุญ"
+	Bilingual.Prompt(prompt, "ร่วมทำบุญ 10 บาท", "Donate ฿10", "ตู้ร่วมทำบุญ", "Donation box")
 	prompt.HoldDuration = 1
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false

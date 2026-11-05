@@ -406,9 +406,8 @@ quitBtn.Activated:Connect(function()
 	if dead and quitBtn.Active then
 		quitBtn.Active = false
 		quitBtn.Text = ui("GoingToLobby") -- Server Teleport กลับ Lobby
-		if _G.ShowTeleportScreen then
-			_G.ShowTeleportScreen({ destination = "lobby" })
-		end
+		local leaving = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeavingScreen")) :: any
+		leaving.Show() -- จอดำ "กำลังกลับวัด..." ไม่ให้ดูเหมือนค้าง
 		DeathChoice:FireServer("quit")
 	end
 end)

@@ -24,6 +24,8 @@ local IS_STUDIO = RunService:IsStudio()
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Difficulty = require(Shared:WaitForChild("Difficulty"))
+-- ป้ายห้อง 3D: แสดงตามภาษาของแต่ละคน (Client เขียนทับเอง shared/Bilingual)
+local Bilingual = require(Shared:WaitForChild("Bilingual"))
 -- สมุดผีชุดเดียวกับเกม (DataStore เดียวกันทั้ง experience) ให้ปุ่ม "สมุดผี" ใน Lobby เปิดดูของที่สะสมไว้ได้
 -- การตั้งค่า (ภาษา/เสียง) มาจาก PlayerSettings.server.luau ที่ sync เข้ามาโฟลเดอร์เดียวกัน
 require(script.Parent:WaitForChild("AnomalyBook"))
@@ -397,11 +399,11 @@ local function refresh(pad: BasePart)
 	if room then
 		-- ไม่มีให้เลือกความยากแล้ว (ใช้ค่าเริ่มต้นเสมอ) ป้ายจึงไม่แสดงความยาก
 		if room.launching then
-			label.Text = ("ห้อง %d · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers)
+			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers), ("Room %d · %s\n%d/%d players\nStarting the game..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers))
 		elseif room.fullCountdown then
-			label.Text = ("ห้อง %d · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown)
+			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), ("Room %d · %s\n%d/%d players\nFull · starting in %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown))
 		else
-			label.Text = ("ห้อง %d · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown)
+			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), ("Room %d · %s\n%d/%d players\nWaiting · starts in %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown))
 		end
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 		for _, p in ipairs(room.members) do
@@ -418,10 +420,10 @@ local function refresh(pad: BasePart)
 			})
 		end
 	elseif pendingHost[pad] then
-		label.Text = ("ห้อง %d\n%s กำลังตั้งห้อง..."):format(i, pendingHost[pad].DisplayName)
+		Bilingual.Text(label, ("ห้อง %d\n%s กำลังตั้งห้อง..."):format(i, pendingHost[pad].DisplayName), ("Room %d\n%s is setting up..."):format(i, pendingHost[pad].DisplayName))
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	else
-		label.Text = ("ห้อง %d · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง\nRoom %d · walk in to host"):format(i, i)
+		Bilingual.Text(label, ("ห้อง %d · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง"):format(i), ("Room %d · empty\nWalk in to host"):format(i))
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	end
 end

@@ -515,6 +515,8 @@ if not IN_LOBBY then
 		if dc and dc:IsA("RemoteEvent") then
 			sent = true
 			quitBtn.Text = ui("GoingToLobby")
+			local leaving = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeavingScreen")) :: any
+			leaving.Show() -- จอดำ "กำลังกลับวัด..." ไม่ให้ดูเหมือนค้าง
 			dc:FireServer("quit")
 		end
 	end)

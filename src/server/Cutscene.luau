@@ -75,6 +75,8 @@ local function isFake(p: any): boolean
 	return type(p) == "table"
 end
 
+local WARNING_TIME = 5 -- จอดำเตือนเรื่องผีหลอกก่อนคัทซีนเปิดเกม (วินาที)
+
 -- ส่ง remote เฉพาะผู้เล่นจริง
 local function send(p: any, ...)
 	if not isFake(p) then
@@ -1357,6 +1359,18 @@ function Cutscene.Intro()
 		D.resetShutter()
 		setRunning(nil)
 		return
+	end
+	-- เข้าเกมครั้งแรกของเซิร์ฟเวอร์นี้: จอดำเตือนเรื่องผีหลอก 5 วิ ก่อนเริ่มคัทซีน (คนที่เคยเห็นแล้วไม่ต้องรอ)
+	local warned = false
+	for p in pairs(participants) do
+		if not isFake(p) and not (p :: Player):GetAttribute("ScareWarned") then
+			(p :: Player):SetAttribute("ScareWarned", true)
+			send(p, "warning", WARNING_TIME)
+			warned = true
+		end
+	end
+	if warned then
+		task.wait(WARNING_TIME)
 	end
 	local ok, a, b = pcall(introBody, t)
 	if not ok then

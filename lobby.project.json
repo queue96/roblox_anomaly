@@ -37,6 +37,12 @@
         },
         "SafeArea": {
           "$path": "src/shared/SafeArea.luau"
+        },
+        "Bilingual": {
+          "$path": "src/shared/Bilingual.luau"
+        },
+        "LeavingScreen": {
+          "$path": "src/shared/LeavingScreen.luau"
         }
       }
     },

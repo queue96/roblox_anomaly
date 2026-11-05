@@ -332,6 +332,8 @@ LanguageModule.UI = {
 	Restart = { th = "เริ่มใหม่", en = "Restart" },
 	Quit = { th = "กลับ Lobby", en = "Back to Lobby" },
 	GoingToLobby = { th = "กำลังกลับวัด...", en = "Heading back to the temple..." },
+	ScareWarnTitle = { th = "คำเตือน", en = "WARNING" },
+	ScareWarnBody = { th = "เกมนี้มีฉากผีหลอกและเสียงดังกะทันหัน (จั้มสแกร์)", en = "This game contains jump scares and sudden loud sounds." },
 	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
 	WaitOpen = { th = "ไฟดับ... กด [1] เปิดไฟฉาย ดึงเชือกเปิดแผงร้าน แล้วไปสตาร์ทเครื่องปั่นไฟ", en = "The power's out... press [1] for the flashlight, pull the shutter rope, then go start the generator." },
 	-- มินิเกมเติมน้ำมัน / เติมลม

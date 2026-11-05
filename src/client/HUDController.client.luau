@@ -275,9 +275,8 @@ end)
 lobbyBtn.Activated:Connect(function()
 	lobbyBtn.Active = false
 	lobbyBtn.Text = ui("GoingToLobby")
-	if _G.ShowTeleportScreen then
-		_G.ShowTeleportScreen({ destination = "lobby" })
-	end
+	local leaving = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeavingScreen")) :: any
+	leaving.Show() -- จอดำ "กำลังกลับวัด..." ไม่ให้ดูเหมือนค้าง
 	DeathChoice:FireServer("quit")
 end)
 

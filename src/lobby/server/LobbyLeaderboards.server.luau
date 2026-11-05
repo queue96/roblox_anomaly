@@ -7,11 +7,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
+local Bilingual = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual")) -- ป้ายแสดงตามภาษาของแต่ละคน
 
 local BOARDS = {
-	{ model = "LeaderboardDonations", category = "donations", title = "ผู้ร่วมทำบุญสูงสุด", suffix = "฿", color = Color3.fromRGB(232, 190, 92) },
-	{ model = "LeaderboardCompletions", category = "completions", title = "จบเกมมากที่สุด", suffix = "ครั้ง", color = Color3.fromRGB(126, 190, 152) },
-	{ model = "LeaderboardAnomalies", category = "anomalies", title = "สะสมสิ่งผิดปกติมากที่สุด", suffix = "ชนิด", color = Color3.fromRGB(190, 122, 164) },
+	{ model = "LeaderboardDonations", category = "donations", title = "ผู้ร่วมทำบุญสูงสุด", titleEN = "Top Donors", suffix = "฿", suffixEN = "฿", color = Color3.fromRGB(232, 190, 92) },
+	{ model = "LeaderboardCompletions", category = "completions", title = "จบเกมมากที่สุด", titleEN = "Most Nights Survived", suffix = "ครั้ง", suffixEN = "times", color = Color3.fromRGB(126, 190, 152) },
+	{ model = "LeaderboardAnomalies", category = "anomalies", title = "สะสมสิ่งผิดปกติมากที่สุด", titleEN = "Most Anomalies Found", suffix = "ชนิด", suffixEN = "kinds", color = Color3.fromRGB(190, 122, 164) },
 }
 
 local names: { [number]: string } = {}
@@ -104,13 +105,14 @@ local TITLE_H = 70
 local ROWS = 10 -- แถวเล็กลง แสดงได้ 10 อันดับต่อป้าย
 
 local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId: number, value: number } })
-	text(root, {
+	local titleLbl = text(root, {
 		Name = "Title",
 		Size = UDim2.new(1, 0, 0, TITLE_H - 16),
 		Text = spec.title,
 		TextColor3 = spec.color,
 		TextSize = 42,
 	})
+	Bilingual.Text(titleLbl, spec.title, spec.titleEN or spec.title)
 	-- เส้นใต้หัวป้าย (สีของป้าย)
 	local head = Instance.new("Frame")
 	head.Position = UDim2.new(0, 0, 0, TITLE_H - 8)
@@ -127,7 +129,8 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 	body.BackgroundTransparency = 1
 	body.Parent = root
 	if #rows == 0 then
-		text(body, { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.fromScale(0, 0.2), Text = "ยังไม่มีข้อมูล\nNO RECORDS YET", TextColor3 = DIM, TextSize = 34 })
+		local empty = text(body, { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.fromScale(0, 0.2), Text = "ยังไม่มีข้อมูล", TextColor3 = DIM, TextSize = 34 })
+		Bilingual.Text(empty, "ยังไม่มีข้อมูล", "No records yet")
 		return
 	end
 	local rowH = 1 / ROWS
@@ -168,7 +171,7 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 			TextXAlignment = Enum.TextXAlignment.Left,
 		})
 		-- สถิติชิดขวา
-		text(r, {
+		local statLbl = text(r, {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.fromScale(1, 0),
 			Size = UDim2.new(0.34, 0, 1, 0),
@@ -177,6 +180,7 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 			TextColor3 = spec.color,
 			TextXAlignment = Enum.TextXAlignment.Right,
 		})
+		Bilingual.Text(statLbl, ("%d %s"):format(row.value, spec.suffix), ("%d %s"):format(row.value, spec.suffixEN or spec.suffix))
 		-- เส้นคั่นแถว (ไม่ใส่ใต้แถวสุดท้าย)
 		if rank < #rows then
 			local line = Instance.new("Frame")

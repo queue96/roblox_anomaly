@@ -244,6 +244,13 @@ CollectionService:GetInstanceAddedSignal("Apparition"):Connect(haunt)
 -- ปุ่มสมุดผี / ตั้งค่า มาจาก BookController / SettingsController ตัวเดียวกับเกม (sync ผ่าน lobby.project.json)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Difficulty = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Difficulty"))
+-- ป้าย/ปุ่มกดที่ Server สร้าง (ป้ายห้อง ป้ายอันดับ ตู้ทำบุญ): แสดงภาษาที่เลือกไว้ภาษาเดียว
+do
+	local bl = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual", 10)
+	if bl then
+		(require(bl) :: any).Run()
+	end
+end
 local remotes = ReplicatedStorage:WaitForChild("LobbyRemotes")
 local OpenSetup = remotes:WaitForChild("OpenSetup") :: RemoteEvent
 local ConfirmRoom = remotes:WaitForChild("ConfirmRoom") :: RemoteEvent

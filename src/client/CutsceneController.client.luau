@@ -681,7 +681,12 @@ local function showSummary()
 		nextBtn.TextColor3 = C.Dim
 		nextBtn.BackgroundTransparency = 0.5
 	end)
-	button(ui("Quit"), C.Blood, function()
+	local quitBtn: TextButton
+	quitBtn = button(ui("Quit"), C.Blood, function()
+		quitBtn.Text = ui("GoingToLobby")
+		quitBtn.Active = false
+		local leaving = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeavingScreen")) :: any
+		leaving.Show() -- จอดำ "กำลังกลับวัด..." ไม่ให้ดูเหมือนค้าง
 		deathChoice:FireServer("quit")
 	end)
 	votesLbl = label(panel, "", 13, C.Dim, { LayoutOrder = nextOrder() })
@@ -877,7 +882,61 @@ local function playGust(at: Vector3?, dir: Vector3?)
 	game:GetService("Debris"):AddItem(src, 4.5)
 end
 
+-- จอดำเตือนเรื่องผีหลอก (ก่อนคัทซีนเปิดเกมครั้งแรก): Server รอ a วินาทีแล้วค่อยเริ่มคัทซีน
+local function showScareWarning(seconds: number)
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "ScareWarning"
+	sg.IgnoreGuiInset = true
+	sg.ScreenInsets = Enum.ScreenInsets.None
+	sg.ResetOnSpawn = false
+	sg.DisplayOrder = 80
+	sg.Parent = player:WaitForChild("PlayerGui")
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(sg)
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = Color3.new(0, 0, 0)
+	bg.BorderSizePixel = 0
+	bg.Parent = sg
+	local box = Instance.new("Frame")
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.new(0.8, 0, 0, 0)
+	box.AutomaticSize = Enum.AutomaticSize.Y
+	box.BackgroundTransparency = 1
+	box.Parent = bg
+	local list = Instance.new("UIListLayout", box)
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.Padding = UDim.new(0, 12)
+	local function line(text: string, size: number, color: Color3)
+		local l = Instance.new("TextLabel")
+		l.Size = UDim2.new(1, 0, 0, 0)
+		l.AutomaticSize = Enum.AutomaticSize.Y
+		l.BackgroundTransparency = 1
+		l.FontFace = FONT
+		l.TextSize = size
+		l.TextColor3 = color
+		l.TextWrapped = true
+		l.TextTransparency = 1
+		l.Text = text
+		l.Parent = box
+		TweenService:Create(l, TweenInfo.new(0.4), { TextTransparency = 0 }):Play()
+		task.delay(math.max(0.5, seconds - 0.5), function()
+			TweenService:Create(l, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+		end)
+	end
+	line(ui("ScareWarnTitle"), 30, Color3.fromRGB(215, 48, 36))
+	line(ui("ScareWarnBody"), 20, C.Cream)
+	-- หายหลังคัทซีนเริ่ม (คัทซีนเริ่มด้วยจอดำของตัวเองอยู่แล้ว ไม่เห็นฉากแวบ)
+	task.delay(seconds + 0.6, function()
+		sg:Destroy()
+	end)
+end
+
 remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
+	if kind == "warning" then
+		showScareWarning(if type(a) == "number" then a else 3)
+		return
+	end
 	if kind == "start" then
 		voted, voteCount, voteTotal = false, 0, 0
 		startCutscene(a)

@@ -327,7 +327,7 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	skipBtn.FontFace = FONT_BOLD
 	skipBtn.TextColor3 = C.Cream
 	skipBtn.TextSize = 17
-	skipBtn.Text = "ข้าม (Skip)"
+	skipBtn.Text = tr("ข้าม", "Skip")
 	skipBtn.Parent = bottomPanel
 
 	local skipStroke = Instance.new("UIStroke")
@@ -581,8 +581,8 @@ task.spawn(function()
 	end
 	ui.title.Text = tr("ปั๊มหลอดท้ายทุ่ง", "MIDNIGHT RURAL GAS & TIRE")
 	ui.badge.Text = if inLobby
-		then tr("  วัดท้ายทุ่ง · LOBBY  ", "  TEMPLE LOBBY  ")
-		else tr("  กะดึกท้ายทุ่ง · NIGHT SHIFT  ", "  NIGHT SHIFT  ")
+		then tr("  วัดท้ายทุ่ง  ", "  TEMPLE LOBBY  ")
+		else tr("  กะดึกท้ายทุ่ง  ", "  NIGHT SHIFT  ")
 	ui.subtitle.Text = if inLobby
 		then tr("จุดรวมตัวก่อนออกกะดึก · เดินเข้าวงแดงเพื่อสร้างหรือร่วมห้อง", "Gather before the night shift · walk into a red ring to host or join")
 		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost")
