@@ -476,7 +476,7 @@ LanguageModule.Labels = {
 	Generator = { th = "เครื่องปั่นไฟ", en = "Generator" },
 	AirCompressor = { th = "ถังลม", en = "Air Compressor" },
 	SpiritHouse = { th = "ศาลพระภูมิ", en = "Spirit House" },
-	KilometerMilestone = { th = "หลักกิโลเมตรที่ 4", en = "Kilometer 4" },
+	KilometerMilestone = { th = "หลักกิโลเมตรที่ 67", en = "Kilometer 67" },
 	DistantRiceHut = { th = "เถียงนา", en = "Field Hut" },
 	MarbleBench = { th = "ม้าหินอ่อน", en = "Marble Bench" },
 	BanyanTree = { th = "ต้นไทร", en = "Banyan Tree" },

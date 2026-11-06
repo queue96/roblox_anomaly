@@ -79,6 +79,7 @@ MapBuilder.SetNightLighting()
 MapBuilder.OptimizeShadowsAndCleanup()
 MapBuilder.RemoveZoneLabels()
 MapBuilder.DarkenRiceAndFoliage()
+MapBuilder.LabelKilometerPost() -- ข้อความหลักกิโล (กม. 67)
 
 -- ซ่อนจุดมาร์คของรถตอนเล่น: SpawnPoint (เขียว) / StopPoint (เหลือง) / ExitPoint (แดง)
 -- เป็นตัวช่วยของ Dev: ระบบรถยังใช้ตำแหน่งได้ตามปกติ, ตอน Edit ยังมองเห็น
@@ -96,6 +97,34 @@ do
 				d.Transparency = 1
 			end
 		end
+	end
+end
+
+-- พื้นไม้ในร้าน (PorchDeck โมเดลนำเข้า): ตัวชนแบบหยาบ (Default) ต่ำกว่าผิวไม้ที่มองเห็น 0.08-0.18 studs
+-- คนยืนบนตัวชน เท้าเลยจมไม้นิดๆ (ผู้ใช้ 2026-11-06) -> แผ่นล่องหนบางๆ ทับพอดีผิวไม้ให้ยืน/ยิงหาพื้นแทน
+-- (อยู่ใน ShackStructure + วัสดุ WoodPlanks: เสียงเท้ายังเป็นพื้นไม้ client/AmbienceController)
+do
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local deck = shack and shack:FindFirstChild("PorchDeck", true) :: BasePart?
+	if shack and deck and not shack:FindFirstChild("DeckWalkSurface") then
+		-- วัดในเกม: บนพื้น Part ตัวละครยืนต่ำกว่าบนดิน (Terrain) ราว 0.07 -> ยกแผ่นเหนือขอบบนกล่องไม้ 0.05
+		-- ปลายเท้าจึงวางพอดีผิวไม้ (เท่ากับตอนยืนบนดิน ปลายเท้าแตะพื้นพอดี)
+		local DECK_SURFACE_ABOVE_TOP = 0.05
+		local top = deck.Position.Y + deck.Size.Y / 2 + DECK_SURFACE_ABOVE_TOP
+		local THICK = 0.2
+		local p = Instance.new("Part")
+		p.Name = "DeckWalkSurface"
+		p.Size = Vector3.new(deck.Size.X, THICK, deck.Size.Z)
+		p.CFrame = CFrame.new(deck.Position.X, top - THICK / 2, deck.Position.Z) * deck.CFrame.Rotation
+		p.Anchored = true
+		p.CanCollide = true
+		p.CanQuery = true
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Transparency = 1
+		p.Material = Enum.Material.WoodPlanks
+		p.Parent = shack
 	end
 end
 

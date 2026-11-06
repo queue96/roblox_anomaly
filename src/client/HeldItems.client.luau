@@ -69,6 +69,62 @@ local function place(char: Model, root: BasePart, tool: Tool, hold: Hold)
 	weld.C0 = root.CFrame:ToObjectSpace(handleCF)
 end
 
+-- ---------------------------------------------------------------- แกลลอนของลูกค้าเดินเท้า (server/Pedestrian, tag NpcGallon)
+-- server วางแกลลอนไว้ที่มือซ้ายของ human_base ตายตัว -> ผู้หญิง/เด็ก/คนแก่ หรือแขนที่ขยับตามท่า มือไม่ตรงหู (ผู้ใช้ 2026-11-06)
+-- เครื่องนี้ย้ายแกลลอนให้หูหิ้วอยู่ในกำมือซ้ายจริงทุกเฟรม แบบเดียวกับแกลลอนในมือผู้เล่น (HOLD.FuelCan)
+local CollectionService = game:GetService("CollectionService")
+type NpcCan = { parts: { BasePart }, rel: { CFrame }, handle: BasePart }
+local npcCans: { [Instance]: NpcCan } = {}
+local function npcCan(g: Instance): NpcCan?
+	local c = npcCans[g]
+	if c then
+		return c
+	end
+	local handle = g:FindFirstChild("Handle")
+	if not (handle and handle:IsA("BasePart")) then
+		return nil
+	end
+	local parts, rel = {}, {}
+	for _, d in ipairs(g:GetDescendants()) do
+		if d:IsA("BasePart") then
+			table.insert(parts, d)
+			table.insert(rel, handle.CFrame:ToObjectSpace(d.CFrame))
+		end
+	end
+	c = { parts = parts, rel = rel, handle = handle }
+	npcCans[g] = c
+	return c
+end
+CollectionService:GetInstanceRemovedSignal("NpcGallon"):Connect(function(g)
+	npcCans[g] = nil
+end)
+local function placeNpcGallons()
+	for _, g in ipairs(CollectionService:GetTagged("NpcGallon")) do
+		local owner = g.Parent
+		local rig = owner and owner:FindFirstChild("DriverNPC")
+		if not (rig and rig:IsA("Model") and g:IsDescendantOf(workspace)) then
+			continue
+		end
+		local center, axis = HeadTurn.grip(rig, "L", "fist")
+		local c = npcCan(g)
+		if not (center and axis and c) then
+			continue
+		end
+		local fwd = (owner :: Model):GetPivot().LookVector
+		local a = Vector3.new(axis.X, 0, axis.Z)
+		if a.Magnitude < 0.2 then
+			a = Vector3.new(fwd.X, 0, fwd.Z)
+		end
+		local handleCF = CFrame.lookAt(center, center + a) * HOLD.FuelCan.offset
+		local cfs = table.create(#c.parts)
+		for i, r in ipairs(c.rel) do
+			cfs[i] = handleCF * r
+		end
+		workspace:BulkMoveTo(c.parts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
+	end
+end
+PoseHooks.After(placeNpcGallons)
+
 -- หลัง client/HumanEmotesRunner เขียนท่าถือ (แบมือ / หิ้วแกลลอน) ลงกระดูกเฟรมนี้แล้วเท่านั้น (shared/PoseHooks)
 -- (เดิมต่อ PreSimulation แยก: ลำดับไม่แน่นอน บางเฟรมวางของตามมือท่าเดิน -> แกลลอนสั่น ขนมไม่อยู่ในมือ)
 PoseHooks.After(function()

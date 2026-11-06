@@ -4,6 +4,7 @@
 --   โครงสร้างยังชื่อ DriverNPC เหมือนเดิม ผีที่แก้คนขับ (หันหัว 180 / ยิ้มหลอน / กระสือ) จึงใช้กับคนเดินได้เลย
 --   หน้า = -Z ของ pivot, pivot อยู่ที่พื้นใต้เท้า, ทุกชิ้น Anchored ขยับด้วย PivotTo (เหมือนรถ)
 
+local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
@@ -146,6 +147,8 @@ local function addGallon(m: Model, hand: Vector3): Model
 	local g = Instance.new("Model")
 	g.Name = "Gallon"
 	JerryCan.Build(g, CFrame.new(hand - JerryCan.GRIP))
+	-- client/HeldItems ล็อกหูหิ้วเข้ากำมือซ้ายจริงทุกเฟรม (ตำแหน่งมือข้างบนวัดจาก human_base: ผู้หญิง/เด็ก/คนแก่ มือไม่อยู่ตรงนั้น)
+	CollectionService:AddTag(g, "NpcGallon")
 	g.Parent = m
 	return g
 end

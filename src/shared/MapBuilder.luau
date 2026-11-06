@@ -7843,4 +7843,95 @@ function MapBuilder.SwapSpiritHouseMesh(): string
 	return "สลับศาลพระภูมิเป็นฐานหันหน้าเดียวกับศาลแล้ว"
 end
 
+-- ---------------------------------------------------------------- ข้อความบนหลักกิโล (ผู้ใช้ 2026-11-06: กม. 67)
+-- หลักกิโลไทย: ด้านที่หันเข้าถนนบอกเลขกิโลเมตร / สองด้านที่หันหารถแต่ละทิศบอกที่หมายข้างหน้าและระยะทาง
+-- ลูกค้าขับมาจากฝั่ง -X: คนขับมาเห็นด้าน -X (ข้างหน้า = หมู่บ้านท้ายทุ่ง) ขากลับเห็นด้าน +X (กลับเข้าเมือง)
+-- แก้คำได้ที่ตารางนี้ แผ่นข้อความเป็นชิ้นล่องหนบางๆ แปะบนหน้าเสา (หน้าเสาเรียบสูง y 2.8-5.05 วัดจากโมเดล)
+-- วางตามตำแหน่ง + การหมุนของเสาตอนเกมเริ่ม: ย้าย/หมุนเสาใน Studio ได้ ข้อความตามไปเอง (ทิศในตารางคือทิศของตัวเสา)
+MapBuilder.KM_POST_TEXT = {
+	road = { top = "กม.", big = "67", bottom = "ทช. 3067" }, -- หันเข้าถนน (-Z)
+	west = { top = "บ.ท้ายทุ่ง", big = "4" }, -- หันไปทาง -X (รถที่วิ่งเข้าหาร้าน)
+	east = { top = "อ.เมือง", big = "67" }, -- หันไปทาง +X (รถขากลับ)
+}
+function MapBuilder.LabelKilometerPost(): boolean
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local road = env and env:FindFirstChild("DirtRoad")
+	local km = road and road:FindFirstChild("KilometerMilestone") :: BasePart?
+	if not (km and km:IsA("BasePart")) then
+		return false
+	end
+	for _, c in ipairs(road:GetChildren()) do
+		if string.sub(c.Name, 1, 7) == "KmText_" then
+			c:Destroy()
+		end
+	end
+	local kcf = km.CFrame
+	local FLAT_BOTTOM, FLAT_TOP = 2.85 - 3.7626, 5.0 - 3.7626 -- หน้าเสาเรียบ เทียบกลางโมเดล (แกนตั้งของเสา)
+	local midY = (FLAT_BOTTOM + FLAT_TOP) / 2
+	local h = FLAT_TOP - FLAT_BOTTOM
+	-- name, ทิศที่หน้าหัน, ระยะจากกลางเสาถึงหน้าเสา, ความกว้างหน้าเสา
+	local faces = {
+		{ "road", Vector3.new(0, 0, -1), 0.564, 1.15 },
+		{ "west", Vector3.new(-1, 0, 0), 0.672, 0.95 },
+		{ "east", Vector3.new(1, 0, 0), 0.672, 0.95 },
+	}
+	local INK = Color3.fromRGB(28, 26, 24)
+	local function label(parent: Instance, text: string, y: number, hgt: number, size: number)
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.Position = UDim2.fromScale(0, y)
+		t.Size = UDim2.fromScale(1, hgt)
+		t.Text = text
+		t.TextColor3 = INK
+		t.TextTransparency = 0.08 -- สีดำซีดตามหลักเก่า
+		t.TextScaled = true
+		t.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+		t.AutoLocalize = false
+		local lim = Instance.new("UITextSizeConstraint")
+		lim.MaxTextSize = size
+		lim.Parent = t
+		t.Parent = parent
+	end
+	for _, f in ipairs(faces) do
+		local key, dir, dist, w = f[1] :: string, f[2] :: Vector3, f[3] :: number, f[4] :: number
+		local txt = MapBuilder.KM_POST_TEXT[key]
+		if not txt then
+			continue
+		end
+		local p = Instance.new("Part")
+		p.Name = "KmText_" .. key
+		p.Size = Vector3.new(w, h, 0.02)
+		-- หน้าแผ่น (-Z ของแผ่น) หันออกตาม dir ในกรอบของเสา
+		local local_ = Vector3.new(0, midY, 0) + dir * (dist + 0.012)
+		p.CFrame = kcf * CFrame.lookAt(local_, local_ + dir)
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Transparency = 1
+		local g = Instance.new("SurfaceGui")
+		g.Face = Enum.NormalId.Front
+		g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		g.PixelsPerStud = 120
+		g.LightInfluence = 1 -- ไม่เรืองในที่มืด
+		g.MaxDistance = 120
+		g.Parent = p
+		local pad = Instance.new("Frame")
+		pad.BackgroundTransparency = 1
+		pad.Position = UDim2.fromScale(0.08, 0.06)
+		pad.Size = UDim2.fromScale(0.84, 0.88)
+		pad.Parent = g
+		if txt.top then
+			label(pad, txt.top, 0, 0.2, 40)
+		end
+		label(pad, txt.big, 0.22, if txt.bottom then 0.5 else 0.6, 120)
+		if txt.bottom then
+			label(pad, txt.bottom, 0.78, 0.16, 30)
+		end
+		p.Parent = road
+	end
+	return true
+end
+
 return MapBuilder

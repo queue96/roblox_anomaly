@@ -2904,6 +2904,11 @@ local function serveCustomer(c: Customer)
 			if fillTween then
 				fillTween.Completed:Wait()
 			end
+			-- คนเดินมาซื้อใส่แกลลอน: ได้น้ำมันแล้วแกลลอนในมือมีน้ำมันเห็นสีเหมือนแกลลอนของผู้เล่น (ผู้ใช้ 2026-11-06)
+			local gallon = v:FindFirstChild("Gallon")
+			if gallon and not ghost then
+				JerryCan.SetFull(gallon, true)
+			end
 		end
 		if ghost then
 			-- เติมให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงิน)

@@ -1,6 +1,6 @@
 --!nonstrict
 -- ItemSlots.client.luau
--- ช่องของถัดจากช่องไฟฉาย [1] (HUDController): [2] ขนมไทย (ถวายศาลพระภูมิ) / [3] แกลลอนน้ำมัน (ว่าง/เต็ม)
+-- ช่องของถัดจากช่องไฟฉาย [1] (HUDController): [2] ขนมไทย (ถวายศาลพระภูมิ) / [3] แกลลอนน้ำมัน (เต็ม/เปล่า ดูจากรูป)
 -- กดเลข / แตะช่องเพื่อถือ-เก็บ  ช่องโผล่เฉพาะตอนมีของ  (Tool สร้างฝั่ง Server ใน CoreLoop)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -212,9 +212,8 @@ local function refresh()
 		s.button.Visible = tool ~= nil and show
 		setSlotIcon(s.icon, tool)
 		local txt = ui(s.label)
-		if s.tool == "FuelCan" and tool then
-			txt ..= " " .. ui(if tool:GetAttribute("Full") then "CanFull" else "CanEmpty")
-		elseif s.tool == "FlashlightBattery" and tool then
+		-- แกลลอน: ไม่ต่อท้าย (ว่าง)/(เต็ม) แล้ว ดูจากรูปในช่องแทน (มีน้ำมัน = เห็นสีน้ำมันในแกลลอน) ผู้ใช้ 2026-11-06
+		if s.tool == "FlashlightBattery" and tool then
 			txt ..= " ×" .. tostring(tool:GetAttribute("Count") or 1)
 		end
 		s.text.Text = txt
@@ -293,22 +292,33 @@ shrine.Name = "ShrineTimer"
 shrine.AnchorPoint = Vector2.new(1, 0)
 shrine.Position = UDim2.new(1, -16 - require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SafeArea")).Pad(), 0, 56) -- มือถือเว้นขอบเพิ่ม
 shrine.Size = UDim2.fromOffset(SHRINE_SIZE, SHRINE_SIZE)
-shrine.BackgroundColor3 = Color3.fromRGB(30, 28, 24)
-shrine.BackgroundTransparency = 0.1
+-- ขอบเหมือนปุ่มตั้งค่าที่อยู่ด้านบน (client/SettingsController: มุม 2 เส้น 1) ผู้ใช้ 2026-11-06
+shrine.BackgroundColor3 = Color3.fromRGB(16, 14, 12)
+shrine.BackgroundTransparency = 0.15
 shrine.BorderSizePixel = 0
-shrine.ClipsDescendants = true
 shrine.Visible = false
 shrine.Parent = gui
-Instance.new("UICorner", shrine).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", shrine).CornerRadius = UDim.new(0, 2)
 local shrineStroke = Instance.new("UIStroke", shrine)
 shrineStroke.Color = C.Line
-shrineStroke.Thickness = 1.5
+shrineStroke.Thickness = 1
 shrineStroke.Transparency = 0.1
 shrineStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+-- รูป + แถบเวลาอยู่ในกรอบในที่เว้นจากขอบ 3px: แถบสี่เหลี่ยมไม่ล้นมุมโค้ง ไม่ทับเส้นขอบ
+local SHRINE_INSET = 3
+local shrineInner = Instance.new("Frame")
+shrineInner.Name = "Inner"
+shrineInner.AnchorPoint = Vector2.new(0.5, 0.5)
+shrineInner.Position = UDim2.fromScale(0.5, 0.5)
+shrineInner.Size = UDim2.new(1, -SHRINE_INSET * 2, 1, -SHRINE_INSET * 2)
+shrineInner.BackgroundColor3 = Color3.fromRGB(30, 28, 24)
+shrineInner.BorderSizePixel = 0
+shrineInner.ClipsDescendants = true
+shrineInner.Parent = shrine
 -- รูปศาล: ถ่ายเฉพาะตัวเรือนด้านบน (ศาลเป็น mesh ชิ้นเดียวรวมเสา: เล็งกล้องไปที่ส่วนบน)
 local shrineIcon = ModelIcon.Make(UDim2.fromScale(1, 1))
 shrineIcon.ZIndex = 1
-shrineIcon.Parent = shrine
+shrineIcon.Parent = shrineInner
 -- ส่วนที่ใช้ไปแล้ว: เงามืดยาวลงมาจากด้านบน
 local shrineSpent = Instance.new("Frame")
 shrineSpent.Name = "Spent"
@@ -317,7 +327,7 @@ shrineSpent.BackgroundColor3 = Color3.fromRGB(6, 5, 4)
 shrineSpent.BackgroundTransparency = 0.3
 shrineSpent.BorderSizePixel = 0
 shrineSpent.ZIndex = 2
-shrineSpent.Parent = shrine
+shrineSpent.Parent = shrineInner
 -- ส่วนที่เหลือ: แสงจางๆ สีของสถานะ (ครีม / ส้มเมื่อใกล้หมด) ชิดด้านล่าง
 local shrineLeftFill = Instance.new("Frame")
 shrineLeftFill.Name = "Remaining"
@@ -328,7 +338,7 @@ shrineLeftFill.BackgroundColor3 = C.Cream
 shrineLeftFill.BackgroundTransparency = 0.88
 shrineLeftFill.BorderSizePixel = 0
 shrineLeftFill.ZIndex = 2
-shrineLeftFill.Parent = shrine
+shrineLeftFill.Parent = shrineInner
 -- เส้นระดับ: ขอบบนของส่วนที่เหลือ
 local shrineLevel = Instance.new("Frame")
 shrineLevel.Name = "Level"
