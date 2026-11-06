@@ -53,7 +53,7 @@ local CONFIG = {
 	AnomalyChance = 0.3, -- (0.2 แทบไม่เจอผี ผู้ใช้ 2026-11-05 ให้เพิ่ม 10% · เคยเป็น 0.3 / 0.4 ที่ผีมาถี่เกินไป)
 	WalkInChance = 0.35, -- ผีที่มาเป็นคนเดิน: ไม่แปลงร่าง เดินมาซื้อทั้งร่างผีเลย (เห็นได้ไม่ต้องพนมมือ)
 	InspectLock = 4, -- วินาทีที่ล็อกปุ่มหลังรถจอด (ให้ส่องไฟฉายดู / พนมมือดู)
-	RevealDelay = { 4, 12 }, -- พนมมือเห็นผีของลูกค้ารายนี้ได้หลังจอดที่ร้านแล้วนานเท่านี้ (สุ่ม) ก่อนหน้านั้นพนมมือก็ไม่เห็น
+	RevealDelay = { 2, 5 }, -- พนมมือเห็นผีของลูกค้ารายนี้ได้หลังจอดที่ร้านแล้วนานเท่านี้ (สุ่ม) ก่อนหน้านั้นพนมมือก็ไม่เห็น (เดิม 4-12: สวดรอนานจนนึกว่าไม่ใช่ผี ผู้ใช้ 2026-11-06)
 	DecisionTime = 75, -- ถ้าไม่มีใครตัดสินใจ ลูกค้าจะขับออกไปเอง (เผื่อเวลาพนมมือเช็กผีและเดินไปตู้)
 	DriveSpeed = 24, -- studs / วินาที
 	GreetReplyTime = 5, -- วินาทีที่เปิดให้ทักทายตอบ
@@ -1968,7 +1968,8 @@ local FUELED_REVEAL = 1.3 -- วินาทีที่ร่างผีค่
 local function fueledPlan(): { [string]: any }
 	local style = pick({ "lunge", "side", "vanish" })
 	-- (lunge / side นานพอให้เห็นท่าวิ่ง/ลอยของผี)
-	local pause = if style == "lunge" then 0.45 elseif style == "side" then 0.95 else 0.9 + math.random() * 0.7
+	-- side: วิ่งหนีออกไปด้านข้างให้เห็นท่าวิ่งชัดๆ ก่อนโผล่กลับมาหลอก (ผู้ใช้ 2026-11-06)
+	local pause = if style == "lunge" then 0.45 elseif style == "side" then 1.35 else 0.9 + math.random() * 0.7
 	return { style = style, reveal = FUELED_REVEAL, pause = pause, side = if math.random() < 0.5 then -1 else 1 }
 end
 local ENGINE_RANGE = 200 -- เสียงเครื่องยนต์รถลูกค้าได้ยินไกลเท่านี้ (studs)
@@ -2150,7 +2151,10 @@ local function spawnCustomer(kind: string?)
 			if flat.Magnitude > 0.5 then
 				if walking then
 					AnomalyManager.WalkInMoving(v, true)
-					Pedestrian.WalkTo(v, target, CONFIG.WalkSpeed)
+					-- ผีลอย (เดินมาทั้งร่าง): ลอยโค้งอ้อมมา ส่ายซ้ายขวา ขึ้นลง ไม่เดินตรงดิ่ง
+					if not AnomalyManager.FloatTo(v, target, CONFIG.WalkSpeed) then
+						Pedestrian.WalkTo(v, target, CONFIG.WalkSpeed)
+					end
 					Pedestrian.Face(v, if service == "air" and airBody then airBody.Position else pumpBody.Position)
 					AnomalyManager.WalkInMoving(v, false)
 				else
@@ -3055,7 +3059,9 @@ local function serveCustomer(c: Customer)
 		end
 	elseif c.kind == "walker" or c.kind == "bicycle" then
 		AnomalyManager.WalkInMoving(v, true)
-		Pedestrian.WalkTo(v, stopPoint.Position - backDir() * 55, CONFIG.WalkSpeed)
+		if not AnomalyManager.FloatTo(v, stopPoint.Position - backDir() * 55, CONFIG.WalkSpeed) then
+			Pedestrian.WalkTo(v, stopPoint.Position - backDir() * 55, CONFIG.WalkSpeed)
+		end
 		v:Destroy()
 	else
 		local exit = exitPoint.Position

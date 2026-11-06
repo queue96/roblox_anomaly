@@ -12,8 +12,10 @@ local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
+local GhostFloat = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostFloat")) :: any
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 
@@ -878,11 +880,12 @@ function AnomalyManager.RandomFor(kind: string, raining: boolean): string
 end
 
 -- ผีที่เดินมาซื้อทั้งร่าง (ไม่แปลงร่าง): ท่าเดิน / ท่ายืนของแต่ละตัว
+--   float = ลอยมา (ลอยสูงจากพื้นกี่ studs): ไม่เดินตรงดิ่ง ลอยโค้งอ้อมมา ส่ายซ้ายขวา ขึ้นลง (AnomalyManager.FloatTo)
 local WALK_IN = {
 	{ name = "Pop", walk = "TwitchWalk", idle = "LickLips" },
-	{ name = "ghost_child", walk = "ghost_glide", idle = "ghost_idle" },
-	{ name = "ghost_shroud", walk = "shroud_glide", idle = "shroud_idle" },
-	{ name = "ghost_funeral_woman", walk = "ghost_glide", idle = "ghost_glide" },
+	{ name = "ghost_child", walk = "ghost_glide", idle = "ghost_idle", float = 0.3 },
+	{ name = "ghost_shroud", walk = "shroud_glide", idle = "shroud_idle", float = 0.5 },
+	{ name = "ghost_funeral_woman", walk = "ghost_glide", idle = "ghost_glide", float = 0.4 },
 	{ name = "ghost_kuman_thong", walk = "run", idle = "kuman_giggle" },
 	{ name = "ghost_tani", walk = "ghost_idle", idle = "ghost_idle" },
 }
@@ -905,6 +908,9 @@ function AnomalyManager.BuildWalkIn(): Model?
 	m:SetAttribute("WalkClip", w.walk)
 	m:SetAttribute("IdleClip", w.idle)
 	m:SetAttribute("FocusBone", "head")
+	if w.float then
+		m:SetAttribute("FloatLift", w.float)
+	end
 	-- ชิ้นล่องหนตรงหัว (กล่องคำพูดลอยเหนือหัว / CoreLoop.getHead หาชื่อ "Head")
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("Bone") and d.Name == "head" then
@@ -922,6 +928,83 @@ function AnomalyManager.BuildWalkIn(): Model?
 		end
 	end
 	return m
+end
+
+-- ผีลอยที่เดินมาซื้อทั้งร่าง (FloatLift): ลอยไปจุดหมายแบบผี แทน Pedestrian.WalkTo ที่เดินเส้นตรง
+-- (ผู้ใช้ 2026-11-06) ไม่ตรงดิ่งมาที่ร้าน: ลอยเป็นเส้นโค้งอ้อมออกห่างตัวร้าน + ส่ายซ้ายขวา ขึ้นลง เอียงตัว พุ่งเป็นพักๆ (shared/GhostFloat)
+-- คืน false = ตัวนี้ไม่ใช่ผีลอย (ให้ผู้เรียกใช้ Pedestrian.WalkTo ตามเดิม) · ถึงที่แล้ววางตัวลอยนิ่งที่จุดหมายพอดี
+function AnomalyManager.FloatTo(m: Model, target: Vector3, speed: number): boolean
+	local lift = m:GetAttribute("FloatLift")
+	if type(lift) ~= "number" then
+		return false
+	end
+	local p0 = m:GetPivot().Position
+	local a = Vector3.new(p0.X, 0, p0.Z)
+	local b = Vector3.new(target.X, 0, target.Z)
+	local dist = (b - a).Magnitude
+	if dist < 0.3 then
+		return true
+	end
+	local fwd = (b - a).Unit
+	local perp = Vector3.new(-fwd.Z, 0, fwd.X)
+	-- โค้งออกด้านที่ห่างจากตัวร้าน (อ้อมร้าน ไม่พุ่งตรงเข้าหา) ระยะสั้นโค้งน้อย ระยะไกลโค้งกว้าง
+	local mid = (a + b) / 2
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure") :: Model?
+	local sc = if shack then shack:GetPivot().Position else Vector3.new(0, 0, 8)
+	local away = Vector3.new(mid.X - sc.X, 0, mid.Z - sc.Z)
+	local sign = if math.abs(away:Dot(perp)) < 0.5 then (if math.random() < 0.5 then -1 else 1) elseif away:Dot(perp) > 0 then 1 else -1
+	local ctrl = mid + perp * sign * math.clamp(dist * 0.45, 1.5, 18)
+	local function at(s: number): Vector3
+		local u = 1 - s
+		return a * (u * u) + ctrl * (2 * u * s) + b * (s * s)
+	end
+	local len = 0
+	local prev = a
+	for i = 1, 16 do
+		local p = at(i / 16)
+		len += (p - prev).Magnitude
+		prev = p
+	end
+	local fury = GhostFloat.Fury()
+	local spd = speed * (0.85 + fury * 0.55)
+	local seed = math.random() * 100
+	local t0 = os.clock()
+	local s = 0
+	local function place(k: number, w: number)
+		local p = at(k)
+		local ahead = at(math.min(1, k + 0.02)) - p
+		local look = if ahead.Magnitude > 0.01 then ahead.Unit else fwd
+		local off, rot = GhostFloat.Offset(seed, os.clock() - t0, look, fury)
+		-- ส่ายเต็มที่กลางทาง ค่อยๆ หยุดส่ายตอนใกล้ถึง (หยุดตรงจุดคิว/ตู้พอดี)
+		local ground = groundAt(p)
+		local y = ground + lift * math.min(1, (os.clock() - t0) / 0.6)
+		local pos = Vector3.new(p.X, y, p.Z) + off * w
+		-- ลอยลงต่ำสุดได้แค่เฉียดพื้น (เท้าไม่จมดิน) ส่วนที่เกินดันกลับขึ้นไปลอยสูงแทน
+		if pos.Y < ground + 0.05 then
+			pos = Vector3.new(pos.X, ground + 0.05 + (ground + 0.05 - pos.Y) * 0.5, pos.Z)
+		end
+		m:PivotTo(CFrame.lookAt(pos, pos + look) * CFrame.new():Lerp(rot, w))
+	end
+	local done = false
+	local conn: RBXScriptConnection
+	conn = RunService.Heartbeat:Connect(function(dt)
+		if not m.Parent then
+			done = true
+			conn:Disconnect()
+			return
+		end
+		s = math.min(1, s + spd * GhostFloat.Surge(seed, os.clock() - t0, fury) * dt / math.max(len, 0.1))
+		place(s, math.clamp(math.min(s, 1 - s) * 6, 0, 1))
+		if s >= 1 then
+			done = true
+			conn:Disconnect()
+		end
+	end)
+	while not done do
+		task.wait()
+	end
+	return true
 end
 
 -- เดิน / หยุด (เฉพาะผีที่เดินมาทั้งร่าง: ตัวอื่นไม่ทำอะไร)

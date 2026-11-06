@@ -535,6 +535,38 @@ local FLOAT_CLIPS = { Float = true, FlapFly = true, Glide = true, shroud_glide =
 local GHOST_MOVE_SIDE = { "run", "TwitchWalk", "ghost_glide", "Float", "FlapFly", "Glide", "shroud_glide", "coffin_walk", "TallSlowWalk" }
 local GHOST_MOVE_LUNGE = { "Lunge", "ghost_glide", "run", "Float", "FlapFly", "Glide", "shroud_glide", "TwitchWalk", "coffin_walk", "TallSlowWalk" }
 
+-- ผีโครงกระดูกคน (ghost_* 52 ท่อน ชุดเดียวกับชาวบ้าน) ที่ไม่มีท่าวิ่งของตัวเอง: ยืมท่าวิ่งของชาวบ้านที่ตัวเท่ากัน
+local GHOST_CHAR: { [string]: string } = {
+	ghost_funeral_woman = "human_female",
+	ghost_mirror = "human_female",
+	ghost_tani = "human_female",
+	ghost_mae_nak = "human_female",
+	ghost_dancer = "human_female",
+	ghost_headless = "human_female",
+	ghost_funeral_elder_man = "human_elder_male",
+	ghost_funeral_elder_woman = "human_elder_female",
+	ghost_child = "human_child",
+	ghost_kuman_thong = "human_child",
+}
+local function humanRun(char: string, skirt: boolean): string?
+	local set = HumanAnimIds[char] or HumanAnimIds.human_base
+	local clip = if skirt then "run_skirt" else "run"
+	return set[clip] or HumanAnimIds.human_base[clip]
+end
+
+-- Char / Outfit ของตัวนี้ หรือของชาวบ้านที่ร่างผีนี้ซ้อนอยู่ (GhostDouble อยู่ใน DriverNPC)
+local function charOf(rig: Instance, top: Instance): (string?, string?)
+	local a: Instance? = rig
+	while a and a ~= top.Parent do
+		local c = a:GetAttribute("Char")
+		if type(c) == "string" then
+			return c, a:GetAttribute("Outfit") :: any
+		end
+		a = a.Parent
+	end
+	return nil, nil
+end
+
 type Mover = { rig: Model, track: AnimationTrack?, floats: boolean }
 local function prepareMove(model: Model, style: string): { Mover }
 	local list: { Mover } = {}
@@ -542,16 +574,16 @@ local function prepareMove(model: Model, style: string): { Mover }
 		if not rig:IsA("Model") then
 			continue
 		end
+		local ac = rig:FindFirstChildOfClass("AnimationController")
+		if not ac then
+			continue -- ชิ้นส่วน/อุปกรณ์ที่ไม่ใช่ตัวละคร
+		end
 		local id: string? = nil
 		local floats = false
-		local char = rig:GetAttribute("Char")
+		local char, outfit = charOf(rig, model)
 		local gname = rig:GetAttribute("GhostName")
-		if type(char) == "string" then
-			local set = HumanAnimIds[char] or HumanAnimIds.human_base
-			local skirt = SKIRT_OUTFITS[rig:GetAttribute("Outfit") :: any] == true
-			local clip = if style == "lunge" then "ghost_glide" elseif skirt then "run_skirt" else "run"
-			id = set[clip] or HumanAnimIds.human_base[clip]
-		elseif type(gname) == "string" and GhostAnimIds[gname] then
+		local skirt = SKIRT_OUTFITS[outfit :: any] == true
+		if type(gname) == "string" and GhostAnimIds[gname] then
 			local set = GhostAnimIds[gname]
 			for _, c in ipairs(if style == "lunge" then GHOST_MOVE_LUNGE else GHOST_MOVE_SIDE) do
 				if set[c] then
@@ -560,10 +592,28 @@ local function prepareMove(model: Model, style: string): { Mover }
 					break
 				end
 			end
+			-- หนีออกไปด้านข้าง (ผู้ใช้ 2026-11-06): ผีร่างคนต้องวิ่งออกไปเท่านั้น ไม่ร่อน/ไถลไปเฉยๆ (ผีลอยอย่างกระสือยังลอย)
+			if style == "side" and not floats and not set.run and string.sub(gname, 1, 6) == "ghost_" then
+				id = humanRun(GHOST_CHAR[gname] or "human_base", false) or id
+			end
+		elseif char then
+			-- ชาวบ้าน และร่างผีที่ซ้อนตัวชาวบ้าน (GhostDouble): วิ่ง (ผ้านุ่งยาว = วิ่งก้าวสั้น) · พุ่งเข้าหา = ร่อนแบบผี
+			if style == "lunge" then
+				local set = HumanAnimIds[char] or HumanAnimIds.human_base
+				id = set.ghost_glide or HumanAnimIds.human_base.ghost_glide
+			else
+				id = humanRun(char, skirt)
+			end
 		else
 			continue
 		end
-		local an = rig:FindFirstChildWhichIsA("Animator", true)
+		-- ปล่อยมือ/เท้าที่จับแฮนด์ พวงมาลัย ที่พักเท้า (IK) ไม่งั้นวิ่งทั้งที่แขนยังกางจับแฮนด์
+		for _, ik in ipairs(ac:GetChildren()) do
+			if ik:IsA("IKControl") then
+				ik.Enabled = false
+			end
+		end
+		local an = ac:FindFirstChildOfClass("Animator") or rig:FindFirstChildWhichIsA("Animator", true)
 		local track: AnimationTrack? = nil
 		if id and an then
 			local a = Instance.new("Animation")
@@ -705,13 +755,16 @@ local function revealGhost(key: string?, source: Instance?, plan: { [string]: an
 	elseif style == "side" then
 		-- วูบหลบไปด้านข้าง (ซ้าย/ขวาของจอเรา) แล้วจางหาย รอแป๊บ ค่อยโผล่จากด้านนั้น
 		local dir = cam.CFrame.RightVector * side
-		local dash = math.min(0.6, pause)
+		dir = Vector3.new(dir.X, 0, dir.Z)
+		dir = if dir.Magnitude > 0.01 then dir.Unit else Vector3.new(1, 0, 0)
+		-- วิ่งออกไปให้เห็นท่าวิ่งเต็มๆ เกือบตลอดช่วง pause (เดิม 0.6 วิ แทบไม่ทันเห็นท่า)
+		local dash = math.max(0.3, pause * 0.9)
 		local t1 = os.clock()
 		while true do
 			local k = math.clamp((os.clock() - t1) / dash, 0, 1)
-			model:PivotTo(start + dir * 8 * k)
+			model:PivotTo(start + dir * 11 * k)
 			-- วิ่งออกไปเห็นชัดก่อน แล้วค่อยจางช่วงท้าย
-			setAlpha(1 - math.max(0, k - 0.6) / 0.4)
+			setAlpha(1 - math.max(0, k - 0.7) / 0.3)
 			if k >= 1 then
 				break
 			end

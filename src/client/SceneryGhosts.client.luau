@@ -464,6 +464,19 @@ local function showRigged(kind: string, def: Kind): Model?
 	local dir = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
 	local total = dir.Magnitude
 	local unit = if total > 0.01 then dir.Unit else Vector3.new(0, 0, -1)
+	-- ทางเข้ามา (ผู้ใช้ 2026-11-06): ไม่ตรงดิ่ง โค้งออกข้างหนึ่งแล้ววกเข้า (ผีบินผ่านฉากแบบ path ยังเป็นเส้นตรง)
+	local arcSide = if math.random() < 0.5 then -1 else 1
+	local arcCtrl = (from + to) / 2 + Vector3.new(-unit.Z, 0, unit.X) * arcSide * math.clamp(total * 0.5, 0, 10)
+	local function along(k: number): (Vector3, Vector3)
+		if def.path then
+			return from + unit * (total * k), unit
+		end
+		local u = 1 - k
+		local p = from * (u * u) + arcCtrl * (2 * u * k) + to * (k * k)
+		local tan = (arcCtrl - from) * (2 * u) + (to - arcCtrl) * (2 * k)
+		tan = Vector3.new(tan.X, 0, tan.Z)
+		return p, if tan.Magnitude > 0.01 then tan.Unit else unit
+	end
 	-- dirNow = ทิศที่หันตอนเคลื่อน / nil = หยุดอยู่ หันหาหน้าร้าน
 	local hopUntil = 0 -- กระโดดอยู่ (hop): ถึงเวลานี้
 	local floatSeed, floatT0 = math.random() * 100, os.clock()
@@ -567,8 +580,16 @@ local function showRigged(kind: string, def: Kind): Model?
 			local beat = math.sin(t * 2.1 + floatSeed)
 			fwd = if beat > -0.45 then 1.25 * surge else -0.7
 		end
-		local orbit = math.cos(t * 1.4 + floatSeed) * 0.9
+		-- วนอ้อมเข้ามาทางข้างเดียว (ยิ่งไกลยิ่งวนกว้าง) + ส่ายไปมา: ไม่พุ่งตรงเข้าหาเป็นเส้นตรง
+		local orbit = arcSide * 1.1 * math.clamp((dist - CONFIG.HuntReach) / 14, 0, 1) + math.cos(t * 1.4 + floatSeed) * 0.6
 		return (dir * fwd + side * orbit) * huntSpeed * dt
+	end
+	-- ผีเดินไล่ (ไม่ลอย): เดินโค้งอ้อมเข้ามาเหมือนกัน ไม่ตรงดิ่ง
+	local function walkStep(gap: Vector3, dt: number): Vector3
+		local dir = gap.Unit
+		local side = Vector3.new(-dir.Z, 0, dir.X)
+		local curl = arcSide * 0.75 * math.clamp((gap.Magnitude - CONFIG.HuntReach) / 14, 0, 1)
+		return (dir + side * curl).Unit * huntSpeed * dt
 	end
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not m.Parent or struck then
@@ -618,7 +639,12 @@ local function showRigged(kind: string, def: Kind): Model?
 					pos = nextPos
 				end
 			else
-				pos += gap.Unit * huntSpeed * dt
+				local nextPos = pos + walkStep(gap, dt)
+				if inShackBox(pos) or not inShackBox(nextPos) then
+					pos = nextPos
+				else
+					pos += gap.Unit * huntSpeed * dt -- โค้งแล้วจะชนร้าน: ตรงเข้าหาแทน
+				end
 			end
 			hopUntil = os.clock() + 0.1
 			place(pos, gap.Unit)
@@ -666,9 +692,10 @@ local function showRigged(kind: string, def: Kind): Model?
 			end
 			return
 		end
-		pos = from + unit * s
+		local tan: Vector3
+		pos, tan = along(s / total)
 		hopUntil = os.clock() + 0.1
-		place(pos, unit)
+		place(pos, tan)
 	end)
 	-- ขาโย่ง: ค่อยๆ ยืดหลังโผล่มาได้แป๊บ (ยกตัวตามความยาวขาที่เพิ่ม: เรียก place ซ้ำทุกเฟรมระหว่างยืด)
 	if def.longLegs then

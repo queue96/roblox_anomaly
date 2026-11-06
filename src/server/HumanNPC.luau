@@ -662,6 +662,37 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 	-- ร่างผีจริง (ghost / twist): ผีจากแม่แบบผีที่กระดูกชุดเดียวกับชาวบ้าน (ServerStorage.GhostTemplates) ซ้อนทับตัวจริง
 	-- ไม่มีแม่แบบผี = ใช้สำเนาตัวจริงแบบเดิม (twist = หัวหันกลับ, pale = ผิวซีด)
 	local double = if kind == "ghost" or kind == "twist" then ghostBody(rig.char, d) else nil
+	if double then
+		-- พนมมือแล้วต้องรู้ทันทีว่าเป็นผี (ผู้ใช้ 2026-11-06: ร่างผีชุดขาวดูเหมือนคนธรรมดา สวดนานก็ไม่รู้ว่าผี)
+		-- ผิวซีดเขียวแบบศพ ตัวโปร่งจางๆ แสงเย็นเรืองรอบตัว (ไม่มีขอบแดงเรือง: ผู้ใช้เอาออกแล้ว 2026-11-05)
+		for _, c in ipairs(double:GetChildren()) do
+			if c:IsA("MeshPart") then
+				c.Transparency = 0.22
+				if string.sub(c.Name, 1, 4) == "Body" or string.sub(c.Name, 1, 5) == "Skin_" then
+					local sa = c:FindFirstChildOfClass("SurfaceAppearance")
+					if sa then
+						pcall(function()
+							(sa :: any).Color = Color3.fromRGB(150, 172, 160)
+						end)
+					else
+						c.Color = Color3.fromRGB(150, 172, 160)
+					end
+				end
+			end
+		end
+		local gRoot = double:FindFirstChild("RootPart") :: BasePart?
+		if gRoot then
+			local a = Instance.new("Attachment")
+			a.Position = gRoot.CFrame:PointToObjectSpace(d:GetPivot().Position + Vector3.new(0, 3.2, 0))
+			a.Parent = gRoot
+			local l = Instance.new("PointLight")
+			l.Color = Color3.fromRGB(170, 215, 200)
+			l.Range = 9
+			l.Brightness = 0.8
+			l.Shadows = false
+			l.Parent = a
+		end
+	end
 	if not double then
 		-- ต้อง Clone ทั้งโมเดลในครั้งเดียว: ประกอบใหม่จากชิ้นที่ Clone ทีละชิ้น ผิวจะไม่ผูกกับกระดูกของร่างใหม่ (ค้างท่า A-pose)
 		double = d:Clone()
