@@ -125,13 +125,87 @@ local function release(st: State, keep: { [Bone]: boolean })
 end
 
 local Players = game:GetService("Players")
+local NpcLife = require(Shared:WaitForChild("NpcLife")) :: any
+local LOOK_PLAYER_RANGE = 18 -- studs: NPC บางทีหันมองผู้เล่นที่อยู่ใกล้
+local lastPos: { [Instance]: Vector3 } = setmetatable({}, { __mode = "k" }) :: any
+local avgSpeed: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+local movingNow: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local stillW: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+-- ท่าประกอบคำพูดของคนนั่งรถ (shared/SeatGestureData: delta เทียบเฟรมแรก ลำตัว/คอ/หัว/ไหล่) — client/NpcGestures ตั้ง attribute
+--   SeatGesture = ชื่อท่า, SeatGestureT0 = os.clock() ตอนเริ่ม, SeatGestureLen = ความยาว (ไม่ใส่ = ทั้งท่า)
+local SeatGest = require(Shared:WaitForChild("SeatGestureData")) :: any
+type GClip = { length: number, times: { number }, tracks: { [string]: { CFrame } } }
+local gclips: { [string]: GClip } = {}
+local function gclipOf(name: string): GClip?
+	local c = gclips[name]
+	if c then
+		return c
+	end
+	local d = SeatGest[name]
+	if not d then
+		return nil
+	end
+	local tracks = {}
+	for bone, keys in pairs(d.tracks) do
+		local list = {}
+		for i, k in ipairs(keys) do
+			list[i] = CFrame.new(0, 0, 0, k[1], k[2], k[3], k[4])
+		end
+		tracks[bone] = list
+	end
+	c = { length = d.length, times = d.times, tracks = tracks }
+	gclips[name] = c
+	return c
+end
+local function seatGestureDeltas(rig: Instance): { [string]: CFrame }?
+	local name, t0 = rig:GetAttribute("SeatGesture"), rig:GetAttribute("SeatGestureT0")
+	if type(name) ~= "string" or type(t0) ~= "number" then
+		return nil
+	end
+	local c = gclipOf(name)
+	if not c then
+		return nil
+	end
+	local len = rig:GetAttribute("SeatGestureLen")
+	local dur = if type(len) == "number" then len else c.length
+	local el = os.clock() - t0
+	if el < 0 or el > dur then
+		return nil
+	end
+	local w = math.clamp(math.min(el / 0.3, (dur - el) / 0.4), 0, 1)
+	w = w * w * (3 - 2 * w)
+	local tt = el % c.length
+	local times = c.times
+	local i = 1
+	while i < #times and times[i + 1] <= tt do
+		i += 1
+	end
+	local a = if i < #times then (tt - times[i]) / math.max(1e-4, times[i + 1] - times[i]) else 0
+	local out = {}
+	for bone, keys in pairs(c.tracks) do
+		local k0 = keys[math.min(i, #keys)]
+		local k1 = keys[math.min(i + 1, #keys)]
+		out[bone] = CFrame.identity:Lerp(k0:Lerp(k1, a), w)
+	end
+	return out
+end
+local LIFE_ORDER = { "hips", "thigh.L", "shin.L", "foot.L", "thigh.R", "shin.R", "foot.R", "spine", "chest", "shoulder.L", "shoulder.R", "neck", "head" } -- พ่อก่อนลูก
 RunService.PreSimulation:Connect(function(dt)
 	local t = workspace:GetServerTimeNow()
+	local cam = workspace.CurrentCamera
+	local camPos = if cam then cam.CFrame.Position else Vector3.zero
 	-- ตัวที่ติด tag + ตัวผู้เล่นทุกคน (ถือของ / ท่าอารมณ์ของผู้เล่น)
 	local list = CollectionService:GetTagged(TAG)
 	for _, p in ipairs(Players:GetPlayers()) do
 		local c = p.Character
 		if c and c:FindFirstChild("RootPart") and not CollectionService:HasTag(c, TAG) then
+			table.insert(list, c)
+		end
+	end
+	-- NPC ทุกแบบตัว (ชั้นมีชีวิต: tag ที่ DriverNPC) — ยกเว้นตัวที่ Walker ข้างนอกติด tag ท่าอารมณ์อยู่แล้ว (ทำในรอบของ Walker)
+	for _, c in ipairs(CollectionService:GetTagged("HumanLife")) do
+		local parent = c.Parent
+		if not CollectionService:HasTag(c, TAG) and not (parent and CollectionService:HasTag(parent, TAG)) then
 			table.insert(list, c)
 		end
 	end
@@ -209,6 +283,79 @@ RunService.PreSimulation:Connect(function(dt)
 					end
 				end
 			end
+			end
+		end
+		-- 4) ชั้นมีชีวิต (shared/NpcLife): หายใจ มองไปมา ถ่ายน้ำหนัก ขยับเล็กๆ — NPC เท่านั้น ใกล้กล้อง ไม่ใช่ผี/ท่านอน
+		--   ตัวที่มีกระดูก = DriverNPC (Walker ห่ออยู่ / หรือ DriverNPC ในรถเอง) · Clip อยู่ที่ Walker หรือรถ (key ของ HumanNPC)
+		local rigM = (m:FindFirstChild("DriverNPC") or m) :: Instance
+		local root = rigM:FindFirstChild("RootPart") or rigM:FindFirstChild("HumanoidRootPart")
+		local holder = rigM.Parent
+		local clip = rigM:GetAttribute("Clip") or m:GetAttribute("Clip") or (holder and holder:GetAttribute("Clip"))
+		local skipLife = Players:GetPlayerFromCharacter(m) ~= nil or m:GetAttribute("NoLife") == true
+			or (type(clip) == "string" and (string.sub(clip, 1, 5) == "ghost" or string.find(clip, "lying") ~= nil))
+		if not skipLife and root and root:IsA("BasePart") and (root.Position - camPos).Magnitude < NpcLife.RANGE then
+			local seated = rigM:GetAttribute("SeatClip") ~= nil
+			-- เดินอยู่ไหม: ดูจากระยะที่ RootPart เลื่อน (คนเดินถนนเลื่อนด้วย CFrame ความเร็ว physics = 0)
+			--   ตำแหน่งจาก server มาเป็นช่วงๆ: บางเฟรมเลื่อน บางเฟรมนิ่ง -> เฉลี่ยความเร็ว + ไล่น้ำหนัก "ยืนนิ่ง" นุ่มๆ
+			--   (เดิมเช็คเฟรมต่อเฟรม การถ่ายน้ำหนักติด-ดับสลับทุกเฟรม = ตัวสั่น)
+			local lp = lastPos[m]
+			local raw = if lp and dt > 0 then ((root.Position - lp) * Vector3.new(1, 0, 1)).Magnitude / dt else 0
+			lastPos[m] = root.Position
+			local sp = (avgSpeed[m] or 0) + (math.min(raw, 30) - (avgSpeed[m] or 0)) * math.min(1, dt * 3)
+			avgSpeed[m] = sp
+			local wasMoving = movingNow[m] == true
+			local moving = not seated and (if wasMoving then sp > 0.8 else sp > 1.6)
+			movingNow[m] = moving
+			local sw = (stillW[m] or 1) + ((if moving then 0 else 1) - (stillW[m] or 1)) * math.min(1, dt * 2.5)
+			stillW[m] = sw
+			local lookAt: Vector3? = nil
+			local bestD = LOOK_PLAYER_RANGE
+			for _, p in ipairs(Players:GetPlayers()) do
+				local h = p.Character and p.Character:FindFirstChild("Head") :: BasePart?
+				if h then
+					local d = (h.Position - root.Position).Magnitude
+					if d < bestD then
+						lookAt, bestD = h.Position, d
+					end
+				end
+			end
+			local ok, offs = pcall(NpcLife.Offsets, rigM, root, os.clock(), dt, { seated = seated, noHead = seated or rigM:GetAttribute("HeadByRider") == true, riderYaw = rigM:GetAttribute("RiderLookYaw"), moving = moving, still = sw, emoteW = emoteW, lookAt = lookAt })
+			if ok then
+				local gest = seatGestureDeltas(rigM) or {}
+				for _, bname in ipairs(LIFE_ORDER) do
+					local w = offs[bname]
+					local g = gest[bname]
+					local b = if w or g then st.bones[bname] else nil
+					if b then
+						local from = poses[b] or baseOf(st, b)
+						if w then
+							local f = b.TransformedWorldCFrame.Rotation
+							from = from * (f:Inverse() * w * f)
+						end
+						poses[b] = if g then from * g else from
+					end
+				end
+				-- ร่างผีซ้อน (HumanNPC.MakeDouble) ขยับตามตัวจริงเป๊ะ: ผีต้องไม่แข็งกว่าคน (ไม่งั้นดูออกว่าตัวไหนผี)
+				local dbl = rigM:FindFirstChild("GhostDouble")
+				if dbl and dbl:IsA("Model") then
+					local st2 = stateOf(dbl)
+					local keep2: { [Bone]: boolean } = {}
+					for _, bname in ipairs(LIFE_ORDER) do
+						local w = offs[bname]
+						local g = gest[bname]
+						local b2 = if w or g then st2.bones[bname] else nil
+						if b2 then
+							local v = baseOf(st2, b2)
+							if w then
+								local f2 = b2.TransformedWorldCFrame.Rotation
+								v = v * (f2:Inverse() * w * f2)
+							end
+							write(st2, b2, if g then v * g else v)
+							keep2[b2] = true
+						end
+					end
+					release(st2, keep2)
+				end
 			end
 		end
 		for b, cf in pairs(poses) do

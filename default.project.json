@@ -61,6 +61,12 @@
       },
       "BuildBookPortraits": {
         "$path": "tools/studio/BuildBookPortraits.luau"
+      },
+      "HumanAnimImport": {
+        "$path": "tools/studio/HumanAnimImport.luau"
+      },
+      "MocapData": {
+        "$path": "assets/models/mocap/out/studio"
       }
     },
     "StarterPlayer": {

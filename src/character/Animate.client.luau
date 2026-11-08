@@ -28,7 +28,7 @@ local EYE = if hasHead then Vector3.new(0, 1.05, -0.62) else Vector3.new(0, 1.05
 local EYE_PRAY = if hasHead then Vector3.new(0, 1.0, -0.7) else Vector3.new(0, 0.9, -1.15)
 hum:SetAttribute("EyeOffset", EYE)
 
-local ids = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HumanAnimIds")) :: any).human_base or {}
+local ids = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("HumanAnimIds")) :: any).player or {} -- ท่าชุดเดิม (ไม่ใช่ mocap): ดู HumanAnimIds.player
 local WALK_CLIP_SPEED = 4.3
 
 local tracks: { [string]: AnimationTrack } = {}

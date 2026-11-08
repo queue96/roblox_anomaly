@@ -8653,4 +8653,481 @@ function MapBuilder.RepaintBananaV2(assetId: number?): string
 	return string.format("ok (%d parts repainted, %d already v2)", n, skipped)
 end
 
+-- ===================================================================================
+-- ของในฉาก v2 (ผู้ใช้ 2026-11-08 "ปั้นใหม่เลยขอดีๆ ละเอียดๆ"): ตู้ปั๊มหลอด / ถังปั๊มลม / ชั้นของในเพิง
+-- สคริปต์ Blender: tools/blender/gas_pump_v2.py, air_compressor_v2.py, shack_shelf_v2.py (ใช้ proplib.py)
+-- Import 3D ไฟล์ใน assets/models/<ชื่อ>V2/upload/ (หรือส่ง assetId ของ Model ที่อัปโหลดแล้ว) แล้วเรียก Swap*V2
+-- importer อาจอ่าน FBX ใหญ่ผิดสเกล: ย่อตามความสูงชิ้นหลักที่รู้จาก log "BBOX" ของสคริปต์ (อย่าแก้ข้างเดียว)
+-- ของเดิมย้ายไป ServerStorage.ArchivedPlaceholders.<ชื่อ>_v1 · ต้นฉบับที่นำเข้าย้ายไป <ชื่อ>V2_Imported
+-- ===================================================================================
+local function v2Archive(): Folder
+	local SS = game:GetService("ServerStorage")
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	return arch :: Folder
+end
+
+local function v2Source(srcName: string, assetId: number?): Model?
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == srcName then
+			return d
+		end
+	end
+	local arch = v2Archive():FindFirstChild(srcName .. "_Imported")
+	if arch and arch:IsA("Model") then
+		return arch
+	end
+	if assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		local m = pkg:FindFirstChildWhichIsA("Model") or pkg
+		m.Name = srcName
+		m.Parent = Workspace
+		return m :: Model
+	end
+	return nil
+end
+
+-- คืน { ชื่อชิ้น = BasePart } + ฟังก์ชันวางชิ้นลงพิกัดใหม่ (targetPiv = พื้นใต้กึ่งกลาง หันหน้า -Z)
+-- center/sizeY = กึ่งกลางกรอบ + ความสูงของชิ้นหลัก (studs, พิกัด Roblox) จาก log ของสคริปต์ Blender
+local function v2Layout(src: Model, mainName: string, center: Vector3, sizeY: number)
+	local parts: { [string]: BasePart } = {}
+	for _, d in ipairs(src:GetDescendants()) do
+		if d:IsA("BasePart") and parts[d.Name] == nil then
+			parts[d.Name] = d
+		end
+	end
+	local main = parts[mainName]
+	if not main then
+		return nil, nil, 0
+	end
+	local k = sizeY / main.Size.Y
+	local srcPiv = main.CFrame * CFrame.new(-center / k)
+	local function clonePart(name: string, targetPiv: CFrame, parent: Instance): BasePart?
+		local p = parts[name]
+		if not p then
+			return nil
+		end
+		local rel = srcPiv:ToObjectSpace(p.CFrame)
+		local n = p:Clone()
+		for _, c in ipairs(n:GetChildren()) do
+			if not c:IsA("SurfaceAppearance") then
+				c:Destroy()
+			end
+		end
+		n.Size = p.Size * k
+		n.CFrame = targetPiv * (CFrame.new(rel.Position * k) * rel.Rotation)
+		n.PivotOffset = CFrame.identity -- ชิ้นที่นำเข้ามี PivotOffset ไปหา origin ของไฟล์ (สเกลเดิม) ทำให้ pivot ของ Model เพี้ยน
+		n.Anchored = true
+		n.CanCollide = false
+		n.CanTouch = false
+		n.CastShadow = true
+		n.Parent = parent
+		return n
+	end
+	return parts, clonePart, k
+end
+
+local GASPUMP_V2_CENTER, GASPUMP_V2_H = Vector3.new(0.066, 3.910, -0.045), 7.820 -- gas_pump_v2.py "BBOX GasPump"
+
+-- ตู้ปั๊มหลอด v2: สลับทั้งตู้เบนซิน (GasPump) และตู้ดีเซล (DieselPump) ใน InteractiveProps.FuelPumps
+--   ชื่อชิ้นคงเดิมตามที่ CoreLoop / AnomalyManager ใช้: GasPump (ตัวตู้ = PrimaryPart, ปุ่มกดสร้างตอนเล่น), FuelLiquid, GlassTube, HandCrank, Nozzle
+--   น้ำมัน: texture อบเป็นครีมอ่อน ย้อม SurfaceAppearance.Color (เบนซินส้ม / ดีเซลเขียวเหมือนที่ CoreLoop ตั้ง)
+--   แล้วรัน GroupFuelPumps ใหม่ให้ฐานปูนแผ่นเดียวสูงพอดีแท่นของตู้ใหม่ · ตู้ได้ attribute PumpVersion = 2
+local function swapGasPumpModel(assetId: number?, srcName: string, center: Vector3, sizeY: number, ver: number): string
+	local src = v2Source(srcName, assetId)
+	if not src then
+		return "import " .. srcName .. ".fbx (assets/models/" .. srcName .. "/upload/) first, or pass assetId"
+	end
+	local parts, clonePart = v2Layout(src, "GasPump", center, sizeY)
+	if not (parts and clonePart) then
+		return "imported model has no GasPump part"
+	end
+	for _, n in ipairs({ "GlassTube", "FuelLiquid", "HandCrank", "Nozzle" }) do
+		if not parts[n] then
+			return "imported model has no " .. n
+		end
+	end
+	local arch = v2Archive()
+	local done = {}
+	local gap: number? = nil
+	local gas0, diesel0 = findPump("GasPump"), findPump("DieselPump")
+	if gas0 and diesel0 then
+		gap = (diesel0:GetPivot().Position - gas0:GetPivot().Position).Magnitude
+	end
+	for _, pumpName in ipairs({ "GasPump", "DieselPump" }) do
+		local old = findPump(pumpName)
+		if old and old:GetAttribute("PumpVersion") ~= ver then
+			local oldTag = pumpName .. "_v" .. tostring(old:GetAttribute("PumpVersion") or 1)
+			local oldBody = (old.PrimaryPart or old:FindFirstChild("GasPump")) :: BasePart?
+			local piv = old:GetPivot()
+			local bottomY = if oldBody then oldBody.Position.Y - oldBody.Size.Y / 2 else piv.Position.Y
+			local target = CFrame.new(piv.Position.X, bottomY, piv.Position.Z) * piv.Rotation
+			local m = Instance.new("Model")
+			m.Name = pumpName
+			local body = clonePart("GasPump", target, m) :: BasePart
+			body.CanCollide = true
+			local glass = clonePart("GlassTube", target, m) :: BasePart
+			local liquid = clonePart("FuelLiquid", target, m) :: BasePart
+			clonePart("HandCrank", target, m)
+			clonePart("Nozzle", target, m)
+			glass.Material = Enum.Material.Glass
+			glass.Color = Color3.fromRGB(205, 225, 215)
+			glass.Transparency = 0.55
+			glass.CastShadow = false
+			local gsa = glass:FindFirstChildOfClass("SurfaceAppearance")
+			if gsa then
+				gsa:Destroy()
+			end
+			local isDiesel = pumpName == "DieselPump"
+			liquid.Color = if isDiesel then Color3.fromRGB(70, 150, 60) else Color3.fromRGB(196, 118, 44)
+			liquid.CastShadow = false
+			local lsa = liquid:FindFirstChildOfClass("SurfaceAppearance")
+			if lsa then
+				(lsa :: any).Color = if isDiesel then Color3.fromRGB(110, 210, 90) else Color3.fromRGB(214, 132, 52)
+			end
+			-- ป้ายชื่อโซน / ปุ่มกด (ถ้ามีค้างในตู้เดิม) ย้ายมาตู้ใหม่
+			for _, d in ipairs(old:GetDescendants()) do
+				if d:IsA("ProximityPrompt") then
+					d.Parent = body
+				elseif d.Name == "ZoneLabel" then
+					d.Parent = glass
+				end
+			end
+			for key, val in pairs(old:GetAttributes()) do
+				if string.sub(key, 1, 4) ~= "RBX_" then -- RBX_ReimportId ตั้งเองไม่ได้ (CoreScript)
+					m:SetAttribute(key, val)
+				end
+			end
+			m:SetAttribute("ImportedProp", true)
+			m:SetAttribute("PumpVersion", ver)
+			m.PrimaryPart = body
+			body.PivotOffset = body.CFrame:ToObjectSpace(target)
+			local parent = old.Parent
+			local prev = arch:FindFirstChild(oldTag)
+			if prev then
+				prev:Destroy()
+			end
+			old.Name = oldTag
+			old.Parent = arch
+			m.Parent = parent
+			table.insert(done, pumpName)
+		end
+	end
+	if #done == 0 then
+		return "already v2"
+	end
+	if findPump("GasPump") and findPump("DieselPump") then
+		MapBuilder.GroupFuelPumps(gap)
+	end
+	local prevSrc = arch:FindFirstChild(srcName .. "_Imported")
+	if prevSrc and prevSrc ~= src then
+		prevSrc:Destroy()
+	end
+	src.Name = srcName .. "_Imported"
+	src.Parent = arch
+	return "ok " .. table.concat(done, ", ")
+end
+
+function MapBuilder.SwapGasPumpV2(assetId: number?): string
+	return swapGasPumpModel(assetId, "GasPumpV2", GASPUMP_V2_CENTER, GASPUMP_V2_H, 2)
+end
+
+-- ตู้ปั๊มหลอด v3 (ผู้ใช้ 2026-11-08 ส่งรูปจริง 7 รูป: v2 "ดูใหม่" เกินไป): tools/blender/gas_pump_v3.py -> assets/models/GasPumpV3/upload/
+--   ถัง 200 ลิตรบนแคร่ไม้ + ปั๊มโยกตัวกลมแดง + หลอดแก้วฝาแดง + สายยางเหลืองใส · ชื่อชิ้นเดิมทุกชิ้น · PumpVersion = 3 (ตู้ v2 เก็บเป็น <ชื่อ>_v2)
+function MapBuilder.SwapGasPumpV3(assetId: number?): string
+	local r = swapGasPumpModel(assetId, "GasPumpV3", Vector3.new(0, 3.675, -0.005), 7.350, 3) -- gas_pump_v3.py "BBOX GasPump"
+	MapBuilder.FitFuelBaseUnderPallet()
+	return r
+end
+
+-- ตู้ v3 มีแคร่ไม้ในตัว: GroupFuelPumps ตั้งผิวฐานปูนสูงกว่าแคร่ (กลบแคร่) -> ลดผิวบนฐานลงมาเท่าพื้นใต้แคร่ (pivot ของตู้)
+function MapBuilder.FitFuelBaseUnderPallet()
+	local gas = findPump("GasPump")
+	local base = gas and gas.Parent and gas.Parent:FindFirstChild("SharedBase") :: BasePart?
+	if not (gas and base) then
+		return
+	end
+	local floorY = gas:GetPivot().Position.Y
+	local bottom = base.Position.Y - base.Size.Y / 2
+	local h = math.max(0.2, floorY - bottom)
+	base.Size = Vector3.new(base.Size.X, h, base.Size.Z)
+	base.CFrame = base.CFrame + Vector3.new(0, (bottom + h / 2) - base.Position.Y, 0)
+end
+
+-- ทำตู้ปั๊มให้ดูเก่าลงโดยไม่ปั้นใหม่ (ผู้ใช้ 2026-11-08 "หน้าตาโอเคแล้ว แต่สีมันสดไป"):
+--   ย้อม SurfaceAppearance.Color (คูณทับ texture) เป็นสีฝุ่นเทาน้ำตาล -> สีหม่น/มืดลง · หลอดแก้วขุ่นเหลืองนิดๆ
+--   ไม่แตะ FuelLiquid (CoreLoop/AnomalyManager ใช้สีน้ำมันเอง) · amount 0 = สีเดิม, 1 = เก่ามาก · รันซ้ำได้ (คิดจากสีขาวทุกครั้ง)
+function MapBuilder.AgeFuelPumps(amount: number?): string
+	local a = math.clamp(amount or 0.5, 0, 1)
+	local dust = Color3.fromRGB(150, 132, 112)
+	local tint = Color3.new(1, 1, 1):Lerp(dust, a)
+	local n = 0
+	for _, pumpName in ipairs({ "GasPump", "DieselPump" }) do
+		local pump = findPump(pumpName)
+		if pump then
+			for _, partName in ipairs({ "GasPump", "HandCrank", "Nozzle" }) do
+				local p = pump:FindFirstChild(partName)
+				local sa = p and p:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					(sa :: any).Color = tint
+					n += 1
+				end
+			end
+			local glass = pump:FindFirstChild("GlassTube") :: BasePart?
+			if glass then
+				glass.Color = Color3.fromRGB(205, 225, 215):Lerp(Color3.fromRGB(170, 160, 130), a)
+				glass.Transparency = 0.55 - 0.1 * a
+			end
+			pump:SetAttribute("AgeAmount", a)
+		end
+	end
+	return string.format("ok %d parts, tint (%d,%d,%d)", n, tint.R * 255, tint.G * 255, tint.B * 255)
+end
+
+local AIRCOMP_V2_CENTER, AIRCOMP_V2_H = Vector3.new(-0.240, 1.779, 0.275), 3.591 -- air_compressor_v2.py "BBOX AirCompressor"
+
+-- ถังปั๊มลม v2: Workspace.AirCompressor (ชื่อ / ที่วาง / ทิศเดิม) ชิ้นใหญ่สุด = AirCompressor -> CoreLoop ติด AirPumpPrompt ที่นี่
+--   ชิ้นแยก: Flywheel (หมุนรอบแกน Z ของชิ้น), PressureGauge_Needle, ReliefValve · attribute CompressorVersion = 2
+function MapBuilder.SwapAirCompressorV2(assetId: number?): string
+	local old = Workspace:FindFirstChild("AirCompressor") :: Model?
+	if not old then
+		return "no Workspace.AirCompressor"
+	end
+	if old:GetAttribute("CompressorVersion") == 2 then
+		return "already v2"
+	end
+	local src = v2Source("AirCompressorV2", assetId)
+	if not src then
+		return "import AirCompressorV2.fbx (assets/models/AirCompressorV2/upload/) first, or pass assetId"
+	end
+	local parts, clonePart = v2Layout(src, "AirCompressor", AIRCOMP_V2_CENTER, AIRCOMP_V2_H)
+	if not (parts and clonePart) then
+		return "imported model has no AirCompressor part"
+	end
+	local piv = old:GetPivot()
+	local cf, size = old:GetBoundingBox()
+	local bottomY = cf.Position.Y - size.Y / 2
+	local target = CFrame.new(piv.Position.X, bottomY, piv.Position.Z) * piv.Rotation
+	local m = Instance.new("Model")
+	m.Name = "AirCompressor"
+	local body = clonePart("AirCompressor", target, m) :: BasePart
+	body.CanCollide = true
+	for _, n in ipairs({ "Flywheel", "PressureGauge_Needle", "ReliefValve" }) do
+		clonePart(n, target, m)
+	end
+	for _, d in ipairs(old:GetDescendants()) do
+		if d:IsA("ProximityPrompt") then
+			d.Parent = body
+		end
+	end
+	for key, val in pairs(old:GetAttributes()) do
+		if string.sub(key, 1, 4) ~= "RBX_" then
+			m:SetAttribute(key, val)
+		end
+	end
+	m:SetAttribute("ImportedProp", true)
+	m:SetAttribute("CompressorVersion", 2)
+	m.PrimaryPart = body
+	body.PivotOffset = body.CFrame:ToObjectSpace(target)
+	local arch = v2Archive()
+	local prev = arch:FindFirstChild("AirCompressor_v1")
+	if prev then
+		prev:Destroy()
+	end
+	local parent = old.Parent
+	old.Name = "AirCompressor_v1"
+	old.Parent = arch
+	m.Parent = parent
+	src.Name = "AirCompressorV2_Imported"
+	src.Parent = arch
+	return "ok"
+end
+
+local SHELF_V2_CENTER, SHELF_V2_H, SHELF_V2_D = Vector3.new(0, 3.500, 0), 7.000, 1.460 -- shack_shelf_v2.py "BBOX ShackShelf"
+
+-- ชั้นของในเพิง v2: แทน MeshPart ShackShelf ใน MapEnvironment.ShackStructure.ImportedShack
+--   ได้ Model ShackShelfV2 = ShackShelf (โครง ชนได้) + ShelfGoods_Lower / ShelfGoods_Upper (ของ ไม่ชน) ชิดผนังด้านหลังที่เดิม
+function MapBuilder.SwapShackShelfV2(assetId: number?): string
+	local shack = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("ShackStructure")
+	local holder = shack and shack:FindFirstChild("ImportedShack")
+	if not holder then
+		return "no MapEnvironment.ShackStructure.ImportedShack"
+	end
+	if holder:FindFirstChild("ShackShelfV2") then
+		return "already v2"
+	end
+	local old = holder:FindFirstChild("ShackShelf") :: BasePart?
+	if not (old and old:IsA("BasePart")) then
+		return "no ImportedShack.ShackShelf part"
+	end
+	local src = v2Source("ShackShelfV2", assetId)
+	if not src then
+		return "import ShackShelfV2.fbx (assets/models/ShackShelfV2/upload/) first, or pass assetId"
+	end
+	local parts, clonePart = v2Layout(src, "ShackShelf", SHELF_V2_CENTER, SHELF_V2_H)
+	if not (parts and clonePart) then
+		return "imported model has no ShackShelf part"
+	end
+	-- หลังชั้นชิดผนังที่เดิม (ด้าน +Z ของชิ้นเดิม) ฐานแตะพื้นเดิม
+	local target = old.CFrame * CFrame.new(0, -old.Size.Y / 2, (old.Size.Z - SHELF_V2_D) / 2)
+	local m = Instance.new("Model")
+	m.Name = "ShackShelfV2"
+	local frame = clonePart("ShackShelf", target, m) :: BasePart
+	frame.CanCollide = true
+	for _, n in ipairs({ "ShelfGoods_Lower", "ShelfGoods_Upper" }) do
+		local g = clonePart(n, target, m)
+		if g then
+			g.CanQuery = false
+		end
+	end
+	m.PrimaryPart = frame
+	frame.PivotOffset = frame.CFrame:ToObjectSpace(target)
+	local arch = v2Archive()
+	local prev = arch:FindFirstChild("ShackShelf_v1")
+	if prev then
+		prev:Destroy()
+	end
+	old.Name = "ShackShelf_v1"
+	old.Parent = arch
+	m.Parent = holder
+	src.Name = "ShackShelfV2_Imported"
+	src.Parent = arch
+	return "ok"
+end
+
+-- ===================================================================================
+-- แทนชิ้นเดิมทีละชิ้น ณ ตำแหน่ง/มุมเดิม (ยางมุมปะยาง + ของในเพิง v2, ผู้ใช้ 2026-11-08)
+-- ก้นของชิ้นหลักใหม่ = ก้นของชิ้นเดิม (ตามแกนของชิ้นเดิม: ยางที่วางเอียงก็เอียงตาม) ชิ้นรองวางตามระยะในไฟล์
+-- ลูกของชิ้นเดิม (ปุ่มกด / ป้าย / เสียง / attribute) ย้ายมาชิ้นใหม่ · ของเดิมเก็บใน ArchivedPlaceholders.<archiveName>
+-- ===================================================================================
+local function v2ReplaceInPlace(old: BasePart, clonePart: any, srcName: string, center: Vector3, sizeY: number, extras: { string }?, adds: { string }?, archive: Folder): BasePart?
+	local bottom = old.CFrame * CFrame.new(0, -old.Size.Y / 2, 0)
+	local origin = bottom * CFrame.new(-center.X, -(center.Y - sizeY / 2), -center.Z)
+	local parent = old.Parent :: Instance
+	local new = clonePart(srcName, origin, parent) :: BasePart?
+	if not new then
+		return nil
+	end
+	new.Name = old.Name
+	new.CanCollide = old.CanCollide
+	new.CanQuery = old.CanQuery
+	new.CanTouch = old.CanTouch
+	for key, val in pairs(old:GetAttributes()) do
+		if string.sub(key, 1, 4) ~= "RBX_" then
+			new:SetAttribute(key, val)
+		end
+	end
+	for _, c in ipairs(old:GetChildren()) do
+		if c:IsA("BasePart") and extras and table.find(extras, c.Name) then
+			c.Parent = parent -- ชิ้นรองที่ซ้อนอยู่ในชิ้นหลัก: ให้ขั้นชิ้นรองด้านล่างเก็บเข้าคลัง
+		elseif not c:IsA("SurfaceAppearance") then
+			c.Parent = new
+		end
+	end
+	new:SetAttribute("PropVersion", 2)
+	if parent:IsA("Model") and parent.PrimaryPart == old then
+		parent.PrimaryPart = new
+	end
+	old.Parent = archive
+	for _, n in ipairs(extras or {}) do
+		local oe = parent:FindFirstChild(n)
+		local ne = clonePart(n, origin, parent) :: BasePart?
+		if ne then
+			ne.Name = n
+			if oe and oe:IsA("BasePart") then
+				ne.CanCollide = oe.CanCollide
+				for _, c in ipairs(oe:GetChildren()) do
+					if not c:IsA("SurfaceAppearance") then
+						c.Parent = ne
+					end
+				end
+				oe.Parent = archive
+			end
+		end
+	end
+	for _, n in ipairs(adds or {}) do
+		local ne = clonePart(n, origin, parent)
+		if ne then
+			ne.Name = n
+			ne.CanQuery = false
+		end
+	end
+	return new
+end
+
+local function v2ArchiveFolder(name: string): Folder
+	local arch = v2Archive()
+	local f = arch:FindFirstChild(name) or Instance.new("Folder")
+	f.Name = name
+	f.Parent = arch
+	return f :: Folder
+end
+
+-- กองยาง v2: tools/blender/tire_stack_v2.py -> assets/models/TireStackV2/upload/ · แทน TireStack_4 / TireLeaning / TireLoose / TireWithRim ทุกชิ้นใน Workspace
+function MapBuilder.SwapTireStackV2(assetId: number?): string
+	local src = v2Source("TireStackV2", assetId)
+	if not src then
+		return "import TireStackV2.fbx (assets/models/TireStackV2/upload/) first, or pass assetId"
+	end
+	local spec = { -- ชื่อในฉาก -> ชิ้นในไฟล์, กึ่งกลางกรอบ, ความสูง (tire_stack_v2.py "BBOX")
+		TireStack_4 = { "TireStack_4", Vector3.new(-0.011, 1.407, -0.006), 2.872 },
+		TireLeaning = { "TireLeaning", Vector3.new(0.001, 1.219, 0.000), 2.437 },
+		TireLoose = { "TireLeaning", Vector3.new(0.001, 1.219, 0.000), 2.437 },
+		TireWithRim = { "TireWithRim", Vector3.new(0.004, 0.360, -0.004), 0.779 },
+	}
+	local archive = v2ArchiveFolder("TireStack_v1")
+	local list = {}
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("BasePart") and spec[d.Name] and d:GetAttribute("PropVersion") ~= 2 and not d:IsDescendantOf(src) then
+			table.insert(list, d)
+		end
+	end
+	local n = 0
+	for _, old in ipairs(list) do
+		local sp = spec[old.Name]
+		local _, clonePart = v2Layout(src, sp[1], sp[2], sp[3])
+		if clonePart and v2ReplaceInPlace(old, clonePart, sp[1], sp[2], sp[3], nil, nil, archive) then
+			n += 1
+		end
+	end
+	src.Name = "TireStackV2_Imported"
+	src.Parent = v2Archive()
+	return "ok " .. n .. " tires"
+end
+
+-- ของในเพิง v2 (คุมโทนเก่า หม่น): tools/blender/shack_interior_v2.py -> assets/models/ShackInteriorV2/upload/
+--   CounterTable (+ CounterTable_Clutter ของใต้โต๊ะ ไม่ชน) · IceBox + IceBox_Lid · SodaCrate · MoneyTin + MoneyTin_Lid (ชื่อเดิมทั้งหมด)
+--   ไม่แตะ CutoutSwitch / OldMirror / OwnerPhoto / WallCalendar
+function MapBuilder.SwapShackInteriorV2(assetId: number?): string
+	local src = v2Source("ShackInteriorV2", assetId)
+	if not src then
+		return "import ShackInteriorV2.fbx (assets/models/ShackInteriorV2/upload/) first, or pass assetId"
+	end
+	local spec = { -- ชื่อ -> กึ่งกลางกรอบ, ความสูง, ชิ้นรองที่มีของเดิม, ชิ้นที่เพิ่มใหม่ (shack_interior_v2.py "BBOX")
+		CounterTable = { Vector3.new(-0.014, 1.912, 0.005), 3.824, nil, { "CounterTable_Clutter" } },
+		IceBox = { Vector3.new(0, 0.810, -0.036), 1.620, { "IceBox_Lid" }, nil },
+		SodaCrate = { Vector3.new(0, 0.695, 0), 1.390, nil, nil },
+		MoneyTin = { Vector3.new(-0.053, 0.222, 0.048), 0.444, { "MoneyTin_Lid" }, nil },
+	}
+	local archive = v2ArchiveFolder("ShackInterior_v1")
+	local list = {}
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("BasePart") and spec[d.Name] and d:GetAttribute("PropVersion") ~= 2 and not d:IsDescendantOf(src) then
+			table.insert(list, d)
+		end
+	end
+	local done = {}
+	for _, old in ipairs(list) do
+		local sp = spec[old.Name]
+		local _, clonePart = v2Layout(src, old.Name, sp[1], sp[2])
+		if clonePart and v2ReplaceInPlace(old, clonePart, old.Name, sp[1], sp[2], sp[3], sp[4], archive) then
+			table.insert(done, old.Name)
+		end
+	end
+	src.Name = "ShackInteriorV2_Imported"
+	src.Parent = v2Archive()
+	return "ok " .. table.concat(done, ", ")
+end
+
 return MapBuilder

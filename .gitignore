@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+
+# Mixamo ต้นฉบับ (ใหญ่ ~150MB และห้ามแจกไฟล์ดิบตามสัญญา Mixamo) — เก็บเฉพาะผลแปลงใน mocap/out
+assets/models/mocap/*.fbx
+assets/models/mocap/out/*.blend
+assets/models/mocap/out/*.blend1

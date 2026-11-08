@@ -74,11 +74,12 @@ local WALK_CLIP_SPEED = 4.3
 -- 2026-11-05 (ปรับเทียบให้ human_base walk = 4.3) · walk_base = ท่าเดินของ human_base เล่นบนตัวละครนี้
 -- เดิมทุกตัวคิดเป็น 4.3 หมด: คนแก่/ผ้าซิ่นที่ก้าวสั้นมากเดินที่ 7 studs/วินาที -> ท่าเร่งจนสุด (1.8) แล้วเท้ายังไถล ดูเดินซอยเท้าไม่ชัด
 local NATURAL: { [string]: { [string]: number } } = {
-	human_base = { walk = 4.3, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
-	human_female = { walk = 3.9, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
-	human_child = { walk = 3.1, walk_base = 2.4, walk_skirt = 1.45, run = 10.5, run_skirt = 4.25 },
-	human_elder_male = { walk = 2.0, walk_base = 4.05, walk_skirt = 0.9, run = 7.7, run_skirt = 3.1 },
-	human_elder_female = { walk = 1.7, walk_base = 3.75, walk_skirt = 0.75, run = 6.4, run_skirt = 2.6 },
+	-- walk = ท่าเดิน mocap (2026-11-08 วัดจากเท้าตอนแตะพื้น ใน mocap_retarget: เดิม 4.3 / 3.9 / 3.1 / 2.0 / 1.7)
+	human_base = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
+	human_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
+	human_child = { walk = 2.88, walk_base = 2.4, walk_skirt = 1.45, run = 10.5, run_skirt = 4.25 },
+	human_elder_male = { walk = 1.08, walk_base = 4.05, walk_skirt = 0.9, run = 7.7, run_skirt = 3.1 },
+	human_elder_female = { walk = 1.01, walk_base = 3.75, walk_skirt = 0.75, run = 6.4, run_skirt = 2.6 },
 }
 -- เลือกท่าแรกที่ต้องเร่งไม่เกินนี้ (เร่งมากกว่านี้ดูซอยเท้าถี่ผิดธรรมชาติ)
 local MAX_CLIP_RATE = 1.9
@@ -94,6 +95,7 @@ type Rig = {
 	dance: string?,
 	char: string, -- ตัวละคร (ชุดท่าของตัวนี้ ท่าที่ไม่มีใช้ของ human_base)
 	seated: string?, -- นั่งขับรถอยู่: ท่าขับนี้ตลอด (คำสั่งเดิน/ยืน/เต้นไม่มีผล)
+	idleAlt: string?, -- ท่ายืนแบบที่สุ่มได้ (idle / idle_weight / idle_look / idle_bored)
 }
 local rigs: { [Model]: Rig } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -290,6 +292,9 @@ function HumanNPC.Build(opts: { [string]: any }): Model
 	if char == DEFAULT_CHAR then
 		game:GetService("CollectionService"):AddTag(m, "HumanEmote")
 	end
+	-- ชั้นมีชีวิต (shared/NpcLife ใน client/HumanEmotesRunner): ทุกแบบตัว ไม่ใช่แค่ human_base
+	--   ติดที่ตัวที่มีกระดูก (DriverNPC) ไม่ใช่ Walker: SeatIn ย้าย DriverNPC เข้ารถแล้วลบ Walker ทิ้ง
+	game:GetService("CollectionService"):AddTag(d, "HumanLife")
 	return m
 end
 
@@ -462,6 +467,25 @@ function HumanNPC.Is(m: Instance): boolean
 	return rigs[m :: Model] ~= nil
 end
 
+-- ท่ายืน: สุ่มต่อตัว 1 ใน 4 แบบ (mocap 2026-11-09) เฉพาะแบบที่ตัวละครนี้มีของตัวเอง
+--   (animIds เติมท่าที่ขาดจาก human_base: คนแก่จะได้ท่ายืนของผู้ชายหนุ่ม -> ไม่เอา) · ชื่อท่ายังเป็น "idle" ทุกที่ เปลี่ยนแค่ id
+local IDLE_VARIANTS = { "idle", "idle_weight", "idle_look", "idle_bored", "idle_old" } -- idle_old = คนแก่ (Old Man Idle)
+local function idleIdOf(rig: Rig, ids: { [string]: string }): string?
+	if rig.idleAlt == nil then
+		local shared = ReplicatedStorage:FindFirstChild("Shared")
+		local mod = shared and shared:FindFirstChild("HumanAnimIds")
+		local own = if mod then ((require(mod :: ModuleScript) :: any)[rig.char or DEFAULT_CHAR] or {}) else {}
+		local opts = {}
+		for _, v in ipairs(IDLE_VARIANTS) do
+			if own[v] then
+				table.insert(opts, v)
+			end
+		end
+		rig.idleAlt = if #opts > 0 then opts[math.random(1, #opts)] else "idle"
+	end
+	return ids[rig.idleAlt :: string] or ids.idle
+end
+
 local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack?
 	local t = rig.tracks[animator]
 	if not t then
@@ -471,6 +495,9 @@ local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack
 	if t[clip] == nil then
 		local ids = animIds(rig.char)
 		local id = ids[clip]
+		if clip == "idle" then
+			id = idleIdOf(rig, ids)
+		end
 		if not id or not animator:IsDescendantOf(workspace) then
 			return nil
 		end
@@ -483,7 +510,7 @@ local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack
 		for _, c in ipairs({ "idle", "walk", "walk_skirt", "walk_base", "run_skirt" }) do
 			if t[c] == nil and ids[c] then
 				local pa = Instance.new("Animation")
-				pa.AnimationId = ids[c]
+				pa.AnimationId = if c == "idle" then (idleIdOf(rig, ids) or ids[c]) else ids[c]
 				local ptr = animator:LoadAnimation(pa)
 				ptr.Looped = true
 				t[c] = ptr
@@ -494,12 +521,17 @@ local function track(rig: Rig, animator: Animator, clip: string): AnimationTrack
 end
 
 -- เริ่มท่า tr แล้วค่อยหยุดท่าอื่น (ไม่รวมท่าซ้อน เช่น ถือร่ม) ถ้า tr ยังโหลดไม่เสร็จ ให้ท่าเดิมเล่นต่อจนกว่าจะพร้อม
+local DESYNC = { idle = true, ride_moto = true, drive_car = true, drive_tuktuk = true, sit = true }
 local function swapTo(rig: Rig, an: Animator, clip: string, tr: AnimationTrack, speed: number?)
 	local function go()
 		if rig.current ~= clip then
 			return -- ระหว่างรอโหลด มีคำสั่งท่าอื่นมาแทนแล้ว
 		end
-		tr:Play(0.25, 1, speed or 1)
+		-- ท่ายืน/นั่งวนลูป: เร็วช้าต่างกันนิด ไม่ให้ทุกตัวหายใจ/หันหัวพร้อมกันเป๊ะ (ดูเป็นหุ่น)
+		--   ⚠️ ห้ามตั้ง TimePosition ฝั่ง server หลัง Play: ฝั่ง client เริ่มท่าที่ 0 แล้วค่อยกระโดดตอนค่ามาถึง = ตัวกระตุก (ทดสอบ 2026-11-08)
+		local desync = DESYNC[clip] == true
+		local sp = (speed or 1) * (if desync then 0.88 + math.random() * 0.24 else 1)
+		tr:Play(0.25, 1, sp)
 		for name, other in pairs(rig.tracks[an]) do
 			if name ~= clip and not rig.overlays[name] and other.IsPlaying then
 				other:Stop(0.25)
@@ -539,6 +571,7 @@ function HumanNPC.Play(m: Model, clip: string, speed: number?)
 	local played = false
 	local prev = rig.current
 	rig.current = clip
+	m:SetAttribute("Clip", clip) -- client/HumanEmotesRunner + shared/NpcLife: ผี/ท่านอน ไม่เติมชั้นมีชีวิต
 	for _, an in ipairs(rig.animators) do
 		local tr = track(rig, an, clip)
 		if tr then
@@ -598,12 +631,18 @@ function HumanNPC.PaceLimit(m: Model): number?
 		return nil
 	end
 	local nat = NATURAL[rig.char] or NATURAL.human_base
-	local list = if rig.skirt then GAITS_SKIRT else GAITS
-	local best = 0
-	for _, c in ipairs(list) do
-		best = math.max(best, nat[c] or 0)
+	if rig.skirt then
+		local best = 0
+		for _, c in ipairs(GAITS_SKIRT) do
+			best = math.max(best, nat[c] or 0)
+		end
+		return if best > 0 then best * 1.7 else nil
 	end
-	return if best > 0 then best * 1.7 else nil
+	-- ท่าเดิน mocap (2026-11-09): เดินได้เร็วสุดเท่าที่ท่าเดิน mocap ยังดูเป็นธรรมชาติ (เร่งไม่เกิน MAX_CLIP_RATE)
+	--   เดิมคิดจากท่าวิ่ง -> คนเดินถนน 7 studs/วิ เร็วเกินท่าเดิน mocap ของคนแก่ (1.1) / ผู้หญิง (3.5) เกมเลยสลับไปท่าเดินสูตรเดิม (walk_base) ที่แข็ง
+	--   คนแก่จึงเดินช้า ~1.9 studs/วิ (สมจริง) · คูณ 0.98 กันปัดเศษแล้วเกิน MAX_CLIP_RATE (เกินนิดเดียว SetMoving ก็สลับไปท่าเดิม)
+	local w = nat.walk or WALK_CLIP_SPEED
+	return w * MAX_CLIP_RATE * 0.98
 end
 
 -- เดิน / ยืน (speed = studs ต่อวินาทีที่ตัวเลื่อนจริง)

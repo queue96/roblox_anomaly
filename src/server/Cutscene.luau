@@ -113,7 +113,7 @@ local function makeFakes(n: number)
 	end
 	local was = base.Archivable
 	base.Archivable = true
-	local ids = HumanAnimIds.human_base
+	local ids = HumanAnimIds.player or HumanAnimIds.human_base -- หุ่นทดสอบ = ตัวผู้เล่น: ท่าชุดเดิม
 	for i = 1, n do
 		local m = base:Clone()
 		local hum = m and m:FindFirstChildOfClass("Humanoid")

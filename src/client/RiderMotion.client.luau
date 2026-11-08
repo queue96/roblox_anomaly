@@ -14,7 +14,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DriveMotion = require(Shared:WaitForChild("DriveMotion")) :: any
-local HeadTurn = require(Shared:WaitForChild("HeadTurn")) :: any
+-- (หันคอ/หัว: client/HumanEmotesRunner อ่าน attribute RiderLookYaw — ไม่เรียก shared/HeadTurn ตรงนี้แล้ว)
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 -- ---------------------------------------------------------------- ค่าปรับ
@@ -95,6 +95,9 @@ local function attach(v: Model): Rider?
 		seed = math.random() * 10,
 		yaw = 0,
 	}
+	-- คอ/หัวของตัวนี้ RiderMotion เป็นคนคิดมุมมอง (attribute RiderLookYaw) -> ชั้นมีชีวิตไม่สุ่มมองเอง (client/HumanEmotesRunner)
+	--   สองระบบเขียนกระดูกเดียวกัน ในเฟรมที่ Animator ไม่อัปเดต ต่างคนเอาค่าของอีกฝ่ายเป็นฐาน = หัวหมุนสะสมแล้วดีดกลับ (กระตุก)
+	d:SetAttribute("HeadByRider", true)
 	return r
 end
 
@@ -230,8 +233,8 @@ RunService.PreSimulation:Connect(function(dt: number)
 			end
 		end
 		r.yaw += (want - r.yaw) * (1 - math.exp(-dt * 3))
-		if math.abs(r.yaw) > 1e-3 or want ~= 0 then
-			pcall(HeadTurn.apply, r.d, r.yaw, 0, 0)
-		end
+		-- หมุนคอ/หัวจริงที่ client/HumanEmotesRunner (shared/NpcLife riderYaw) เพื่อให้มีคนเขียนกระดูกคนเดียว
+		--   (เดิม HeadTurn.apply ตรงนี้ + ท่าประกอบคำพูดของคนนั่งรถ = สองระบบเขียนคอ/หัว -> สะสมแล้วดีด)
+		r.d:SetAttribute("RiderLookYaw", if math.abs(r.yaw) > 1e-3 then r.yaw else 0)
 	end
 end)
