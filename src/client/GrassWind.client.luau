@@ -20,9 +20,9 @@ local BASE_LEAN = math.rad(6.5) -- มุมเอนตามลมพื้น
 local SWAY = math.rad(11.5) -- มุมแกว่งเพิ่มตามจังหวะลม (เดิม 5 องศา ปรับเพิ่มให้เห็นใบหญ้าพริ้วไหวชัดเจนขึ้น)
 local PUSH_RADIUS = 3.8 -- ระยะที่ตัวละครเดินชนแล้วกอเอนหลบ
 local PUSH_ANGLE = math.rad(38)
-local ACTIVE_RANGE = 95 -- อัปเดตเฉพาะกอที่อยู่ในระยะสายตากลางคืน (หมอกบังเกิน ~65 studs)
-local UPDATE_HZ = 30
-local LEAF_RANGE = 60 -- พุ่มใบไม้ใหญ่มีใบหลายพันแผ่น ขยับเฉพาะพุ่มใกล้กล้อง
+local ACTIVE_RANGE = 70 -- Performance 2026-11-07: เดิม 95 (หมอกบังเกิน ~65 อยู่แล้ว) · อัปเดตเฉพาะกอที่อยู่ในระยะสายตากลางคืน (หมอกบังเกิน ~65 studs)
+local UPDATE_HZ = 20 -- Performance 2026-11-07: เดิม 30 (ต้นข้าว 213 แผ่น + กอหญ้า ขยับตลอด = รวมการวาดไม่ได้)
+local LEAF_RANGE = 45 -- Performance 2026-11-07: เดิม 60 (ใบไทร ~700 ใบ ขยับเฉพาะตอนเข้าใกล้) · พุ่มใบไม้ใหญ่มีใบหลายพันแผ่น ขยับเฉพาะพุ่มใกล้กล้อง
 local LEAF_HZ = 12 -- ใบไม้อัปเดตถี่น้อยกว่าหญ้า (ทดสอบแล้ว: ขยับใบทั้งแมพ ~6000 แผ่นที่ 30Hz ทำ FPS ตก 37 -> 28)
 local LEAF_FLUTTER = math.rad(10) -- มุมไหวของใบแต่ละใบ (เดิม 5 องศา)
 local LEAF_DRIFT = 0.65 -- ระยะ (studs) ที่ยอดพุ่มโยกไปตามลม (เดิม 0.35 studs)
@@ -41,7 +41,7 @@ local entries: { Entry } = {}
 local byInst: { [Instance]: Entry } = {}
 
 type Leaf = { part: BasePart, base: CFrame, phase: number, axis: Vector3, height: number }
-type LeafGroup = { model: Model, center: Vector3, phase: number, leaves: { Leaf } }
+type LeafGroup = { model: Model, center: Vector3, phase: number, amp: number, leaves: { Leaf } }
 local leafGroups: { LeafGroup } = {}
 local byLeafModel: { [Model]: LeafGroup } = {}
 
@@ -104,6 +104,11 @@ local function addLeaves(inst: Instance)
 		model = inst,
 		center = cf.Position,
 		phase = cf.Position:Dot(WIND_DIR) * GUST_WAVE,
+		-- attribute FlutterScale: ใบที่รวมเป็นชิ้นใหญ่ (ต้นไทร v2: mesh 8 ชิ้นทั้งพุ่ม) หมุนน้อยลง ไม่งั้นทั้งพุ่มส่ายเป็นก้อน
+		amp = (function()
+			local a = inst:GetAttribute("FlutterScale")
+			return if type(a) == "number" then a else 1
+		end)(),
 		leaves = {},
 	}
 	for _, p in ipairs(inst:GetDescendants()) do
@@ -237,7 +242,7 @@ RunService.Heartbeat:Connect(function(dt)
 			local drift = WIND_DIR * (LEAF_DRIFT * gust)
 			for _, leaf in ipairs(g.leaves) do
 				local flutter = math.sin(t * 3.1 + leaf.phase) * (0.55 + 0.45 * gust)
-				local rot = CFrame.fromAxisAngle(leaf.axis, LEAF_FLUTTER * flutter)
+				local rot = CFrame.fromAxisAngle(leaf.axis, LEAF_FLUTTER * flutter * g.amp)
 				table.insert(leafParts, leaf.part)
 				table.insert(leafCFrames, (leaf.base + drift * leaf.height) * rot)
 			end

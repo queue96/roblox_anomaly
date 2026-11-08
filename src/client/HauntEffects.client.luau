@@ -69,6 +69,11 @@ local lidBottom = lid(false)
 local blur = Instance.new("BlurEffect")
 blur.Name = "DrowsyBlur"
 blur.Size = 0
+-- Performance (2026-11-07): เบลอ Size 0 ก็ยังเรนเดอร์ทั้งจอ เปิดเฉพาะตอนกำลังเบลอ
+blur.Enabled = false
+blur:GetPropertyChangedSignal("Size"):Connect(function()
+	blur.Enabled = blur.Size > 0.01
+end)
 blur.Parent = Lighting
 local grade = Instance.new("ColorCorrectionEffect")
 grade.Name = "DrowsyGrade"
@@ -295,7 +300,7 @@ task.spawn(function()
 	while true do
 		task.wait(WHISPER_EVERY[1] + math.random() * (WHISPER_EVERY[2] - WHISPER_EVERY[1]))
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		if remotes:GetAttribute("ShopOpen") == true and hum and hum.Health > 0 then
+		if remotes:GetAttribute("ShopOpen") == true and ReplicatedStorage:GetAttribute("TestMode") ~= true and hum and hum.Health > 0 then
 			whisper()
 		end
 	end

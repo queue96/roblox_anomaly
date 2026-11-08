@@ -99,6 +99,7 @@ SoundBank.CustomUploadedIds = {
 local VOICE_LOG = game:GetService("RunService"):IsStudio()
 
 SoundBank.DubbedVoiceVolume = 1.6 -- ความดังเสียงพากย์คนจริง (ไฟล์ TTS เดิม 0.58) เบา/ดังไปปรับตรงนี้
+SoundBank.WhisperVolumeScale = 0.5 -- เสียงแว่วตอนสวดเรียกผี = เท่านี้ของเสียงพากย์ (เดิม 0.3)
 
 SoundBank.DialogueUploadedIds = {
 	-- ตัวอย่าง: Greet_Uncle = "rbxassetid://...", AskPrice_M = "rbxassetid://...", PlayerHello_F = "rbxassetid://..."
@@ -215,15 +216,44 @@ SoundBank.DialogueUploadedIds = {
 	Pray_Summon_2 = "rbxassetid://128575611906473",
 	Pray_Summon_3 = "rbxassetid://74307670216532",
 
-	-- ฝน / คนหลบฝน (ยังมีแค่เพศเดียว อีกเพศใช้เสียงเดิม)
+	-- ฝน / คนหลบฝน (อัปเพิ่ม 2026-11-07: ไฟล์ที่ยังขาดคือ Shelter_Ask_M, Chat_Reply_1_F)
 	RainTalk_1_M = "rbxassetid://108765476380825",
-	Shelter_Ask_F = "rbxassetid://78514124480838",
+	RainTalk_1_F = "rbxassetid://106808288221499",
+	RainTalk_2_M = "rbxassetid://117875649538365",
+	RainTalk_2_F = "rbxassetid://77230041726231",
+	RainTalk_3_M = "rbxassetid://79776455690173",
+	RainTalk_3_F = "rbxassetid://137729873174164",
+	Shelter_Ask_F = "rbxassetid://108508903998693", -- อัปใหม่ 2026-11-07 แทนอันเก่า 78514124480838
+	ShelterTalk_1 = "rbxassetid://130633837316120",
+	ShelterTalk_2 = "rbxassetid://100573591107413",
+	ShelterTalk_3 = "rbxassetid://89257692240006",
+	ShelterTalk_4 = "rbxassetid://126393139826931",
+	ShelterTalk_5 = "rbxassetid://82950294512212",
+	Shelter_Leave = "rbxassetid://103854666520825",
+	Shelter_ToCustomer_1 = "rbxassetid://140013037083259",
+	Shelter_ToCustomer_2 = "rbxassetid://103051277077210",
+	Chat_Reply_1_M = "rbxassetid://82664903785835",
+	Chat_Reply_2_M = "rbxassetid://135051054993071",
+	Chat_Reply_2_F = "rbxassetid://108912980943776",
+	-- คนเดินเท้าสั่งตอนฝนตก (CoreLoop.WALKER_ORDERS_RAIN: _1 = ชาย, _2 = หญิง)
+	Walker_Order_Rain_1 = "rbxassetid://110472765932292",
+	Walker_Order_Rain_2 = "rbxassetid://77836055700354",
+
+	-- ลูกค้าเลิกรอหลังเติมผิดครบ MaxWrongService / ลูกค้าผีโดนปิดแผงตอนมีคนอยู่นอกร้าน (Ghost_Chased)
+	Wrong_GiveUp_M = "rbxassetid://97493779986213",
+	Wrong_GiveUp_F = "rbxassetid://83898474577206",
+	Ghost_Chased = "rbxassetid://73812205436502",
+
+	-- คัทซีนจบคืน (พี่ชาย)
+	Outro_Brother_1 = "rbxassetid://80629008908529",
+	Outro_Brother_2 = "rbxassetid://78129365473445",
 
 	-- ขาจร: รถเครื่องเสียง / รถแห่
 	Party_Line = "rbxassetid://115037195700895",
 	Teen_Line = "rbxassetid://129476554217488",
 	Coyote_Line = "rbxassetid://100042904022492",
 	Parade_Invite = "rbxassetid://87431658575313",
+	Parade_Cheer = "rbxassetid://99485594307912",
 }
 
 -- ---------------------------------------------------------------- 2. พรีเซ็ตเสียงพร้อมใช้ทันที (Warm Non-Piercing EQ: HighGain ติดลบทุกอันเพื่อไม่ให้แสบหู)
@@ -258,7 +288,7 @@ SoundBank.Presets = {
 	PowerOffClunk = {
 		id = "rbxassetid://8109376048", -- คัตเอาต์ตัด: เสียงโลหะกระแทกทุ้มๆ
 		customKey = "PowerOffClunk",
-		volume = 0.5,
+		volume = 2.2, -- ไฟดับต้องได้ยินชัดทั่วร้าน (เดิม 0.5 ผู้ใช้ 2026-11-08)
 		speed = 0.7,
 		looped = false,
 		low = 6,
@@ -320,14 +350,23 @@ SoundBank.Presets = {
 	ShutterCloseSlam = {
 		id = "rbxassetid://8109376048", -- เสียงปิดกระแทกแผงสังกะสี/ประตูเหล็กหน้าร้าน (Metal Door Close)
 		forcePreset = true,
-		volume = 0.70,
+		volume = 1.3, -- (เดิม 0.70 เบาไป ผู้ใช้ 2026-11-08)
 		speed = 1.0,
+		noEffects = true,
+	},
+	-- ผีเคาะแผง (GhostLinger knock + ปอบเคาะแผง BigEvents): ไฟล์เดียวกับเสียงปิดแผง แต่ดังกว่า
+	-- (2026-11-07: 0.7 -> 1.6 / 2026-11-08: 1.6 -> 2.6 ยังเบา และเล่นจนจบไฟล์ ไม่ตัด 0.6 วิ = เสียงขาด)
+	ShutterKnock = {
+		id = "rbxassetid://8109376048",
+		forcePreset = true,
+		volume = 2.6,
+		speed = 1.05,
 		noEffects = true,
 	},
 	ShutterOpenPull = {
 		id = "rbxassetid://7274930890", -- เสียงดึงเปิดแผงสังกะสี (Metal Door Open)
 		forcePreset = true,
-		volume = 0.65,
+		volume = 1.25, -- (เดิม 0.65 เบาไป ผู้ใช้ 2026-11-08)
 		speed = 1.0,
 		noEffects = true,
 	},
@@ -1258,16 +1297,47 @@ function playVoiceFile(genderKey: string, uploadedId: string, isDubbed: boolean,
 	local snd = Instance.new("Sound")
 	snd.Name = "Dialogue_" .. genderKey
 	snd.SoundId = uploadedId
-	-- เสียงกระซิบไร้ตัวตน (ศาลไม่คุ้มครอง / สวดเรียกผี) เบาเหลือ 30% ของเสียงพากย์ปกติ
+	-- เสียงกระซิบไร้ตัวตน (สวดเรียกผี) เบากว่าเสียงพากย์ปกติ: WhisperVolumeScale (เดิม 0.3 ฟังไม่ค่อยชัด ผู้ใช้ 2026-11-07)
 	local whisper = type(speakerInfo) == "table" and speakerInfo.ghost == "WhisperSpeaker"
 	local baseVolume = if isDubbed then SoundBank.DubbedVoiceVolume else 0.58
-	snd.Volume = if whisper then baseVolume * 0.3 else baseVolume
+	snd.Volume = if whisper then baseVolume * SoundBank.WhisperVolumeScale else baseVolume
 	snd.PlaybackSpeed = if isDubbed then 1 else (prof.uploadedSpeed or 1.04) -- ชดเชยสปีดให้ไฟล์ที่อัปโหลดไว้แล้วพูดกระชับ ไม่ยืด โดยไม่ต้องอัปโหลดใหม่!
 	snd.RollOffMode = Enum.RollOffMode.InverseTapered
 	snd.RollOffMinDistance = if isDubbed then 16 else 7 -- กล้องคัตซีนอยู่ห่างหัวคนพูด ~10-15 studs
 	snd.RollOffMaxDistance = 60
 	SoundBank.ApplyWarmEffects(snd, { low = prof.low or 2, mid = prof.mid or 2, high = prof.high or -6 })
-	snd.Parent = targetParent
+	-- เสียงพูดไม่อยู่ในตัวคนพูดตรงๆ: อยู่ในจุดล่องหนที่ตามหัวไปเรื่อยๆ จนพูดจบ
+	-- (เดิมปิดแผงใส่ลูกค้าแล้วเสียงขาดกลางประโยค เพราะรถ/ตัวลูกค้าถูกลบ หรือผีที่โดนไล่สั่ง Sound:Stop() ทุกเสียงในรถ ผู้ใช้ 2026-11-07)
+	if targetParent:IsA("BasePart") then
+		local head = targetParent
+		local anchor = Instance.new("Part")
+		anchor.Name = "VoiceAnchor"
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.CanTouch = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+		anchor.CFrame = head.CFrame
+		anchor.Parent = workspace
+		snd.Parent = anchor
+		snd.Destroying:Once(function()
+			anchor:Destroy()
+		end)
+		task.spawn(function()
+			while snd.Parent == anchor do
+				if head:IsDescendantOf(workspace) then
+					anchor.CFrame = head.CFrame
+				end
+				task.wait()
+			end
+			if anchor.Parent then
+				anchor:Destroy()
+			end
+		end)
+	else
+		snd.Parent = targetParent
+	end
 	snd:Play()
 	if isDubbed then
 		snd.Ended:Once(function()

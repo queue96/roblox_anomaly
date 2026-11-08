@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local GhostFloat = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostFloat")) :: any
+local Bilingual = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual")) -- ป้ายทะเบียนผีตามภาษาของแต่ละคน
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 
@@ -24,7 +25,10 @@ local AnomalyManager = {}
 -- ---------------------------------------------------------------- เสียง (Creator Store ฟรี)
 local SOUNDS = {
 	RadioMusic = "rbxassetid://101156490081905", -- radio_song
-	MonkChant = "rbxassetid://118042869785522", -- เสียงสวดมนต์นะโม ตัสสะ ที่นำเข้าใหม่
+	MonkChant = "rbxassetid://118042869785522", -- เสียงสวดมนต์นะโม ตัสสะ ที่นำเข้าใหม่ (ไม่ใช้ในวิทยุแล้ว)
+	-- funeral_music_2 (เจ้าของเกมอัปโหลด 2026-11-08) ยาว 94.8 วิ: วิทยุผีเล่นเพลงงานศพแทนเสียงสวด
+	-- (ไฟล์แรก funeral_music 109680101637101 ยาวแค่ 30 วิ วนซ้ำเร็วเกิน)
+	FuneralMusic = "rbxassetid://92787263614050",
 	RadioStatic = "rbxassetid://9117159106", -- Old Radio Click/Tuning/Buzz
 	DogHowl = "rbxassetid://93714483057730", -- หมาหอน (ไฟล์ที่เจ้าของเกมอัปโหลด)
 }
@@ -248,9 +252,11 @@ local function radioSound(name: string, id: string, volume: number, looped: bool
 end
 -- ความดังรวมของวิทยุ: ลด 30% (ทุกเสียงจากวิทยุ ทั้งค่าเริ่มต้นนี้และความดังของแต่ละสถานี SoundBank.RadioStations)
 local RADIO_GAIN = 0.7
-local RADIO_VOLUME = { music = 0.35 * RADIO_GAIN, chant = 0.52 * RADIO_GAIN, static = 0.38 * RADIO_GAIN }
+-- chant = เพลงงานศพของผีวิทยุ: ดังเองโดยไม่ต้องเปิดวิทยุ เบากว่าเสียงสวดเดิม (0.52 -> 0.32; ลอง 1.8 แล้วดังไป ผู้ใช้ 2026-11-08)
+local RADIO_VOLUME = { music = 0.35 * RADIO_GAIN, chant = 0.32 * RADIO_GAIN, static = 0.38 * RADIO_GAIN }
 local radioMusic = radioSound("RadioMusic", SOUNDS.RadioMusic, RADIO_VOLUME.music, true)
-local radioChant = radioSound("MonkChant", SOUNDS.MonkChant, RADIO_VOLUME.chant, true)
+-- (ชื่อ Sound ยังเป็น "MonkChant" ให้ SettingsController จัดเข้ากลุ่มเพลง แต่เล่นเพลงงานศพแล้ว)
+local radioChant = radioSound("MonkChant", SOUNDS.FuneralMusic, RADIO_VOLUME.chant, true)
 local radioStatic = radioSound("RadioStatic", SOUNDS.RadioStatic, RADIO_VOLUME.static, false)
 -- (เอาเสียงผีร้องโอเปร่าที่สุ่มดังจากวิทยุ pumpt_ghostsingging 127709670953007 ออกแล้ว ผู้ใช้สั่ง 2026-11-03)
 if radioMusic then
@@ -264,14 +270,16 @@ if radioMusic then
 	dist.Parent = radioMusic
 end
 if radioChant then
-	local eq = Instance.new("EqualizerSoundEffect") -- เสียงแตกๆ เหมือนคลื่นวิทยุเพี้ยน แต่ไม่แสบหู
-	eq.LowGain = -20
-	eq.MidGain = 8
-	eq.HighGain = -10
+	-- อู้อี้หนักๆ เหมือนดังลอดมาจากที่ไกล/ข้างฝา (ผู้ใช้ 2026-11-08): ตัดเสียงแหลมเกือบหมด เหลือทุ้มกับกลางตุ้บๆ
+	local eq = Instance.new("EqualizerSoundEffect")
+	eq.LowGain = -4
+	eq.MidGain = -2
+	eq.HighGain = -40
 	eq.Parent = radioChant
 	local dist = Instance.new("DistortionSoundEffect")
-	dist.Level = 0.25
+	dist.Level = 0.18
 	dist.Parent = radioChant
+	-- ระยะได้ยินเท่าเสียงวิทยุอื่น (radioSound 8-70 studs) ไม่ดังเต็มทั่วลานปั๊ม
 end
 if radioStatic then
 	local eq = Instance.new("EqualizerSoundEffect")
@@ -374,10 +382,9 @@ if radioPart then
 	end)
 end
 
--- เสียงสวดในวิทยุ: ดังแป๊บเดียวเหมือนหูแว่ว (ผู้ใช้ 2026-11-05) แล้วกลับมาเป็นเพลงตามเดิม
-local CHANT_SECONDS = 4
-local CHANT_FADE = 1.2
-local CHANT_REPEAT = { 10, 15 } -- ลูกค้าผีวิทยุสวดศพ: แว่วซ้ำเป็นพักๆ ระหว่างยังอยู่ พนมมือตอนไหนก็ยังมีโอกาสได้ยิน
+-- วิทยุผี (เดิมเสียงสวดแว่วแป๊บเดียว ผู้ใช้ 2026-11-05)
+-- (2026-11-07/08 ผู้ใช้สั่ง: เปลี่ยนเสียงสวดเป็นเพลงงานศพ SOUNDS.FuneralMusic เปิดค้างตลอดตอนผีอยู่ ไม่ขาดๆ หายๆ
+--  เสียงอู้อี้แบบลำโพงวิทยุ: EQ + Distortion ที่ใส่ไว้กับ radioChant ด้านบน)
 local chantToken = 0
 
 local function radioNormal()
@@ -431,20 +438,26 @@ AnomalyManager.Anomalies = {
 	},
 	-- 2. ป้ายทะเบียน 4444 ป่าช้า
 	Anomaly_Cemetery = {
+		-- คนขับเป็นคนปกติ เปลี่ยนแค่ป้าย "4444 ตาย" / "4444 DEAD" ตามภาษาของแต่ละคน (ผู้ใช้ 2026-11-07)
 		apply = function(v)
 			local plate = v:FindFirstChild("LicensePlate")
 			if plate then
+				-- ป้ายในแม่แบบรถ (ไฟล์ place) ยังเป็น "ป่าช้า CEMETERY": เขียนทับบรรทัดล่างตอนใช้จริง
+				local ghostGui = plate:FindFirstChild("GhostPlate")
+				local frame = ghostGui and ghostGui:FindFirstChildOfClass("Frame")
+				if frame then
+					for _, t in ipairs(frame:GetChildren()) do
+						if t:IsA("TextLabel") then
+							if t.Position.Y.Scale > 0.3 then
+								Bilingual.Text(t, "ตาย", "DEAD")
+							else
+								t.Text = "4444"
+							end
+						end
+					end
+				end
 				normalOnly((plate :: any).NormalPlate)
 				veil((plate :: any).GhostPlate, GHOST_TAG, "Enabled", true, false)
-			end
-		end,
-	},
-	-- 3. ผมผีพันล้อ
-	Anomaly_WheelHair = {
-		apply = function(v)
-			local h = v:FindFirstChild("WheelHairAnomaly")
-			if h then
-				ghostOnly(h, nil, true)
 			end
 		end,
 	},
@@ -475,27 +488,6 @@ AnomalyManager.Anomalies = {
 			twisted.Parent = d
 			ghostOnly(twisted)
 			normalOnly(head)
-		end,
-	},
-	-- 5. คนขับยิ้มกว้างถึงหู ตาโปน
-	Anomaly_CreepySmile = {
-		apply = function(v)
-			if humanGhost(v, "ghost") then
-				return
-			end
-			local d = driverOf(v)
-			local head = d and d:FindFirstChild("Head")
-			if not head then
-				return
-			end
-			local face = head:FindFirstChild("FaceNormal")
-			if face then
-				normalOnly(face)
-			end
-			local creepy = head:FindFirstChild("CreepyFace")
-			if creepy then
-				ghostOnly(creepy, nil, true)
-			end
 		end,
 	},
 	-- 6. กระสือ: คนขับไม่มีขา มีไส้ห้อยเรืองแสงแทน
@@ -614,54 +606,29 @@ AnomalyManager.Anomalies = {
 	-- 7. วิทยุในร้านเปลี่ยนจากเพลงเป็นเสียงพระสวดศพ (ใช้เสียงพระสวดวัดของวิทยุ ไม่เอาเสียงพูดของผู้เล่นมาปน)
 	Anomaly_MonkRadio = {
 		-- คนไม่ได้พนมมือยังได้ยินเพลงวิทยุตามปกติ คนพนมมือได้ยินเสียงสวดศพแทน
-		apply = function(v)
+		-- เพลงงานศพเปิดค้างวนตลอด (Looped) จนผีไป: ลูกค้าผีออกจากร้าน / ผีที่สวดเรียกหมดเวลา -> reset = radioNormal (ผู้ใช้ 2026-11-08)
+		apply = function(_v)
 			chantToken += 1
 			local my = chantToken
-			task.spawn(function()
-				while chantToken == my do
-					if radioStatic then
-						veil(radioStatic, GHOST_TAG, "Volume", RADIO_VOLUME.static, 0)
-						radioStatic:Play()
-					end
-					if radioMusic and radioUserOn then
-						veil(radioMusic, NORMAL_TAG, "Volume", RADIO_VOLUME.music, 0)
-					end
-					task.wait(0.8)
-					if chantToken ~= my or not radioChant then
-						return
-					end
-					radioChant.SoundId = SOUNDS.MonkChant
-					radioChant.PlaybackSpeed = 1
-					veil(radioChant, GHOST_TAG, "Volume", RADIO_VOLUME.chant, 0)
-					radioChant:SetAttribute("VeilFade", nil)
-					radioChant:Play()
-					task.wait(CHANT_SECONDS)
-					if chantToken ~= my then
-						return
-					end
-					-- ค่อยๆ เบาลงแล้วหยุด กลับเป็นเพลงวิทยุ (คนพนมมืออยู่ได้ยินเงียบลงไปเอง)
-					radioChant:SetAttribute("VeilShow", 0)
-					TweenService:Create(radioChant, TweenInfo.new(CHANT_FADE), { Volume = 0 }):Play()
-					task.wait(CHANT_FADE)
-					if chantToken ~= my then
-						return
-					end
-					radioChant:Stop()
-					unveil(radioChant)
-					if radioStatic then
-						unveil(radioStatic)
-					end
-					if radioMusic then
-						unveil(radioMusic)
-						if radioUserOn then
-							radioMusic.Volume = RADIO_VOLUME.music
-						end
-					end
-					if not v then
-						return -- สวดเรียกเอง: แว่วครั้งเดียว
-					end
-					task.wait(CHANT_REPEAT[1] + math.random() * (CHANT_REPEAT[2] - CHANT_REPEAT[1]))
+			if radioStatic then
+				veil(radioStatic, GHOST_TAG, "Volume", RADIO_VOLUME.static, 0)
+				radioStatic:Play()
+			end
+			if radioMusic and radioUserOn then
+				veil(radioMusic, NORMAL_TAG, "Volume", RADIO_VOLUME.music, 0)
+			end
+			task.delay(0.8, function()
+				if chantToken ~= my or not radioChant then
+					return
 				end
+				radioChant.SoundId = SOUNDS.FuneralMusic
+				radioChant.PlaybackSpeed = 1
+				veil(radioChant, GHOST_TAG, "Volume", RADIO_VOLUME.chant, 0)
+				radioChant:SetAttribute("VeilFade", nil)
+				radioChant:Play()
+				-- เริ่มจากจุดสุ่มในเพลง (ช่วงแรก 75%) เจอผีนี้หลายรอบก็ได้ยินคนละท่อน ไม่เริ่มแบบเดิมทุกครั้ง
+				local len = radioChant.TimeLength
+				radioChant.TimePosition = if len > 0 then math.random() * len * 0.75 else 0
 			end)
 		end,
 		reset = radioNormal,
@@ -669,28 +636,53 @@ AnomalyManager.Anomalies = {
 	-- (ผีตานีหลังกอกล้วย / หุ่นไล่กาย้ายมาใกล้ร้าน ย้ายไปเป็น "ผีฉาก" ด้านล่าง: ไม่นับเป็นผีของลูกค้า 2026-11-03)
 	-- 10. น้ำมันในหลอดแก้วกลายเป็นเลือด
 	Anomaly_BloodFuel = {
+		-- หลอดน้ำมันทั้ง 2 ตู้ (เบนซิน + ดีเซล) ค่อยๆ กลายเป็นสีเลือดเมื่อตาทิพย์เปิด (BLOOD_FADE วินาที ผู้ใช้ 2026-11-07)
+		-- ตัวลูกค้าไม่แปลงร่างผี (เอาออกจาก CUSTOMER_GHOST_FORM แล้ว)
 		apply = function(_v)
 			-- เลือดเป็นชิ้น Clone ทับน้ำมันจริง (CoreLoop เลื่อนระดับตามน้ำมันจริงด้วย) เห็นเฉพาะตอนพนมมือ
-			if fuelLiquid and gasPump and not gasPump:FindFirstChild("BloodFuel") then
-				local blood = apparition(fuelLiquid, "BloodFuel") :: BasePart
-				blood.Color = Color3.fromRGB(110, 8, 12)
-				blood.Material = Enum.Material.Glass
-				blood.CanCollide = false
-				blood.CanQuery = false
-				-- น้ำมันเป็น MeshPart ที่มี SurfaceAppearance (เท็กซ์เจอร์ส้ม) ต้องย้อมที่ SurfaceAppearance.Color ด้วย
-				local sa = blood:FindFirstChildOfClass("SurfaceAppearance") :: any
-				if sa then
-					sa.Color = Color3.fromRGB(150, 10, 14)
+			local group = interactive:FindFirstChild("FuelPumps") or interactive
+			for _, pumpName in ipairs({ "GasPump", "DieselPump" }) do
+				local pump = group:FindFirstChild(pumpName)
+				local liquid = pump and pump:FindFirstChild("FuelLiquid") :: BasePart?
+				if pump and liquid and not pump:FindFirstChild("BloodFuel") then
+					-- ค่อยๆ แดง: สลับเป็นชิ้นเลือดทันที (หน้าตาเหมือนน้ำมันเดิมเป๊ะ วัสดุเดิม) แล้ว Client ไล่สีไปแดงใน BLOOD_TINT วิ
+					-- (เดิมเฟดความโปร่งข้ามกัน 2 ชิ้น 3 วิ -> ช่วงกลางทั้งคู่โปร่งจนหลอดดูว่างเปล่า ผู้ใช้ 2026-11-08)
+					local BLOOD_TINT = 3
+					local blood = apparition(liquid, "BloodFuel") :: BasePart
+					local red = Color3.fromRGB(110, 8, 12)
+					blood:SetAttribute("VeilTintFrom", liquid.Color)
+					blood:SetAttribute("VeilTintTo", red)
+					blood:SetAttribute("VeilTintTime", BLOOD_TINT)
+					blood.Color = red
+					blood.CanCollide = false
+					blood.CanQuery = false
+					-- น้ำมันเป็น MeshPart ที่มี SurfaceAppearance (เท็กซ์เจอร์ส้ม/เขียว) ต้องย้อมที่ SurfaceAppearance.Color ด้วย
+					local sa = blood:FindFirstChildOfClass("SurfaceAppearance") :: any
+					if sa then
+						local saRed = Color3.fromRGB(150, 10, 14)
+						blood:SetAttribute("VeilTintSAFrom", sa.Color)
+						blood:SetAttribute("VeilTintSATo", saRed)
+						sa.Color = saRed
+					end
+					blood.Parent = pump
+					ghostOnly(blood, nil, nil, 0)
+					normalOnly(liquid)
+					liquid:SetAttribute("VeilFade", 0)
 				end
-				blood.Parent = gasPump
-				ghostOnly(blood, nil, nil, 2.5)
-				normalOnly(fuelLiquid)
 			end
 		end,
 		reset = function()
-			local blood = gasPump and gasPump:FindFirstChild("BloodFuel")
-			if blood then
-				blood:Destroy()
+			local group = interactive:FindFirstChild("FuelPumps") or interactive
+			for _, pumpName in ipairs({ "GasPump", "DieselPump" }) do
+				local pump = group:FindFirstChild(pumpName)
+				local blood = pump and pump:FindFirstChild("BloodFuel")
+				if blood then
+					blood:Destroy()
+				end
+				local liquid = pump and pump:FindFirstChild("FuelLiquid")
+				if liquid and liquid ~= fuelLiquid then
+					unveil(liquid)
+				end
 			end
 			unveil(fuelLiquid)
 			if fuelLiquid and fuelColor and fuelMaterial then
@@ -833,7 +825,6 @@ end
 local VEHICLE_ONLY = {
 	Anomaly_Headless = true,
 	Anomaly_Cemetery = true,
-	Anomaly_WheelHair = true,
 	Anomaly_TaKhon = true,
 	Anomaly_MirrorGhost = true,
 }
@@ -938,6 +929,8 @@ function AnomalyManager.FloatTo(m: Model, target: Vector3, speed: number): boole
 	if type(lift) ~= "number" then
 		return false
 	end
+	-- ลอยด้วย Server ทุกเฟรม: เครื่องผู้เล่นเกลี่ยให้ลื่น (shared/NetSmooth)
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("NetSmooth")).Track(m)
 	local p0 = m:GetPivot().Position
 	local a = Vector3.new(p0.X, 0, p0.Z)
 	local b = Vector3.new(target.X, 0, target.Z)
@@ -1044,11 +1037,8 @@ end
 -- ผีที่ตัวลูกค้าเองไม่แปลงร่าง (ผิดปกติที่ป้าย/ล้อ/น้ำมัน/วิทยุ/ร่ม): ลูกค้าคือผี พนมมือแล้วต้องเห็นร่างผีของตัวลูกค้าด้วย
 -- และตอนหลอกใช้ร่างผีนี้ ไม่ใช่ร่างคน (ผู้ใช้ 2026-11-06) ผีที่มีร่างของตัวเองอยู่แล้ว (กระสือ ตาโขน หันหัว ยิ้ม) ไม่ต้องใส่
 -- ผีซ้อนท้าย (หัวขาด / มองกระจก): ตัวผีคือคนซ้อน คนขับเป็นคนปกติ
+-- (ป้ายป่าช้า / วิทยุสวดศพ: เอาออกแล้ว คนขับเป็นคนปกติ จับผิดจากป้าย/วิทยุอย่างเดียว ผู้ใช้ 2026-11-07)
 local CUSTOMER_GHOST_FORM = {
-	Anomaly_Cemetery = true,
-	Anomaly_WheelHair = true,
-	Anomaly_BloodFuel = true,
-	Anomaly_MonkRadio = true,
 	Anomaly_NoUmbrella = true,
 }
 
@@ -1091,7 +1081,8 @@ local AMBIENT = {
 	-- 1. เสียงหมาหอนแว่วมาจากหลังเขา (ไฟล์ที่เจ้าของเกมอัปโหลด) เล่นจากต้นคลิปจนจบ ความเร็วเดิม
 	--    ดังจากหลังแนวเขารอบทุ่ง (HILL_SPOTS) ได้ยินไกลกว่าเสียงอื่น (minDist/maxDist) ตัดเสียงแหลมให้อู้อี้เหมือนลอดเขามา
 	--    (ก่อนหน้า: 748228812 หอนยาวรำคาญ -> ProSoundEffects coyote 9113956884 / 9113952977)
-	{ name = "DogHowl", id = "rbxassetid://93714483057730", weight = 3, volume = 0.42, hill = true, minDist = 90, maxDist = 480, highGain = -14, speed = 1, fromStart = true },
+	--    (weight 3 -> 1 ผู้ใช้ 2026-11-08: หมาหอนเป็นลางก่อนผีใหญ่มา AnomalyManager.Omen สุ่มเองบ่อยไปลางจะไม่มีความหมาย)
+	{ name = "DogHowl", id = "rbxassetid://93714483057730", weight = 1, volume = 0.42, hill = true, minDist = 90, maxDist = 480, highGain = -14, speed = 1, fromStart = true },
 	-- (เอาเสียงหลอนแนวธี่หยด EerieFx 116827997071173 ออกแล้ว ผู้ใช้สั่ง 2026-11-03)
 	-- 2. ลมหนาวพัดวูบผ่านยอดไม้/ใบกล้วยเสียดสีกัน (Leaves Rustle Wind Blowing Through Trees 1 & 2)
 	{ name = "WindLeaves1", id = "rbxassetid://9116258071", weight = 3, volume = 0.65, near = true, segment = 5.5, fade = true },
@@ -1230,6 +1221,11 @@ function AnomalyManager.StartAmbience()
 				snd:Stop()
 			end)
 		end
+	end
+
+	-- ลางก่อนผีใหญ่มา (CoreLoop.Big.run): หมาหอนแว่วจากหลังเขา (เสียงเดียวกับที่สุ่ม แต่ตั้งใจเล่นตรงจังหวะ)
+	AnomalyManager.Omen = function()
+		playAmbient(AMBIENT[1])
 	end
 
 	task.spawn(function()

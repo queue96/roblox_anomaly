@@ -31,6 +31,9 @@ local ALLOWED = {
 	["scenery:Tani"] = true, ["scenery:Scarecrow"] = true, ["scenery:Shadow"] = true, ["scenery:hide"] = true, -- ผีฉาก
 }
 
+-- ผีใหญ่ (เดิมปุ่มบนแผงส่งไปแต่ไม่อยู่ใน ALLOWED จึงกดแล้วไม่มีอะไรเกิดขึ้น)
+local BIG = { ["big:Krasue"] = true, ["big:Pret"] = true, ["big:Funeral"] = true, ["big:Pop"] = true }
+
 local remotes = ReplicatedStorage:FindFirstChild("Remotes") or Instance.new("Folder")
 remotes.Name = "Remotes"
 remotes.Parent = ReplicatedStorage
@@ -101,6 +104,12 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 		end
 		devDecision():SetAttribute("ForceAnomaly", key) -- ลูกค้าคันถัดไปเป็นผีตัวนี้
 		devDecision():Fire(AnomalyManager.KindFor(key) == "walker" and "walker" or "spawn")
+	elseif cmd == "testmode:on" or cmd == "testmode:off" then
+		-- โหมดทดสอบ: เกมไม่สุ่มอะไรเอง (ลูกค้า ขาจร ฝน ไฟดับ ผีใหญ่ ผีฉาก สวดเรียกผี ศาลหลอก) มีแต่ที่กดจากแผงนี้
+		-- อ่านจาก ReplicatedStorage attribute "TestMode" (CoreLoop / Weather / client SceneryGhosts / HauntEffects)
+		ReplicatedStorage:SetAttribute("TestMode", cmd == "testmode:on")
+	elseif BIG[cmd] then
+		devDecision():Fire(cmd) -- ผีใหญ่บุกประชิด (CoreLoop รับ "big:<ชื่อ>")
 	elseif ALLOWED[cmd] then
 		devDecision():Fire(cmd)
 	else

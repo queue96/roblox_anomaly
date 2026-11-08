@@ -571,7 +571,7 @@ local function showSummary()
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	local cons = Instance.new("UISizeConstraint", panel)
-	cons.MaxSize = Vector2.new(560, 640)
+	cons.MaxSize = Vector2.new(560, 800) -- (640 -> 800: เพิ่มรายการผีคืนนี้ 2026-11-08 · จอเตี้ย shared/UiFit ย่อให้)
 
 	local o = 0
 	local function nextOrder(): number
@@ -594,6 +594,8 @@ local function showSummary()
 	stat("SummaryCaught", string.format("%d %s", d.caught or 0, ui("Units")))
 	stat("SummaryFooled", string.format("%d %s", d.fooled or 0, ui("Units")))
 	stat("SummaryOfferings", string.format("%d %s", d.offerings or 0, ui("Times")))
+	local NightRecap = require(Shared:WaitForChild("NightRecap")) :: any -- เวลาที่เฝ้าร้าน + ผีทุกตัว (ผู้ใช้ 2026-11-08)
+	stat("SummaryTime", NightRecap.FormatTime(d.recap and d.recap.time, lang()))
 
 	local sep = Instance.new("Frame")
 	sep.LayoutOrder = nextOrder()
@@ -636,6 +638,21 @@ local function showSummary()
 			string.format("%d %s", p.wage, baht),
 		}, if me then C.Gold else C.Cream, 16)
 	end
+
+	-- ผีที่มาคืนนี้: คันไหนเป็นผี ไล่ทัน / เติมให้ / ปล่อยไป + จุดสังเกตของตัวที่พลาด
+	local sep2 = sep:Clone()
+	sep2.LayoutOrder = nextOrder()
+	sep2.Parent = panel
+	NightRecap.Build(panel, d.recap, lang(), {
+		font = FONT,
+		text = C.Cream,
+		dim = C.Dim,
+		good = Color3.fromRGB(150, 205, 130),
+		bad = Color3.fromRGB(230, 90, 64),
+		line = C.Line,
+		size = 16,
+		maxHeight = 150,
+	}, nextOrder())
 
 	local btnRow = Instance.new("Frame")
 	btnRow.LayoutOrder = nextOrder()

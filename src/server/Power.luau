@@ -87,6 +87,33 @@ function Power.IsOn(): boolean
 	return powerOn
 end
 
+-- เสียงไฟดับ = อีกหนึ่งจังหวะตกใจ (ผู้ใช้ 2026-11-08): คัตเอาต์ตัดทุ้มๆ + ไฟช็อต ดังพร้อมกัน
+--   Sound อยู่ใน Folder ใต้ Workspace (ไม่ใช่ใน Part) = เสียง 2D ทุกคนได้ยินดังเท่ากันทั้งแมพ
+--   สร้างไว้ล่วงหน้าให้โหลดเสร็จก่อน (สร้างตอนไฟดับ = ต้องรอโหลด เสียงมาช้ากว่าไฟดับ)
+local cutFx: { Sound } = {}
+local function cutSounds(): { Sound }
+	if #cutFx > 0 and cutFx[1].Parent then
+		return cutFx
+	end
+	table.clear(cutFx)
+	local folder = Workspace:FindFirstChild("PowerCutFX") or Instance.new("Folder")
+	folder.Name = "PowerCutFX"
+	folder.Parent = Workspace
+	folder:ClearAllChildren()
+	-- (เอาเสียงเครื่องสะดุด GeneratorBackfire ออกแล้ว: เป็นเสียงท่อมอไซค์ ฟังเหมือนบิดเบิ้ล ผู้ใช้ 2026-11-08)
+	-- ⚠️ Folder ในไฟล์ place / รอบก่อนอาจมี Cut_GeneratorBackfire ค้าง: ลบทิ้งด้านล่าง
+	for _, spec in ipairs({ { "PowerOffClunk", 2.0 }, { "GeneratorShock", 0.35 } }) do
+		local s = SoundBank.CreateSound(spec[1] :: string, folder)
+		if s then
+			s.Name = "Cut_" .. (spec[1] :: string)
+			s.Volume = spec[2] :: number
+			table.insert(cutFx, s)
+		end
+	end
+	return cutFx
+end
+task.defer(cutSounds)
+
 -- สะพานไฟในเพิง (InteractiveProps.CutoutSwitch): สับลง = ไฟร้านดับทั้งหมด สับขึ้น = ไฟกลับมา (ถ้าเครื่องปั่นไฟเดินอยู่)
 --   ไม่เกี่ยวกับไฟดับ (เครื่องปั่นไฟ): ใช้หลบผีใหญ่ (server/BigEvents) ReplicatedStorage attribute "BreakerOn"
 local breakerOn = true
@@ -142,18 +169,24 @@ function Power.Cut(silent: boolean?)
 	powerOn = false
 	progress = 0
 	ReplicatedStorage:SetAttribute("PowerOn", false)
-	setDark(true)
 	if runSound then
 		runSound:Stop()
 	end
-	setNeon(false)
-	local gp = genPart()
-	if gp and not silent then
-		SoundBank.PlayAtPosition("PowerOffClunk", gp.Position, 120, 2)
-	end
-	local lp = shopLights()[1]
-	if lp and not silent then
-		SoundBank.PlayAtPosition("PowerOffClunk", lp.Position, 120, 2)
+	if silent then
+		setDark(true)
+		setNeon(false)
+	else
+		-- เสียงดังก่อน แล้วไฟดับตามใน 0.08 วิ (ชดเชยเวลาที่เสียงเริ่มเล่นช้ากว่าแสงเปลี่ยน = รู้สึกพร้อมกันพอดี)
+		for _, s in ipairs(cutSounds()) do
+			s.TimePosition = 0
+			s:Play()
+		end
+		task.delay(0.08, function()
+			if not powerOn then
+				setDark(true)
+				setNeon(false)
+			end
+		end)
 	end
 	if prompt then
 		prompt.Enabled = true
@@ -307,14 +340,19 @@ function Power.SetBreaker(on: boolean, silent: boolean?)
 		lever.CFrame = if on then leverRest else leverRest * CFrame.Angles(math.rad(-70), 0, 0)
 	end
 	if sw and not silent then
-		SoundBank.PlayAtPosition("PowerOffClunk", sw.Position, 90, 2)
+		-- สับคัตเอาต์เอง (กดบ่อย): เบากว่าเสียงไฟดับจริง (preset ดัง 2.2 ไว้สำหรับไฟดับ)
+		local s = SoundBank.PlayAtPosition("PowerOffClunk", sw.Position, 90, 2)
+		if s then
+			s.Volume *= 0.4
+		end
 	end
 	if breakerPrompt then
 		breakerPrompt:SetAttribute("LightsOff", not on)
 	end
 end
 
-function Power.Start(active: () -> boolean)
+-- calm (ไม่บังคับ): คืน true = ถึงเวลาแล้วแต่ยังไม่ให้ดับ (ช่วงพักหายใจหลังโดนหนัก / ผีใหญ่) รอจนพ้นแล้วค่อยดับ
+function Power.Start(active: () -> boolean, calm: (() -> boolean)?)
 	local sw, lever = breakerParts()
 	if lever then
 		leverRest = lever.CFrame
@@ -410,6 +448,9 @@ function Power.Start(active: () -> boolean)
 			local duration = math.random(c[1], c[2])
 			local t0 = os.clock()
 			while os.clock() - t0 < duration and powerOn and active() do
+				task.wait(1)
+			end
+			while calm and calm() and powerOn and active() do
 				task.wait(1)
 			end
 			if powerOn and active() then

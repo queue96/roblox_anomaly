@@ -145,11 +145,14 @@ local function spawnIn(group: Model, name: string, cf: CFrame, clip: string): Mo
 end
 
 -- เริ่มหลังปิดแผงใส่ผี: คืน false = ผีหายไปทันที (ไม่วน)
-function GhostLinger.Start(mustStay: boolean?): boolean
+-- สุ่มพฤติกรรมไว้ก่อน (CoreLoop ใช้ตัดสินว่าลูกค้าผีต้องพูดก่อนไหม: เคาะแผง = ไม่พูด เคาะเลย) แล้วส่งให้ Start
+GhostLinger.Pick = pickBehavior
+
+function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
 	if current then
 		GhostLinger.Stop()
 	end
-	local behavior = pickBehavior(mustStay)
+	local behavior = picked or pickBehavior(mustStay)
 	if behavior == "vanish" then
 		return false
 	end
@@ -192,7 +195,11 @@ function GhostLinger.Start(mustStay: boolean?): boolean
 		task.delay(0.1, function()
 			while current and current.token == my do
 				if root then
-					SoundBank.PlayOneShot("ShutterCloseSlam", d, 60, 0.4)
+					-- เล่นจนจบไฟล์ (เดิมตัดที่ 0.6 วิ เสียงขาด ผู้ใช้ 2026-11-08) ดังจากในร้านชัด (เริ่มเบาลงหลัง 14 studs)
+					local s = SoundBank.PlayOneShot("ShutterKnock", d, 110, 3)
+					if s then
+						s.RollOffMinDistance = 14
+					end
 				end
 				task.wait(0.9 + math.random() * 0.8)
 			end
@@ -291,13 +298,15 @@ function GhostLinger.Start(mustStay: boolean?): boolean
 					if on and not steps.IsPlaying then
 						steps:Play()
 					end
-					TweenService:Create(steps, TweenInfo.new(0.25), { Volume = if on then 0.9 else 0 }):Play()
+					-- ฝีเท้าย่ำสังกะสี: ดังขึ้น (เดิม 0.9 ผู้ใช้ 2026-11-08)
+					TweenService:Create(steps, TweenInfo.new(0.25), { Volume = if on then 1.6 else 0 }):Play()
 				end
 			end
 			local function thud()
-				local s = SoundBank.PlayOneShot("ShutterCloseSlam", rootPart, 80, 1.2)
+				-- กระหังตกกระแทกหลังคาสังกะสี: ดังชัด (เดิม ShutterCloseSlam × 0.55 ตัด 1.2 วิ เบาไป ผู้ใช้ 2026-11-08)
+				local s = SoundBank.PlayOneShot("ShutterKnock", rootPart, 100, 3)
 				if s then
-					s.Volume *= 0.55
+					s.RollOffMinDistance = 14
 					s.PlaybackSpeed = 0.7 + math.random() * 0.15 -- ทุ้มกว่าแผง = ตกลงบนหลังคา
 				end
 			end

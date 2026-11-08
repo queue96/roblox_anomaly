@@ -444,6 +444,17 @@ LanguageModule.UI = {
 	SummaryWage = { th = "ค่าเฝ้าร้าน", en = "Wage" },
 	SummaryNext = { th = "เฝ้าต่ออีกคืน", en = "Another night" },
 	SummaryWait = { th = "รอเพื่อนกด... ({n})", en = "Waiting for others... ({n})" },
+	-- ผีทุกตัวคืนนี้ + เวลาที่เฝ้าร้าน (shared/NightRecap: หน้าสรุปผล + จอตาย)
+	SummaryTime = { th = "เวลาที่เฝ้าร้าน", en = "Time on shift" },
+	RecapTime = { th = "{m} นาที {s} วินาที", en = "{m}m {s}s" },
+	RecapGhosts = { th = "ผีที่มาคืนนี้", en = "Tonight's ghosts" },
+	RecapNoGhosts = { th = "คืนนี้ไม่มีผีมาที่ร้าน", en = "No ghosts came to the shop tonight" },
+	RecapAt = { th = "นาทีที่ {m}", en = "min {m}" },
+	RecapCaught = { th = "ไล่ทัน", en = "Turned away" },
+	RecapFooled = { th = "เติมให้ผี", en = "Served" },
+	RecapGone = { th = "ปล่อยไป", en = "Let go" },
+	RecapTell = { th = "จุดสังเกต: ", en = "The sign: " },
+	DeathSurvived = { th = "รอดมาได้ {t} · เงิน {money} / {target} บาท", en = "Survived {t} · {money} / {target} Baht" },
 	Baht = { th = "บาท", en = "฿" },
 	Times = { th = "ครั้ง", en = "x" },
 	Units = { th = "ตัว", en = "" },
@@ -499,9 +510,7 @@ end
 LanguageModule.BookOrder = {
 	"Anomaly_Headless",
 	"Anomaly_Cemetery",
-	"Anomaly_WheelHair",
 	"Anomaly_NeckTwist",
-	"Anomaly_CreepySmile",
 	"Anomaly_Krasue",
 	"Anomaly_TaKhon",
 	"Anomaly_MirrorGhost",
@@ -521,8 +530,8 @@ LanguageModule.Book = {
 		en = { "Headless Pillion Rider", "Someone rides pillion with no head. The driver has no idea. Try greeting \"you two\"." },
 	},
 	Anomaly_Cemetery = {
-		th = { "ป้ายทะเบียนป่าช้า", "ป้ายทะเบียน 4444 จดทะเบียนจากป่าช้า ส่องไฟฉายดูป้ายก่อนเติม" },
-		en = { "Cemetery Plate", "Plate 4444, registered to the cemetery. Check the plate with your flashlight." },
+		th = { "ป้ายทะเบียนป่าช้า", "คนขับดูปกติทุกอย่าง แต่ป้ายทะเบียนเขียนว่า \"4444 ตาย\" พนมมือแล้วดูป้ายก่อนเติม" },
+		en = { "Cemetery Plate", "The rider looks perfectly normal, but the plate reads \"4444 DEAD\". Pray and check the plate before you serve." },
 	},
 	Anomaly_WheelHair = {
 		th = { "ผมพันล้อ", "เส้นผมยาวสีดำพันล้อแน่น ลูกค้าบ่นว่าล้อหนักเหมือนมีใครดึง" },
@@ -573,8 +582,8 @@ LanguageModule.Book = {
 		en = { "Phi Pop at the Shutter", "A Phi Pop knocks on the tin shutter. Close it, kill the lights and stand perfectly still." },
 	},
 	Anomaly_MonkRadio = {
-		th = { "วิทยุสวดศพ", "วิทยุในร้านเปลี่ยนเป็นเสียงพระสวดเอง แต่ลูกค้ากลับชมว่าเพลงเพราะ" },
-		en = { "Funeral Radio", "The shop radio switches to funeral chanting by itself, yet the customer praises the song." },
+		th = { "วิทยุสวดศพ", "วิทยุในร้านเปลี่ยนเป็นเพลงงานศพเอง แต่ลูกค้ากลับชมว่าเพลงเพราะ" },
+		en = { "Funeral Radio", "The shop radio starts playing funeral music by itself, yet the customer praises the song." },
 	},
 	Anomaly_Tani = {
 		th = { "ผีตานี", "ผู้หญิงยืนรออยู่หลังกอกล้วย ลูกค้าถามว่าเธอรอใครอยู่" },

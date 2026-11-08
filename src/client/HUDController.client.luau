@@ -564,7 +564,9 @@ camSpotLight.Brightness = 1.4
 camSpotLight.Range = 46
 camSpotLight.Angle = 60
 camSpotLight.Color = Color3.fromRGB(255, 244, 195)
-camSpotLight.Shadows = false
+-- ไฟหลักของเกม: ทำเงา (Performance 2026-11-07 ปิดเงาไฟเล็กๆ ในฉากแทน ภาระรวมไม่เพิ่ม)
+-- Roblox ปิดเงานี้เองเมื่อกราฟิก Auto ลดระดับต่ำ / ต้องตั้ง Lighting.Technology = Future
+camSpotLight.Shadows = true
 camSpotLight.Enabled = false
 camSpotLight.Parent = camLightPart
 camLightPart.Parent = workspace
@@ -746,7 +748,10 @@ local function updateCameraFlashlight(tool: Tool?, isEquipped: boolean)
 		setCameraViewVisible(true)
 
 		-- ถอยจุดกำเนิด SpotLight ไปด้านหลังกล้อง 1.5 studs ตามแนวสายตา เพื่อให้ตอนก้มมองพื้นใต้เท้าระยะห่างพอให้ Voxel สว่าง
-		camLightPart.CFrame = cam.CFrame * CFrame.new(0, 0, 1.5)
+		-- 2026-11-07: ไฟฉายทำเงาแล้ว แสงจึงออกจากหัวไฟฉายในมือ (ขวา-ล่างของสายตา) เงาของของในฉากเยื้องให้เห็น
+		-- (ถ้ายังอยู่หลังกล้อง เงาจะซ่อนอยู่หลังของพอดี และหัว/ตัวผู้เล่นเองจะบังลำแสง) ลำแสงยังชี้ตามสายตา
+		local lens = handleCF.Position + cam.CFrame.LookVector * 0.5
+		camLightPart.CFrame = CFrame.lookAt(lens, lens + cam.CFrame.LookVector)
 		camClosePart.CFrame = cam.CFrame * CFrame.new(0, 0, -2.2)
 		camDustPart.CFrame = cam.CFrame * CFrame.new(0, -0.1, -5.2)
 		if not camDustEmitter.Enabled then
@@ -1038,6 +1043,136 @@ local mgAirBtn = new("TextButton", {
 new("UICorner", { CornerRadius = UDim.new(0, 4) }, mgAirBtn)
 new("UIStroke", { Color = Color3.fromRGB(165, 122, 68), Thickness = 1, Transparency = 0.2 }, mgAirBtn)
 
+-- ---------------------------------------------------------------- หน้าตาเรียบ + เสียงกด (ผู้ใช้ 2026-11-08)
+-- ⚠️ ไฟล์นี้ local ระดับบนสุดเยอะมาก (เพดาน Luau 200): ของใหม่ทั้งหมดเก็บในตาราง mgUI ตัวเดียว ตกแต่งใน do-block
+local mgUI: any = { sounds = {} }
+do
+	-- เรียบๆ (ผู้ใช้ 2026-11-08: แบบไล่สีทอง/กะพริบ "ลิเกไป"): พื้นสีเดียว ขอบบางสีเทาอุ่น ไม่มีไล่สี ไม่มีกะพริบ
+	local EDGE = Color3.fromRGB(86, 78, 68)
+	local function restyle(inst: Instance, props: { [string]: any })
+		for k, v in pairs(props) do
+			(inst :: any)[k] = v
+		end
+	end
+	local function corner(parent: Instance, r: number)
+		local c = parent:FindFirstChildOfClass("UICorner") or new("UICorner", {}, parent)
+		c.CornerRadius = UDim.new(0, r)
+	end
+	local function stroke(parent: Instance, color: Color3, thick: number, tr: number)
+		local s = parent:FindFirstChildOfClass("UIStroke") or new("UIStroke", {}, parent)
+		s.Color, s.Thickness, s.Transparency = color, thick, tr
+		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		return s
+	end
+
+	-- กรอบหลัก: ใหญ่ขึ้นนิดให้กดง่าย พื้นดำอมน้ำตาลสีเดียว
+	restyle(mgFrame, { Size = UDim2.fromOffset(320, 220), BackgroundColor3 = Color3.fromRGB(16, 14, 12), BackgroundTransparency = 0.08 })
+	corner(mgFrame, 6)
+	stroke(mgFrame, EDGE, 1, 0.2)
+
+	-- หัว: แถบเข้มกว่านิดเดียว ไม่มีเส้นทอง
+	restyle(mgHeader, { Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Color3.fromRGB(24, 21, 18), BackgroundTransparency = 0 })
+	corner(mgHeader, 6)
+	-- ปิดมุมมนด้านล่างของแถบหัว (ให้เหลือมนแค่ด้านบน)
+	new("Frame", { Name = "SquareBottom", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 8), BackgroundColor3 = Color3.fromRGB(24, 21, 18), BorderSizePixel = 0, ZIndex = 9 }, mgHeader)
+	restyle(mgTitle, { Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -90, 1, 0), TextSize = 15, TextColor3 = C.Cream })
+	restyle(mgCloseBtn, { Size = UDim2.fromOffset(64, 22), BackgroundColor3 = Color3.fromRGB(34, 30, 26), BackgroundTransparency = 0, TextColor3 = C.Dim, TextSize = 12 })
+	corner(mgCloseBtn, 4)
+	stroke(mgCloseBtn, EDGE, 1, 0.3)
+
+	-- เติมน้ำมัน: หลอดใหญ่ขึ้น ขีดทองนิ่งๆ ตัวเลข % บอกระดับ
+	restyle(mgFuelView, { Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, 0, 1, -32) })
+	restyle(mgTubeBg, { Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(50, 162), BackgroundColor3 = Color3.fromRGB(10, 9, 8) })
+	corner(mgTubeBg, 4)
+	stroke(mgTubeBg, EDGE, 1, 0.15)
+	restyle(mgFuelTargetZone, { BackgroundTransparency = 0.6 })
+	mgUI.pct = new("TextLabel", {
+		Name = "Pct",
+		Position = UDim2.fromOffset(84, 10),
+		Size = UDim2.new(1, -100, 0, 26),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		Text = "0%",
+		TextColor3 = C.Cream,
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutoLocalize = false,
+		ZIndex = 10,
+	}, mgFuelView)
+	restyle(mgFuelHint, { Position = UDim2.fromOffset(84, 40), Size = UDim2.new(1, -100, 0, 70), TextSize = 13 })
+
+	-- ปุ่ม: สีเข้มเรียบ ขอบบาง ตอนกดสว่างขึ้นนิด + ยุบนิดเดียว (UIScale)
+	mgUI.btnIdle = Color3.fromRGB(34, 30, 26)
+	mgUI.btnDown = Color3.fromRGB(56, 49, 40)
+	mgUI.edgeIdle = EDGE
+	mgUI.edgeDown = Color3.fromRGB(176, 150, 110)
+	for _, b in ipairs({ mgFuelBtn, mgAirBtn }) do
+		restyle(b, { BackgroundColor3 = mgUI.btnIdle, BackgroundTransparency = 0, TextColor3 = C.Cream, TextSize = 14 })
+		corner(b, 4)
+		stroke(b, EDGE, 1, 0.1)
+		new("UIScale", { Name = "Press" }, b)
+	end
+	restyle(mgFuelBtn, { Position = UDim2.fromOffset(84, 128), Size = UDim2.new(1, -100, 0, 44) })
+
+	-- เติมลม: เกจหนาขึ้นนิด สีเดียว โซนทองนิ่งๆ
+	restyle(mgAirView, { Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, 0, 1, -32) })
+	restyle(mgAirPips, { Position = UDim2.fromOffset(18, 10), Size = UDim2.new(1, -36, 0, 24), TextSize = 17 })
+	restyle(mgAirHint, { Position = UDim2.fromOffset(18, 36), Size = UDim2.new(1, -36, 0, 34), TextSize = 13 })
+	restyle(mgAirBarBg, { Position = UDim2.fromOffset(18, 78), Size = UDim2.new(1, -36, 0, 30), BackgroundColor3 = Color3.fromRGB(10, 9, 8) })
+	corner(mgAirBarBg, 4)
+	stroke(mgAirBarBg, EDGE, 1, 0.15)
+	restyle(mgAirTargetZone, { BackgroundTransparency = 0.55 })
+	restyle(mgAirNeedle, { Size = UDim2.new(0, 4, 1, 10) })
+	restyle(mgAirBtn, { Position = UDim2.fromOffset(18, 128), Size = UDim2.new(1, -36, 0, 44) })
+
+	-- เสียง UI (เสียงในเครื่อง Roblox rbxasset:// เล่นได้ทุกเครื่อง + เสียงของเกมที่มีอยู่แล้ว)
+	local SoundService = game:GetService("SoundService")
+	local function snd(name: string, id: string, vol: number, speed: number?, looped: boolean?)
+		local s = Instance.new("Sound")
+		s.Name = "MG_" .. name
+		s.SoundId = id
+		s.Volume = vol
+		s.PlaybackSpeed = speed or 1
+		s.Looped = looped == true
+		s.Parent = SoundService
+		mgUI.sounds[name] = s
+	end
+	snd("open", "rbxasset://sounds/button.wav", 0.45)
+	snd("press", "rbxasset://sounds/switch.wav", 0.7)
+	snd("close", "rbxasset://sounds/clickfast.wav", 0.6)
+	snd("pump", "rbxassetid://9117641837", 0.55, 1.1, true) -- น้ำมันไหลลงหลอด ตอนกดค้าง
+	snd("hiss", "rbxassetid://9116496074", 0.6, 1.2) -- ลมพ่น ทุกครั้งที่กดอัดลม
+	snd("hit", "rbxasset://sounds/electronicpingshort.wav", 0.5)
+	snd("fail", "rbxasset://sounds/bass.wav", 0.8, 0.8)
+	snd("success", "rbxasset://sounds/electronicpingshort.wav", 0.65, 1.3)
+	function mgUI.play(name: string)
+		local s = mgUI.sounds[name]
+		if s then
+			s.TimePosition = 0
+			s:Play()
+			if name == "hiss" then
+				task.delay(0.45, function()
+					s:Stop()
+				end)
+			end
+		end
+	end
+	function mgUI.stop(name: string)
+		local s = mgUI.sounds[name]
+		if s then
+			s:Stop()
+		end
+	end
+	-- ปุ่มยุบตอนกด
+	function mgUI.squash(b: Instance)
+		local sc = b:FindFirstChild("Press")
+		if sc then
+			sc.Scale = 0.97
+			TweenService:Create(sc, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end
+	end
+end
+
 local activeMGType: string? = nil -- "fuel" | "diesel" | "air" | nil
 local mgOpenedAt = 0
 local mgOriginPos: Vector3? = nil
@@ -1088,7 +1223,9 @@ local function closeMinigame()
 	mgFrame.Visible = false
 	mgFuelView.Visible = false
 	mgAirView.Visible = false
+	mgUI.stop("pump")
 	if wasActive and not wasDone then
+		mgUI.play("close")
 		ServiceMinigame:FireServer("cancel")
 	end
 end
@@ -1099,6 +1236,8 @@ local function finishMinigameSuccess(stationType: string)
 	end
 	mgDone = true
 	mgHolding = false
+	mgUI.stop("pump")
+	mgUI.play("success")
 	if stationType == "air" then
 		mgAirHint.Text = ui("MG_Success")
 		mgAirHint.TextColor3 = Color3.fromRGB(155, 225, 130)
@@ -1132,6 +1271,8 @@ local function openMinigame(stationType: string)
 		mgFuelBtn.Text = ui(mgKey("MG_FuelBtn"))
 		mgFuelLevel = 0
 		mgFuelFill.Size = UDim2.fromScale(1, 0)
+		mgUI.pct.Text = "0%"
+		mgFuelBtn.BackgroundColor3 = mgUI.btnIdle
 		local isBlood = (remotes:GetAttribute("Anomaly") == "Anomaly_BloodFuel") and (localPlayer:GetAttribute("Praying") == true)
 		mgFuelFill.BackgroundColor3 = if isBlood
 			then Color3.fromRGB(165, 20, 20)
@@ -1155,12 +1296,15 @@ local function openMinigame(stationType: string)
 		mgAirView.Visible = true
 	end
 	mgFrame.Visible = true
+	mgUI.play("open")
 end
 
 local function tryAirStrike()
 	if activeMGType ~= "air" or mgDone or os.clock() - mgOpenedAt < 0.18 then
 		return
 	end
+	mgUI.play("hiss")
+	mgUI.squash(mgAirBtn)
 	-- นับว่าโดนถ้าเข็มอยู่ในช่องตอนไหนก็ได้ในช่วง AIR_LATENCY วินาทีล่าสุด (เผื่อเวลาที่คนเห็นแล้วกด + จอแสดงช้ากว่าจริง)
 	-- เดิมดูแค่ตำแหน่งตอนกด: เข็มวิ่ง ~1.2-1.6 ช่อง/วินาที กดตอนเห็นอยู่ในช่องพอดี เข็มเลยไปแล้ว = ไม่ผ่าน
 	local now = os.clock()
@@ -1181,11 +1325,13 @@ local function tryAirStrike()
 		if mgAirHits >= MG_AIR_NEEDED then
 			finishMinigameSuccess("air")
 		else
+			mgUI.play("hit")
 			mgAirHint.Text = ui(mgKey("MG_AirHint"))
 			mgAirHint.TextColor3 = Color3.fromRGB(225, 190, 110)
 			randomizeAirTarget()
 		end
 	else
+		mgUI.play("fail")
 		mgAirHint.Text = ui("MG_AirMiss")
 		mgAirHint.TextColor3 = C.BloodLit
 	end
@@ -1199,19 +1345,26 @@ local function setFuelHolding(down: boolean)
 		return
 	end
 	if down then
+		if not mgHolding then
+			mgUI.play("press")
+			mgUI.play("pump")
+			mgUI.squash(mgFuelBtn)
+		end
 		mgHolding = true
 		mgHasPumped = true
-		mgFuelBtn.BackgroundColor3 = Color3.fromRGB(58, 46, 32)
-		mgFuelBtnStroke.Color = Color3.fromRGB(230, 175, 88)
+		mgFuelBtn.BackgroundColor3 = mgUI.btnDown
+		mgFuelBtnStroke.Color = mgUI.edgeDown
 	else
 		local wasHolding = mgHolding
 		mgHolding = false
-		mgFuelBtn.BackgroundColor3 = Color3.fromRGB(32, 28, 22)
-		mgFuelBtnStroke.Color = Color3.fromRGB(165, 122, 68)
+		mgUI.stop("pump")
+		mgFuelBtn.BackgroundColor3 = mgUI.btnIdle
+		mgFuelBtnStroke.Color = mgUI.edgeIdle
 		if wasHolding and mgHasPumped then
 			if mgFuelLevel >= mgFuelTargetMin and mgFuelLevel <= mgFuelTargetMax then
 				finishMinigameSuccess(activeMGType :: string)
 			elseif mgFuelLevel < mgFuelTargetMin then
+				mgUI.play("fail")
 				mgHasPumped = false
 				mgFuelHint.Text = ui("MG_FuelShort")
 				mgFuelHint.TextColor3 = Color3.fromRGB(225, 175, 88)
@@ -1321,8 +1474,10 @@ RunService:BindToRenderStep("PumpCameraFlashlight", Enum.RenderPriority.Camera.V
 					mgFuelLevel = 0
 					mgHolding = false
 					mgHasPumped = false
-					mgFuelBtn.BackgroundColor3 = Color3.fromRGB(32, 28, 22)
-					mgFuelBtnStroke.Color = Color3.fromRGB(165, 122, 68)
+					mgUI.stop("pump")
+					mgUI.play("fail")
+					mgFuelBtn.BackgroundColor3 = mgUI.btnIdle
+					mgFuelBtnStroke.Color = mgUI.edgeIdle
 					mgFuelHint.Text = ui("MG_FuelOverflow")
 					mgFuelHint.TextColor3 = C.BloodLit
 					randomizeFuelTarget()
@@ -1331,6 +1486,9 @@ RunService:BindToRenderStep("PumpCameraFlashlight", Enum.RenderPriority.Camera.V
 				mgFuelLevel = math.max(0, mgFuelLevel - dt * 0.16)
 			end
 			mgFuelFill.Size = UDim2.fromScale(1, math.clamp(mgFuelLevel, 0, 1))
+			-- ตัวเลข %: เป็นสีเขียวตอนอยู่ในขีดทอง (ปล่อยได้)
+			mgUI.pct.Text = string.format("%d%%", math.floor(math.clamp(mgFuelLevel, 0, 1) * 100))
+			mgUI.pct.TextColor3 = if mgFuelLevel >= mgFuelTargetMin and mgFuelLevel <= mgFuelTargetMax then Color3.fromRGB(150, 205, 130) else C.Cream
 		elseif activeMGType == "air" then
 			local speed = 1.15 + mgAirHits * 0.22
 			mgAirNeedlePos += mgAirNeedleDir * dt * speed
@@ -1450,6 +1608,11 @@ NoticeRemote.OnClientEvent:Connect(function(key: string, seconds: number?)
 end)
 
 CustomerSpeech.OnClientEvent:Connect(function(key: string?, head: BasePart?, who: { [string]: any }?, vars: { [string]: any }?)
+	-- เสียงแว่วตอนสวดเรียกผี (Pray_Summon_*): มีแต่เสียง ไม่ขึ้นซับ ไม่แตะกล่องคำพูดที่ขึ้นอยู่ (ผู้ใช้ 2026-11-07)
+	if key and who and who.ghost == "WhisperSpeaker" then
+		SoundBank.PlayDialogueVoice(key, who, head)
+		return
+	end
 	if key then
 		narrationKey = nil -- ลูกค้าพูดทับข้อความบรรยาย
 		setHeader(true)

@@ -13,6 +13,8 @@ local Workspace = game:GetService("Workspace")
 local Pedestrian = {}
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 local JerryCan = require(script.Parent:WaitForChild("JerryCan"))
+-- คนเดินที่ Server ขยับเอง: เครื่องผู้เล่นเกลี่ยให้ลื่น (shared/NetSmooth)
+local NetSmooth = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("NetSmooth")) :: any
 
 local templates = ServerStorage:WaitForChild("VehicleTemplates")
 
@@ -333,6 +335,7 @@ end
 
 -- เดินไปจุดหมาย (เดินบนพื้นดิน หรือ floor = true ใช้พื้นจริงรวมพื้นร้าน)
 function Pedestrian.WalkTo(m: Model, target: Vector3, speed: number?, floor: boolean?, ignore: { Instance }?)
+	NetSmooth.Track(m)
 	local an = anims[m]
 	local spd = speed or 7
 	local cap = HumanNPC.PaceLimit(m) -- คนแก่ใส่ผ้านุ่งเดินช้ากว่านี้ (ท่าเดินไม่ซอยเท้า/ไถล)

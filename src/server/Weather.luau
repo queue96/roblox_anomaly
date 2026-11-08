@@ -59,7 +59,8 @@ function Weather.BeginNight()
 	local duration = rand(Weather.Config.RainDuration)
 	print(string.format("🌧️ คืนนี้ฝนจะตกหลังเปิดร้าน %.0f วิ นาน %.0f วิ", startAfter, duration))
 	task.delay(startAfter, function()
-		if my ~= token then
+		-- โหมดทดสอบ (แผง admin): ฝนไม่ตกเอง (ปุ่ม "ฝนตก" ยังใช้ได้)
+		if my ~= token or ReplicatedStorage:GetAttribute("TestMode") == true then
 			return
 		end
 		set(true)

@@ -9,6 +9,8 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GhostNPC = {}
+-- ผีที่ Server ขยับเอง: เครื่องผู้เล่นเกลี่ยให้ลื่น (shared/NetSmooth; ผีที่นิ่ง/นั่งในรถไม่ถูกส่ง)
+local NetSmooth = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("NetSmooth")) :: any
 
 local function templates(): Instance?
 	return ServerStorage:FindFirstChild("GhostTemplates")
@@ -141,6 +143,7 @@ function GhostNPC.Spawn(name: string, cf: CFrame, clip: string?): Model?
 	if clip then
 		GhostNPC.Play(m, clip)
 	end
+	NetSmooth.Track(m)
 	return m
 end
 
@@ -162,6 +165,7 @@ function GhostNPC.SpawnSeated(name: string, hip: CFrame, clip: string?): Model?
 	if clip then
 		GhostNPC.Play(m, clip)
 	end
+	NetSmooth.Track(m)
 	return m
 end
 

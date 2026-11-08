@@ -51,6 +51,7 @@ local function locked(d: Instance): boolean
 	return CollectionService:HasTag(d, LOCK_TAG)
 end
 
+local tintShown: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local function setVeil(d: Instance, visible: boolean, instant: boolean)
 	if locked(d) then
 		-- ยังล็อก: ผีซ่อนไว้ ของปกติยังเห็น (เหมือนไม่ได้พนมมือ)
@@ -67,6 +68,43 @@ local function setVeil(d: Instance, visible: boolean, instant: boolean)
 	local value = if visible then d:GetAttribute("VeilShow") else d:GetAttribute("VeilHide")
 	if value == nil then
 		return
+	end
+	-- ของผีที่ค่อยๆ เปลี่ยนสีหลังโผล่ (น้ำมันเลือด: โผล่มาเป็นสีน้ำมันเดิมก่อน แล้วค่อยๆ แดง)
+	--   VeilTintFrom / VeilTintTo (+ VeilTintSAFrom / VeilTintSATo ของ SurfaceAppearance) / VeilTintTime
+	--   เล่นเฉพาะตอนเพิ่งโผล่ (ซ่อน -> เห็น) ไม่เล่นซ้ำตอน applyAll ระหว่างที่เห็นอยู่แล้ว
+	local tintTo = d:GetAttribute("VeilTintTo")
+	if typeof(tintTo) == "Color3" and d:IsA("BasePart") then
+		if not visible then
+			tintShown[d] = nil
+		elseif not tintShown[d] then
+			tintShown[d] = true
+			local info = TweenInfo.new(tonumber(d:GetAttribute("VeilTintTime")) or 3, Enum.EasingStyle.Sine)
+			local from = d:GetAttribute("VeilTintFrom")
+			if typeof(from) == "Color3" then
+				d.Color = from
+			end
+			TweenService:Create(d, info, { Color = tintTo }):Play()
+			local sa = d:FindFirstChildOfClass("SurfaceAppearance")
+			local saFrom, saTo = d:GetAttribute("VeilTintSAFrom"), d:GetAttribute("VeilTintSATo")
+			if sa and typeof(saTo) == "Color3" then
+				local ok, tw = pcall(function()
+					return TweenService:Create(sa, info, { Color = saTo } :: any)
+				end)
+				if ok and tw then
+					if typeof(saFrom) == "Color3" then
+						pcall(function()
+							(sa :: any).Color = saFrom
+						end)
+					end
+					tw:Play()
+				else
+					-- ไล่สีไม่ได้ = แดงทันที (ห้ามค้างเป็นสีน้ำมันเดิม)
+					pcall(function()
+						(sa :: any).Color = saTo
+					end)
+				end
+			end
+		end
 	end
 	if type(value) == "boolean" then
 		(d :: any)[prop] = value

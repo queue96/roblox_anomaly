@@ -20,6 +20,8 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local SoundBank = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SoundBank"))
+-- รถขยับบนเครื่องผู้เล่น (CoreLoop.driveTo -> client/SmoothDrive): ระหว่างขี่ v:GetPivot() ฝั่ง Server ยังเป็นจุดเริ่ม
+local DriveMotion = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DriveMotion")) :: any
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 
 local Cutscene = {}
@@ -296,13 +298,52 @@ local function release(p: Player, at: CFrame?)
 	end
 end
 
+-- ป้ายบอกเครื่องผู้เล่นว่าตัวละครนี้ยึดกับรถคันไหน ตรงไหน (client/SmoothDrive วางตัวตามรถที่ขยับบนเครื่องตัวเอง)
+--   (2026-11-08: รถขยับบนเครื่องผู้เล่นแล้ว แต่ตัวเราที่ซ้อนท้ายยังตามตำแหน่ง Server = ตัวเราไม่มาตามรถในคัทซีน)
+local function setPin(p: Player, v: Model?, cf: CFrame?)
+	local char = p.Character
+	if not char then
+		return
+	end
+	local pin = char:FindFirstChild("CutscenePin") :: CFrameValue?
+	if not (v and cf) then
+		if pin then
+			pin:Destroy()
+		end
+		return
+	end
+	if not pin then
+		local np = Instance.new("CFrameValue")
+		np.Name = "CutscenePin"
+		local veh = Instance.new("ObjectValue")
+		veh.Name = "Vehicle"
+		veh.Parent = np
+		np.Parent = char
+		pin = np
+	end
+	local pv = pin :: CFrameValue
+	if pv.Value ~= cf then
+		pv.Value = cf
+	end
+	local veh = pv:FindFirstChild("Vehicle") :: ObjectValue?
+	if veh and veh.Value ~= v then
+		veh.Value = v
+	end
+end
+
 RunService.Heartbeat:Connect(function()
 	for p, f in pairs(follow) do
 		local root = rootOf(p)
 		if root and f.v.Parent then
-			root.CFrame = f.v:GetPivot() * f.cf
+			root.CFrame = DriveMotion.LivePivot(f.v) * f.cf
+			setPin(p, f.v, f.cf)
 		else
 			follow[p] = nil
+		end
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		if not follow[p] then
+			setPin(p, nil, nil)
 		end
 	end
 end)

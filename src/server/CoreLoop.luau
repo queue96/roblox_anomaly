@@ -26,7 +26,7 @@ local CONFIG = {
 	-- ครบยอดแล้ว: ฟ้าค่อยๆ สางนานเท่านี้ (วินาที) ระหว่างยังเล่นอยู่ แล้วจอดำ BlackFade วิ ค่อยเข้าคัทซีนเช้า (ผู้ใช้ 2026-11-06)
 	DawnSeconds = 14,
 	DawnBlackFade = 1.8,
-	TargetMoney = 800, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที = ~15-30 นาทีต่อคืน (เดิม 1200 นานเกิน, ผู้ใช้ 2026-11-05)
+	TargetMoney = 1200, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที = ~22-45 นาทีต่อคืน (800 -> 1200 ผู้ใช้ 2026-11-08; เคย 1200 -> 800 เมื่อ 2026-11-05)
 	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ) [น้ำมันหลอด]
 	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
 	-- บริการแต่ละแบบ: ตู้ไหน / ราคาให้เลือก / คำถามราคา (เติมผิดตู้ ลูกค้าท้วง)
@@ -75,6 +75,7 @@ local CONFIG = {
 	ShelterSpots = { Vector3.new(9, 0, 10.5), Vector3.new(12.5, 0, 10.8) }, -- ใต้ชายคาหน้าร้าน (y หาเอง)
 	-- ขาจร (ไม่ได้มาใช้บริการ) โผล่ช่วงร้านว่างระหว่างระลอก: เด็กแว้น / รถซิ่งเปิดเพลง / รถแห่งานบวช
 	RoadEventChance = 0.25, -- โอกาสต่อช่วงพัก (ลดลงไม่ให้ถนนดูคึกคักเกินไป)
+	RoadEventsPerNight = 1, -- คืนละไม่เกินเท่านี้ครั้ง และแต่ละแบบไม่ซ้ำกันในคืนเดียว (ผู้ใช้ 2026-11-07) · ปุ่ม admin ไม่นับ
 	RoadEvents = {
 		{ kind = "racer", weight = 3, rain = true },
 		{ kind = "party", weight = 2, rain = false },
@@ -99,6 +100,9 @@ local CONFIG = {
 	PrayReactChance = 0.25, -- โอกาสที่ลูกค้าคนนี้จะทัก สุ่มครั้งเดียวต่อลูกค้า 1 คน (ไม่สุ่มต่อคนสวด เล่น 4 คนรุมสวดจะได้ไม่ทักทุกคัน)
 	PrayReactCooldown = 150, -- ทักแล้ว ลูกค้าคนอื่นยังไม่ทักอีกอย่างน้อยกี่วินาที (ทั้งร้าน)
 	PrayReactAfter = 1.2, -- พนมมือนานเท่านี้ลูกค้าถึงจะสังเกต
+	-- ไม่ทักต่อท้ายบทเปิดทันที (ผู้ใช้ 2026-11-08): จอดแล้วอย่างน้อย PrayReactDelay วิ และเงียบมาแล้ว PrayReactQuiet วิ
+	PrayReactDelay = 8,
+	PrayReactQuiet = 4,
 	PrayGhostLineChance = 0.2, -- ผีตอบแบบผี เช่น แสบหู (น้อยๆ เพราะเป็นเฉลย ที่เหลือแกล้งทำตัวเป็นคนปกติ)
 	PraySummonAfter = 3, -- สวดตอนร้านว่างนานเท่านี้ ถึงจะสุ่มเรียกผี (1 ครั้งต่อการพนมมือ 1 รอบ)
 	PraySummonChance = 0.25,
@@ -110,6 +114,15 @@ local CONFIG = {
 	-- ผีใหญ่บุกประชิด (server/BigEvents): ดับไฟที่สะพานไฟ + นั่งยองนิ่งๆ ให้ผีผ่านไป
 	BigEvery = { 480, 780 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง (เดิม 360-600)
 	BigMax = 2, -- คืนละไม่เกินเท่านี้
+	-- จังหวะความกลัวทั้งคืน (ผู้ใช้ 2026-11-08 "ทำได้เลย"): ไต่ระดับตามเงินที่หาได้ (money / TargetMoney)
+	--   ต้นคืน: ผีน้อย ให้จำหน้าตาลูกค้าปกติก่อน · กลางคืน: AnomalyChance · ช่วงท้าย: ผีถี่สุด
+	AnomalyEarly = 0.15, -- โอกาสผีตอนเงินเริ่มต้น ค่อยๆ ขึ้นไปถึง AnomalyChance ที่ EarlyUntil
+	EarlyUntil = 0.3,
+	FinaleFrom = 0.85, -- เงินถึงเท่านี้ = ช่วงท้ายคืน
+	AnomalyFinale = 0.45,
+	BigFromProgress = 0.4, -- ผีใหญ่มาได้หลังเงินถึงเท่านี้
+	BigOmenTime = 14, -- วินาที: ก่อนผีใหญ่มา จิ้งหรีดเงียบกริบ + หมาหอนแว่วจากหลังเขา (ร้านล็อกไม่ปล่อยลูกค้าระหว่างนี้)
+	CalmAfterScare = 75, -- วินาที: หลังผีใหญ่ / ไฟกลับมา เว้นเงียบ ไม่มีไฟดับ ผีใหญ่ ผีฉาก
 	BigReward = 0, -- รอดได้ทั้งทีม (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 
 	-- น้ำมันในตู้ (2026-11-03): เติม 1 ครั้งใช้เท่านี้ของหลอด หมดแล้วต้องเอาแกลลอนในร้านไปตักจากถังหลังร้านมาเท
@@ -300,7 +313,7 @@ local function killOne(p: Player)
 	end
 	soloDead[p] = true
 	collapse(p)
-	GameState:FireClient(p, "Lose")
+	GameState:FireClient(p, "Lose", CoreLoop.Recap()) -- (ปุ่ม admin ใช้ทดสอบหน้าสรุปบนจอตายได้)
 	print("💀 [" .. p.Name .. "] ตาย (admin)")
 end
 -- ชุบชีวิต (คำสั่ง admin "revive:<UserId>"): คนที่ตายคนเดียวลุกขึ้นตรงที่ล้ม เล่นต่อได้ทันที จอตายปิด
@@ -439,7 +452,7 @@ local offeringUntil = math.huge -- ศาลคุ้มครองถึงเ
 local offeringWarned = false
 -- สถิติคืนนี้ (หน้าสรุปผลตอนชนะ)
 type PStat = { name: string, fills: number, earned: number, ghosts: number, offerings: number }
-local stats = { anomalies = 0, caught = 0, fooled = 0, offerings = 0, players = {} :: { [number]: PStat } }
+local stats = { anomalies = 0, caught = 0, fooled = 0, offerings = 0, players = {} :: { [number]: PStat }, ghostLog = {} :: { { key: string, result: string, t: number } }, startedAt = 0 }
 local function pstat(who: string?): PStat?
 	local p = who and Players:FindFirstChild(who)
 	if not (p and p:IsA("Player")) then
@@ -455,6 +468,17 @@ end
 local function resetStats()
 	stats.anomalies, stats.caught, stats.fooled, stats.offerings = 0, 0, 0, 0
 	table.clear(stats.players)
+	table.clear(stats.ghostLog)
+	stats.startedAt = os.clock()
+end
+-- ผีลูกค้าแต่ละตัวคืนนี้ (หน้าสรุปผล + จอตาย บอกว่าคันไหนเป็นผี จุดสังเกตคืออะไร ผู้ใช้ 2026-11-08)
+--   result: "caught" ปิดแผงไล่ทัน / "fooled" เติมให้ผี / "gone" ไม่มีใครตัดสินใจ ผีไปเอง · t = วินาทีนับจากเปิดร้าน
+function CoreLoop.LogGhost(key: string?, result: string)
+	table.insert(stats.ghostLog, { key = key or "?", result = result, t = math.max(0, os.clock() - stats.startedAt) })
+end
+-- เวลาที่เฝ้าร้านคืนนี้ + ผีทุกตัว (ส่งให้ client)
+function CoreLoop.Recap(): { [string]: any }
+	return { time = math.max(0, os.clock() - stats.startedAt), ghosts = table.clone(stats.ghostLog), team = money, target = CONFIG.TargetMoney }
 end
 
 -- ความดุของผีรอบนี้ 0..1 (shared/GhostFloat: ผีลอยเร็วขึ้น ส่ายแรงขึ้น) = ความยากของห้อง + คืนเดินไปไกลแค่ไหน
@@ -490,6 +514,33 @@ local function publishState()
 	remotes:SetAttribute("GameOver", gameOver)
 	remotes:SetAttribute("PetrolLevel", petrolLevel)
 	remotes:SetAttribute("DieselLevel", dieselLevel)
+	remotes:SetAttribute("NightProgress", math.clamp(money / CONFIG.TargetMoney, 0, 1)) -- client/SceneryGhosts: ช่วงท้ายคืนผีฉากถี่ขึ้น
+end
+
+-- โอกาสลูกค้าเป็นผีตอนนี้ (ไต่ระดับตามเงิน) · ศาลไม่คุ้มครอง = บวกเพิ่มเท่าส่วนต่างเดิม (CurseAnomalyChance - AnomalyChance)
+function CoreLoop.GhostChance(): number
+	local p = math.clamp(money / CONFIG.TargetMoney, 0, 1)
+	local c
+	if p < CONFIG.EarlyUntil then
+		c = CONFIG.AnomalyEarly + (CONFIG.AnomalyChance - CONFIG.AnomalyEarly) * (p / CONFIG.EarlyUntil)
+	elseif p >= CONFIG.FinaleFrom then
+		c = CONFIG.AnomalyFinale
+	else
+		c = CONFIG.AnomalyChance
+	end
+	if remotes:GetAttribute("Cursed") == true then -- (= Items.cursed(): Items ประกาศทีหลังฟังก์ชันนี้ ใช้ attribute แทน)
+		c += CONFIG.CurseAnomalyChance - CONFIG.AnomalyChance
+	end
+	return math.clamp(c, 0, 0.9)
+end
+
+-- ช่วงพักหายใจหลังโดนหนัก: เวลา Server (GetServerTimeNow) ที่ remotes.CalmUntil ไฟดับ/ผีใหญ่/ผีฉาก (client) รอจนพ้น
+function CoreLoop.Calm(seconds: number)
+	local untilT = Workspace:GetServerTimeNow() + seconds
+	remotes:SetAttribute("CalmUntil", math.max(untilT, remotes:GetAttribute("CalmUntil") or 0))
+end
+function CoreLoop.Calming(): boolean
+	return Workspace:GetServerTimeNow() < (remotes:GetAttribute("CalmUntil") or 0)
 end
 remotes:GetAttributeChangedSignal("Cursed"):Connect(function()
 	remotes:SetAttribute("GhostFury", CoreLoop.GhostFury())
@@ -542,7 +593,7 @@ local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 CoreLoop.Big = { mod = require(script.Parent:WaitForChild("BigEvents")), running = false, count = 0 } :: any
 CoreLoop.Linger = require(script.Parent:WaitForChild("GhostLinger")) :: any
 -- คืนนี้: ใครเจอศพห่อผ้าตอนไฟดับไปแล้ว (นับ 1 อีเวนต์ต่อคืน)
-CoreLoop.Night = { sawSwarm = {} } :: any
+CoreLoop.Night = { sawSwarm = {}, roadKinds = {} } :: any -- roadKinds = ขาจรที่ออกไปแล้วคืนนี้ (ล้างตอนเริ่มคืน)
 -- ไฟดับแล้วพนมมือ เห็นศพห่อผ้าขาวเต็มทุ่ง (client/SceneryGhosts): ลงสมุดเป็น 1 อีเวนต์ คนละครั้งต่อคืน
 remote("OutageSwarm").OnServerEvent:Connect(function(p: Player)
 	if Power.IsOn() or CoreLoop.Night.sawSwarm[p] then
@@ -553,6 +604,9 @@ remote("OutageSwarm").OnServerEvent:Connect(function(p: Player)
 end)
 local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LeaderboardStats"))
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
+-- รถขยับลื่นบนเครื่องผู้เล่น (shared/DriveMotion + client/SmoothDrive) — เก็บในตาราง CoreLoop ไม่เพิ่ม local (เพดาน 200)
+CoreLoop.Drive = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DriveMotion")) :: any
+CoreLoop.NetSmooth = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("NetSmooth")) :: any
 local function pick(list: { any }): any
 	return list[math.random(#list)]
 end
@@ -641,37 +695,46 @@ local function spinWheels(wheels: { BasePart }, right: Vector3, step: number)
 end
 
 -- เลื่อนรถไปยังจุดหมาย (หน้ารถ = -Z ของ pivot) ล้อหมุน รถเกาะพื้นดิน ชะลอตอนใกล้ถึงถ้า brake = true
+-- (2026-11-08) ไม่ PivotTo ทุกเฟรมแล้ว: เล่นจริงรถขยับหน่วงเป็นช่วงๆ (ส่งตำแหน่งทุกชิ้นทุกเฟรมผ่านเน็ตไม่ทัน ไม่มีการเกลี่ย)
+--   บอกการขี่ครั้งเดียวผ่าน attribute -> เครื่องผู้เล่นขยับรถเอง (client/SmoothDrive) -> ครบเวลาแล้ว PivotTo จุดปลายทีเดียว
+--   ระหว่างขี่ v:GetPivot() ฝั่ง Server ยังเป็นจุดเริ่ม: ของที่ต้องรู้ตำแหน่งจริงใช้ CoreLoop.Drive.LivePivot(v)
 local function driveTo(v: Model, target: Vector3, brake: boolean, speedOverride: number?)
-	local wheels = wheelsOf(v)
-	local done = false
-	local conn: RBXScriptConnection
-	conn = RunService.Heartbeat:Connect(function(dt)
-		if not v.Parent then
-			done = true
-			conn:Disconnect()
-			return
-		end
-		local pos = v:GetPivot().Position
-		local flat = Vector3.new(target.X - pos.X, 0, target.Z - pos.Z)
-		local dist = flat.Magnitude
-		local speed = speedOverride or CONFIG.DriveSpeed
-		if brake then
-			speed = math.max(3, math.min(speed, dist * 1.6))
-		end
-		local step = math.min(dist, speed * dt)
-		if dist < 0.15 then
-			done = true
-			conn:Disconnect()
-			return
-		end
-		local dir = flat.Unit
-		local nextPos = pos + dir * step
-		nextPos = Vector3.new(nextPos.X, groundAt(nextPos), nextPos.Z)
-		v:PivotTo(CFrame.lookAt(nextPos, nextPos + dir))
-		spinWheels(wheels, v:GetPivot().RightVector, step)
-	end)
-	while not done do
+	if not v.Parent then
+		return
+	end
+	local Drive = CoreLoop.Drive
+	local from = v:GetPivot().Position
+	local flat = Vector3.new(target.X - from.X, 0, target.Z - from.Z)
+	local dist = flat.Magnitude
+	if dist < 0.15 then
+		return
+	end
+	local dir = flat.Unit
+	local speed = speedOverride or CONFIG.DriveSpeed
+	local dur = Drive.Duration(dist, speed, brake)
+	-- ทั้งคันส่งมาพร้อมกัน (StreamingEnabled): ไม่งั้นชิ้นที่มาทีหลังจะโผล่ที่จุดเริ่มของ Server
+	if v.ModelStreamingMode == Enum.ModelStreamingMode.Default then
+		pcall(function()
+			v.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+		end)
+	end
+	v:SetAttribute("DriveFrom", from)
+	v:SetAttribute("DriveTo", target)
+	v:SetAttribute("DriveSpeed", speed)
+	v:SetAttribute("DriveBrake", brake == true)
+	v:SetAttribute("DriveT0", Workspace:GetServerTimeNow())
+	v:SetAttribute("Driving", true)
+	v:SetAttribute("DriveId", (tonumber(v:GetAttribute("DriveId")) or 0) + 1)
+	CollectionService:AddTag(v, Drive.TAG)
+	local t0 = os.clock()
+	while v.Parent and os.clock() - t0 < dur do
 		task.wait()
+	end
+	if v.Parent then
+		local p = from + dir * dist
+		p = Vector3.new(p.X, groundAt(p), p.Z)
+		v:PivotTo(CFrame.lookAt(p, p + dir))
+		v:SetAttribute("Driving", false)
 	end
 end
 
@@ -699,7 +762,7 @@ local function closeShutter()
 	if shutterTweening then return end
 	shutterTweening = true
 	updateShutterPrompts()
-	SoundBank.PlayOneShot("ShutterCloseSlam", shutterDoor, 75, 2.0)
+	SoundBank.PlayOneShot("ShutterCloseSlam", shutterDoor, 90, 2.0)
 	local p = shutterDoor.Position
 	local t = TweenService:Create(shutterDoor, TweenInfo.new(0.45, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
 		Position = Vector3.new(p.X, closedY, p.Z),
@@ -715,7 +778,7 @@ local function openShutter()
 	if shutterTweening then return end
 	shutterTweening = true
 	updateShutterPrompts()
-	SoundBank.PlayOneShot("ShutterOpenPull", shutterDoor, 65, 2.2)
+	SoundBank.PlayOneShot("ShutterOpenPull", shutterDoor, 90, 2.2)
 	local p = shutterDoor.Position
 	local t = TweenService:Create(shutterDoor, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
 		Position = Vector3.new(p.X, openY, p.Z),
@@ -823,11 +886,18 @@ local function setDieselLevel(frac: number, time: number)
 		dieselLiquid:SetAttribute("BaseT", dieselLiquid.Transparency)
 	end
 	dieselLiquid.Transparency = if frac <= 0.001 then 1 else dieselLiquid:GetAttribute("BaseT")
-	local t = TweenService:Create(dieselLiquid, TweenInfo.new(time, Enum.EasingStyle.Sine), {
+	local goal = {
 		Size = Vector3.new(dieselFull.X, h, dieselFull.Z),
 		Position = Vector3.new(p.X, dieselBottom + h / 2, p.Z),
-	})
+	}
+	local t = TweenService:Create(dieselLiquid, TweenInfo.new(time, Enum.EasingStyle.Sine), goal)
 	t:Play()
+	-- น้ำมันเลือด (Anomaly_BloodFuel) ในตู้ดีเซลลดระดับตามน้ำมันจริงด้วย
+	-- ⚠️ หาจากตัวหลอด ห้ามอ้าง dieselPump ในฟังก์ชันนี้: ทำให้ไฟล์ชนเพดาน local 200 ("Out of local registers" เกมค้างหน้าโหลด 12%)
+	local blood = (dieselLiquid.Parent :: Instance):FindFirstChild("BloodFuel")
+	if blood and blood:IsA("BasePart") then
+		TweenService:Create(blood, TweenInfo.new(time, Enum.EasingStyle.Sine), goal):Play()
+	end
 	return t
 end
 
@@ -1431,7 +1501,8 @@ task.spawn(function()
 				Notice:FireAllClients("ShrineHungry", 5)
 			end
 		end
-		if cursed() then
+		-- โหมดทดสอบ: ศาลหมดเวลาเองไม่หลอก (เว้นแต่กดปุ่ม admin "ศาลหิว")
+		if cursed() and (ReplicatedStorage:GetAttribute("TestMode") ~= true or CoreLoop.Night.adminHungry == true) then
 			if remotes:GetAttribute("Cursed") ~= true then
 				remotes:SetAttribute("Cursed", true)
 				Notice:FireAllClients("ShrineCursed", 5)
@@ -1568,7 +1639,9 @@ devDecision.Event:Connect(function(choice: string)
 		-- ศาลหมดเวลาคุ้มครองทันที (เริ่มอาการแปลกๆ) — ต้องเปิดร้านแล้ว
 		offeringUntil = os.clock() - 1
 		offeringWarned = true
+		CoreLoop.Night.adminHungry = true
 	elseif choice == "offer" then
+		CoreLoop.Night.adminHungry = nil
 		offeringUntil = os.clock() + CONFIG.OfferingDuration
 		offeringWarned = false
 		remotes:SetAttribute("Cursed", false)
@@ -1833,8 +1906,12 @@ local function seatDriver(m: Model): Model?
 	if not (seat and bike and src) then
 		return nil
 	end
-	local drv = src:Clone()
-	local bikePiv = bike:GetPivot()
+	-- มอไซค์รุ่นใหม่ (MapBuilder.SwapCustomerBikeV2) ย้ายคนขับไปตามรถใหม่แล้ว: ที่นั่งตุ๊กตุ๊ก/รถยนต์ยังวัดจากคนขับรุ่นเดิม
+	local seatRef = templates.Parent and templates.Parent:FindFirstChild("CustomerBikeSeatRef")
+	local refDrv = seatRef and seatRef:FindFirstChild("DriverNPC")
+	local refPiv = seatRef and seatRef:GetAttribute("BikePivot")
+	local drv = (if refDrv and typeof(refPiv) == "CFrame" then refDrv else src):Clone() :: Model
+	local bikePiv = if refDrv and typeof(refPiv) == "CFrame" then refPiv else bike:GetPivot()
 	local hipLocal = CFrame.new(0, 2.95, 0.38) -- สะโพกคนขับเทียบ pivot มอไซค์
 	local rot = m:GetPivot() - m:GetPivot().Position
 	local seatTop = CFrame.new(seat.Position + Vector3.new(0, seat.Size.Y / 2, 0)) * rot
@@ -1883,19 +1960,32 @@ local function humanizeDriver(v: Model, look: { [string]: any }?)
 	if look and type(look.hipForward) == "number" then
 		hip = hip * CFrame.new(0, 0, -look.hipForward)
 	end
+	-- มอไซค์แต่งรุ่นใหม่ (tools/blender/racing_moto_v2.py, แม่แบบ RacingVersion = 2): สะโพก/มือ/เท้าตามตัวรถใหม่
+	--   (เว้นเบาะหลังให้คนซ้อนอยู่แล้ว ไม่ต้อง hipForward)
+	if v:GetAttribute("RacingVersion") == 2 then
+		hip = CFrame.new(piv:PointToWorldSpace(Vector3.new(0, 2.66, 0.69))) * rot
+	end
 	-- มือ/เท้าของคนขับเดิมวางอยู่บนแฮนด์และที่พักเท้าของรถพอดี: ใช้เป็นเป้า IK (+X ในรถ = ขวาของคนขับ)
 	local clip = driverClipFor(v)
 	local targets = {}
+	-- ซ้าย/ขวาเทียบกับสะโพกคนขับ ไม่ใช่กลางรถ (ผู้ใช้ 2026-11-08): รถยนต์คนขับนั่งฝั่งขวา มือ/เท้าทั้งคู่ X > 0
+	--   เดิมนับเป็นขวาทั้งคู่ -> มือซ้าย/เท้าซ้ายไม่มีเป้า IK (มือขวาทับกันเอง)
+	local hipX = piv:PointToObjectSpace(hip.Position).X
 	for _, part in ipairs(old:GetDescendants()) do
 		if part:IsA("BasePart") and (part.Name == "Hand" or part.Name == "LeftFoot" or part.Name == "RightFoot") then
 			local lp = piv:PointToObjectSpace(part.Position)
-			local right = lp.X > 0
+			local right = lp.X > hipX
 			if part.Name == "Hand" then
 				local key = if right then "handR" else "handL"
 				local hp = lp
 				if clip == "drive_car" then
 					-- รถยนต์: มือคนขับเดิม (ท่าจับแฮนด์มอไซค์) สั้นกว่าพวงมาลัย -> วางบนขอบพวงมาลัยหน้าเบาะ
 					hp = piv:PointToObjectSpace(hip.Position) + Vector3.new(if right then 0.55 else -0.3, 1.6, -1.95)
+				elseif clip == "ride_moto" and v:GetAttribute("RacingVersion") == 2 then
+					hp = piv:PointToObjectSpace(hip.Position) + Vector3.new(if right then 0.87 else -0.87, 0.67, -1.65)
+				elseif clip == "drive_tuktuk" and v:GetAttribute("TukTukVersion") == 2 then
+					-- ตุ๊กตุ๊กรุ่นใหม่ (tools/blender/tuktuk_v2.py): แฮนด์ปั้นไว้ที่ สะโพก + (±0.95, 0.75, -1.6) นั่งหลังตรงจับได้
+					hp = piv:PointToObjectSpace(hip.Position) + Vector3.new(if right then 0.95 else -0.95, 0.75, -1.6)
 				end
 				-- ศอกงอออกข้างและลงล่าง
 				targets[key] = { pos = piv:PointToWorldSpace(hp), pole = piv:PointToWorldSpace(hp + Vector3.new(if right then 1.2 else -1.2, -1.2, 1.0)) }
@@ -1906,12 +1996,17 @@ local function humanizeDriver(v: Model, look: { [string]: any }?)
 				local side = if right then 1 else -1
 				local fp = lp
 				local pole = Vector3.new(0, 2.5, -2.0) -- เข่าชี้ขึ้นไปข้างหน้า
-				if clip == "drive_car" then
+				if clip == "ride_moto" and v:GetAttribute("RacingVersion") == 2 then
+					fp = piv:PointToObjectSpace(hip.Position) + Vector3.new(side * 0.64, -1.63, -0.32) -- ที่พักเท้ามอไซค์แต่งรุ่นใหม่
+					pole = Vector3.new(side * 1.6, 1.4, -0.8)
+				elseif clip == "drive_tuktuk" and v:GetAttribute("TukTukVersion") == 2 then
+					fp = piv:PointToObjectSpace(hip.Position) + Vector3.new(side * 0.45, -1.5, -0.9) -- พื้นห้องคนขับตุ๊กตุ๊กรุ่นใหม่ (1.65)
+				elseif clip == "drive_car" then
 					-- รถยนต์: เท้าคนขับเดิม (ท่าขี่มอไซค์) ต่ำกว่าพื้นรถ ยกขึ้นและยื่นไปหน้าแป้นเหยียบ
-					fp = Vector3.new(lp.X * 0.6, piv:PointToObjectSpace(hip.Position).Y - 1.5, lp.Z - 1.3)
+					fp = Vector3.new(hipX + (lp.X - hipX) * 0.6, piv:PointToObjectSpace(hip.Position).Y - 1.5, lp.Z - 1.3)
 				elseif clip == "ride_moto" then
 					-- มอไซค์: เท้าบนที่พักเท้าหลังบังลม ชิดตัวรถขึ้นนิด / เข่ากางออกข้าง (ไม่ชี้ตรงไปทะลุบังลมหน้า)
-					fp = Vector3.new(side * math.max(0.6, math.abs(lp.X) * 0.8), lp.Y + 0.1, lp.Z + 0.45)
+					fp = Vector3.new(hipX + side * math.max(0.6, math.abs(lp.X - hipX) * 0.8), lp.Y + 0.1, lp.Z + 0.45)
 					pole = Vector3.new(side * 1.6, 1.4, -0.8)
 				end
 				targets[key] = { pos = piv:PointToWorldSpace(fp), pole = piv:PointToWorldSpace(fp + pole) }
@@ -1991,7 +2086,8 @@ local function spawnCustomer(kind: string?)
 	else
 		forced = nil
 		-- ศาลไม่คุ้มครอง (ไม่ได้ถวายขนม): ผีมาบ่อยขึ้นมาก
-		ghost = forceGhostNext or math.random() < (if Items.cursed() then CONFIG.CurseAnomalyChance else CONFIG.AnomalyChance)
+		-- ไต่ระดับตามเงิน (CoreLoop.GhostChance): ต้นคืน 15% -> กลาง 30% -> ช่วงท้าย 45% (+10% ตอนศาลไม่คุ้มครอง)
+		ghost = forceGhostNext or math.random() < CoreLoop.GhostChance()
 	end
 	forceGhostNext = false
 
@@ -2023,6 +2119,8 @@ local function spawnCustomer(kind: string?)
 	else
 		v = pickTemplate():Clone()
 		brightenHeadlights(v :: Model)
+		-- สุ่มสีรถ (มอไซค์รุ่นใหม่มีชิ้น BodyPaint/HandlebarPaint ย้อมสีได้ · ซาเล้ง/รุ่นเดิมไม่มี = ไม่มีผล)
+		require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("VehiclePaint")).Randomize(v)
 		-- คนขับไม่กางร่ม: สองมือจับแฮนด์ (IK ใน humanizeDriver)
 	end
 	local length = if walking then (if k == "bicycle" then 6 else 4) else (v :: Model):GetExtentsSize().Z
@@ -2375,14 +2473,19 @@ end
 local function followVehicle(v: Model, people: { { m: Model, offset: CFrame, dance: boolean } }): () -> ()
 	local alive = true
 	local t0 = os.clock()
-	local lastPos = v:GetPivot().Position
+	-- คนเดิน/เต้นตามรถ: Server วางทุกเฟรม -> เครื่องผู้เล่นเกลี่ยให้ลื่น (shared/NetSmooth)
+	for _, pp in ipairs(people) do
+		CoreLoop.NetSmooth.Track(pp.m)
+	end
+	local lastPos = CoreLoop.Drive.LivePivot(v).Position
 	local speed = 0 -- ความเร็วขบวน (studs/วิ, เฉลี่ยนุ่มๆ) -> ขาเดินของคนเต้น
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not v.Parent then
 			return
 		end
 		local t = os.clock() - t0
-		local piv = v:GetPivot()
+		-- ระหว่างขี่ ตัวรถฝั่ง Server ยังอยู่จุดเริ่ม (driveTo ไม่ PivotTo ทุกเฟรมแล้ว): ใช้ตำแหน่งจริงจากสูตร
+		local piv = CoreLoop.Drive.LivePivot(v)
 		local step = (piv.Position - lastPos).Magnitude
 		local moving = step > 0.01
 		lastPos = piv.Position
@@ -2439,7 +2542,8 @@ local function eventRacers()
 			local stop = stopPoint.Position
 			local wheelieAt = stop - ROAD_DIR * 14 + Vector3.new(0, 0, 2.5 * (i - 1))
 			driveTo(v, wheelieAt, false, 40)
-			-- ยกล้อ: เงยหน้ารถ 25° วิ่งผ่านหน้าร้าน ~30 studs
+			-- ยกล้อ: เงยหน้ารถ 25° วิ่งผ่านหน้าร้าน ~30 studs (Server ขยับทุกเฟรม -> เครื่องผู้เล่นเกลี่ยให้ลื่น shared/NetSmooth)
+			CoreLoop.NetSmooth.Track(v)
 			local from = v:GetPivot()
 			local t0 = os.clock()
 			local dur = 1.4
@@ -2570,11 +2674,15 @@ local function runRoadEvent(kind: string?, force: boolean?)
 	if not force and (#queue > 0 or #shelters > 0 or ReplicatedStorage:GetAttribute("CutsceneRunning") == true) then
 		return
 	end
+	local usedTonight = CoreLoop.Night.roadKinds
+	if not force and (#usedTonight >= CONFIG.RoadEventsPerNight or ReplicatedStorage:GetAttribute("TestMode") == true) then
+		return
+	end
 	local raining = Weather.IsRaining()
 	if not kind then
 		local pool, total = {}, 0
 		for _, e in ipairs(CONFIG.RoadEvents) do
-			if e.rain or not raining then
+			if (e.rain or not raining) and not table.find(usedTonight, e.kind) then
 				table.insert(pool, e)
 				total += e.weight
 			end
@@ -2587,6 +2695,12 @@ local function runRoadEvent(kind: string?, force: boolean?)
 				break
 			end
 		end
+	end
+	if not kind then
+		return -- ออกครบทุกแบบที่ออกได้ตอนนี้แล้ว
+	end
+	if not force then
+		table.insert(usedTonight, kind)
 	end
 	roadEventRunning = true
 	print("🎉 ขาจรบนถนน: " .. tostring(kind))
@@ -2666,7 +2780,8 @@ local function spawnerLoop()
 		-- รอจนไม่มีลูกค้าหรือคนหลบฝนค้างอยู่ในฉาก และไม่มีขาจรบนถนน
 		-- (คัทซีนกำลังเล่น: ห้ามปล่อยลูกค้า/ผี/ขาจรออกมาเด็ดขาด ผู้ใช้ 2026-11-05)
 		waitWhile(function()
-			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or CoreLoop.Linger.Active() or ReplicatedStorage:GetAttribute("CutsceneRunning") == true
+			-- โหมดทดสอบ (แผง admin): ไม่ปล่อยลูกค้า/ขาจรเอง มีแต่ที่กดเรียก
+			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or CoreLoop.Linger.Active() or ReplicatedStorage:GetAttribute("CutsceneRunning") == true or ReplicatedStorage:GetAttribute("TestMode") == true
 		end)
 		if gameOver then
 			return
@@ -2737,10 +2852,11 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 	end
 	local reacted = 0
 	local seen: { [Player]: number } = {} -- พนมมือรอบไหนที่ทักไปแล้ว (เวลาเริ่มพนมมือ)
+	task.wait(CONFIG.PrayReactDelay)
 	while alive() and reacted < CONFIG.PrayReactMax and not gameOver do
 		task.wait(0.3)
-		-- ทักได้แม้ตัวเลือกตอบราคาเปิดอยู่ (ตัวเลือกแสดงแยกจากกล่องคำพูด) แค่รอให้ประโยคก่อนหน้าจบ
-		if os.clock() < speechBusyUntil or decision then
+		-- ทักได้แม้ตัวเลือกตอบราคาเปิดอยู่ (ตัวเลือกแสดงแยกจากกล่องคำพูด) แค่รอให้ประโยคก่อนหน้าจบไปสักพัก
+		if os.clock() < speechBusyUntil + CONFIG.PrayReactQuiet or decision then
 			continue
 		end
 		for _, p in ipairs(Prayer.PrayingNear(c.v:GetPivot().Position, CONFIG.PrayReactRadius)) do
@@ -2803,14 +2919,13 @@ local function serveCustomer(c: Customer)
 		openShutter()
 	end
 
-	-- เปิดปุ่มบริการทันทีที่ลูกค้ามาถึงตู้ปั๊ม! ผู้เล่นกดเติมได้เลย ไม่ต้องรอฟังบทสนทนายาว 6-10 วินาที
-	if not gameOver then
-		setServicePrompts(true)
-	end
-	local promptsAt = os.clock()
+	-- ปุ่มบริการเปิดหลังลูกค้าพูดทักทาย + สั่งเสร็จ (ผู้ใช้ 2026-11-08: ให้ลูกค้าพูดให้จบก่อนถึงจะเติมได้)
+	-- ดึงเชือกปิดแผงไล่ (reject) ยังทำได้ตลอด ไม่ต้องรอ
+	local talkDone = false
 
-	-- บทสนทนาทักทายและสั่งบริการ (ทำงานคู่ขนาน ไม่บล็อกปุ่มเติมน้ำมัน)
+	-- บทสนทนาทักทายและสั่งบริการ
 	task.spawn(function()
+		local ok, err = pcall(function()
 		if c.queuedSince and os.clock() - c.queuedSince > CONFIG.QueueAnnoyedAfter and not ghost then
 			annoyed = 1
 			say("Greet_Waited", speaker, nil, 2.6)
@@ -2839,6 +2954,13 @@ local function serveCustomer(c: Customer)
 
 		local order = if c.useAnomalyLine then c.anomaly :: string else c.order
 		say(order, speaker, nil, 3.2)
+		end)
+		if not ok then
+			warn("[CoreLoop] บทเปิดลูกค้า: " .. tostring(err))
+		end
+		talkDone = true
+
+		if not present or gameOver or decision then return end
 
 		-- คิวคันหลังแซวให้รีบ
 		local nextInLine = queue[2]
@@ -2851,6 +2973,15 @@ local function serveCustomer(c: Customer)
 	local svc = CONFIG.Services[c.service] or CONFIG.Services.petrol
 	local price = svc.normal
 	local leaveEarly = false
+
+	-- รอลูกค้าพูดจบ (หรือมีคนดึงเชือกไล่ / รถหายไป) แล้วค่อยเปิดปุ่มเติม
+	while not talkDone and not decision and not gameOver and v.Parent do
+		task.wait(0.1)
+	end
+	if not gameOver and not decision then
+		setServicePrompts(true)
+	end
+	local promptsAt = os.clock()
 
 	local choice: string? = nil
 	if leaveEarly then
@@ -2924,6 +3055,7 @@ local function serveCustomer(c: Customer)
 				SoundBank.PlayOneShot("IncenseExtinguish", spiritPart, 85, 3.0)
 			end
 			stats.fooled += 1
+			CoreLoop.LogGhost(c.anomaly, "fooled")
 			print("👻 เติมน้ำมันให้ผี! ธูปเหลือ " .. incense)
 			-- หลอกเสร็จ ผีกับรถหายวับไปตรงนั้น (ไม่ขับ/เดินออกไปต่อ): เริ่มจางตอนจอยังโดนผีหลอกเต็มจออยู่
 			task.delay(GHOST_VANISH_AFTER, function()
@@ -2981,6 +3113,7 @@ local function serveCustomer(c: Customer)
 		if ghost then
 			money += CONFIG.RejectGhostReward
 			stats.caught += 1
+			CoreLoop.LogGhost(c.anomaly, "caught")
 			local s = pstat(decisionBy)
 			if s then
 				s.ghosts += 1
@@ -2998,8 +3131,13 @@ local function serveCustomer(c: Customer)
 					CoreLoop.Rampage.down(p)
 				end)
 			end
-			say(if #outside > 0 then "Ghost_Chased" else pick({ "Rejected_1", "Rejected_2" }), speaker)
-			task.delay(if #outside > 0 then GHOST_VANISH_AFTER else 1.6, function()
+			-- สุ่มไว้ก่อนว่าผีจะทำอะไรต่อ: เคาะแผง = ลูกค้าผีไม่พูดอะไร เริ่มเคาะทันที (ผู้ใช้ 2026-11-07)
+			local lingerKind = if not gameOver then CoreLoop.Linger.Pick(#outside > 0) else "vanish"
+			local knockNow = lingerKind == "knock"
+			if not knockNow then
+				say(if #outside > 0 then "Ghost_Chased" else pick({ "Rejected_1", "Rejected_2" }), speaker)
+			end
+			task.delay(if knockNow or #outside > 0 then GHOST_VANISH_AFTER else 1.6, function()
 				if v.Parent then
 					for _, d in ipairs(v:GetDescendants()) do
 						if d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("Beam") then
@@ -3014,9 +3152,9 @@ local function serveCustomer(c: Customer)
 			print("✅ ไล่ผีถูกต้อง (นอกร้านโดนหลอก " .. #outside .. " คน)")
 			-- บางตัวยังไม่ไป: เคาะแผง / วิ่งรอบร้าน / ขึ้นหลังคา (เปิดแผงระหว่างนี้ = โดนหลอก) ลูกค้าคนถัดไปรอจนผีไป
 			-- มีคนโดนหลอกนอกร้าน: ผีต้องปั่นป่วนทุกครั้ง คนที่ล้มนอนรอจนผีไป
-			task.delay(if #outside > 0 then GHOST_VANISH_AFTER else 1.8, function()
+			task.delay(if knockNow then 0.1 elseif #outside > 0 then GHOST_VANISH_AFTER else 1.8, function()
 				if not gameOver then
-					CoreLoop.Linger.Start(#outside > 0)
+					CoreLoop.Linger.Start(#outside > 0, lingerKind)
 				end
 			end)
 		else
@@ -3048,6 +3186,9 @@ local function serveCustomer(c: Customer)
 	-- ผีที่เติมให้ หรือโดนปิดร้านใส่: จางหายไปตรงนั้นแล้ว (ด้านบน) ไม่ขี่/เดินออกจากร้าน
 	-- (เดิมผีที่โดนปิดร้านใส่ขี่ออกไปช้าๆ ให้วิ่งตาม -> เปลี่ยนเป็นหลอกคนที่อยู่นอกร้านทันทีแล้วหายไป 2026-11-03)
 	local vanishing = ghost and (choice == "fuel" or choice == "reject")
+	if ghost and not vanishing then
+		CoreLoop.LogGhost(c.anomaly, "gone")
+	end
 	if vanishing then
 		local t0 = os.clock()
 		while v.Parent and os.clock() - t0 < 8 do
@@ -3129,12 +3270,8 @@ local function summonByPrayer(p: Player)
 	end
 	print("🕯️ [" .. p.Name .. "] สวดตอนร้านว่าง เรียก " .. key .. " มา" .. (if forceGhostNext then " (ลูกค้าคนถัดไปเป็นผี)" else ""))
 	if not customerTalking and not replyOpen then
+		-- เสียงอย่างเดียว ไม่มีซับ (HUDController ข้ามกล่องคำพูดของ WhisperSpeaker) จึงไม่ต้องสั่งปิดกล่องตามหลัง
 		CustomerSpeech:FireAllClients(pick(SUMMON_WHISPER), nil, { ghost = "WhisperSpeaker" }, nil)
-		task.delay(3.2, function()
-			if not customerTalking and not replyOpen then
-				CustomerSpeech:FireAllClients(nil)
-			end
-		end)
 	end
 	local dur = rand(CONFIG.PraySummonDuration)
 	task.delay(dur, function()
@@ -3254,6 +3391,22 @@ function CoreLoop.Big.run(kind: string?)
 	local k = kind or CoreLoop.Big.mod.Kinds[math.random(#CoreLoop.Big.mod.Kinds)]
 	CoreLoop.Big.running = true
 	CoreLoop.Big.count += 1
+	-- ลางก่อนผีใหญ่มา (ผู้ใช้ 2026-11-08): จิ้งหรีดเงียบกริบ (client/AmbienceController) + หมาหอนแว่วจากหลังเขา
+	--   ร้านไม่ปล่อยลูกค้าระหว่างนี้ (Big.running) ผู้เล่นจะค่อยๆ จำได้เองว่า "เงียบ = มีอะไรมา"
+	remotes:SetAttribute("BigOmen", true)
+	if AnomalyManager.Omen then
+		AnomalyManager.Omen()
+	end
+	local omenEnd = os.clock() + CONFIG.BigOmenTime
+	while os.clock() < omenEnd and not gameOver and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true do
+		task.wait(0.5)
+	end
+	if gameOver or ReplicatedStorage:GetAttribute("CutsceneRunning") == true then
+		CoreLoop.Big.running = false
+		CoreLoop.Big.count -= 1
+		remotes:SetAttribute("BigOmen", nil)
+		return
+	end
 	remotes:SetAttribute("BigEvent", k) -- client/SceneryGhosts ไม่ปล่อยผีฉากระหว่างนี้
 	print("🌑 ผีใหญ่บุกประชิด: " .. k)
 	-- a throw inside must not leave Big.running / BigEvent set (that would stop big events and scenery ghosts for good)
@@ -3272,6 +3425,7 @@ function CoreLoop.Big.run(kind: string?)
 		warn("🌑 ผีใหญ่ error: " .. tostring(r))
 		CoreLoop.Big.running = false
 		remotes:SetAttribute("BigEvent", nil)
+		remotes:SetAttribute("BigOmen", nil)
 		return
 	end
 	if r.ok then
@@ -3301,15 +3455,21 @@ function CoreLoop.Big.run(kind: string?)
 	end
 	CoreLoop.Big.running = false
 	remotes:SetAttribute("BigEvent", nil)
+	remotes:SetAttribute("BigOmen", nil)
+	CoreLoop.Calm(CONFIG.CalmAfterScare) -- พักหายใจ: ไม่มีไฟดับ / ผีฉากตามมาติดๆ
 end
 
 function CoreLoop.Big.loop()
 	while true do
 		task.wait(rand(CONFIG.BigEvery))
-		-- รอร้านว่าง (ไม่มีลูกค้า คนหลบฝน ขาจรบนถนน) ไม่เกิน 2 นาที
+		-- ต้นคืนยังไม่มีผีใหญ่: รอเงินถึง BigFromProgress ก่อน (ไม่นับรวมใน 2 นาทีข้างล่าง)
+		while money < CONFIG.TargetMoney * CONFIG.BigFromProgress and not gameOver do
+			task.wait(2)
+		end
+		-- รอร้านว่าง (ไม่มีลูกค้า คนหลบฝน ขาจรบนถนน) และพ้นช่วงพักหายใจ ไม่เกิน 2 นาที
 		local t0 = os.clock()
 		while os.clock() - t0 < 120 do
-			if remotes:GetAttribute("ShopOpen") == true and not gameOver and #queue == 0 and #shelters == 0 and not roadEventRunning and not CoreLoop.Linger.Active() and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true then
+			if remotes:GetAttribute("ShopOpen") == true and not gameOver and not CoreLoop.Calming() and #queue == 0 and #shelters == 0 and not roadEventRunning and not CoreLoop.Linger.Active() and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true and ReplicatedStorage:GetAttribute("TestMode") ~= true then
 				CoreLoop.Big.run()
 				break
 			end
@@ -3324,7 +3484,7 @@ local function prayerSummonLoop()
 		task.wait(0.5)
 		-- ไฟดับ: พนมมือแทนไฟฉาย (ตาทิพย์เห็นในมืด) ผีมาหาถี่และบ่อยกว่าปกติ ไม่ต้องรอร้านว่าง
 		local dark = not Power.IsOn()
-		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and (dark or #queue == 0) and not roadEventRunning and summoned == nil and not CoreLoop.Big.running and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true
+		local idle = remotes:GetAttribute("ShopOpen") == true and not gameOver and (dark or #queue == 0) and not roadEventRunning and summoned == nil and not CoreLoop.Big.running and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true and ReplicatedStorage:GetAttribute("TestMode") ~= true
 		local cooldown = if dark then CONFIG.PraySummonCooldown / 3 else CONFIG.PraySummonCooldown
 		local after = if dark then CONFIG.PraySummonAfter / 2 else CONFIG.PraySummonAfter
 		local chance = if dark then math.min(0.9, CONFIG.PraySummonChance * 2.5) else CONFIG.PraySummonChance
@@ -3456,6 +3616,7 @@ local function waitForShopOpen()
 		return
 	end
 	remotes:SetAttribute("ShopOpen", true)
+	stats.startedAt = os.clock() -- เวลาที่เฝ้าร้าน (หน้าสรุปผล / จอตาย) นับจากเปิดร้าน
 	if not isShutterOpen then
 		openShutter()
 	end
@@ -3526,6 +3687,7 @@ local function buildSummary(): { [string]: any }
 		incense = incense,
 		maxIncense = CONFIG.StartIncense,
 		players = rows,
+		recap = CoreLoop.Recap(), -- เวลาที่เฝ้าร้าน + ผีทุกตัว
 	}
 end
 
@@ -3608,7 +3770,17 @@ function CoreLoop.Start()
 	task.spawn(CoreLoop.Big.loop)
 	Weather.Start()
 	Power.Start(function()
-		return remotes:GetAttribute("ShopOpen") == true and not gameOver and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true
+		-- ไฟดับเอง: ไม่เกิดในโหมดทดสอบ (ปุ่ม admin "ไฟดับ" ยังใช้ได้)
+		return remotes:GetAttribute("ShopOpen") == true and not gameOver and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true and ReplicatedStorage:GetAttribute("TestMode") ~= true
+	end, function()
+		-- ถึงเวลาไฟดับแต่อยู่ในช่วงพักหายใจ / ผีใหญ่กำลังมา: เลื่อนไปจนพ้น (ไม่นับใหม่ทั้งรอบ)
+		return CoreLoop.Calming() or CoreLoop.Big.running
+	end)
+	-- ไฟกลับมา (ซ่อมเครื่องปั่นไฟเสร็จ) = จบช่วงโดนหนัก: พักหายใจก่อน
+	ReplicatedStorage:GetAttributeChangedSignal("PowerOn"):Connect(function()
+		if ReplicatedStorage:GetAttribute("PowerOn") == true and remotes:GetAttribute("ShopOpen") == true and not gameOver then
+			CoreLoop.Calm(CONFIG.CalmAfterScare)
+		end
 	end)
 	task.spawn(function()
 		while true do
@@ -3616,6 +3788,8 @@ function CoreLoop.Start()
 			-- (คืนใหม่: ไฟดับรอสตาร์ทเครื่องปั่นไฟ — waitForShopOpen ตัดไฟให้)
 			waitForShopOpen()
 			table.clear(CoreLoop.Night.sawSwarm)
+			table.clear(CoreLoop.Night.roadKinds)
+			CoreLoop.Night.adminHungry = nil
 			CoreLoop.Big.count = 0
 			Weather.BeginNight()
 			task.spawn(spawnerLoop)
@@ -3647,7 +3821,7 @@ function CoreLoop.Start()
 				for _, p in ipairs(Players:GetPlayers()) do
 					collapse(p)
 				end
-				GameState:FireAllClients("Lose")
+				GameState:FireAllClients("Lose", CoreLoop.Recap()) -- จอตาย: เวลาที่รอด + ผีที่พลาด
 				while not restartBy do
 					task.wait(0.3)
 				end

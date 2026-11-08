@@ -1388,7 +1388,7 @@ function MapBuilder.SetNightLighting()
 		dof.Name = "NightDepthOfField"
 		dof.Parent = Lighting
 	end
-	dof.Enabled = true
+	dof.Enabled = false -- Performance 2026-11-07: เปิดเฉพาะตอนตาทิพย์ (client AmbienceController)
 	dof.FocusDistance = 20
 	dof.InFocusRadius = 40
 	dof.NearIntensity = 0.1
@@ -1401,7 +1401,7 @@ function MapBuilder.SetNightLighting()
 		blur.Name = "SoftFilmBlur"
 		blur.Parent = Lighting
 	end
-	blur.Enabled = true
+	blur.Enabled = false -- Size 0 = ไม่ต้องเปิด (client เปิดเองตอนเบลอ)
 	blur.Size = 0
 end
 
@@ -4892,7 +4892,7 @@ local function buildPlate(vehicleCF: CFrame, center: Vector3): Part
 		return g
 	end
 	gui("NormalPlate", Color3.fromRGB(240, 240, 235), Color3.fromRGB(20, 20, 20), "1กข 4512", "ราชบุรี RATCHABURI", false, true)
-	local ghost = gui("GhostPlate", Color3.fromRGB(14, 6, 6), Color3.fromRGB(255, 30, 30), "4444", "ป่าช้า CEMETERY", true, false)
+	local ghost = gui("GhostPlate", Color3.fromRGB(14, 6, 6), Color3.fromRGB(255, 30, 30), "4444", "ตาย", true, false) -- บรรทัดล่างเป็น 2 ภาษา: AnomalyManager ตั้ง ตาย/DEAD ตอนใช้จริง
 	-- คราบเลือดบนป้ายผี
 	for k = 1, 3 do
 		local d = Instance.new("Frame")
@@ -7932,6 +7932,725 @@ function MapBuilder.LabelKilometerPost(): boolean
 		p.Parent = road
 	end
 	return true
+end
+
+-- ===================================================================================
+-- CustomerBike v2 (ผู้ใช้ 2026-11-08 "ปั้นมอไซค์ใหม่ ขอแบบดีๆ"): tools/blender/customer_bike_v2.py
+--   1) File > Import 3D: assets/models/CustomerBikeV2/upload/CustomerBikeV2.fbx (ได้ Model "CustomerBikeV2" ใน Workspace)
+--   2) require(game.ReplicatedStorage.Shared.MapBuilder:Clone()).SwapCustomerBikeV2()
+-- เปลี่ยนแค่ชิ้นที่เห็น (ตัวรถ ชิ้นทาสี แฮนด์ ล้อ ไฟ กรอบป้าย) ในแม่แบบเดิม ชิ้นเกมเพลย์อยู่ครบ (Chassis, LicensePlate, DriverNPC, GhostPassenger, WheelHairAnomaly)
+--   ล้ออยู่ที่เดิม (ดุม ±2.10 สูง 1.03) · เบาะต่ำลง 2.76 -> 2.61 · แฮนด์ใกล้ตัวขึ้น -> คนขับนั่งหลังตรง มือถึงแฮนด์
+--   คนขับแบบกล่องเดิม (ใช้หาสะโพก/มือ/เท้าใน CoreLoop.humanizeDriver) ย้ายตามรถใหม่ · ผีซ้อนท้ายลงตามเบาะ
+--   ของเดิมเก็บที่ ServerStorage.ArchivedPlaceholders.CustomerBike_v1 · ที่นั่งตุ๊กตุ๊ก/รถยนต์ (seatDriver) ใช้คนขับเดิม: ServerStorage.CustomerBikeSeatRef
+-- opts (ใช้กับซาเล้งด้วย: MapBuilder.SwapSalengV2): template / source / versionAttr / archive / need / swapParts / seatRef / paint / assetId
+function MapBuilder.SwapCustomerBikeV2(opts: { [string]: any }?): string
+	local O = opts or {}
+	local tplName = O.template or "CustomerBike"
+	local srcName = O.source or "CustomerBikeV2"
+	local verAttr = O.versionAttr or "BikeVersion"
+	local SS = game:GetService("ServerStorage")
+	local tpl = SS:WaitForChild("VehicleTemplates"):FindFirstChild(tplName) :: Model?
+	if not tpl then
+		return "no template " .. tplName
+	end
+	if tpl:GetAttribute(verAttr) == 2 then
+		return "already v2"
+	end
+	local src: Model? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == srcName then
+			src = d
+			break
+		end
+	end
+	if not src and O.assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(O.assetId)
+		local m = pkg:FindFirstChildWhichIsA("Model") or pkg
+		m.Name = srcName
+		m.Parent = Workspace
+		src = m :: Model
+	end
+	if not src then
+		return "import " .. srcName .. ".fbx (assets/models/" .. srcName .. "/upload/) first, or pass assetId"
+	end
+	local parts: { [string]: BasePart } = {}
+	for _, d in ipairs((src :: Model):GetDescendants()) do
+		if d:IsA("BasePart") and parts[d.Name] == nil then
+			parts[d.Name] = d
+		end
+	end
+	for _, n in ipairs(O.need or { "CustomerBike", "BodyPaint", "Handlebar", "HandlebarPaint", "FrontWheel", "RearWheel", "Headlight_Neon", "Taillight_Neon", "LicensePlateFrame" }) do
+		if not parts[n] then
+			return "imported model has no " .. n
+		end
+	end
+	-- กรอบของโมเดลที่นำเข้า: จากดุมล้อ (หน้า -Z, pivot = พื้นใต้กึ่งกลาง) + ขนาด (ระยะล้อ 4.2)
+	local fw, rw = parts.FrontWheel, parts.RearWheel
+	local dist = (fw.Position - rw.Position).Magnitude
+	local k = 4.2 / dist
+	local up = Vector3.yAxis
+	local mid = (fw.Position + rw.Position) / 2
+	local fwd = (fw.Position - rw.Position) * Vector3.new(1, 0, 1)
+	local srcPiv = CFrame.lookAt(mid - up * (1.03 / k), mid - up * (1.03 / k) + fwd.Unit)
+	local piv = tpl:GetPivot()
+	local function place(p: BasePart): CFrame
+		local rel = srcPiv:ToObjectSpace(p.CFrame)
+		return piv * (CFrame.new(rel.Position * k) * rel.Rotation)
+	end
+	-- เก็บของเดิม
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	local archName = O.archive or "CustomerBike_v1"
+	local old = arch:FindFirstChild(archName)
+	if old then
+		old:Destroy()
+	end
+	local backup = tpl:Clone()
+	backup.Name = archName
+	backup.Parent = arch
+	if O.seatRef ~= false then
+		local ref = SS:FindFirstChild("CustomerBikeSeatRef")
+		if ref then
+			ref:Destroy()
+		end
+		local refM = Instance.new("Model")
+		refM.Name = "CustomerBikeSeatRef"
+		local refD = (tpl:FindFirstChild("DriverNPC") :: Model):Clone()
+		refD.Parent = refM
+		refM:SetAttribute("BikePivot", piv)
+		refM.Parent = SS
+	end
+	-- ชิ้นที่เห็น
+	local function swap(newName: string, oldName: string): BasePart
+		local o = tpl:FindFirstChild(oldName) :: BasePart?
+		local n = parts[newName]:Clone()
+		n.Name = oldName
+		n.Size = n.Size * k
+		n.CFrame = place(parts[newName])
+		n.Anchored = true
+		n.CanCollide = false
+		n.CanTouch = false
+		n.CanQuery = if o then o.CanQuery else false
+		n.CastShadow = true
+		n.Parent = tpl
+		if o then
+			for _, c in ipairs(o:GetChildren()) do
+				if not c:IsA("SurfaceAppearance") then
+					c.Parent = n -- ไฟหน้า: BeamAttachment + SpotLight
+				end
+			end
+			o:Destroy()
+		end
+		return n
+	end
+	for _, n in ipairs(O.swapParts or { "CustomerBike", "BodyPaint", "Handlebar", "HandlebarPaint", "FrontWheel", "RearWheel", "LicensePlateFrame" }) do
+		swap(n, n)
+	end
+	-- กรอบป้าย (แผ่นดำ) ไว้หลังป้ายทะเบียน: ทับหน้าป้ายแล้วป้ายกลายเป็นดำ ตัวหนังสือขาว (ผู้ใช้ 2026-11-08 "ทะเบียนดูแปลก")
+	local plate = tpl:FindFirstChild("LicensePlate") :: BasePart?
+	local pframe = tpl:FindFirstChild("LicensePlateFrame") :: BasePart?
+	if plate and pframe then
+		local g = plate:FindFirstChild("NormalPlate") :: SurfaceGui?
+		local nrm = plate.CFrame:VectorToWorldSpace(Vector3.FromNormalId(if g then g.Face else Enum.NormalId.Back))
+		pframe.CFrame = CFrame.lookAt(plate.Position - nrm * 0.09, plate.Position - nrm * 0.09 + nrm, plate.CFrame.UpVector)
+	end
+	-- ชิ้นทาสี (shared/VehiclePaint): ผิวอบสีเทาอ่อน ย้อมสีตอนลูกค้าเกิด · แม่แบบเป็นแดงเลือดหมูไว้ก่อน
+	if O.paint ~= false then
+		require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("VehiclePaint")).Apply(tpl, Color3.fromRGB(128, 24, 26))
+	end
+	local oldHead = tpl:FindFirstChild("Headlight") :: BasePart?
+	local headColor = if oldHead then oldHead.Color else Color3.fromRGB(255, 236, 190)
+	local hl = swap("Headlight_Neon", "Headlight")
+	hl.Material = Enum.Material.Neon
+	hl.Color = headColor
+	local sa = hl:FindFirstChildOfClass("SurfaceAppearance")
+	if sa then
+		sa:Destroy()
+	end
+	local att = hl:FindFirstChild("BeamAttachment") :: Attachment?
+	if att then
+		att.WorldCFrame = CFrame.lookAt(hl.Position, hl.Position + piv:VectorToWorldSpace(Vector3.new(0, -0.25, -1)))
+	end
+	local oldTail = tpl:FindFirstChild("Taillight") :: BasePart?
+	local tailColor = if oldTail then oldTail.Color else Color3.fromRGB(200, 20, 20)
+	local tailMat = if oldTail then oldTail.Material else Enum.Material.Neon
+	local tl = swap("Taillight_Neon", "Taillight")
+	tl.Material = tailMat
+	tl.Color = tailColor
+	local sa2 = tl:FindFirstChildOfClass("SurfaceAppearance")
+	if sa2 then
+		sa2:Destroy()
+	end
+	-- คนขับแบบกล่อง: สะโพก (ขอบล่าง Torso + 0.12 ขึ้น / 0.15 หลัง ใน humanizeDriver) ไปที่ (0, 2.90, 0.75)
+	local drv = tpl:FindFirstChild("DriverNPC") :: Model
+	local torso = drv:FindFirstChild("Torso") :: BasePart
+	local bOld = piv:PointToObjectSpace((torso.CFrame * CFrame.new(0, -torso.Size.Y / 2, 0)).Position)
+	local delta = Vector3.new(0, 2.78, 0.60) - bOld
+	for _, d in ipairs(drv:GetDescendants()) do
+		if d:IsA("BasePart") then
+			local rel = piv:ToObjectSpace(d.CFrame)
+			d.CFrame = piv * (CFrame.new(delta) * rel)
+		end
+	end
+	for _, d in ipairs(drv:GetDescendants()) do
+		if d:IsA("BasePart") then
+			local lp = piv:PointToObjectSpace(d.Position)
+			local side = if lp.X > 0 then 1 else -1
+			if d.Name == "Hand" then
+				d.CFrame = piv * CFrame.new(side * 0.95, 3.63, -1.05) * piv:ToObjectSpace(d.CFrame).Rotation
+			elseif d.Name == "LeftFoot" or d.Name == "RightFoot" then
+				-- humanizeDriver มอไซค์: เท้า = (|x| * 0.8, y + 0.1, z + 0.45) -> ที่พักเท้าใหม่ (±0.70, 1.12, 0.40)
+				d.CFrame = piv * CFrame.new(side * 0.875, 1.02, -0.05) * piv:ToObjectSpace(d.CFrame).Rotation
+			end
+		end
+	end
+	-- ผีซ้อนท้าย: ลงตามเบาะ (เบาะหลังเดิม 2.755 -> ใหม่ 2.61)
+	local gp = tpl:FindFirstChild("GhostPassenger")
+	if gp then
+		for _, d in ipairs(gp:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local rel = piv:ToObjectSpace(d.CFrame)
+				d.CFrame = piv * (CFrame.new(0, -0.145, 0) * rel)
+			end
+		end
+	end
+	tpl:SetAttribute(verAttr, 2)
+	;(src :: Model).Parent = arch
+	;(src :: Model).Name = srcName .. "_Imported"
+	return string.format("ok (scale %.3f, wheelbase %.2f)", k, dist)
+end
+
+-- ซาเล้ง v2 (ผู้ใช้ 2026-11-08 "ทำซาเล้ง"): tools/blender/saleng_v2.py -> assets/models/SalengV2/upload/SalengV2.fbx
+--   หน้ารถ = มอไซค์รุ่นใหม่ (สีเดียว อบลงภาพ) + กระบะไม้ซ้าย + ล้อพ่วง · โลงเดิม (OldCoffin/_Lid) อยู่ที่เดิม วางบนพื้นกระบะใหม่พอดี (2.20)
+--   คนขับกล่อง / ผีซ้อนท้าย ย้ายแบบเดียวกับมอไซค์ · ของเดิม ArchivedPlaceholders.Saleng_v1
+function MapBuilder.SwapSalengV2(assetId: number?): string
+	return MapBuilder.SwapCustomerBikeV2({
+		template = "Saleng",
+		source = "SalengV2",
+		versionAttr = "SalengVersion",
+		archive = "Saleng_v1",
+		need = { "Saleng", "Handlebar", "FrontWheel", "RearWheel", "SidecarWheel", "Headlight_Neon", "Taillight_Neon", "LicensePlateFrame" },
+		swapParts = { "Saleng", "Handlebar", "FrontWheel", "RearWheel", "SidecarWheel", "LicensePlateFrame" },
+		seatRef = false,
+		paint = false,
+		assetId = assetId,
+	})
+end
+
+-- ===================================================================================
+-- กระบะ v2 (ผู้ใช้ 2026-11-08 "ทำกระบะก่อน"): tools/blender/pickup_v2.py -> assets/models/PickupV2/upload/PickupV2.fbx
+--   Import 3D (หรือส่ง assetId ของ Model ที่อัปโหลดแล้ว) แล้ว require(MapBuilder).SwapPickupV2(assetId?)
+--   เปลี่ยนเฉพาะ mesh ใน Body (ตัวถัง คอกเหล็ก กระจก ภายใน) และล้อ 4 ล้อ (คง Motor6D "Axle") ของแม่แบบ ThaiPickupOld
+--   ชิ้นเกมเพลย์ (Colliders, DriverSeat/PassengerSeat, Lights, LicensePlate1/2, Chassis) อยู่ที่เดิม: ตัวถังใหม่ปั้นให้ตรงตำแหน่งพวกนี้
+--   ของเดิม -> ServerStorage.ArchivedPlaceholders.ThaiPickupOld_v1
+-- opts (ใช้กับเก๋งด้วย: MapBuilder.SwapSedanV2): template / source / versionAttr / archive / body / bodyParts / wheel / glass / center / sizeZ
+function MapBuilder.SwapPickupV2(assetId: number?, opts: { [string]: any }?): string
+	local O = opts or {}
+	local PICKUP_V2_BODY = { center = O.center or Vector3.new(0, 4.697, -0.140), sizeZ = O.sizeZ or 21.680 } -- จาก pickup_v2.py (log "BBOX PickupBody")
+	local tplName = O.template or "ThaiPickupOld"
+	local srcName = O.source or "PickupV2"
+	local verAttr = O.versionAttr or "PickupVersion"
+	local bodyName = O.body or "PickupBody"
+	local bodyParts = O.bodyParts or { "PickupBody", "PickupRack", "PickupGlass", "PickupInterior" }
+	local wheelName = O.wheel or "PickupWheel"
+	local glassName = O.glass or "PickupGlass"
+	local SS = game:GetService("ServerStorage")
+	local tpl = SS:WaitForChild("VehicleTemplates"):FindFirstChild(tplName) :: Model?
+	if not tpl then
+		return "no " .. tplName .. " template"
+	end
+	if tpl:GetAttribute(verAttr) == 2 then
+		return "already v2"
+	end
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == srcName then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+		;(src :: Instance).Parent = Workspace
+	end
+	if not src then
+		return "import assets/models/" .. srcName .. "/upload/" .. srcName .. ".fbx first (or pass the Model asset id)"
+	end
+	local parts: { [string]: BasePart } = {}
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("BasePart") and parts[d.Name] == nil then
+			parts[d.Name] = d
+		end
+	end
+	for _, n in ipairs(bodyParts) do
+		if not parts[n] then
+			return "imported model has no " .. n
+		end
+	end
+	if not parts[wheelName] then
+		return "imported model has no " .. wheelName
+	end
+	local body = parts[bodyName]
+	local k = PICKUP_V2_BODY.sizeZ / body.Size.Z -- importer อาจอ่านหน่วยผิด (มอไซค์ได้ใหญ่ 28 เท่า)
+	local srcPiv = body.CFrame * CFrame.new(-PICKUP_V2_BODY.center / k)
+	local piv = tpl:GetPivot()
+	local function place(p: BasePart): CFrame
+		local rel = srcPiv:ToObjectSpace(p.CFrame)
+		return piv * (CFrame.new(rel.Position * k) * rel.Rotation)
+	end
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	local archName = O.archive or (tplName .. "_v1")
+	local old = arch:FindFirstChild(archName)
+	if old then
+		old:Destroy()
+	end
+	local backup = tpl:Clone()
+	backup.Name = archName
+	backup.Parent = arch
+	local chassis = tpl:FindFirstChild("Chassis") :: BasePart
+	local function copyPhys(n: BasePart, o: BasePart?)
+		n.Anchored = if o then o.Anchored else true
+		n.CanCollide = false
+		n.CanTouch = false
+		n.CanQuery = if o then o.CanQuery else false
+		n.Massless = if o then o.Massless else true
+		n.CastShadow = true
+		if o then
+			n.CollisionGroup = o.CollisionGroup
+		end
+	end
+	-- ตัวถัง: ลบ mesh เดิมใน Body แล้วใส่ชิ้นใหม่ (เชื่อมกับ Chassis แบบเดิม)
+	local bodyModel = tpl:FindFirstChild("Body") :: Model
+	local oldGlass = bodyModel:FindFirstChild(tplName .. "_Glass") :: BasePart?
+	-- กระจก v2 สีเข้ม (ภาพอบ ~RGB 25,30,33): โปร่ง 0.55 แบบเดิมทึบจนมองไม่เห็นข้างใน -> อย่างน้อย 0.8 (ผู้ใช้ 2026-11-08 "กระจกทึบเกินไปมองยาก")
+	local glassT = math.max(if oldGlass then oldGlass.Transparency else 0.55, O.glassT or 0.8)
+	local sample: BasePart? = nil
+	for _, c in ipairs(bodyModel:GetChildren()) do
+		if c:IsA("BasePart") then
+			sample = sample or c
+		end
+	end
+	local sampleCopy = if sample then sample:Clone() else nil
+	for _, c in ipairs(bodyModel:GetChildren()) do
+		if c:IsA("BasePart") then
+			c:Destroy()
+		end
+	end
+	for _, n in ipairs(bodyParts) do
+		local np = parts[n]:Clone()
+		np.Size = np.Size * k
+		np.CFrame = place(parts[n])
+		copyPhys(np, sampleCopy)
+		if n == glassName then
+			np.Transparency = glassT
+			np.CastShadow = false -- เงากระจกทำให้ในห้องโดยสารมืด
+		end
+		np.Parent = bodyModel
+		local w = Instance.new("WeldConstraint")
+		w.Part0 = chassis
+		w.Part1 = np
+		w.Parent = np
+	end
+	if sampleCopy then
+		sampleCopy:Destroy()
+	end
+	-- ล้อ: ล้อเดียวกัน Clone 4 ล้อ (ด้านนอกของ mesh = -X ในรถ: ล้อขวาหมุน 180°) คง Motor6D Axle
+	local wheels = tpl:FindFirstChild("Wheels")
+	local wsrc = parts[wheelName]
+	for _, o in ipairs(if wheels then wheels:GetChildren() else {}) do
+		if o:IsA("BasePart") then
+			local np = wsrc:Clone()
+			np.Name = o.Name
+			np.Size = np.Size * k
+			local lp = piv:PointToObjectSpace(o.Position)
+			local rot = if lp.X > 0 then CFrame.Angles(0, math.pi, 0) else CFrame.new()
+			np.CFrame = CFrame.new(o.Position) * piv.Rotation * rot
+			copyPhys(np, o)
+			np.CanCollide = o.CanCollide
+			np.Parent = o.Parent
+			for _, c in ipairs(o:GetChildren()) do
+				if c:IsA("Motor6D") then
+					local world = (c.Part0 :: BasePart).CFrame * c.C0
+					c.Part1 = np
+					c.C1 = np.CFrame:Inverse() * world
+					c.Parent = np
+				elseif not c:IsA("SurfaceAppearance") then
+					c.Parent = np
+				end
+			end
+			o:Destroy()
+		end
+	end
+	tpl:SetAttribute(verAttr, 2)
+	;(src :: Instance).Parent = arch
+	;(src :: Instance).Name = srcName .. "_Imported"
+	return string.format("ok (scale %.3f)", k)
+end
+
+-- เก๋ง v2 (ผู้ใช้ 2026-11-08 "ทำเก๋ง"): tools/blender/sedan_v2.py -> assets/models/SedanV2/upload/SedanV2.fbx
+--   ใช้ขั้นตอนเดียวกับกระบะ (เปลี่ยน mesh ใน Body + ล้อ 4 ล้อ คง Motor6D) ของเดิม ArchivedPlaceholders.ThaiSedanSoluna_v1
+function MapBuilder.SwapSedanV2(assetId: number?): string
+	return MapBuilder.SwapPickupV2(assetId, {
+		template = "ThaiSedanSoluna",
+		source = "SedanV2",
+		versionAttr = "SedanVersion",
+		body = "SedanBody",
+		bodyParts = { "SedanBody", "SedanGlass", "SedanInterior" },
+		wheel = "SedanWheel",
+		glass = "SedanGlass",
+		center = Vector3.new(0, 3.950, -0.085), -- จาก sedan_v2.py (log "BBOX SedanBody")
+		sizeZ = 20.890,
+	})
+end
+
+-- ตุ๊กตุ๊ก v2 (ผู้ใช้ 2026-11-08 "เหลือรถตุ๊กๆ"): tools/blender/tuktuk_v2.py -> assets/models/TukTukV2/upload/TukTukV2.fbx
+--   ขั้นตอนเดียวกับกระบะ (mesh ใน Body + ล้อ 3 ล้อ คง Motor6D; แฮนด์อยู่ใน TukInterior แทน ThaiTukTuk_Handlebar เดิม)
+--   แม่แบบได้ attribute TukTukVersion = 2 -> CoreLoop.humanizeDriver ใช้เป้ามือ/เท้าที่แฮนด์ใหม่ (ใกล้ตัวคนขับ ไม่ต้องโน้ม)
+function MapBuilder.SwapTukTukV2(assetId: number?): string
+	return MapBuilder.SwapPickupV2(assetId, {
+		template = "ThaiTukTuk",
+		source = "TukTukV2",
+		versionAttr = "TukTukVersion",
+		body = "TukBody",
+		bodyParts = { "TukBody", "TukGlass", "TukInterior" },
+		wheel = "TukWheel",
+		glass = "TukGlass",
+		center = Vector3.new(0, 5.040, -1.064), -- จาก tuktuk_v2.py (log "BBOX TukBody")
+		sizeZ = 11.229,
+	})
+end
+
+-- มอไซค์แต่ง v2 (ผู้ใช้ 2026-11-08 "รถแต่งที่เด็กแว้นขี่ ที่เรานั่งมาตอนแรก"): tools/blender/racing_moto_v2.py
+--   -> assets/models/RacingMotoV2/upload/RacingMotoV2.fbx (RaceBody / RaceFront / RaceWheel)
+--   รถใหม่ = มอไซค์ลูกค้ารุ่นใหม่ย่อ 0.917: ระยะล้อสั้นกว่าแม่แบบเดิม -> ย้ายล้อ (คง Motor6D) ล้อกันลื่น ไฟ ป้าย เบาะ มาตรงรถใหม่
+--   แม่แบบได้ RacingVersion = 2 -> CoreLoop.humanizeDriver วางคนขับตามรถใหม่ (เด็กแว้น + พี่ชายในคัทซีน)
+--   ของเดิม ArchivedPlaceholders.ThaiRacingMoto_v1
+function MapBuilder.SwapRacingMotoV2(assetId: number?): string
+	local SS = game:GetService("ServerStorage")
+	local tpl = SS:WaitForChild("VehicleTemplates"):FindFirstChild("ThaiRacingMoto") :: Model?
+	if not tpl then
+		return "no ThaiRacingMoto template"
+	end
+	if tpl:GetAttribute("RacingVersion") == 2 then
+		return "already v2"
+	end
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == "RacingMotoV2" then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+		;(src :: Instance).Parent = Workspace
+	end
+	if not src then
+		return "import assets/models/RacingMotoV2/upload/RacingMotoV2.fbx first (or pass the Model asset id)"
+	end
+	local parts: { [string]: BasePart } = {}
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("BasePart") and parts[d.Name] == nil then
+			parts[d.Name] = d
+		end
+	end
+	for _, n in ipairs({ "RaceBody", "RaceFront", "RaceWheel" }) do
+		if not parts[n] then
+			return "imported model has no " .. n
+		end
+	end
+	local DESIGN = { center = Vector3.new(0, 1.603, 0.758), sizeZ = 4.653 } -- จาก racing_moto_v2.py (log "BBOX RaceBody")
+	local body = parts.RaceBody
+	local k = DESIGN.sizeZ / body.Size.Z
+	local srcPiv = body.CFrame * CFrame.new(-DESIGN.center / k)
+	local piv = tpl:GetPivot()
+	local function place(p: BasePart): CFrame
+		local rel = srcPiv:ToObjectSpace(p.CFrame)
+		return piv * (CFrame.new(rel.Position * k) * rel.Rotation)
+	end
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	local old = arch:FindFirstChild("ThaiRacingMoto_v1")
+	if old then
+		old:Destroy()
+	end
+	local backup = tpl:Clone()
+	backup.Name = "ThaiRacingMoto_v1"
+	backup.Parent = arch
+	local chassis = tpl:FindFirstChild("Chassis") :: BasePart
+	local bodyModel = tpl:FindFirstChild("Body") :: Model
+	local sample: BasePart? = bodyModel:FindFirstChildWhichIsA("BasePart")
+	local anch = if sample then sample.Anchored else true
+	local massless = if sample then sample.Massless else true
+	for _, c in ipairs(bodyModel:GetChildren()) do
+		if c:IsA("BasePart") then
+			c:Destroy()
+		end
+	end
+	for _, n in ipairs({ "RaceBody", "RaceFront" }) do
+		local np = parts[n]:Clone()
+		np.Size = np.Size * k
+		np.CFrame = place(parts[n])
+		np.Anchored = anch
+		np.Massless = massless
+		np.CanCollide = false
+		np.CanTouch = false
+		np.CanQuery = false
+		np.Parent = bodyModel
+		local w = Instance.new("WeldConstraint")
+		w.Part0 = chassis
+		w.Part1 = np
+		w.Parent = np
+	end
+	-- ย้ายชิ้นเกมเพลย์ไปตรงรถใหม่ (เฟรมรถ: หน้า -Z)
+	local function moveTo(p: BasePart?, pos: Vector3)
+		if not p then
+			return
+		end
+		local rel = piv:ToObjectSpace(p.CFrame)
+		p.CFrame = piv * (CFrame.new(pos) * rel.Rotation)
+	end
+	local WZ = { Wheel_F = -1.926, Wheel_R = 1.926 }
+	local wheels = tpl:FindFirstChild("Wheels")
+	for _, o in ipairs(if wheels then wheels:GetChildren() else {}) do
+		if o:IsA("BasePart") and WZ[o.Name] then
+			local np = parts.RaceWheel:Clone()
+			np.Name = o.Name
+			np.Size = np.Size * k
+			np.CFrame = piv * CFrame.new(0, 0.945, WZ[o.Name])
+			np.Anchored = o.Anchored
+			np.Massless = o.Massless
+			np.CanCollide = o.CanCollide
+			np.CanTouch = false
+			np.CanQuery = false
+			np.Parent = o.Parent
+			for _, c in ipairs(o:GetChildren()) do
+				if c:IsA("Motor6D") then
+					c.Part1 = np
+					c.C0 = (c.Part0 :: BasePart).CFrame:ToObjectSpace(np.CFrame)
+					c.C1 = CFrame.new()
+					c.Parent = np
+				elseif not c:IsA("SurfaceAppearance") then
+					c.Parent = np
+				end
+			end
+			o:Destroy()
+		end
+	end
+	local cols = tpl:FindFirstChild("Colliders")
+	if cols then
+		moveTo(cols:FindFirstChild("Skid1") :: BasePart?, Vector3.new(0, 0.945, -1.926))
+		moveTo(cols:FindFirstChild("Skid2") :: BasePart?, Vector3.new(0, 0.945, 1.926))
+	end
+	local lights = tpl:FindFirstChild("Lights")
+	if lights then
+		moveTo(lights:FindFirstChild("Headlight2") :: BasePart?, Vector3.new(0, 3.08, -1.53))
+		moveTo(lights:FindFirstChild("Taillight1") :: BasePart?, Vector3.new(0, 2.08, 2.84))
+	end
+	moveTo(tpl:FindFirstChild("LicensePlate1") :: BasePart?, Vector3.new(0, 1.49, 3.12))
+	-- เบาะซ้อน (Cutscene.seatSpots: บนเบาะ + 0.2 ถอยหลัง 0.25) บนเบาะหลังรถใหม่ 2.39
+	local ps = tpl:FindFirstChild("PassengerSeat") :: BasePart?
+	if ps then
+		moveTo(ps, Vector3.new(0, 2.39 - ps.Size.Y / 2, 1.60))
+	end
+	local ds = tpl:FindFirstChild("DriverSeat") :: BasePart?
+	if ds then
+		moveTo(ds, Vector3.new(0, 2.36 - ds.Size.Y / 2, 0.69))
+	end
+	tpl:SetAttribute("RacingVersion", 2)
+	;(src :: Instance).Parent = arch
+	;(src :: Instance).Name = "RacingMotoV2_Imported"
+	return string.format("ok (scale %.3f)", k)
+end
+
+-- ต้นไทร v2 (ผู้ใช้ 2026-11-08 "ต้นไทรมีปัญหา Performance ปั้นให้รายละเอียดมากกว่าเดิมแต่กินทรัพยากรน้อยลง ขนาดเท่าเดิม")
+--   tools/blender/banyan_v2.py -> assets/models/BanyanV2/upload/BanyanV2.fbx (BanyanCanopy_1..8 + BanyanHangingRoots)
+--   แทนใบเดิม BanyanLeaves (LeafCard 696 ชิ้น + Decal 1,392) ด้วยพุ่มใบ mesh 8 ชิ้น (ช่อใบ 2,088 ช่อ) วางตามจุด origin เดียวกับใบเดิม
+--   ทรงพุ่ม/ขนาดเท่าเดิม ลำต้น กิ่ง รากเดิมไม่แตะ · ใบเดิมเก็บที่ ServerStorage.ArchivedPlaceholders.BanyanLeaves_v1
+--   ใบยังไหวตามลม (tag LeafFlutter) แต่หมุนแค่ 15% ของเดิม (attribute FlutterScale) เพราะเป็นชิ้นใหญ่
+function MapBuilder.SwapBanyanLeavesV2(assetId: number?): string
+	local DESIGN = { ref = "BanyanCanopy_1", center = Vector3.new(-10.668, 28.477, -6.575), sizeX = 23.210 } -- จาก banyan_v2.py (log "BBOX")
+	local zone = Workspace:FindFirstChild("MapEnvironment") and Workspace.MapEnvironment:FindFirstChild("SacredBanyanZone")
+	local tree = zone and zone:FindFirstChild("SacredBanyanTree")
+	local SS = game:GetService("ServerStorage")
+	local store = SS:FindFirstChild("ImportedProps")
+	local tplTree = store and store:FindFirstChild("SacredBanyanTree")
+	if not (tree and tplTree) then
+		return "no SacredBanyanTree in the scene / ServerStorage.ImportedProps"
+	end
+	local oldLeaves = tree:FindFirstChild("BanyanLeaves")
+	if oldLeaves and oldLeaves:GetAttribute("LeavesVersion") == 2 then
+		return "already v2"
+	end
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == "BanyanV2" then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+		;(src :: Instance).Parent = Workspace
+	end
+	if not src then
+		return "import assets/models/BanyanV2/upload/BanyanV2.fbx first (or pass the Model asset id)"
+	end
+	local parts: { [string]: BasePart } = {}
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("BasePart") and parts[d.Name] == nil then
+			parts[d.Name] = d
+		end
+	end
+	local ref = parts[DESIGN.ref]
+	if not ref or not parts.BanyanHangingRoots then
+		return "imported model has no " .. DESIGN.ref .. " / BanyanHangingRoots"
+	end
+	-- origin ของต้น = เหมือน AddBanyanLeaves (ใบเดิมวางเทียบจุดนี้)
+	local origin = tree.BanyanTrunk.Position - tplTree.BanyanTrunk.Position + tplTree:GetPivot().Position
+	local k = DESIGN.sizeX / ref.Size.X -- importer อ่านหน่วยผิดได้ (รถได้ใหญ่ 28 เท่า)
+	local srcPiv = ref.CFrame * CFrame.new(-DESIGN.center / k)
+	local function place(p: BasePart): CFrame
+		local rel = srcPiv:ToObjectSpace(p.CFrame)
+		return CFrame.new(origin) * (CFrame.new(rel.Position * k) * rel.Rotation)
+	end
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	if oldLeaves then
+		local prev = arch:FindFirstChild("BanyanLeaves_v1")
+		if prev then
+			prev:Destroy()
+		end
+		oldLeaves.Name = "BanyanLeaves_v1"
+		game:GetService("CollectionService"):RemoveTag(oldLeaves, "LeafFlutter")
+		oldLeaves.Parent = arch
+	end
+	local leaves = Instance.new("Model")
+	leaves.Name = "BanyanLeaves"
+	leaves:SetAttribute("LeavesVersion", 2)
+	leaves:SetAttribute("FlutterScale", 0.15)
+	leaves.Parent = tree
+	local n = 0
+	for name, p in pairs(parts) do
+		local isCanopy = string.sub(name, 1, 13) == "BanyanCanopy_"
+		if isCanopy or name == "BanyanHangingRoots" then
+			local np = p:Clone()
+			np.Size = np.Size * k
+			np.CFrame = place(p)
+			np.Anchored = true
+			np.CanCollide = false
+			np.CanTouch = false
+			np.CanQuery = false
+			np.CastShadow = not isCanopy -- เงาใบโปร่งเป็นแผ่นทึบ: ไม่ทำเงา (เหมือนใบเดิม)
+			if isCanopy then
+				local sa = np:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					pcall(function()
+						(sa :: any).AlphaMode = Enum.AlphaMode.Transparency
+					end)
+				end
+				np.Parent = leaves
+			else
+				np.Parent = tree
+			end
+			n += 1
+		end
+	end
+	game:GetService("CollectionService"):AddTag(leaves, "LeafFlutter")
+	;(src :: Instance).Parent = arch
+	;(src :: Instance).Name = "BanyanV2_Imported"
+	return string.format("ok (%d parts, scale %.3f)", n, k)
+end
+
+-- กอกล้วย ลงสีใหม่ v2 (ผู้ใช้ 2026-11-08 "ต้นกล้วยข้างร้านรูปลักษณ์โอเคแล้ว ช่วยลงสี/เฉดให้สมจริงกว่านี้")
+--   tools/blender/banana_paint_v2.py -> assets/models/BananaPaintV2/upload/BananaPaintV2.fbx (mesh + UV เดิมทุกจุด อบสีใหม่ลง UV เดิม)
+--   เปลี่ยนแค่ SurfaceAppearance ของชิ้น BananaClump / _B / _Base ทุกกอ (ฉาก + ServerStorage.ImportedProps) ไม่ย้าย ไม่วางต้นใหม่
+--   SurfaceAppearance เดิมเก็บที่ ServerStorage.ArchivedPlaceholders.BananaPaint_v1
+function MapBuilder.RepaintBananaV2(assetId: number?): string
+	local NAMES = { BananaClump = true, BananaClump_B = true, BananaClump_Base = true }
+	local SS = game:GetService("ServerStorage")
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == "BananaPaintV2" then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+		;(src :: Instance).Parent = Workspace
+	end
+	if not src then
+		return "import assets/models/BananaPaintV2/upload/BananaPaintV2.fbx first (or pass the Model asset id)"
+	end
+	-- ผิวใหม่ต่อชื่อชิ้น (ภาพเดียวกันทั้ง 3 ชิ้น แต่เก็บแยกเผื่อ importer ทำแยก)
+	local newSA: { [string]: SurfaceAppearance } = {}
+	local any: SurfaceAppearance? = nil
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("SurfaceAppearance") and d.Parent and NAMES[d.Parent.Name] then
+			newSA[d.Parent.Name] = newSA[d.Parent.Name] or d
+			any = any or d
+		end
+	end
+	if not any then
+		return "imported BananaPaintV2 has no SurfaceAppearance (check the importer's texture settings)"
+	end
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	local keep = arch:FindFirstChild("BananaPaint_v1")
+	local n, skipped = 0, 0
+	local function repaint(root: Instance)
+		for _, p in ipairs(root:GetDescendants()) do
+			if p:IsA("BasePart") and NAMES[p.Name] and not p:IsDescendantOf(src :: Instance) and not p:IsDescendantOf(arch) then
+				if p:GetAttribute("BananaPaint") == 2 then
+					skipped += 1
+					continue
+				end
+				local old = p:FindFirstChildOfClass("SurfaceAppearance")
+				local sa = (newSA[p.Name] or any :: SurfaceAppearance):Clone()
+				if old then
+					pcall(function()
+						(sa :: any).AlphaMode = (old :: any).AlphaMode
+					end)
+					sa.Color = old.Color
+					if not keep then
+						-- เก็บผิวเดิม 1 ชุดต่อชื่อชิ้น (ไว้ย้อนกลับ)
+						keep = Instance.new("Folder")
+						keep.Name = "BananaPaint_v1"
+						keep.Parent = arch
+					end
+					if not (keep :: Instance):FindFirstChild(p.Name) then
+						local c = old:Clone()
+						c.Name = p.Name
+						c.Parent = keep
+					end
+					old:Destroy()
+				end
+				sa.Name = "SurfaceAppearance"
+				sa.Parent = p
+				p:SetAttribute("BananaPaint", 2)
+				n += 1
+			end
+		end
+	end
+	repaint(Workspace)
+	local props = SS:FindFirstChild("ImportedProps")
+	if props then
+		repaint(props)
+	end
+	;(src :: Instance).Parent = arch
+	;(src :: Instance).Name = "BananaPaintV2_Imported"
+	return string.format("ok (%d parts repainted, %d already v2)", n, skipped)
 end
 
 return MapBuilder

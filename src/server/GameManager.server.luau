@@ -81,6 +81,32 @@ MapBuilder.RemoveZoneLabels()
 MapBuilder.DarkenRiceAndFoliage()
 MapBuilder.LabelKilometerPost() -- ข้อความหลักกิโล (กม. 67)
 
+-- Performance (2026-11-07): ให้คนที่ตั้งกราฟิก Auto ได้ระดับสูงพอจะเห็นเงา
+--   1) ไฟดวงเล็ก (ธูป / ตะเกียง) ไม่ทำเงา: เงาจากไฟวงเล็กแทบไม่เห็น แต่ทำเงาแบบไฟดวงใหญ่เท่ากัน (ไฟฉายทำเงาแทน)
+--   2) ของตกแต่งใน MapEnvironment ไม่ต้องรับการชน (CanTouch) ไม่มีสคริปต์ไหนฟัง .Touched ของฉาก (เว้นเบาะนั่ง)
+do
+	local lightsOff, touchOff = 0, 0
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Light") and d.Shadows and d.Parent then
+			local n = d.Parent.Name
+			if n == "StormLantern_Neon" or string.match(n, "^Incense%d*_Neon$") then
+				d.Shadows = false
+				lightsOff += 1
+			end
+		end
+	end
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	if env then
+		for _, d in ipairs(env:GetDescendants()) do
+			if d:IsA("BasePart") and d.CanTouch and not d:IsA("Seat") and not d:IsA("VehicleSeat") then
+				d.CanTouch = false
+				touchOff += 1
+			end
+		end
+	end
+	print(string.format("⚡ Performance: ปิดเงาไฟเล็ก %d ดวง · ปิด CanTouch ของตกแต่ง %d ชิ้น", lightsOff, touchOff))
+end
+
 -- ซ่อนจุดมาร์คของรถตอนเล่น: SpawnPoint (เขียว) / StopPoint (เหลือง) / ExitPoint (แดง)
 -- เป็นตัวช่วยของ Dev: ระบบรถยังใช้ตำแหน่งได้ตามปกติ, ตอน Edit ยังมองเห็น
 do

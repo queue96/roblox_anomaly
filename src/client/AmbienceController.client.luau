@@ -79,7 +79,8 @@ bloom.Parent = Lighting
 
 local dof = (Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?) or Instance.new("DepthOfFieldEffect")
 dof.Name = "NightDepthOfField"
-dof.Enabled = true
+-- Performance (2026-11-07): ระยะชัดลึกหนักบนการ์ดจอเล็ก เปิดเฉพาะตอนตาทิพย์เปิด (updatePrayerOptics) ไม่เปิดค้างทั้งเกม
+dof.Enabled = false
 dof.FocusDistance = 20
 dof.InFocusRadius = 40
 dof.NearIntensity = 0.1
@@ -88,9 +89,17 @@ dof.Parent = Lighting
 
 local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?) or Instance.new("BlurEffect")
 softBlur.Name = "SoftFilmBlur"
-softBlur.Enabled = true
 softBlur.Size = 0 -- ภาพคมเป็นค่าเริ่มต้น เบลอเฉพาะตอนเปิดตาทิพย์
+softBlur.Enabled = false -- เบลอ Size 0 ยังกินแรงเรนเดอร์ทั้งจอ: เปิดเฉพาะตอน Size > 0 (ตามด้านล่าง)
+softBlur:GetPropertyChangedSignal("Size"):Connect(function()
+	softBlur.Enabled = softBlur.Size > 0.01
+end)
 softBlur.Parent = Lighting
+-- Bloom เดิมในไฟล์ place (ชื่อ "Bloom" Intensity 0) ไม่ได้ทำให้ภาพต่างแต่ยังเป็นอีกหนึ่งรอบเรนเดอร์ ปิดไว้ (เหลือ NightBloom ตัวเดียว)
+local legacyBloom = Lighting:FindFirstChild("Bloom")
+if legacyBloom and legacyBloom:IsA("BloomEffect") and legacyBloom.Intensity <= 0.001 then
+	legacyBloom.Enabled = false
+end
 
 -- Dynamic Focus + เอฟเฟกต์ฟุ้งพิเศษตอนพนมมือเปิดตาทิพย์ (PrayerSight)
 local focusParams = RaycastParams.new()
@@ -327,9 +336,8 @@ local function updatePrayerOptics(active: boolean)
 	TweenService:Create(softBlur, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
 		Size = if active then 1.4 else 0,
 	}):Play()
-	TweenService:Create(dof, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
-		FarIntensity = if active then 0.2 else 0.15,
-	}):Play()
+	-- ระยะชัดลึกเปิดเฉพาะตอนตาทิพย์เปิด (Performance 2026-11-07)
+	dof.Enabled = active
 	-- ขอบจอ (Vignette) บีบเข้ามาเบาๆ แต่จางกว่าปกติ ไม่ให้ภาพมืดลงตอนเพ่งดูผี
 	local edgeTrans = if active then 0.5 else 0.36
 	local vSize = if active then UDim2.fromScale(1, 0.33) else UDim2.fromScale(1, 0.24)
@@ -351,7 +359,7 @@ task.spawn(function()
 	while true do
 		task.wait(0.1)
 		local cam = Workspace.CurrentCamera
-		if cam then
+		if cam and dof.Enabled then -- ไม่เปิดระยะชัดลึก = ไม่ต้องยิง ray หาโฟกัส
 			local filter = {}
 			if localPlayer.Character then
 				table.insert(filter, localPlayer.Character)
@@ -428,7 +436,8 @@ mist.Name = "GroundMist"
 mist.Texture = ASSETS.MistTexture
 mist.Shape = Enum.ParticleEmitterShape.Box
 mist.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-mist.Rate = 7
+-- Performance (2026-11-07): เดิม 7/วิ ก้อน 14-26 studs (~100 ก้อนซ้อนกันบนจอ การ์ดจอวาดซ้ำหลายชั้น) -> 4/วิ ก้อน 12-22
+mist.Rate = 4
 mist.Lifetime = NumberRange.new(12, 18)
 mist.Speed = NumberRange.new(0.3, 1)
 mist.SpreadAngle = Vector2.new(180, 5)
@@ -439,8 +448,8 @@ mist.Color = ColorSequence.new(Color3.fromRGB(70, 82, 92))
 mist.Brightness = 0.35 -- คืนนี้มืดมาก ลดความสว่างหมอกเรี่ยพื้นไม่ให้ขาวฟุ้งแสบตา
 mist.LightInfluence = 0.45
 mist.Size = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 14),
-	NumberSequenceKeypoint.new(1, 26),
+	NumberSequenceKeypoint.new(0, 12),
+	NumberSequenceKeypoint.new(1, 22),
 })
 mist.Transparency = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 1),
@@ -529,7 +538,12 @@ local crickets = {
 	{ sound = fieldCrickets, volume = fieldCrickets.Volume },
 }
 
+-- ลางผีใหญ่ (server: remotes.BigOmen / BigEvent): จิ้งหรีดเงียบกริบค้างไว้จนผีใหญ่ไป ห้ามเสียงอื่นเร่งกลับ
+local omenHeld = false
 local function fadeCrickets(scale, duration)
+	if omenHeld and scale > 0.05 then
+		return
+	end
 	for _, c in ipairs(crickets) do
 		TweenService:Create(c.sound, TweenInfo.new(duration, Enum.EasingStyle.Sine), {
 			Volume = c.volume * scale,
@@ -539,14 +553,39 @@ end
 
 task.spawn(function()
 	while true do
-		task.wait(math.random(45, 110))
-		if ReplicatedStorage:GetAttribute("CutsceneRunning") then
-			continue -- คัทซีน: ไม่เล่นจังหวะจิ้งหรีดเงียบกริบ
+		-- (45-110 -> 90-180 ผู้ใช้ 2026-11-08: เงียบกริบเป็นลางก่อนผีใหญ่ด้วย เงียบเองบ่อยไปลางจะไม่มีความหมาย)
+		task.wait(math.random(90, 180))
+		if ReplicatedStorage:GetAttribute("CutsceneRunning") or omenHeld then
+			continue -- คัทซีน / ลางผีใหญ่อยู่แล้ว: ไม่เล่นจังหวะจิ้งหรีดเงียบกริบ
 		end
 		fadeCrickets(0.05, 2.5) -- เงียบลงเร็วๆ เหมือนมีอะไรเดินผ่าน
 		task.wait(math.random(5, 10))
 		fadeCrickets(1, 8)
 	end
+end)
+
+task.spawn(function()
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local function update()
+		local on = remotes:GetAttribute("BigOmen") == true or remotes:GetAttribute("BigEvent") ~= nil
+		if on == omenHeld then
+			return
+		end
+		if on then
+			fadeCrickets(0.02, 3) -- เงียบลงช้าๆ จนเหลือแต่ลม (ก่อนผีใหญ่มา BigOmenTime วิ)
+			omenHeld = true
+		else
+			omenHeld = false
+			task.delay(6, function()
+				if not omenHeld then
+					fadeCrickets(1, 10) -- ผีใหญ่ไปแล้ว: ค่อยๆ ร้องกลับมา
+				end
+			end)
+		end
+	end
+	remotes:GetAttributeChangedSignal("BigOmen"):Connect(update)
+	remotes:GetAttributeChangedSignal("BigEvent"):Connect(update)
+	update()
 end)
 
 ---------------------------------------------------------------------

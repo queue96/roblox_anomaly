@@ -233,7 +233,14 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 		local boneName = source:GetAttribute("FocusBone")
 		focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "head")
 	elseif source then
-		if focus == "rider" and source:FindFirstChild("GhostRiderModel") then
+		-- กระสือ (ชาวบ้าน): ร่างผีคือ KrasueModel ในรถ ส่วนคนขับเป็น NormalOnly (ถูกซ่อนใน Clone)
+		-- เดิม Clone คนขับ -> ตอนหลอกเห็นแต่ตัวล่องหน หน้าหาย (ผู้ใช้ 2026-11-08)
+		if focus == "body" and source:FindFirstChild("KrasueModel") then
+			local c = addClone(source.KrasueModel)
+			local boneName = source.KrasueModel:GetAttribute("FocusBone")
+			-- กระดูกหัวของแม่แบบกระสือชื่อ "Head" (ตัวใหญ่) ไม่ใช่ "head" แบบชาวบ้าน
+			focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "Head") or boneFocus(c, "head")
+		elseif focus == "rider" and source:FindFirstChild("GhostRiderModel") then
 			local c = addClone(source.GhostRiderModel)
 			focusPart = boneFocus(c, "head")
 		elseif focus == "passenger" and source:FindFirstChild("GhostPassengerModel") then

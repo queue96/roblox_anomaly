@@ -65,6 +65,7 @@ type Plan = {
 	focus: string?,
 	glow: Color3?,
 	coffin: boolean?, -- แบกโลง (ServerStorage.GhostProps.Coffin) ด้วยกำปั้นขวาของผีตัวแรก
+	knock: boolean?, -- เสียงเคาะแผงสังกะสีเป็นจังหวะตลอดช่วง Danger (ปอบเคาะแผง: เดิมเงียบ มีแค่ท่า 2026-11-08)
 }
 
 -- ขบวนแห่ศพ: แบกโลง 2 คาน คานละ 2 คน (หน้า/หลัง ห่างกัน COFFIN_GAP) ศพห่อผ้าลอยตามหลัง
@@ -147,6 +148,7 @@ local function plans(): { [string]: Plan }
 			rules = { lights = true, crouch = false, still = true, shutter = true, flashlight = false },
 			voice = "Ghost_Pop",
 			laugh = "Ghost_Pop_Laugh",
+			knock = true,
 		},
 	}
 end
@@ -331,6 +333,8 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 			end
 		end
 		;(coffin :: Model).Parent = group
+		-- โลงขยับตามมือคนแบกทุกเฟรม: เครื่องผู้เล่นเกลี่ยให้ลื่นพร้อมผี (shared/NetSmooth)
+		require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("NetSmooth")).Track(coffin)
 		for _, d in ipairs(live[1].m:GetDescendants()) do
 			if d:IsA("Bone") and d.Name == "hand.R" then
 				hand = d
@@ -420,6 +424,21 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 	ctx.notice("Big_Danger", cfg.Danger)
 	if root and plan.laugh then
 		SoundBank.PlayOneShot(plan.laugh, root, 160, 5)
+	end
+	if plan.knock then
+		-- ปอบยืนเคาะแผงตลอดช่วง Danger: เสียงดังที่ตัวแผง (ได้ยินชัดจากในร้าน)
+		task.spawn(function()
+			local props = Workspace:FindFirstChild("InteractiveProps")
+			local door = props and props:FindFirstChild("ShutterDoor") :: BasePart?
+			if not door then
+				return
+			end
+			task.wait(0.4)
+			while phase == 2 and not frozen and group.Parent do
+				SoundBank.PlayOneShot("ShutterKnock", door, 90, 3)
+				task.wait(0.9 + math.random() * 0.8)
+			end
+		end)
 	end
 
 	-- ตรวจกติกา: ผิดครั้งแรก = จบ (ผิดทั้งทีม: ไฟ / แผง -> ทุกคนโดน)

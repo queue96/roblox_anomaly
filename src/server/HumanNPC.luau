@@ -347,6 +347,73 @@ local function addIK(d: Model, targets: { [string]: IKTarget })
 	end
 end
 
+-- ---------------------------------------------------------------- นั่งให้มือถึงแฮนด์ (ผู้ใช้ 2026-11-08: บางตัวแอ่น / มือไม่จับมอไซ)
+-- วัดใน Studio (DevCommand): แฮนด์มอไซค์/ตุ๊กตุ๊กอยู่หน้าสะโพก ~2.6 studs แต่แขนยาวแค่ 1.7-1.9
+--   -> ต้องเอื้อม 131-151% ของแขน IK ดึงแขนเหยียดตึงแล้วก็ยังไม่ถึง (ป้าแช่มแขนสั้นสุดห่างสุด)
+--   ท่าของตัวเอง (build_anims ของแต่ละตัว) ต่างจากท่าที่ยืม human_base แค่ ~0.1 stud ไม่ใช่สาเหตุ
+-- แก้: โน้มทั้งตัวไปหน้ารอบข้อสะโพก + เลื่อนไปหน้านิด จนหัวไหล่ห่างแฮนด์ไม่เกิน REACH ของความยาวแขน
+--   (ขาไม่เพี้ยน: IK เท้าดึงเท้ากลับไปที่พักเท้าเอง)
+-- หัวไหล่ซ้าย (กระดูก upper_arm.L) ตอนเล่นท่าขับ ในกรอบสะโพก (+X ขวา, +Y ขึ้น, -Z หน้า) วัดใน Studio 2026-11-08
+local SHOULDER_POSED: { [string]: { [string]: Vector3 } } = {
+	human_base = { ride_moto = Vector3.new(-0.62, 1.79, -0.28), drive_tuktuk = Vector3.new(-0.62, 1.82, -0.09), drive_car = Vector3.new(-0.62, 1.82, -0.06) },
+	human_elder_male = { ride_moto = Vector3.new(-0.55, 1.53, -0.48), drive_tuktuk = Vector3.new(-0.55, 1.61, -0.27), drive_car = Vector3.new(-0.55, 1.60, -0.30) },
+	human_elder_female = { ride_moto = Vector3.new(-0.47, 1.48, -0.31), drive_tuktuk = Vector3.new(-0.47, 1.52, -0.12), drive_car = Vector3.new(-0.47, 1.52, -0.14) },
+}
+local REACH = 0.97 -- ระยะหัวไหล่-แฮนด์ ไม่เกินเท่านี้ของแขน (ขี่มอไซค์แขนเกือบเหยียด งอนิดเดียว)
+local MAX_LEAN = 24 -- องศา โน้มเพิ่มได้สูงสุด (เลื่อนไปหน้าก่อน โน้มแต่พอดี: ลุง ~12° หนุ่ม ~17° ป้าแช่มแขนสั้นสุด ~24°)
+local MAX_SHIFT = 0.3 -- studs เลื่อนไปหน้าได้สูงสุด (มากกว่านี้ต้นขาจมตัวรถ)
+local armLen: { [string]: number } = {}
+local function armLength(char: string): number?
+	if armLen[char] then
+		return armLen[char]
+	end
+	local tpl = template(char)
+	local a, f, h = tpl and bone(tpl, "upper_arm.L"), tpl and bone(tpl, "forearm.L"), tpl and bone(tpl, "hand.L")
+	if not (a and f and h) then
+		return nil
+	end
+	local n = (f.WorldPosition - a.WorldPosition).Magnitude + (h.WorldPosition - f.WorldPosition).Magnitude
+	armLen[char] = n
+	return n
+end
+-- คืนสะโพกใหม่ (โน้ม + เลื่อน) ที่ทำให้มือทั้งสองข้างถึงแฮนด์ ถ้าถึงอยู่แล้วคืนค่าเดิม
+function HumanNPC.FitReach(char: string, clip: string, hip: CFrame, targets: { [string]: IKTarget }): (CFrame, number, number)
+	local sh = SHOULDER_POSED[char] and SHOULDER_POSED[char][clip]
+	local arm = armLength(char)
+	if not (sh and arm) then
+		return hip, 0, 0
+	end
+	local pairsList = {}
+	for key, sx in pairs({ handL = 1, handR = -1 }) do
+		local t = targets[key]
+		if t then
+			table.insert(pairsList, { Vector3.new(sh.X * sx, sh.Y, sh.Z), hip:PointToObjectSpace(t.pos) })
+		end
+	end
+	if #pairsList == 0 then
+		return hip, 0, 0
+	end
+	local best, bestCost, fallback, fallbackWorst = nil, math.huge, nil, math.huge
+	for si = 0, math.floor(MAX_SHIFT / 0.05 + 0.5) do
+		for th = 0, MAX_LEAN do
+			local x = CFrame.new(0, 0, -si * 0.05) * CFrame.Angles(-math.rad(th), 0, 0)
+			local worst = 0
+			for _, pr in ipairs(pairsList) do
+				worst = math.max(worst, (x:PointToWorldSpace(pr[1]) - pr[2]).Magnitude / arm)
+			end
+			local cost = si * 0.05 * 0.25 + math.rad(th) -- เลื่อนถูกกว่าโน้ม (โน้มมากดูหลังค่อม)
+			if worst <= REACH and cost < bestCost then
+				best, bestCost = { si * 0.05, th }, cost
+			end
+			if worst < fallbackWorst then
+				fallback, fallbackWorst = { si * 0.05, th }, worst
+			end
+		end
+	end
+	local pick = best or fallback :: { number }
+	return hip * CFrame.new(0, 0, -pick[1]) * CFrame.Angles(-math.rad(pick[2]), 0, 0), pick[1], pick[2]
+end
+
 function HumanNPC.SeatIn(vehicle: Model, hip: CFrame, clip: string, opts: { [string]: any }?, targets: { [string]: IKTarget }?): Model?
 	local ch = (opts or {} :: any).char
 	if not (template(ch) and animIds(ch)[clip]) then
@@ -358,6 +425,13 @@ function HumanNPC.SeatIn(vehicle: Model, hip: CFrame, clip: string, opts: { [str
 	local d = w:FindFirstChild("DriverNPC") :: Model
 	local hb = bone(d, "hips")
 	local hipRel = if hb then d:GetPivot():PointToObjectSpace(hb.WorldPosition) else Vector3.new(0, 3.1, 0)
+	if targets then
+		local fitted, shift, lean = HumanNPC.FitReach((rigs[w] and rigs[w].char) or DEFAULT_CHAR, clip, hip, targets)
+		hip = fitted
+		d:SetAttribute("SeatShift", shift) -- (ดูค่าใน Studio ตอนทดสอบ)
+		d:SetAttribute("SeatLean", lean)
+	end
+	d:SetAttribute("SeatClip", clip) -- client/RiderMotion: มอไซค์ 2 ล้อ = เอาเท้าลงตอนจอด
 	d:PivotTo(hip * CFrame.new(-hipRel))
 	if targets then
 		addIK(d, targets)
@@ -667,7 +741,8 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 		-- ผิวซีดเขียวแบบศพ ตัวโปร่งจางๆ แสงเย็นเรืองรอบตัว (ไม่มีขอบแดงเรือง: ผู้ใช้เอาออกแล้ว 2026-11-05)
 		for _, c in ipairs(double:GetChildren()) do
 			if c:IsA("MeshPart") then
-				c.Transparency = 0.22
+				-- หัวหันกลับ (twist): ทึบทั้งตัว ไม่งั้นผมยาวด้านหลังกับหน้าที่หันกลับมองทะลุซ้อนกันดูเละ (ผู้ใช้ 2026-11-07)
+				c.Transparency = if kind == "twist" then 0 else 0.22
 				if string.sub(c.Name, 1, 4) == "Body" or string.sub(c.Name, 1, 5) == "Skin_" then
 					local sa = c:FindFirstChildOfClass("SurfaceAppearance")
 					if sa then

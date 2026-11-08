@@ -1,7 +1,7 @@
 --!strict
 -- SceneryGhosts.client.luau
 -- ผีฉาก (ไม่ใช่ลูกค้า) โผล่ให้เห็นเป็นช่วงๆ — เกิดบนเครื่องนี้เครื่องเดียว: แต่ละคนเห็นคนละตัว คนละเวลา
---   คืนหนึ่งสุ่มชนิดผีไว้ไม่กี่แบบ (KindsPerNight) โผล่ทีละตัว ไม่บ่อย (MaxPerNight / Every)
+--   โผล่ทีละตัว ไม่จำกัดจำนวนต่อคืน (ผู้ใช้ 2026-11-08) ห่างกัน Every · ไม่ซ้ำแบบเดิมจนกว่าจะออกครบทุกแบบ
 --   ผีอยู่ที่ของมัน (ดงกล้วย / ต้นไทร / ทุ่ง) ขยับออกมาให้เห็นนิดเดียว + เรืองแสงจางๆ ไม่เดินมาหน้าร้านเอง
 --   ผู้เล่นหันไปเห็น = ผีเดินเข้าหาคนนั้น (ผู้ใช้ 2026-11-04) เดินไล่ทัน / หนีนานเกิน HuntMax / ปิดแผงระหว่างถูกไล่ = ผีหลอก
 --     ใครอยู่นอกร้าน (หรือคนที่ถูกไล่ถึงตัวตอนแผงเปิด) ล้ม + ตาปรือ จนผีปั่นป่วนเสร็จ (server: CoreLoop.Rampage / GhostLinger)
@@ -29,10 +29,12 @@ if not models then
 end
 
 local CONFIG = {
-	FirstAfter = { 120, 240 }, -- หลังเปิดร้าน (วินาที) ผีตัวแรก
-	Every = { 330, 540 }, -- ห่างกันเท่านี้ (เดิม 240-420 ผีมาถี่เกิน ผู้ใช้ 2026-11-05)
-	MaxPerNight = 3, -- คืนละไม่เกิน
-	KindsPerNight = 4, -- สุ่มชนิดผีไว้คืนละเท่านี้แบบ (ไม่ออกครบทุกตัว)
+	FirstAfter = { 100, 200 }, -- หลังเปิดร้าน (วินาที) ผีตัวแรก (เดิม 120-240)
+	-- ห่างกันเท่านี้ (2026-11-05: 240-420 -> 330-540 ถี่เกิน / 2026-11-08: ไม่จำกัดรอบ + ถี่ขึ้นนิด -> 250-400 ผู้ใช้สั่ง)
+	Every = { 250, 400 },
+	FinaleFrom = 0.85, -- (= CoreLoop CONFIG.FinaleFrom) เงินถึงเท่านี้ = ช่วงท้ายคืน
+	FinaleEvery = 0.6, -- ช่วงท้ายคืน: ห่างกันแค่ 60% ของ Every
+	-- (เลิกใช้ MaxPerNight 3 / KindsPerNight 4 แล้ว: ไม่จำกัดจำนวน 2026-11-08)
 	Stay = { 30, 45 }, -- โผล่ค้างกี่วินาที (ถ้าไม่มีใครหันไปเห็น ก็จางหายไปเอง)
 	SeeTime = 0.7, -- อยู่ในสายตาต่อเนื่องกี่วินาทีถึงนับว่าเห็น
 	SeeDist = 110, -- ไกลกว่านี้ไม่นับว่าเห็น
@@ -812,7 +814,10 @@ end)
 local function canShow(): boolean
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	return remotes:GetAttribute("ShopOpen") == true
+		and ReplicatedStorage:GetAttribute("TestMode") ~= true -- โหมดทดสอบ: ไม่โผล่เอง (ปุ่ม admin ยังเรียกได้)
 		and remotes:GetAttribute("BigEvent") == nil
+		and remotes:GetAttribute("BigOmen") == nil -- ลางผีใหญ่ (จิ้งหรีดเงียบ): ไม่แย่งซีน
+		and Workspace:GetServerTimeNow() >= (remotes:GetAttribute("CalmUntil") or 0) -- ช่วงพักหายใจหลังผีใหญ่ / ไฟกลับมา
 		and Lighting:GetAttribute("Cutscene") ~= true
 		and Lighting:GetAttribute("Dawn") ~= true
 		and hum ~= nil
@@ -825,22 +830,30 @@ task.spawn(function()
 		while remotes:GetAttribute("ShopOpen") ~= true do
 			task.wait(1)
 		end
-		local pool = table.clone(KIND_LIST)
-		local tonight = {}
-		for _ = 1, math.min(CONFIG.KindsPerNight, #pool) do
-			table.insert(tonight, table.remove(pool, math.random(#pool)))
-		end
-		local shown = 0
+		-- ไม่ซ้ำแบบเดิม: หยิบออกจากถุงทีละแบบ ครบทุกแบบแล้วเติมถุงใหม่ (ไม่เอาแบบที่เพิ่งออกเป็นตัวแรกของถุงใหม่)
+		local tonight = table.clone(KIND_LIST)
+		local lastKind: string? = nil
 		local nextAt = os.clock() + rand(CONFIG.FirstAfter)
 		while remotes:GetAttribute("ShopOpen") == true do
 			task.wait(1)
-			if current and (remotes:GetAttribute("BigEvent") ~= nil or Lighting:GetAttribute("Dawn") == true) then
+			if current and (remotes:GetAttribute("BigEvent") ~= nil or remotes:GetAttribute("BigOmen") ~= nil or Lighting:GetAttribute("Dawn") == true) then
 				hide(1) -- ผีใหญ่มา / ฟ้าสางจบคืน: ผีฉากหลบไปก่อน
 			end
-			if shown < CONFIG.MaxPerNight and os.clock() >= nextAt and not current and canShow() then
-				show(tonight[math.random(#tonight)])
-				shown += 1
-				nextAt = os.clock() + rand(CONFIG.Every)
+			if os.clock() >= nextAt and not current and canShow() then
+				if #tonight == 0 then
+					tonight = table.clone(KIND_LIST)
+					local i = lastKind and table.find(tonight, lastKind)
+					if i and #tonight > 1 then
+						table.remove(tonight, i)
+					end
+				end
+				-- ไม่ซ้ำตัวเดิม (ผู้ใช้ 2026-11-07): ออกครบทุกแบบก่อนถึงจะวนใหม่
+				lastKind = table.remove(tonight, math.random(#tonight))
+				show(lastKind :: string)
+				-- ช่วงท้ายคืน (เงินถึง FinaleFrom ของ server/CoreLoop) ผีฉากถี่ขึ้น
+				local progress = remotes:GetAttribute("NightProgress")
+				local finale = type(progress) == "number" and progress >= CONFIG.FinaleFrom
+				nextAt = os.clock() + rand(CONFIG.Every) * (if finale then CONFIG.FinaleEvery else 1)
 			end
 		end
 		hide(0.5)

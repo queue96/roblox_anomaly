@@ -145,6 +145,63 @@ local function button(order: number): TextButton
 	end)
 	return b
 end
+-- ---------------------------------------------------------------- สรุปคืนนี้ใต้ปุ่ม (ผู้ใช้ 2026-11-08): รอดมาได้นานเท่าไหร่ + ผีที่พลาด จุดสังเกต
+local NightRecap = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("NightRecap")) :: any
+local recapData: { [string]: any }? = nil
+local recapBox = new("Frame", {
+	Name = "Recap",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.5, 40),
+	Size = UDim2.new(0.7, 0, 0, 0),
+	AutomaticSize = Enum.AutomaticSize.Y,
+	BackgroundColor3 = C.Ink,
+	BackgroundTransparency = 0.35,
+	BorderSizePixel = 0,
+	Visible = false,
+}, gui)
+new("UISizeConstraint", { MaxSize = Vector2.new(560, 320) }, recapBox)
+new("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, recapBox)
+new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.3 }, recapBox)
+new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, recapBox)
+local function drawRecap()
+	for _, ch in ipairs(recapBox:GetChildren()) do
+		if ch:IsA("GuiObject") then
+			ch:Destroy()
+		end
+	end
+	local d = recapData
+	-- มีสรุป = ยกข้อความ/ปุ่มขึ้นครึ่งบน ให้สรุปอยู่ครึ่งล่าง
+	box.Position = if d then UDim2.new(0.5, 0, 0.5, -95) else UDim2.fromScale(0.5, 0.5)
+	if not d then
+		return
+	end
+	local l = lang()
+	local vars = { t = NightRecap.FormatTime(d.time, l), money = d.team or 0, target = d.target or 0 }
+	local line = string.gsub(ui("DeathSurvived"), "{(%w+)}", function(k)
+		return tostring(vars[k])
+	end)
+	new("TextLabel", {
+		LayoutOrder = 1,
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 19,
+		TextColor3 = C.Cream,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = line,
+	}, recapBox)
+	NightRecap.Build(recapBox, d, l, {
+		font = FONT_BODY,
+		text = C.Cream,
+		dim = C.Dim,
+		good = Color3.fromRGB(150, 205, 130),
+		bad = Color3.fromRGB(235, 80, 60),
+		line = C.Line,
+		size = 16,
+		maxHeight = 200,
+	}, 2)
+end
+
 local restartBtn = button(1)
 restartBtn.Modal = true -- ปลดล็อกเมาส์
 local quitBtn = button(2)
@@ -157,7 +214,10 @@ local function drawTexts()
 	quitBtn.Text = ui("Quit")
 end
 drawTexts()
-localPlayer:GetAttributeChangedSignal("Lang"):Connect(drawTexts)
+localPlayer:GetAttributeChangedSignal("Lang"):Connect(function()
+	drawTexts()
+	drawRecap()
+end)
 
 -- ---------------------------------------------------------------- เพลงจอตาย
 -- เล่นวนตอนจอถามว่าจะเริ่มใหม่หรือกลับ Lobby จนจอนี้ปิด (เจ้าของเกมอัปโหลด) กลุ่ม Music ปรับได้ในหน้าตั้งค่า
@@ -348,6 +408,7 @@ local function showDeath()
 		if dead then
 			TweenService:Create(ask, TweenInfo.new(1), { TextTransparency = 0 }):Play()
 			buttons.Visible = true
+			recapBox.Visible = recapData ~= nil
 		end
 	end)
 	-- จอแดงเต้นช้าๆ เหมือนชีพจร
@@ -369,6 +430,7 @@ local function hideDeath()
 		return
 	end
 	dead = false
+	recapBox.Visible = false
 	hideCorpse()
 	showHud()
 	pulseToken += 1
@@ -422,8 +484,10 @@ DeathChoice.OnClientEvent:Connect(function(kind: string, who: string?)
 	end
 end)
 
-GameState.OnClientEvent:Connect(function(state: string)
+GameState.OnClientEvent:Connect(function(state: string, recap: any)
 	if state == "Lose" then
+		recapData = if type(recap) == "table" then recap else nil
+		drawRecap()
 		showDeath()
 	elseif state == "Waiting" or state == "Playing" then
 		hideDeath()
