@@ -31,12 +31,22 @@ end
 
 local function buildStarterCharacter(): Model?
 	local templates = ServerStorage:FindFirstChild("HumanTemplates")
-	local tpl = templates and templates:FindFirstChild("human_base") :: Model?
+	local tpl = templates and (templates:FindFirstChild("villager_male") or templates:FindFirstChild("human_base")) :: Model?
 	if not tpl then
 		return nil
 	end
-	local c = tpl:Clone()
+	local raw = tpl:Clone()
+	local c = Instance.new("Model")
 	c.Name = "StarterCharacter"
+	for _, ch in ipairs(raw:GetChildren()) do
+		ch.Parent = c
+	end
+	raw:Destroy()
+	local rp = c:FindFirstChild("RootPart") :: BasePart?
+	if rp then
+		rp.Size = Vector3.new(2, 2, 1)
+		c.PrimaryPart = rp
+	end
 	c:PivotTo(CFrame.new(0, 0, 0))
 	local ac = c:FindFirstChildOfClass("AnimationController")
 	if ac then
@@ -126,7 +136,7 @@ local starter: Model? = nil
 -- ผู้เล่นทุกคนใส่ชุดม่อฮ่อม (ผมยังสุ่ม) ผ้าขาวม้าคาดเอวสีไม่ซ้ำกันในเซิร์ฟเวอร์ (บอกกันได้ว่าใครเป็นใคร)
 -- ย้อมสีด้วย SurfaceAppearance.Color: คูณกับลายผ้าขาวม้าเดิม (ขาว = สีเดิม ชมพู) ดูตัวอย่างแล้วแยกกันชัด
 local PLAYER_OUTFIT = "mohom"
-local SASH_PARTS = { "Cloth_mohom_sash", "Cloth_mohom_sash_tails" }
+local SASH_PARTS = { "Sash_pakama", "Cloth_mohom_sash", "Cloth_mohom_sash_tails" }
 local SASH_COLORS = {
 	Color3.fromRGB(255, 255, 255), -- ชมพู (สีเดิม)
 	Color3.fromRGB(120, 200, 255), -- ฟ้าม่วง

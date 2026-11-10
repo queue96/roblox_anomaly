@@ -1,0 +1,213 @@
+{
+	"className": "Folder",
+	"children": [
+		{
+			"name": "male_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://111879294209098",
+				"NormalMap": "rbxassetid://94731226157656",
+				"RoughnessMap": "rbxassetid://85568659156986",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "male_elder_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://77205131991462",
+				"NormalMap": "rbxassetid://95504087588795",
+				"RoughnessMap": "rbxassetid://110440675749383",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "female_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://99579184854079",
+				"NormalMap": "rbxassetid://109905680901199",
+				"RoughnessMap": "rbxassetid://132407317564266",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "female_elder_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://72262446241238",
+				"NormalMap": "rbxassetid://94715680609599",
+				"RoughnessMap": "rbxassetid://122400510280478",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_farmer_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://89082477947160",
+				"NormalMap": "rbxassetid://136528255668241",
+				"RoughnessMap": "rbxassetid://134115949700203",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_redshirt_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://111549507440968",
+				"NormalMap": "rbxassetid://103937529574843",
+				"RoughnessMap": "rbxassetid://119639494752114",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_teen_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://88672641508039",
+				"NormalMap": "rbxassetid://73287312952913",
+				"RoughnessMap": "rbxassetid://94041697751780",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_elder_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://126039855825335",
+				"NormalMap": "rbxassetid://81648347900047",
+				"RoughnessMap": "rbxassetid://130389677943221",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_farmer_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://90997533090983",
+				"NormalMap": "rbxassetid://125170364950227",
+				"RoughnessMap": "rbxassetid://135113135381400",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_teen_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://105381539287697",
+				"NormalMap": "rbxassetid://101238293271521",
+				"RoughnessMap": "rbxassetid://103287317831506",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_redshirt_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://78124270670894",
+				"NormalMap": "rbxassetid://93330358069043",
+				"RoughnessMap": "rbxassetid://106828918010730",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "m_elder_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://79875552674267",
+				"NormalMap": "rbxassetid://100897567091334",
+				"RoughnessMap": "rbxassetid://106422985798374",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_blouse_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://74973658313185",
+				"NormalMap": "rbxassetid://70950003344089",
+				"RoughnessMap": "rbxassetid://123073142886516",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_indigo_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://120754213845152",
+				"NormalMap": "rbxassetid://118515263697118",
+				"RoughnessMap": "rbxassetid://109301055473248",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_tee_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://116129597587301",
+				"NormalMap": "rbxassetid://131369986774847",
+				"RoughnessMap": "rbxassetid://102692349395744",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_elder_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://128711040919238",
+				"NormalMap": "rbxassetid://96318334493173",
+				"RoughnessMap": "rbxassetid://123073142886516",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_indigo_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://100341697525059",
+				"NormalMap": "rbxassetid://91569249055614",
+				"RoughnessMap": "rbxassetid://117668965068422",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_tee_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://93469112445163",
+				"NormalMap": "rbxassetid://127149211649033",
+				"RoughnessMap": "rbxassetid://115170933440152",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_blouse_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://115831256453599",
+				"NormalMap": "rbxassetid://107542158997634",
+				"RoughnessMap": "rbxassetid://89778376500999",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "f_elder_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://94678635688232",
+				"NormalMap": "rbxassetid://107542158997634",
+				"RoughnessMap": "rbxassetid://89778376500999",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "sash_pakama",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://120176230427693",
+				"AlphaMode": "Overlay"
+			}
+		}
+	]
+}

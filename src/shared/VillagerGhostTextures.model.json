@@ -1,0 +1,315 @@
+{
+	"className": "Folder",
+	"children": [
+		{
+			"name": "g_male_ghost_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://109565393171926",
+				"NormalMap": "rbxassetid://123054772513822",
+				"RoughnessMap": "rbxassetid://91769775209490",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_funeral_m_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://132100005504275",
+				"NormalMap": "rbxassetid://93811938606957",
+				"RoughnessMap": "rbxassetid://75839596657579",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_funeral_m_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://128536498850459",
+				"NormalMap": "rbxassetid://121284420793573",
+				"RoughnessMap": "rbxassetid://117243253549100",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_shroud_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://72581656237683",
+				"NormalMap": "rbxassetid://111731742447833",
+				"RoughnessMap": "rbxassetid://93159411334751",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_male_withered_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://93427980313563",
+				"NormalMap": "rbxassetid://91259191294585",
+				"RoughnessMap": "rbxassetid://91540330775469",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_shroud_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://139980203453663",
+				"NormalMap": "rbxassetid://123708960850505",
+				"RoughnessMap": "rbxassetid://136551794756589",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_female_ghost_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://77015045293825",
+				"NormalMap": "rbxassetid://72699867833864",
+				"RoughnessMap": "rbxassetid://87159580855833",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_tani_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://118894909236089",
+				"NormalMap": "rbxassetid://125886075293742",
+				"RoughnessMap": "rbxassetid://110160681915663",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_tani_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://132429288668364",
+				"NormalMap": "rbxassetid://92172114485861",
+				"RoughnessMap": "rbxassetid://106709952953122",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_dancer_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://72253490791133",
+				"NormalMap": "rbxassetid://137341792917484",
+				"RoughnessMap": "rbxassetid://130987384878146",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_dancer_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://91061915129179",
+				"NormalMap": "rbxassetid://70993934916410",
+				"RoughnessMap": "rbxassetid://76519744940679",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_female_dancer_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://80241011545010",
+				"NormalMap": "rbxassetid://74187028517392",
+				"RoughnessMap": "rbxassetid://132713182801437",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_female_pop_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://117063955712176",
+				"NormalMap": "rbxassetid://84332111167454",
+				"RoughnessMap": "rbxassetid://118535008085880",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_female_withered_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://85385204365671",
+				"NormalMap": "rbxassetid://125977200544246",
+				"RoughnessMap": "rbxassetid://129549773220544",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_funeral_f_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://105245516671877",
+				"NormalMap": "rbxassetid://81812420188305",
+				"RoughnessMap": "rbxassetid://121683268384442",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_funeral_f_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://130453646664218",
+				"NormalMap": "rbxassetid://88504755089561",
+				"RoughnessMap": "rbxassetid://115801798065066",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_nak_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://92184848142124",
+				"NormalMap": "rbxassetid://107022575963374",
+				"RoughnessMap": "rbxassetid://123732947106599",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_nak_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://78620841099442",
+				"NormalMap": "rbxassetid://95657100162693",
+				"RoughnessMap": "rbxassetid://87560944872848",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_pop_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://113880670670017",
+				"NormalMap": "rbxassetid://77525561429228",
+				"RoughnessMap": "rbxassetid://138758217853429",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_pop_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://138211386838747",
+				"NormalMap": "rbxassetid://97740060097036",
+				"RoughnessMap": "rbxassetid://89569205805238",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_thai_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://107867516747318",
+				"NormalMap": "rbxassetid://126835103516036",
+				"RoughnessMap": "rbxassetid://72471074840644",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "g_thai_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://72009568960441",
+				"NormalMap": "rbxassetid://71972253774783",
+				"RoughnessMap": "rbxassetid://104187478373805",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Prop_JawTie",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://109309121482505",
+				"NormalMap": "rbxassetid://71738864041681",
+				"RoughnessMap": "rbxassetid://117760547063833",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Prop_TaKhonMask",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://97832311604578",
+				"NormalMap": "rbxassetid://122053270632363",
+				"RoughnessMap": "rbxassetid://80577580374208",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "NeckStump",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://128152988065718",
+				"NormalMap": "rbxassetid://72534084009959",
+				"RoughnessMap": "rbxassetid://129949515130403",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Prop_Baby",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://92973041386924",
+				"NormalMap": "rbxassetid://92028983377921",
+				"RoughnessMap": "rbxassetid://104908350840519",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Cloth_ghost_dancer_crown",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://120044982285484",
+				"NormalMap": "rbxassetid://114651251602415",
+				"RoughnessMap": "rbxassetid://128951615187070",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Cloth_ghost_dancer_flowers",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://96021248643322",
+				"NormalMap": "rbxassetid://105344639843119",
+				"RoughnessMap": "rbxassetid://115287544853637",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Pop_Eyes",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://101144829072012",
+				"NormalMap": "rbxassetid://124005766523360",
+				"RoughnessMap": "rbxassetid://94014189987595",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Pop_Fangs",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://101144829072012",
+				"NormalMap": "rbxassetid://124005766523360",
+				"RoughnessMap": "rbxassetid://94014189987595",
+				"AlphaMode": "Overlay"
+			}
+		},
+		{
+			"name": "Pop_Tongue",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://101144829072012",
+				"NormalMap": "rbxassetid://124005766523360",
+				"RoughnessMap": "rbxassetid://94014189987595",
+				"AlphaMode": "Overlay"
+			}
+		}
+	]
+}

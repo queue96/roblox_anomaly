@@ -1,0 +1,16 @@
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\villager\upload\villager_male.fbx
+  BodyHead               tris   796  material BodyHead
+  BodyLower              tris  1224  material BodyLower
+  BodyUpper              tris  1476  material BodyUpper
+  Hair_bald_grey         tris   578  material HairGrey
+  Hair_long_white_beard  tris  1612  material HairWhite
+  Hair_rong_song_sung    tris   802  material HairBlack
+  Hair_side_part         tris   666  material HairBlack
+  Hair_student           tris   792  material HairBlack
+  Hat_ngob               tris   576  material Straw
+  LowerSkirt             tris  1296  material LowerSkirt
+  LowerWide              tris  1224  material LowerWide
+  Sash_pakama            tris   356  material PlaidPink
+re-import: 12 meshes, armatures 1, bones 52, body height 6.29 (scene units; x0.01 in the 3D Importer = studs), max bones per vertex 4
+textures referenced: 22
+files in upload/: 21

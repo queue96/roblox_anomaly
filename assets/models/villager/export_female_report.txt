@@ -1,0 +1,15 @@
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\villager\upload\villager_female.fbx
+  BodyHead               tris   796  material BodyHead
+  BodyLower              tris  1224  material BodyLower
+  BodyUpper              tris  1524  material BodyUpper
+  Hair_bob               tris   888  material HairBlack
+  Hair_bun_grey          tris   960  material HairGrey
+  Hair_curly_grey        tris   936  material HairGrey
+  Hair_ponytail_bow      tris  1374  material HairBlack
+  Hat_ngob               tris   576  material Straw
+  LowerSkirt             tris  1240  material LowerSkirt
+  LowerWide              tris  1224  material LowerWide
+  Sash_pakama            tris   356  material PlaidPink
+re-import: 11 meshes, armatures 1, bones 52, body height 5.89 (scene units; x0.01 in the 3D Importer = studs), max bones per vertex 4
+textures referenced: 22
+files in upload/: 36

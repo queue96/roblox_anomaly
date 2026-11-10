@@ -380,6 +380,9 @@ type FaceState = { shown: string?, nextBlink: number, blinkUntil: number }
 local faceStates: { [Model]: FaceState } = setmetatable({}, { __mode = "k" }) :: any
 
 local function skinParts(m: Model): { MeshPart }
+	if m:FindFirstChild("BodyUpper", true) then
+		return {}
+	end
 	local list = {}
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("MeshPart") and (d.Name == "BodyHead" or d.Name == "Body" or string.sub(d.Name, 1, 5) == "Skin_") and d:FindFirstChildOfClass("SurfaceAppearance") then

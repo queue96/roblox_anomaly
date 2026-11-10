@@ -5,3 +5,8 @@ __pycache__/
 assets/models/mocap/*.fbx
 assets/models/mocap/out/*.blend
 assets/models/mocap/out/*.blend1
+assets/models/villager/*.blend
+assets/models/villager/*.blend1
+assets/models/villager/design/
+assets/models/villager/textures/
+assets/models/villager/upload/*.png

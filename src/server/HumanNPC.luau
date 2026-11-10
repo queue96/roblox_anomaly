@@ -17,69 +17,100 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HumanNPC = {}
 
--- ตัวละคร (ชื่อแม่แบบใน ServerStorage.HumanTemplates) opts.char เลือกได้ ไม่ใส่ = human_base
+-- ตัวละคร (opts.char เลือกได้ ไม่ใส่ = human_base)
 --   human_base ชาย / human_female หญิง / human_child เด็ก / human_elder_male ตา / human_elder_female ยาย
+--   ร่างชาวบ้าน v2 (assets/models/villager): ชายและตาใช้แม่แบบ villager_male, หญิงและยายใช้แม่แบบ villager_female
 local DEFAULT_CHAR = "human_base"
+local TEMPLATE_OF: { [string]: string } = {
+	human_base = "villager_male",
+	human_elder_male = "villager_male",
+	human_female = "villager_female",
+	human_elder_female = "villager_female",
+	human_child = "human_child",
+}
+-- คนแก่ใช้ท่าเดิน/ยืนเดียวกับผู้ใหญ่ปกติ (ข้ามท่าคนแก่ย่องๆ ตามที่ตกลง 2026-11-10)
+local ANIM_CHAR_OF: { [string]: string } = {
+	human_elder_male = "human_base",
+	human_elder_female = "human_female",
+}
 
--- ชุดของผู้ชาย (ชื่อตรงกับ Cloth_<ชุด>* ในแม่แบบ) weight = โอกาสสุ่ม
---   skirt = ผ้านุ่งยาว (ต้องเดินด้วย walk_skirt), helmet = หมวกกันน็อก (ไม่ใส่ผม)
+-- โทนสีผิวชาวบ้านไทย (ย้อมผ่าน SurfaceAppearance.Color โหมด TintMask เฉพาะส่วนผิว เสื้อผ้าไม่โดนย้อม)
+local SKIN_TINTS = {
+	Color3.fromRGB(242, 227, 212),
+	Color3.fromRGB(214, 186, 163),
+	Color3.fromRGB(209, 179, 153),
+	Color3.fromRGB(184, 153, 133),
+	Color3.fromRGB(168, 138, 117),
+}
+-- ทรงผมสั้นที่ใส่งอบทับได้โดยผมไม่ทะลุงอบ (DESIGN.md ข้อ 6)
+local NGOB_OK_HAIR: { [string]: boolean } = {
+	student = true,
+	rong_song_sung = true,
+	bald_grey = true,
+	ponytail_bow = true,
+	bun_grey = true,
+}
+
+-- ชุดของผู้ชาย (ร่าง v2: upper/lower = ชื่อ SurfaceAppearance ใน ReplicatedStorage.Shared.VillagerTextures, lowerPart = ชิ้นท่อนล่าง)
+--   skirt = ผ้านุ่งยาว (ต้องเดินด้วย walk_skirt), sash = ผ้าขาวม้าคาดเอว, hat = งอบ
 local OUTFITS = {
-	{ name = "mohom", weight = 3 },
-	{ name = "farmer", weight = 2 },
-	{ name = "sarong", weight = 2, skirt = true },
-	{ name = "red_shirt", weight = 2 },
-	{ name = "wan_baggy", weight = 1, teen = true },
-	{ name = "wan_flannel", weight = 1, teen = true },
-	{ name = "wan_denim", weight = 1, teen = true, helmet = true },
-	{ name = "wan_camo", weight = 1, teen = true, helmet = true },
+	{ name = "mohom", weight = 3, upper = "m_farmer_upper", lowerPart = "BodyLower", lower = "m_farmer_lower", sash = true },
+	{ name = "farmer", weight = 3, upper = "m_farmer_upper", lowerPart = "BodyLower", lower = "m_farmer_lower", sash = true, hat = true },
+	{ name = "sarong", weight = 2, skirt = true, upper = "m_farmer_upper", lowerPart = "LowerSkirt", lower = "m_elder_lower", sash = true },
+	{ name = "red_shirt", weight = 2, upper = "m_redshirt_upper", lowerPart = "LowerWide", lower = "m_redshirt_lower" },
+	{ name = "white_shirt", weight = 1, upper = "m_elder_upper", lowerPart = "LowerWide", lower = "m_redshirt_lower" },
+	{ name = "wan_baggy", weight = 2, teen = true, upper = "m_teen_upper", lowerPart = "LowerWide", lower = "m_redshirt_lower" },
+	{ name = "wan_flannel", weight = 2, teen = true, upper = "m_redshirt_upper", lowerPart = "BodyLower", lower = "m_teen_lower" },
+	{ name = "wan_denim", weight = 2, teen = true, upper = "m_teen_upper", lowerPart = "BodyLower", lower = "m_teen_lower" },
+	{ name = "wan_camo", weight = 1, teen = true, upper = "m_teen_upper", lowerPart = "LowerWide", lower = "m_redshirt_lower" },
 }
 local HAIRS = { "student", "rong_song_sung", "side_part" }
 
--- ชุด / ทรงผมของแต่ละตัวละคร (ไม่รวมชุดผี ghost_* และชุดกุมารทอง) sin = ซิ่นยาว เดินด้วย walk_skirt
+-- ชุด / ทรงผมของแต่ละตัวละคร (ไม่รวมชุดผี ghost_* และชุดกุมารทอง)
 local OUTFITS_BY: { [string]: { any } } = {
 	human_base = OUTFITS,
 	human_female = {
-		{ name = "blouse_sin", weight = 3, skirt = true },
-		{ name = "indigo_scarf", weight = 2, skirt = true },
-		{ name = "sabai", weight = 1, skirt = true },
-		{ name = "chest_wrap", weight = 1 },
-		{ name = "wan_girl", weight = 1, teen = true },
-		{ name = "wan_band_tee", weight = 1, teen = true },
-		{ name = "wan_crop", weight = 1, teen = true },
-		{ name = "wan_plaid", weight = 1, teen = true },
+		{ name = "blouse_sin", weight = 3, skirt = true, upper = "f_blouse_upper", lowerPart = "LowerSkirt", lower = "f_blouse_lower" },
+		{ name = "indigo_scarf", weight = 2, skirt = true, upper = "f_indigo_upper", lowerPart = "LowerSkirt", lower = "f_elder_lower", hat = true },
+		{ name = "sabai", weight = 1, skirt = true, upper = "f_elder_upper", lowerPart = "LowerSkirt", lower = "f_blouse_lower" },
+		{ name = "chest_wrap", weight = 2, upper = "f_indigo_upper", lowerPart = "BodyLower", lower = "f_indigo_lower", hat = true },
+		{ name = "wan_girl", weight = 2, teen = true, upper = "f_tee_upper", lowerPart = "LowerWide", lower = "f_tee_lower" },
+		{ name = "wan_band_tee", weight = 2, teen = true, upper = "f_tee_upper", lowerPart = "BodyLower", lower = "f_indigo_lower" },
+		{ name = "wan_crop", weight = 1, teen = true, upper = "f_tee_upper", lowerPart = "LowerWide", lower = "f_tee_lower" },
+		{ name = "wan_plaid", weight = 1, teen = true, upper = "f_indigo_upper", lowerPart = "BodyLower", lower = "f_indigo_lower" },
 	},
 	human_child = { { name = "mohom_child", weight = 1 } },
 	human_elder_male = {
-		{ name = "mohom", weight = 3 },
-		{ name = "farmer", weight = 2 },
-		{ name = "sarong", weight = 2, skirt = true },
+		{ name = "elder_sarong", weight = 3, skirt = true, upper = "m_elder_upper", lowerPart = "LowerSkirt", lower = "m_elder_lower", sash = true },
+		{ name = "mohom", weight = 2, upper = "m_farmer_upper", lowerPart = "BodyLower", lower = "m_farmer_lower", sash = true },
+		{ name = "farmer", weight = 2, upper = "m_farmer_upper", lowerPart = "BodyLower", lower = "m_farmer_lower", sash = true, hat = true },
+		{ name = "sarong", weight = 2, skirt = true, upper = "m_farmer_upper", lowerPart = "LowerSkirt", lower = "m_elder_lower", sash = true, hat = true },
 	},
 	human_elder_female = {
-		{ name = "blouse_sin", weight = 3, skirt = true },
-		{ name = "indigo_scarf", weight = 2, skirt = true },
-		{ name = "sabai", weight = 1, skirt = true },
+		{ name = "elder_sin", weight = 3, skirt = true, upper = "f_elder_upper", lowerPart = "LowerSkirt", lower = "f_elder_lower" },
+		{ name = "blouse_sin", weight = 2, skirt = true, upper = "f_blouse_upper", lowerPart = "LowerSkirt", lower = "f_blouse_lower" },
+		{ name = "indigo_scarf", weight = 2, skirt = true, upper = "f_indigo_upper", lowerPart = "LowerSkirt", lower = "f_elder_lower", hat = true },
+		{ name = "sabai", weight = 1, skirt = true, upper = "f_elder_upper", lowerPart = "LowerSkirt", lower = "f_blouse_lower" },
 	},
 }
 local HAIRS_BY: { [string]: { string } } = {
 	human_base = HAIRS,
 	human_female = { "bob", "ponytail_bow" },
 	human_child = { "child_short", "ko", "pia", "klae" },
-	human_elder_male = { "bald_grey", "long_white_beard" },
+	human_elder_male = { "bald_grey", "student", "rong_song_sung" },
 	human_elder_female = { "bun_grey", "curly_grey" },
 }
 
 -- ความเร็วเดินที่ท่า walk ตั้งใจไว้ (studs/วินาที) ใช้ปรับความเร็วท่าให้เท้าไม่ไถลพื้น
 local WALK_CLIP_SPEED = 4.3
 -- ความเร็วตามธรรมชาติของแต่ละท่า (studs/วินาที ที่ความเร็วท่า 1 เท้าไม่ไถล) วัดจากระยะก้าวจริงของเท้าใน Studio
--- 2026-11-05 (ปรับเทียบให้ human_base walk = 4.3) · walk_base = ท่าเดินของ human_base เล่นบนตัวละครนี้
--- เดิมทุกตัวคิดเป็น 4.3 หมด: คนแก่/ผ้าซิ่นที่ก้าวสั้นมากเดินที่ 7 studs/วินาที -> ท่าเร่งจนสุด (1.8) แล้วเท้ายังไถล ดูเดินซอยเท้าไม่ชัด
+-- คนแก่ใช้ท่าเดียวกับคนปกติ (ชาย/หญิง)
 local NATURAL: { [string]: { [string]: number } } = {
-	-- walk = ท่าเดิน mocap (2026-11-08 วัดจากเท้าตอนแตะพื้น ใน mocap_retarget: เดิม 4.3 / 3.9 / 3.1 / 2.0 / 1.7)
 	human_base = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
 	human_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
 	human_child = { walk = 2.88, walk_base = 2.4, walk_skirt = 1.45, run = 10.5, run_skirt = 4.25 },
-	human_elder_male = { walk = 1.08, walk_base = 4.05, walk_skirt = 0.9, run = 7.7, run_skirt = 3.1 },
-	human_elder_female = { walk = 1.01, walk_base = 3.75, walk_skirt = 0.75, run = 6.4, run_skirt = 2.6 },
+	human_elder_male = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
+	human_elder_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
 }
 -- เลือกท่าแรกที่ต้องเร่งไม่เกินนี้ (เร่งมากกว่านี้ดูซอยเท้าถี่ผิดธรรมชาติ)
 local MAX_CLIP_RATE = 1.9
@@ -101,15 +132,28 @@ local rigs: { [Model]: Rig } = setmetatable({}, { __mode = "k" }) :: any
 
 local function template(char: string?): Model?
 	local f = ServerStorage:FindFirstChild("HumanTemplates")
-	return f and (f:FindFirstChild(char or DEFAULT_CHAR) or f:FindFirstChild(DEFAULT_CHAR)) :: Model?
+	if not f then
+		return nil
+	end
+	local c = char or DEFAULT_CHAR
+	local mapped = TEMPLATE_OF[c]
+	return (if mapped then f:FindFirstChild(mapped) else nil)
+		or f:FindFirstChild(c)
+		or f:FindFirstChild(TEMPLATE_OF[DEFAULT_CHAR])
+		or f:FindFirstChild(DEFAULT_CHAR) :: Model?
 end
 
 function HumanNPC.Available(char: string?): boolean
 	local f = ServerStorage:FindFirstChild("HumanTemplates")
-	return f ~= nil and f:FindFirstChild(char or DEFAULT_CHAR) ~= nil
+	if not f then
+		return false
+	end
+	local c = char or DEFAULT_CHAR
+	local mapped = TEMPLATE_OF[c]
+	return (if mapped then f:FindFirstChild(mapped) ~= nil else false) or f:FindFirstChild(c) ~= nil
 end
 
--- Skin_<n> -> ชุดที่ปิดผิวชิ้นนั้น (สร้างจาก build_anims.py ตอน export)
+-- Skin_<n> -> ชุดที่ปิดผิวชิ้นนั้น (สร้างจาก build_anims.py ตอน export เฉพาะร่าง v1 เช่น human_child)
 local function skinParts(char: string): { [string]: { string } }
 	local shared = ReplicatedStorage:FindFirstChild("Shared")
 	local mod = shared and shared:FindFirstChild("HumanSkinParts")
@@ -128,8 +172,9 @@ local function animIds(char: string?): { [string]: string }
 	end
 	local all = require(mod :: ModuleScript) :: any
 	local base = all[DEFAULT_CHAR] or {}
-	local own = char and all[char]
-	if not own or char == DEFAULT_CHAR then
+	local c = if char then (ANIM_CHAR_OF[char] or char) else DEFAULT_CHAR
+	local own = all[c]
+	if not own or c == DEFAULT_CHAR then
 		return setmetatable({ walk_base = base.walk }, { __index = base }) :: any
 	end
 	local t = table.clone(own)
@@ -213,6 +258,45 @@ local function isHelmet(n: string): boolean
 	return string.sub(n, -7) == "_helmet" or string.sub(n, -6) == "_visor"
 end
 
+local ELDER_HAIR: { [string]: boolean } = {
+	bald_grey = true,
+	long_white_beard = true,
+	curly_grey = true,
+	bun_grey = true,
+}
+
+local HEAD_TEX_OF: { [string]: string } = {
+	human_base = "male_head",
+	human_elder_male = "male_elder_head",
+	human_female = "female_head",
+	human_elder_female = "female_elder_head",
+}
+
+local function applyVillagerTex(part: MeshPart?, texName: string?, tint: Color3?)
+	if not (part and texName) then
+		return
+	end
+	local shared = ReplicatedStorage:FindFirstChild("Shared")
+	local folder = shared and shared:FindFirstChild("VillagerTextures")
+	local src = folder and folder:FindFirstChild(texName)
+	local sa: SurfaceAppearance? = nil
+	if src and src:IsA("SurfaceAppearance") then
+		local cur = part:FindFirstChildOfClass("SurfaceAppearance")
+		if cur then
+			cur:Destroy()
+		end
+		sa = src:Clone()
+		sa.Parent = part
+	else
+		sa = part:FindFirstChildOfClass("SurfaceAppearance")
+	end
+	if sa and tint then
+		pcall(function()
+			(sa :: any).Color = tint
+		end)
+	end
+end
+
 function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 	if opts.noHat then
 		-- ไม่ใส่หมวกทุกชนิด (คนขับรถยนต์): ไม่เอาชุดที่มากับหมวกกันน็อก และถอดงอบออก
@@ -223,23 +307,61 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 	local outfit = pickOutfit(opts, char)
 	local hairs = HAIRS_BY[char] or HAIRS
 	local hair = if opts.hair and table.find(hairs, opts.hair) then opts.hair else hairs[math.random(#hairs)]
-	local skin = skinParts(char)
-	for _, c in ipairs(d:GetChildren()) do
-		if c:IsA("MeshPart") and c.Name ~= "Body" and c.Name ~= "BodyHead" then
-			local n = c.Name
-			local keep
-			if string.sub(n, 1, 5) == "Skin_" then
-				keep = not table.find(skin[n] or {}, outfit.name)
-			elseif string.sub(n, 1, 6) == "Cloth_" or string.sub(n, 1, 5) == "Hair_" then
-				keep = n == "Cloth_" .. outfit.name or string.sub(n, 1, #outfit.name + 7) == "Cloth_" .. outfit.name .. "_" or (hair ~= nil and n == "Hair_" .. hair)
-				if keep and ((opts.noHat and isHat(n)) or isHelmet(n)) then
-					keep = false
+	if d:FindFirstChild("BodyUpper") then
+		-- ร่างชาวบ้าน v2 (villager_male / villager_female): 3 ชิ้นหลัก + ท่อนล่างสลับได้ + ผม/งอบ/ผ้าขาวม้า
+		local lowerPart = outfit.lowerPart or "BodyLower"
+		local keepHat = outfit.hat == true and not opts.noHat and not opts.umbrella and (hair ~= nil and NGOB_OK_HAIR[hair] == true)
+		local keepSash = outfit.sash == true
+		for _, c in ipairs(d:GetChildren()) do
+			if c:IsA("MeshPart") then
+				local n = c.Name
+				local keep = false
+				if n == "BodyHead" or n == "BodyUpper" or n == lowerPart then
+					keep = true
+				elseif string.sub(n, 1, 5) == "Hair_" then
+					keep = hair ~= nil and n == "Hair_" .. hair
+					if keep then
+						local isElder = (hair and ELDER_HAIR[hair]) or char == "human_elder_male" or char == "human_elder_female"
+						c.Color = if isElder then Color3.fromRGB(185, 185, 190) else Color3.fromRGB(28, 24, 22)
+					end
+				elseif n == "Hat_ngob" then
+					keep = keepHat
+				elseif n == "Sash_pakama" then
+					keep = keepSash
 				end
-			else
-				keep = true
+				if not keep then
+					c:Destroy()
+				end
 			end
-			if not keep then
-				c:Destroy()
+		end
+		local tint = opts.skinTint or SKIN_TINTS[math.random(#SKIN_TINTS)]
+		applyVillagerTex(d:FindFirstChild("BodyHead") :: MeshPart?, HEAD_TEX_OF[char] or "male_head", tint)
+		applyVillagerTex(d:FindFirstChild("BodyUpper") :: MeshPart?, outfit.upper, tint)
+		applyVillagerTex(d:FindFirstChild(lowerPart) :: MeshPart?, outfit.lower, tint)
+		local sash = d:FindFirstChild("Sash_pakama") :: MeshPart?
+		if sash then
+			applyVillagerTex(sash, "sash_pakama", Color3.new(1, 1, 1))
+		end
+	else
+		-- ร่างเดิม v1 (เช่น human_child)
+		local skin = skinParts(char)
+		for _, c in ipairs(d:GetChildren()) do
+			if c:IsA("MeshPart") and c.Name ~= "Body" and c.Name ~= "BodyHead" then
+				local n = c.Name
+				local keep
+				if string.sub(n, 1, 5) == "Skin_" then
+					keep = not table.find(skin[n] or {}, outfit.name)
+				elseif string.sub(n, 1, 6) == "Cloth_" or string.sub(n, 1, 5) == "Hair_" then
+					keep = n == "Cloth_" .. outfit.name or string.sub(n, 1, #outfit.name + 7) == "Cloth_" .. outfit.name .. "_" or (hair ~= nil and n == "Hair_" .. hair)
+					if keep and ((opts.noHat and isHat(n)) or isHelmet(n)) then
+						keep = false
+					end
+				else
+					keep = true
+				end
+				if not keep then
+					c:Destroy()
+				end
 			end
 		end
 	end
@@ -361,8 +483,9 @@ end
 -- หัวไหล่ซ้าย (กระดูก upper_arm.L) ตอนเล่นท่าขับ ในกรอบสะโพก (+X ขวา, +Y ขึ้น, -Z หน้า) วัดใน Studio 2026-11-08
 local SHOULDER_POSED: { [string]: { [string]: Vector3 } } = {
 	human_base = { ride_moto = Vector3.new(-0.62, 1.79, -0.28), drive_tuktuk = Vector3.new(-0.62, 1.82, -0.09), drive_car = Vector3.new(-0.62, 1.82, -0.06) },
-	human_elder_male = { ride_moto = Vector3.new(-0.55, 1.53, -0.48), drive_tuktuk = Vector3.new(-0.55, 1.61, -0.27), drive_car = Vector3.new(-0.55, 1.60, -0.30) },
-	human_elder_female = { ride_moto = Vector3.new(-0.47, 1.48, -0.31), drive_tuktuk = Vector3.new(-0.47, 1.52, -0.12), drive_car = Vector3.new(-0.47, 1.52, -0.14) },
+	human_female = { ride_moto = Vector3.new(-0.56, 1.65, -0.28), drive_tuktuk = Vector3.new(-0.56, 1.68, -0.10), drive_car = Vector3.new(-0.56, 1.68, -0.08) },
+	human_elder_male = { ride_moto = Vector3.new(-0.62, 1.79, -0.28), drive_tuktuk = Vector3.new(-0.62, 1.82, -0.09), drive_car = Vector3.new(-0.62, 1.82, -0.06) },
+	human_elder_female = { ride_moto = Vector3.new(-0.56, 1.65, -0.28), drive_tuktuk = Vector3.new(-0.56, 1.68, -0.10), drive_car = Vector3.new(-0.56, 1.68, -0.08) },
 }
 local REACH = 0.97 -- ระยะหัวไหล่-แฮนด์ ไม่เกินเท่านี้ของแขน (ขี่มอไซค์แขนเกือบเหยียด งอนิดเดียว)
 local MAX_LEAN = 24 -- องศา โน้มเพิ่มได้สูงสุด (เลื่อนไปหน้าก่อน โน้มแต่พอดี: ลุง ~12° หนุ่ม ~17° ป้าแช่มแขนสั้นสุด ~24°)
@@ -469,12 +592,13 @@ end
 
 -- ท่ายืน: สุ่มต่อตัว 1 ใน 4 แบบ (mocap 2026-11-09) เฉพาะแบบที่ตัวละครนี้มีของตัวเอง
 --   (animIds เติมท่าที่ขาดจาก human_base: คนแก่จะได้ท่ายืนของผู้ชายหนุ่ม -> ไม่เอา) · ชื่อท่ายังเป็น "idle" ทุกที่ เปลี่ยนแค่ id
-local IDLE_VARIANTS = { "idle", "idle_weight", "idle_look", "idle_bored", "idle_old" } -- idle_old = คนแก่ (Old Man Idle)
+local IDLE_VARIANTS = { "idle", "idle_weight", "idle_look", "idle_bored" }
 local function idleIdOf(rig: Rig, ids: { [string]: string }): string?
 	if rig.idleAlt == nil then
 		local shared = ReplicatedStorage:FindFirstChild("Shared")
 		local mod = shared and shared:FindFirstChild("HumanAnimIds")
-		local own = if mod then ((require(mod :: ModuleScript) :: any)[rig.char or DEFAULT_CHAR] or {}) else {}
+		local c = if rig.char then (ANIM_CHAR_OF[rig.char] or rig.char) else DEFAULT_CHAR
+		local own = if mod then ((require(mod :: ModuleScript) :: any)[c] or {}) else {}
 		local opts = {}
 		for _, v in ipairs(IDLE_VARIANTS) do
 			if own[v] then
@@ -782,14 +906,14 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 			if c:IsA("MeshPart") then
 				-- หัวหันกลับ (twist): ทึบทั้งตัว ไม่งั้นผมยาวด้านหลังกับหน้าที่หันกลับมองทะลุซ้อนกันดูเละ (ผู้ใช้ 2026-11-07)
 				c.Transparency = if kind == "twist" then 0 else 0.22
-				if string.sub(c.Name, 1, 4) == "Body" or string.sub(c.Name, 1, 5) == "Skin_" then
+				if c.Name == "Body" or c.Name == "BodyHead" or string.sub(c.Name, 1, 5) == "Skin_" then
 					local sa = c:FindFirstChildOfClass("SurfaceAppearance")
 					if sa then
 						pcall(function()
 							(sa :: any).Color = Color3.fromRGB(150, 172, 160)
 						end)
 					else
-						c.Color = Color3.fromRGB(150, 172, 160)
+						c.Color = Color3.fromRGB(150, 172, 165)
 					end
 				end
 			end
@@ -828,7 +952,7 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 		end
 	elseif kind == "pale" then
 		for _, c in ipairs(double:GetChildren()) do
-			if string.sub(c.Name, 1, 4) == "Body" or string.sub(c.Name, 1, 5) == "Skin_" then
+			if string.sub(c.Name, 1, 4) == "Body" or string.sub(c.Name, 1, 5) == "Lower" or string.sub(c.Name, 1, 5) == "Skin_" then
 				local sa = c:FindFirstChildOfClass("SurfaceAppearance")
 				if sa then
 					pcall(function()

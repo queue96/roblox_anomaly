@@ -1,7 +1,6 @@
--- DevCommand.luau — Idle
+-- DevCommand.luau — idle no-op
 return {
-	id = "idle_" .. tostring(os.time()),
-	run = function()
-		print("DEVCMD|ALL_SYNCED_READY")
-	end,
+	id = "ghosts_v2_scale_fixed_idle",
+	placeId = 114125276809667,
+	run = function() end,
 }
