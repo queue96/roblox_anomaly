@@ -83,7 +83,7 @@ def render_lineup():
     bpy.context.scene.frame_set(int(act.frame_range[0] + 20)); bpy.context.view_layer.update()
     H = 1.82 * 0.93
     for htex, utex, ltex, prop_blend, prop_objs in (
-        ("g_female_ghost_head",    "g_tani_upper",      "g_tani_lower",      "ghost_tani.blend",          ["Hair_ghost_floor"]),
+        ("g_female_ghost_head",    "g_tani_upper",      "g_tani_lower",      "ghost_mirror.blend",        ["Hair_ghost_long"]),
         ("g_female_ghost_head",    "g_thai_upper",      "g_thai_lower",      "ghost_mirror.blend",        ["Hair_ghost_long"]),
         ("g_female_ghost_head",    "g_nak_upper",       "g_nak_lower",       "ghost_mae_nak.blend",       ["Prop_Baby", "Hair_ghost_long"]),
         ("g_female_dancer_head",   "g_dancer_upper",    "g_dancer_lower",    "ghost_dancer.blend",        ["Cloth_ghost_dancer_crown", "Cloth_ghost_dancer_flowers"]),

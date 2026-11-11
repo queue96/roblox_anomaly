@@ -273,9 +273,8 @@ def build_female_fbx():
     # Build NeckStump directly on BodyUpper's 24-vertex neck ring
     stump = make_neck_stump_v2(body_upper, rig)
 
-    # Append ONLY hairs and essential rigid props (Crown, Flowers, Fingernail cuffs, Baby, Pop face parts) — ZERO Cloth_* torso/skirt meshes!
+    # Append original ghost hairs (Hair_ghost_long used for Tani, Mirror, and Mae Nak; Hair_ghost_messy; Pop_Hair) & rigid props
     hairs = []
-    hairs += append_meshes(os.path.join(GH, "ghost_tani.blend"), ["Hair_ghost_floor"], rig)
     hairs += append_meshes(os.path.join(GH, "ghost_mirror.blend"), ["Hair_ghost_long"], rig)
     hairs += append_meshes(os.path.join(GH, "ghost_funeral_woman.blend"), ["Hair_ghost_messy"], rig)
     append_meshes(os.path.join(GH, "ghost_mae_nak.blend"), ["Prop_Baby"], rig)
