@@ -58,6 +58,10 @@ local tracks: { [Model]: { current: AnimationTrack?, clip: string?, pending: str
 
 function GhostNPC.Play(m: Model, clip: string, speed: number?)
 	local name = m:GetAttribute("GhostName") :: string?
+	m:SetAttribute("GhostClip", clip)
+	m:SetAttribute("GhostClipSpeed", speed or 1)
+	m:SetAttribute("GhostClipT0", workspace:GetServerTimeNow())
+	game:GetService("CollectionService"):AddTag(m, "RiggedGhost")
 	local all = ids()
 	local id = name and all[name] and all[name][clip]
 	local st = tracks[m] or {}
@@ -118,6 +122,7 @@ local function prep(name: string): Model?
 	end
 	local m = t:Clone()
 	m:SetAttribute("GhostName", name)
+	game:GetService("CollectionService"):AddTag(m, "RiggedGhost")
 	local sc = ids().SCALE
 	if sc and sc[name] and sc[name] ~= 1 then
 		m:ScaleTo(sc[name])

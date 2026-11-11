@@ -42,8 +42,10 @@ local CONFIG = {
 	HuntSpeed = 7.5, -- เดินไล่ (studs/วินาที) ผู้เล่นเดิน 10 จึงเดินหนีได้
 	HuntReach = 5, -- ถึงตัวในระยะนี้ = ผีหลอก
 	HuntMax = 14, -- ไล่นานสุดกี่วินาที แล้วหลอกเลย (เดินหนีไม่พ้น ถ้ายังอยู่นอกร้าน)
-	WatchTime = 5, -- ร้านยังเปิด: ผีที่ถูกเห็นยืนมองนานเท่านี้แล้วจางหาย (ไม่เดินมาหา)
-	WatchTransparency = 0.55, -- ตอนยืนมองจางลงเหลือเท่านี้ (เห็นลางๆ)
+	WatchTime = 9, -- ร้านยังเปิด: ผีที่ถูกเห็นยืนมองนานเท่านี้แล้วจางหาย (ไม่เดินมาหา) (ผู้ใช้ 2026-11-12: 5 จางไวไป)
+	-- ตอนยืนมองคงทึบไว้ (ผู้ใช้ 2026-11-12: เดิม 0.55 จางไว + ชิ้นโปร่งแสงเรียงผิด หัววาดทับผม ดูหัวล้าน)
+	WatchTransparency = 0,
+	WatchFadeOut = 3, -- ยืนมองครบแล้วค่อยๆ จางหายนานเท่านี้ (วินาที)
 	GlowColor = Color3.fromRGB(185, 205, 255),
 	SwarmCount = 14, -- ศพห่อผ้าตอนไฟดับ
 	SwarmRadius = { 24, 72 },
@@ -57,6 +59,7 @@ type Kind = {
 	to: { number },
 	clip: string,
 	moveClip: string?,
+	moveClipSpeed: number?, -- ความเร็วเล่นท่าตอนเคลื่อน (ท่าเดิน mocap เร็วกว่าที่ผีเคลื่อนจริง: ลดลงกันเท้าไถล)
 	lift: number?,
 	speed: number?,
 	path: boolean?,
@@ -73,7 +76,8 @@ type Kind = {
 	float: boolean?, -- ลอย (shared/GhostFloat): ส่ายซ้ายขวา ขึ้นลง เอียงตัว พุ่งเป็นพักๆ เร็วขึ้นตามความดุของรอบ
 }
 local KINDS: { [string]: Kind } = {
-	Tani = { model = "ghost_tani", from = { 28, 7 }, to = { 27.4, 2.1 }, clip = "tani_peek", moveClip = "ghost_idle", speed = 0.8 },
+	-- ตานี: เดินลากตัวออกจากดงกล้วย (tani_walk = Zombie Walk เล่นช้าลงให้เท้าไม่ไถล) ผู้ใช้ 2026-11-12: เดิม ghost_idle ไถลตัวแข็ง
+	Tani = { model = "ghost_tani", from = { 28, 7 }, to = { 27.4, 2.1 }, clip = "tani_peek", moveClip = "tani_walk", moveClipSpeed = 0.5, speed = 0.8 },
 	-- นางรำ: ครึ่งหนึ่งโผล่ที่ต้นไทร อีกครึ่งมารำหน้าร้าน (ฝั่งตรงข้ามถนน / ข้างลาน) ผู้ใช้ 2026-11-05
 	Dancer = {
 		model = "ghost_dancer",
@@ -100,7 +104,8 @@ local KINDS: { [string]: Kind } = {
 	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4 },
 	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6, float = true },
 	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, huntSpeed = 9, glow = Color3.fromRGB(255, 110, 40), focus = "Head", float = true },
-	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "LickLips", moveClip = "TwitchWalk", speed = 2 },
+	-- ปอบ: คลานสี่ขาออกมาจากดงกล้วย แล้วลุกขึ้นยืนเลียปาก (ผู้ใช้ 2026-11-12) · Running Crawl วนเร็ว: เล่นช้าลงให้มือเท้าไม่ไถล
+	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "LickLips", moveClip = "Crawl", moveClipSpeed = 0.45, speed = 2 },
 	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 14, path = true }, -- 5x size (GhostAnimIds.SCALE): stride 5x longer too
 	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true, float = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
@@ -147,7 +152,10 @@ local function animator(m: Model): Animator
 	return an :: Animator
 end
 
-local function play(m: Model, clip: string)
+local function play(m: Model, clip: string, speed: number?)
+	m:SetAttribute("GhostClip", clip)
+	m:SetAttribute("GhostClipSpeed", speed or 1)
+	m:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
 	local set = animIds[m.Name]
 	local id = set and set[clip]
 	if not id then
@@ -172,6 +180,8 @@ local function spawnRigged(name: string): Model?
 		return nil
 	end
 	local m = t:Clone()
+	m:SetAttribute("GhostName", name)
+	CollectionService:AddTag(m, "RiggedGhost")
 	local sc = animIds.SCALE and animIds.SCALE[name]
 	if sc and sc ~= 1 then
 		m:ScaleTo(sc)
@@ -516,7 +526,7 @@ local function showRigged(kind: string, def: Kind): Model?
 	fade(m, 1, 0)
 	m.Parent = folder
 	fade(m, 0, 2)
-	play(m, def.moveClip or def.clip)
+	play(m, def.moveClip or def.clip, if def.moveClip then def.moveClipSpeed else nil)
 	-- ผีลอย: เร็วขึ้นตามความดุของรอบ (shared/GhostFloat)
 	local floatMult = if def.float then GhostFloat.SpeedMult() else 1
 	local speed = (def.speed or 1) * floatMult
@@ -558,7 +568,7 @@ local function showRigged(kind: string, def: Kind): Model?
 		if current and current.m == m then
 			current.hunting = true
 		end
-		play(m, def.moveClip or def.clip)
+		play(m, if def.model == "Pop" then "Crawl" else (def.moveClip or def.clip))
 		-- ผีลอยมาหา: หัวเราะคิกคักล้อเลียนก่อนโฉบเข้ามา
 		local root = m:FindFirstChild("RootPart")
 		local set = SoundBank.GhostSounds[kind]
@@ -605,7 +615,7 @@ local function showRigged(kind: string, def: Kind): Model?
 			end
 			faceMe()
 			if os.clock() >= watchUntil then
-				hide(2.5)
+				hide(CONFIG.WatchFadeOut)
 			end
 			return
 		end

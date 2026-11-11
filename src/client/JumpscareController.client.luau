@@ -230,6 +230,14 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 		focusPart = best
 	elseif focus == "rigged" and source then
 		local c = addClone(source)
+		if c:GetAttribute("GhostName") == "Pop" or c.Name == "Pop" then
+			c:SetAttribute("GhostName", "Pop")
+			c:SetAttribute("GhostClip", "PossessedSnap")
+			c:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
+		elseif not c:GetAttribute("GhostClip") and source:GetAttribute("GhostClip") then
+			c:SetAttribute("GhostClip", source:GetAttribute("GhostClip"))
+			c:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
+		end
 		local boneName = source:GetAttribute("FocusBone")
 		focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "head")
 	elseif source then
@@ -596,6 +604,8 @@ local function prepareMove(model: Model, style: string): { Mover }
 				if set[c] then
 					id = set[c]
 					floats = FLOAT_CLIPS[c] == true
+					rig:SetAttribute("GhostClip", c)
+					rig:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
 					break
 				end
 			end
