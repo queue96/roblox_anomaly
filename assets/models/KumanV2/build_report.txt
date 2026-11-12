@@ -1,0 +1,13 @@
+cross ratios: {'foot.L': 0.6, 'foot.R': 0.6, 'forearm.L': 0.66, 'forearm.R': 0.66, 'hand.L': 0.64, 'hand.R': 0.64, 'head': 0.93, 'shin.L': 0.72, 'shin.R': 0.72, 'shoulder.R': 0.58, 'spine': 0.6, 'thigh.L': 0.67, 'thigh.R': 0.67, 'toe.L': 0.58, 'toe.R': 0.58, 'upper_arm.L': 0.6, 'upper_arm.R': 0.59}
+head rows (1024, 1024, 3) eye_h -0.0 mouth_h -0.08 zone rows 460
+saved g_kuman_head
+saved g_kuman_upper
+saved g_kuman_lower
+calves tightened 308
+bent Body 1756 / 1756
+bent Lower_wide 625 / 625
+hair scale [1.098, 1.195, 1.144] pushed 253
+height m -0.004 1.272
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\KumanV2\upload\ghost_kuman_v2.fbx pngs 12 meshes ['BodyHead', 'BodyUpper', 'Hair_juk', 'LowerWide']
+preview C:\xampp\htdocs\roblox_anomaly\assets\models\KumanV2\kuman_v2_preview.png
+DONE

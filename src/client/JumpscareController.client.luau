@@ -238,6 +238,18 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 			c:SetAttribute("GhostClip", source:GetAttribute("GhostClip"))
 			c:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
 		end
+		-- กุมารทอง: ท่าของตัวเอง (giggle / run) เป็นท่า Animator ที่ ViewportFrame เล่นไม่ได้ ตัวเลยยืนแข็ง (ผู้ใช้ 2026-11-13)
+		-- -> กรีดร้องแบบ mocap (GhostClipData.kuman_scream) ที่ GhostAnimRunner เขียนกระดูกในจอหลอกได้
+		-- (ผีฉาก: c คือตัวกุมาร / วิ่งวนรอบร้าน GhostLinger: c คือกลุ่ม ตัวกุมารอยู่ข้างใน)
+		local list = c:GetDescendants()
+		table.insert(list, c)
+		for _, k in ipairs(list) do
+			if k:IsA("Model") and (k:GetAttribute("GhostName") == "ghost_kuman_thong" or k.Name == "ghost_kuman_thong") then
+				k:SetAttribute("GhostName", "ghost_kuman_thong")
+				k:SetAttribute("GhostClip", "kuman_scream")
+				k:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
+			end
+		end
 		local boneName = source:GetAttribute("FocusBone")
 		focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "head")
 	elseif source then
