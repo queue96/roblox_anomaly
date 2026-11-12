@@ -24,6 +24,7 @@ local animIds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("G
 local GhostStretch = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostStretch")) :: any
 local GhostFloat = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostFloat")) :: any
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank")) :: any
+local GhostMocap = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostMocap")) :: any
 if not models then
 	return
 end
@@ -58,6 +59,7 @@ type Kind = {
 	from: { number },
 	to: { number },
 	clip: string,
+	clipSpeed: number?, -- ความเร็วเล่นท่าตอนหยุด (ไม่ใส่ = 1)
 	moveClip: string?,
 	moveClipSpeed: number?, -- ความเร็วเล่นท่าตอนเคลื่อน (ท่าเดิน mocap เร็วกว่าที่ผีเคลื่อนจริง: ลดลงกันเท้าไถล)
 	lift: number?,
@@ -104,14 +106,16 @@ local KINDS: { [string]: Kind } = {
 	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4 },
 	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6, float = true },
 	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, huntSpeed = 9, glow = Color3.fromRGB(255, 110, 40), focus = "Head", float = true },
-	-- ปอบ: คลานสี่ขาออกมาจากดงกล้วย แล้วลุกขึ้นยืนเลียปาก (ผู้ใช้ 2026-11-12) · Running Crawl วนเร็ว: เล่นช้าลงให้มือเท้าไม่ไถล
-	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "LickLips", moveClip = "Crawl", moveClipSpeed = 0.45, speed = 2 },
+	-- ปอบ: คลานสี่ขาตลอด ไม่ลุกยืน (ผู้ใช้ 2026-11-12: แยกจากปอบผีใหญ่ที่เดินกระตุกมาเคาะแผง)
+	-- Running Crawl วนเร็ว: ตอนเคลื่อนเล่นช้าลงให้มือเท้าไม่ไถล · ตอนหยุดคลานย่องอยู่กับที่ช้ามาก
+	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "Crawl", clipSpeed = 0.12, moveClip = "Crawl", moveClipSpeed = 0.45, speed = 2 },
 	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 14, path = true }, -- 5x size (GhostAnimIds.SCALE): stride 5x longer too
 	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true, float = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
 	Shadow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
 }
-local KIND_LIST = { "Tani", "Dancer", "MaeNak", "Kuman", "Child", "Shroud", "Krasue", "Pop", "Pret", "Krahang", "Scarecrow", "Shadow" }
+-- ไม่สุ่ม Pret แล้ว (ผู้ใช้ 2026-11-12): เปรตเดินผ่านถนนซ้ำกับผีใหญ่ Big_Pret ทำให้งงกติกา (ปุ่ม admin ยังเรียกได้)
+local KIND_LIST = { "Tani", "Dancer", "MaeNak", "Kuman", "Child", "Shroud", "Krasue", "Pop", "Krahang", "Scarecrow", "Shadow" }
 
 local function rand(r: { number }): number
 	return r[1] + math.random() * (r[2] - r[1])
@@ -156,6 +160,17 @@ local function play(m: Model, clip: string, speed: number?)
 	m:SetAttribute("GhostClip", clip)
 	m:SetAttribute("GhostClipSpeed", speed or 1)
 	m:SetAttribute("GhostClipT0", Workspace:GetServerTimeNow())
+	-- ท่า mocap: client/GhostAnimRunner เขียนกระดูกเอง ไม่ต้องเล่นท่า ID เก่าซ้อน (หยุดอันที่ค้างอยู่)
+	if GhostMocap.Has((m:GetAttribute("GhostName") :: string?) or m.Name, clip) then
+		local ac = m:FindFirstChildOfClass("AnimationController")
+		local an = ac and ac:FindFirstChildOfClass("Animator")
+		if an then
+			for _, tr in ipairs(an:GetPlayingAnimationTracks()) do
+				tr:Stop(0)
+			end
+		end
+		return
+	end
 	local set = animIds[m.Name]
 	local id = set and set[clip]
 	if not id then
@@ -635,7 +650,7 @@ local function showRigged(kind: string, def: Kind): Model?
 				if current and current.m == m then
 					current.hunting = false
 				end
-				play(m, def.clip)
+				play(m, def.clip, def.clipSpeed)
 				return
 			end
 			local gap = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
@@ -673,7 +688,7 @@ local function showRigged(kind: string, def: Kind): Model?
 					watching = true
 					watchUntil = os.clock() + CONFIG.WatchTime
 					fade(m, CONFIG.WatchTransparency, 1)
-					play(m, def.clip)
+					play(m, def.clip, def.clipSpeed)
 				end
 				return
 			end
@@ -690,7 +705,7 @@ local function showRigged(kind: string, def: Kind): Model?
 			pos = to
 			place(to)
 			if def.moveClip then
-				play(m, def.clip)
+				play(m, def.clip, def.clipSpeed)
 			end
 			if def.after then
 				task.delay(def.after[1], function()
@@ -740,7 +755,7 @@ local function showRigged(kind: string, def: Kind): Model?
 					end
 					dirSign = -dirSign
 					if m.Parent and not hunting then
-						play(m, def.clip)
+						play(m, def.clip, def.clipSpeed)
 					end
 				end
 			end

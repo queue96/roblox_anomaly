@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GhostNPC = {}
 -- ผีที่ Server ขยับเอง: เครื่องผู้เล่นเกลี่ยให้ลื่น (shared/NetSmooth; ผีที่นิ่ง/นั่งในรถไม่ถูกส่ง)
 local NetSmooth = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("NetSmooth")) :: any
+local GhostMocap = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostMocap")) :: any
 
 local function templates(): Instance?
 	return ServerStorage:FindFirstChild("GhostTemplates")
@@ -75,6 +76,15 @@ function GhostNPC.Play(m: Model, clip: string, speed: number?)
 		return
 	end
 	st.clip = clip
+	-- ท่า mocap: client/GhostAnimRunner เขียนกระดูกเองทุกเครื่อง ไม่ต้องเล่นท่า ID ซ้อน (Performance 2026-11-12)
+	if GhostMocap.Has(name, clip) then
+		st.pending = nil
+		if st.current then
+			st.current:Stop(0.3)
+			st.current = nil
+		end
+		return
+	end
 	if not id then
 		return
 	end

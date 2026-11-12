@@ -173,9 +173,11 @@ function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
 	local root: BasePart? = nil
 
 	if behavior == "knock" then
-		-- ปอบเคาะแผงจากด้านนอก (หมัดถึงแผงที่ 1.94 studs) แผงสั่นเป็นจังหวะ
+		-- ปอบเคาะแผงจากด้านนอก แผงสั่นเป็นจังหวะ
+		-- ระยะเท้า-แผง: ท่า mocap Pop_KnockShutter บนร่าง v2 ปลายนิ้วยื่นไปหน้าสุด 2.48 studs (วัดใน Studio 2026-11-13)
+		-- เดิม 1.94 (ท่าเก่า) มือทะลุแผง (ผู้ใช้ 2026-11-13) -> 2.52 ปลายนิ้วแตะผิวแผงพอดี
 		local x = d.Position.X + (math.random() - 0.5) * 10
-		local z = d.Position.Z - d.Size.Z / 2 - 1.94
+		local z = d.Position.Z - d.Size.Z / 2 - 2.52
 		local feet = Vector3.new(x, groundAt(x, z), z)
 		local m = spawnIn(group, "Pop", CFrame.lookAt(feet, feet + Vector3.new(0, 0, 1)), "KnockShutter")
 		root = m and m:FindFirstChild("RootPart") :: BasePart?

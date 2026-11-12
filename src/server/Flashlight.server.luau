@@ -1,17 +1,19 @@
 -- Flashlight.server.luau
 -- Phase 4: ไฟฉายกบ (StarterPack.FrogFlashlight) หยิบขึ้นมาถือแล้วสว่างทันที (ไม่ต้องคลิกเปิด/ปิด)
--- ถ่านไฟฉาย: player attribute "Battery" (0-1) หมดลงตอนถือไฟฉายอยู่ ไม่ชาร์จคืนเอง (ผู้ใช้ 2026-11-05: จะขายถ่านด้วย Robux)
---   เข้าเกมมา (เซิร์ฟเวอร์ใหม่ทุกครั้งที่เริ่มจาก Lobby) = ถ่านเต็ม 1 ก้อน ใช้หมดแล้วต้องเติม
---   หมด = ไฟดับเองแม้ถืออยู่ (tool attribute On = false) / ใกล้หมด HUD กะพริบไฟ (HUDController)
--- เติมถ่าน (ตอนซื้อสำเร็จ เช่น MarketplaceService.ProcessReceipt ของ Developer Product ถ่าน):
---   game.ServerStorage.FlashlightRefill:Fire(player, 1)   -- 1 = เต็มก้อน, 0.5 = ครึ่งก้อน (รวมไม่เกินเต็ม)
+-- ถ่านไฟฉาย: player attribute "Battery" (0-1) ลดลงตอนไฟเปิดอยู่ในมือ และชาร์จคืนเองเรื่อยๆ ตอนไม่ได้ส่อง
+--   (ผู้ใช้ 2026-11-13: ตัดระบบกล่องถ่าน/ช่องถ่านออก ให้แบตรีเอง)
+--   หมดตอนถืออยู่ = ไฟดับ (tool attribute On = false) แล้วชาร์จคืนในมือได้ สว่างอีกครั้งเมื่อถึง RELIGHT_AT
+--   ใกล้หมด HUD กะพริบไฟ (HUDController)
+-- admin: game.ServerStorage.FlashlightRefill:Fire(player, 1)   -- 1 = เต็ม, 0.5 = ครึ่ง (รวมไม่เกินเต็ม)
 
 local Players = game:GetService("Players")
 local StarterPack = game:GetService("StarterPack")
 
 local TOOL_NAME = "FrogFlashlight"
 local RunService = game:GetService("RunService")
-local DRAIN_TIME = 100 -- วินาทีที่ถ่านเต็มก้อนเปิดได้ (ไม่ชาร์จคืนเองแล้ว)
+local DRAIN_TIME = 100 -- วินาทีที่ถ่านเต็มเปิดส่องได้ต่อเนื่อง
+local RECHARGE_TIME = 45 -- วินาทีที่ชาร์จจาก 0 จนเต็ม (ตอนเก็บไฟฉาย หรือถืออยู่แต่ไฟดับเพราะหมด)
+local RELIGHT_AT = 0.2 -- หมดแล้วชาร์จในมือจนถึงเท่านี้ = ไฟติดเอง (ไม่กะพริบติด-ดับตรงขอบ 0)
 
 local hooked: { [Tool]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -150,10 +152,15 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 		local char = p.Character
 		local tool = char and char:FindFirstChild(TOOL_NAME)
-		if tool and tool:IsA("Tool") then
+		if tool and tool:IsA("Tool") and tool:GetAttribute("On") then
 			b = math.max(0, b - step / DRAIN_TIME)
-			if b <= 0 and tool:GetAttribute("On") then
+			if b <= 0 then
 				setOn(tool, false) -- ถ่านหมด
+			end
+		else
+			b = math.min(1, b + step / RECHARGE_TIME)
+			if tool and tool:IsA("Tool") and b >= RELIGHT_AT then
+				setOn(tool, true) -- หมดในมือ ชาร์จพอแล้ว สว่างอีกครั้ง
 			end
 		end
 		if math.abs((p:GetAttribute("Battery") or -1) - b) > 0.001 then
@@ -189,253 +196,3 @@ refillEvent.Event:Connect(function(player: Player, amount: number?)
 	print(("🔋 [%s] เติมถ่านไฟฉาย -> %d%%"):format(player.Name, math.floor(b * 100 + 0.5)))
 end)
 
--- ซื้อถ่าน = ได้ "ถ่านไฟฉาย" เข้าช่องของที่ 4 (client/ItemSlots) ซ้อนได้หลายก้อน (attribute Count)
---   ถือไฟฉาย (1) + ถ่านต่ำกว่าครึ่ง แล้วกด 4 = ใส่ถ่านก้อนใหม่ (ถ่านเต็ม)
---   ซื้อที่ "กล่องถ่านไฟฉาย" วางบนเคาน์เตอร์ในร้าน (ไม่มีปุ่มบนจอ ไม่บังคับ ผู้เล่นเห็นแล้วไปกดเอง ผู้ใช้ 2026-11-05)
---   ช่วงนี้ฟรี (ยังไม่มี Developer Product): ทีหลังเปลี่ยนเป็น MarketplaceService:PromptProductPurchase(player, BATTERY_PRODUCT_ID)
---   แล้วเรียก giveBattery ใน ProcessReceipt แทน
-local FREE_BATTERY = true
-local BATTERY_TOOL = "FlashlightBattery"
-local MAX_BATTERIES = 9
-
-local function batteryTool(player: Player): Tool?
-	for _, c in ipairs({ player:FindFirstChildOfClass("Backpack"), player.Character }) do
-		local t = c and c:FindFirstChild(BATTERY_TOOL)
-		if t and t:IsA("Tool") then
-			return t
-		end
-	end
-	return nil
-end
-
--- ถ่านก้อนกลมแบบถ่านไฟฉายไทยเก่า: ตัวดำ ปลอกแดง ขั้วบวกเงิน (ไว้ทำรูปในช่องของ)
-local function makeBatteryTool(): Tool
-	local tool = Instance.new("Tool")
-	tool.Name = BATTERY_TOOL
-	tool.RequiresHandle = false
-	tool.CanBeDropped = false
-	local function part(name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material)
-		local p = Instance.new("Part")
-		p.Name = name
-		p.Shape = Enum.PartType.Cylinder
-		p.Size = size
-		p.CFrame = cf * CFrame.Angles(0, 0, math.rad(90)) -- ทรงกระบอกตั้ง
-		p.Color = color
-		p.Material = mat
-		p.CanCollide = false
-		p.CanQuery = false
-		p.CanTouch = false
-		p.Massless = true
-		p.Parent = tool
-		return p
-	end
-	part("Body", Vector3.new(1.4, 0.62, 0.62), CFrame.new(0, 0, 0), Color3.fromRGB(25, 24, 24), Enum.Material.SmoothPlastic)
-	part("Band", Vector3.new(0.5, 0.64, 0.64), CFrame.new(0, 0.35, 0), Color3.fromRGB(190, 32, 28), Enum.Material.SmoothPlastic)
-	part("Cap", Vector3.new(0.08, 0.6, 0.6), CFrame.new(0, 0.74, 0), Color3.fromRGB(190, 190, 185), Enum.Material.Metal)
-	part("Tip", Vector3.new(0.12, 0.2, 0.2), CFrame.new(0, 0.82, 0), Color3.fromRGB(205, 205, 200), Enum.Material.Metal)
-	part("Base", Vector3.new(0.06, 0.6, 0.6), CFrame.new(0, -0.73, 0), Color3.fromRGB(170, 170, 165), Enum.Material.Metal)
-	-- ถือไม่ได้ (ใช้ทันทีจากช่องของ): ถ้าหลุดเข้าตัวละครก็กลับเข้ากระเป๋า
-	tool:GetPropertyChangedSignal("Parent"):Connect(function()
-		local char = tool.Parent
-		if char and char:IsA("Model") then
-			local pl = Players:GetPlayerFromCharacter(char)
-			local bp = pl and pl:FindFirstChildOfClass("Backpack")
-			if bp then
-				task.defer(function()
-					tool.Parent = bp
-				end)
-			end
-		end
-	end)
-	return tool
-end
-
-local function giveBattery(player: Player, n: number?): boolean
-	local t = batteryTool(player)
-	local count = if t then (t:GetAttribute("Count") or 1) else 0
-	if count >= MAX_BATTERIES then
-		return false
-	end
-	count = math.min(MAX_BATTERIES, count + (n or 1))
-	if not t then
-		local bp = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack", 5)
-		if not bp then
-			return false
-		end
-		t = makeBatteryTool()
-		t.Parent = bp
-	end
-	local tt = t :: Tool
-	tt:SetAttribute("Count", count)
-	print(("🔋 [%s] ได้ถ่านไฟฉาย (มี %d ก้อน)"):format(player.Name, count))
-	return true
-end
-
--- ใส่ถ่านได้เมื่อถือไฟฉายอยู่ (กด 1 ก่อน) และถ่านเหลือต่ำกว่าครึ่ง (ผู้ใช้ 2026-11-05) ไม่งั้นบอกเหตุผลในกล่องล่างจอ
-local REFILL_BELOW = 0.5
-local function notice(player: Player, key: string)
-	local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-	local n = remotes and remotes:FindFirstChild("Notice")
-	if n and n:IsA("RemoteEvent") then
-		n:FireClient(player, key, 3)
-	end
-end
-local function useBattery(player: Player)
-	local t = batteryTool(player)
-	if not t then
-		return
-	end
-	local char = player.Character
-	local flash = char and char:FindFirstChild(TOOL_NAME)
-	if not (flash and flash:IsA("Tool")) then
-		notice(player, "BatteryNeedFlash")
-		return
-	end
-	local b = player:GetAttribute("Battery")
-	if type(b) == "number" and b >= REFILL_BELOW then
-		notice(player, "BatteryStillHigh")
-		return
-	end
-	local count = (t:GetAttribute("Count") or 1) - 1
-	refillEvent:Fire(player, 1)
-	if count <= 0 then
-		t:Destroy()
-	else
-		t:SetAttribute("Count", count)
-	end
-end
-
-task.spawn(function()
-	local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 30)
-	if not remotes then
-		return
-	end
-	local function remote(name: string): RemoteEvent
-		local r = remotes:FindFirstChild(name) :: RemoteEvent?
-		if not r then
-			local ev = Instance.new("RemoteEvent")
-			ev.Name = name
-			ev.Parent = remotes
-			r = ev
-		end
-		return r :: RemoteEvent
-	end
-	local last: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
-	local function throttled(player: Player): boolean
-		if os.clock() - (last[player] or 0) < 0.6 then
-			return true
-		end
-		last[player] = os.clock()
-		return false
-	end
-	-- C->S ใช้ถ่าน 1 ก้อนจากช่องที่ 4
-	remote("UseBattery").OnServerEvent:Connect(function(player: Player)
-		if not throttled(player) then
-			useBattery(player)
-		end
-	end)
-end)
-
--- ---------------------------------------------------------------- กล่องถ่านไฟฉายบนเคาน์เตอร์ (ที่ซื้อถ่าน)
--- วางบนพื้นมุมหลังร้าน ชิดผนังหลังใต้โปสเตอร์ (เคาน์เตอร์ของเยอะจนชิดกันเกินไป ผู้ใช้ 2026-11-05)
--- ข้อความปุ่มแปลตามภาษาใน client/HUDController (PROMPTS.BuyBatteryPrompt)
-local BOX_SPOT = Vector3.new(-3, 0, 27.4) -- x, z (y = พื้นร้านที่ยิงลงไปเจอ)
-local BOX_SCALE = 1.4
--- วางเองใน Studio ได้: Workspace.InteractiveProps.BatteryBox (Model) มีอยู่แล้ว = ใช้อันนั้น (ย้าย/หมุนได้ตามใจ) แค่ติดปุ่มซื้อให้
---   ไม่มี = สร้างกล่องใหม่ที่ BOX_SPOT
-local function hookBox(m: Instance)
-	local target = (if m:IsA("Model") then m.PrimaryPart else nil) or (if m:IsA("BasePart") then m else m:FindFirstChildWhichIsA("BasePart", true))
-	if not target then
-		return
-	end
-	local prompt = m:FindFirstChild("BuyBatteryPrompt", true) :: ProximityPrompt?
-	if not prompt then
-		local pr = Instance.new("ProximityPrompt")
-		pr.Name = "BuyBatteryPrompt"
-		pr.ActionText = "Buy battery"
-		pr.ObjectText = "Battery box"
-		pr.HoldDuration = 0.4
-		pr.MaxActivationDistance = 8
-		pr.RequiresLineOfSight = false
-		pr.Parent = target
-		prompt = pr
-	end
-	local last: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
-	local pp = prompt :: ProximityPrompt
-	pp.Triggered:Connect(function(player: Player)
-		if not FREE_BATTERY or os.clock() - (last[player] or 0) < 0.8 then
-			return
-		end
-		last[player] = os.clock()
-		if not giveBattery(player, 1) then
-			notice(player, "BatteryFull")
-		end
-	end)
-end
-local function buildBatteryBox()
-	local ip = workspace:WaitForChild("InteractiveProps", 60)
-	if not ip then
-		return
-	end
-	local placed = ip:FindFirstChild("BatteryBox")
-	if placed then
-		hookBox(placed)
-		return
-	end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local roofs = {}
-	for _, d in ipairs(workspace:GetDescendants()) do
-		if d:IsA("BasePart") and string.find(d.Name, "Roof") then
-			table.insert(roofs, d)
-		end
-	end
-	params.FilterDescendantsInstances = roofs
-	local hit = workspace:Raycast(Vector3.new(BOX_SPOT.X, 8, BOX_SPOT.Z), Vector3.new(0, -10, 0), params)
-	local floorY = if hit then hit.Position.Y else 2.5
-	local base = CFrame.new(BOX_SPOT.X, floorY, BOX_SPOT.Z) * CFrame.Angles(0, math.rad(-8), 0)
-	local m = Instance.new("Model")
-	m.Name = "BatteryBox"
-	local function box(name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material): Part
-		local p = Instance.new("Part")
-		p.Name = name
-		p.Size = size
-		p.CFrame = base * cf
-		p.Color = color
-		p.Material = mat
-		p.Anchored = true
-		p.CanCollide = false
-		p.TopSurface = Enum.SurfaceType.Smooth
-		p.BottomSurface = Enum.SurfaceType.Smooth
-		p.Parent = m
-		return p
-	end
-	-- กล่องกระดาษแข็งเปิดฝา (พื้น + 4 ด้าน)
-	local W, D, H, T = 1.3, 0.8, 0.45, 0.05
-	local card = Color3.fromRGB(176, 138, 88)
-	local floor = box("Floor", Vector3.new(W, T, D), CFrame.new(0, T / 2, 0), card, Enum.Material.Cardboard)
-	box("Front", Vector3.new(W, H, T), CFrame.new(0, H / 2, -D / 2), Color3.fromRGB(196, 60, 40), Enum.Material.Cardboard)
-	box("Back", Vector3.new(W, H + 0.25, T), CFrame.new(0, (H + 0.25) / 2, D / 2), card, Enum.Material.Cardboard)
-	box("Left", Vector3.new(T, H, D), CFrame.new(-W / 2, H / 2, 0), card, Enum.Material.Cardboard)
-	box("Right", Vector3.new(T, H, D), CFrame.new(W / 2, H / 2, 0), card, Enum.Material.Cardboard)
-	-- ถ่านตั้งเรียงในกล่อง 2 แถว
-	for row = 0, 1 do
-		for i = 0, 3 do
-			local x = -0.45 + i * 0.3
-			local zz = -0.16 + row * 0.32
-			local c = CFrame.new(x, 0.35, zz) * CFrame.Angles(0, 0, math.rad(90))
-			local body = box("Cell", Vector3.new(0.6, 0.24, 0.24), c, Color3.fromRGB(25, 24, 24), Enum.Material.SmoothPlastic)
-			body.Shape = Enum.PartType.Cylinder
-			local band = box("CellBand", Vector3.new(0.2, 0.25, 0.25), c * CFrame.new(0.16, 0, 0), Color3.fromRGB(190, 32, 28), Enum.Material.SmoothPlastic)
-			band.Shape = Enum.PartType.Cylinder
-			local tip = box("CellTip", Vector3.new(0.05, 0.09, 0.09), c * CFrame.new(0.32, 0, 0), Color3.fromRGB(205, 205, 200), Enum.Material.Metal)
-			tip.Shape = Enum.PartType.Cylinder
-		end
-	end
-	m.PrimaryPart = floor
-	m:ScaleTo(BOX_SCALE) -- บนพื้นต้องใหญ่ขึ้นหน่อยถึงจะสังเกตเห็น
-	m:PivotTo(m:GetPivot() + Vector3.new(0, floorY - (floor.Position.Y - floor.Size.Y / 2), 0)) -- ก้นกล่องแตะพื้น
-	m.Parent = ip
-	hookBox(m)
-end
-task.spawn(buildBatteryBox)

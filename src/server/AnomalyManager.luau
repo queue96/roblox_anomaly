@@ -414,6 +414,45 @@ end
 -- apply(v) รับรถที่ Clone แล้ว (ยังไม่ขี่เข้ามา)  reset() คืนของในฉาก (ไม่ต้องคืนรถ เพราะรถถูก Destroy)
 type Anomaly = { apply: (Model) -> (), reset: (() -> ())? }
 
+-- ผีซ้อนท้าย (หัวขาด / มองกระจก): ใต้ Torso ผีเก่า 1.05 = แค่ 0.05 เหนือเบาะ แต่ก้นร่าง v2 อยู่ต่ำกว่ากระดูก hips ~0.45
+-- -> ยกขึ้นให้ก้นวางบนเบาะพอดี (วัดใน Studio 2026-11-13: CustomerBike / Saleng เบาะ Chassis; ผู้ใช้: ก้นจมเบาะ)
+local PILLION_LIFT = 0.42
+
+-- ผีขี่แทนคนขับ (ตาโขน): มือ/เท้าจับแฮนด์ วางเท้าบนที่พักเท้า ด้วย IK ชุดเดียวกับคนขับที่ซ่อนไว้
+-- (Target/Pole เป็น Attachment ใน DriverNPC.IKTargets ซึ่งยังอยู่ ขยับไปกับรถ) ผู้ใช้ 2026-11-13: มือไม่กำแฮนด์
+local function copyRiderIK(driver: Model, ghost: Model)
+	local dac = driver:FindFirstChildOfClass("AnimationController")
+	local gac = ghost:FindFirstChildOfClass("AnimationController")
+	if not dac then
+		return
+	end
+	if not gac then
+		gac = Instance.new("AnimationController")
+		gac.Parent = ghost
+	end
+	-- IKControl ทำงานผ่าน Animator (ท่า mocap ไม่สร้าง Animator ให้ ต้องมีเอง)
+	if not (gac :: Instance):FindFirstChildOfClass("Animator") then
+		Instance.new("Animator").Parent = gac
+	end
+	local bones: { [string]: Bone } = {}
+	for _, b in ipairs(ghost:GetDescendants()) do
+		if b:IsA("Bone") then
+			bones[b.Name] = b
+		end
+	end
+	for _, ik in ipairs(dac:GetChildren()) do
+		if ik:IsA("IKControl") and ik.ChainRoot and ik.EndEffector then
+			local root, tip = bones[ik.ChainRoot.Name], bones[ik.EndEffector.Name]
+			if root and tip then
+				local c = ik:Clone()
+				c.ChainRoot = root
+				c.EndEffector = tip
+				c.Parent = gac
+			end
+		end
+	end
+end
+
 AnomalyManager.Anomalies = {
 	-- 1. ผีไม่มีหัวซ้อนท้าย
 	Anomaly_Headless = {
@@ -422,7 +461,7 @@ AnomalyManager.Anomalies = {
 			-- rigged ghost (ServerStorage.GhostTemplates.ghost_headless) sits where the old part ghost sat
 			local torso = g and g:FindFirstChild("Torso") :: BasePart?
 			if torso and GhostNPC.Has("ghost_headless") then
-				local hip = CFrame.new(torso.CFrame:PointToWorldSpace(Vector3.new(0, -1.05, 0))) * v:GetPivot().Rotation
+				local hip = CFrame.new(torso.CFrame:PointToWorldSpace(Vector3.new(0, -1.05 + PILLION_LIFT, 0))) * v:GetPivot().Rotation
 				local m = GhostNPC.SpawnSeated("ghost_headless", hip, "pillion_hug")
 				if m then
 					m.Name = "GhostPassengerModel"
@@ -576,6 +615,7 @@ AnomalyManager.Anomalies = {
 			local m = GhostNPC.SpawnSeated("ghost_ta_khon", CFrame.new(hipPos) * v:GetPivot().Rotation, "mask_tilt")
 			if m then
 				m.Name = "GhostRiderModel"
+				copyRiderIK(d, m)
 				m.Parent = v
 				ghostOnly(m)
 				normalOnly(d)
@@ -590,7 +630,7 @@ AnomalyManager.Anomalies = {
 			if not (torso and GhostNPC.Has("ghost_mirror")) then
 				return
 			end
-			local hip = CFrame.new(torso.CFrame:PointToWorldSpace(Vector3.new(0, -1.05, 0))) * v:GetPivot().Rotation
+			local hip = CFrame.new(torso.CFrame:PointToWorldSpace(Vector3.new(0, -1.05 + PILLION_LIFT, 0))) * v:GetPivot().Rotation
 			local m = GhostNPC.SpawnSeated("ghost_mirror", hip, "pillion_look")
 			if m then
 				m.Name = "GhostPassengerModel"
@@ -878,7 +918,8 @@ local WALK_IN = {
 	{ name = "ghost_shroud", walk = "shroud_glide", idle = "shroud_idle", float = 0.5 },
 	{ name = "ghost_funeral_woman", walk = "ghost_glide", idle = "ghost_glide", float = 0.4 },
 	{ name = "ghost_kuman_thong", walk = "run", idle = "kuman_giggle" },
-	{ name = "ghost_tani", walk = "ghost_idle", idle = "ghost_idle" },
+	-- ตานี: เดิมเดินด้วยท่ายืน (ghost_idle) ตัวไถลมาเฉยๆ ดูแปลก (ผู้ใช้ 2026-11-13) -> ลอยร่อนมาแบบผีหญิงงานศพ ยืนท่าแอบมอง
+	{ name = "ghost_tani", walk = "ghost_glide", idle = "tani_peek", float = 0.35 },
 }
 
 function AnomalyManager.BuildWalkIn(): Model?
@@ -1017,9 +1058,15 @@ if scarecrow then
 	end
 end
 
+-- ตัดออกจากการสุ่ม (ยังเรียกทดสอบผ่าน ForceAnomaly ได้):
+--   Anomaly_Krasue: กระสือมีเป็นผีใหญ่ (BigEvents) + ผีฉากอยู่แล้ว ผีลูกค้าซ้ำซ้อน ผู้ใช้สั่งตัด 2026-11-12
+local RETIRED = { Anomaly_Krasue = true }
+
 AnomalyManager.Keys = {}
 for k in pairs(AnomalyManager.Anomalies) do
-	table.insert(AnomalyManager.Keys, k)
+	if not RETIRED[k] then
+		table.insert(AnomalyManager.Keys, k)
+	end
 end
 table.sort(AnomalyManager.Keys)
 

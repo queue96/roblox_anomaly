@@ -41,6 +41,8 @@ type Rider = {
 	d: Model,
 	hipLocal: Vector3, -- จุดหมุน (ข้อสะโพก) เทียบ pivot รถ
 	roots: { [BasePart]: CFrame }, -- RootPart (ตัวจริง + ร่างผีซ้อน) เทียบ pivot รถ ตอนยังไม่หมุน
+	newRoots: { BasePart }, -- RootPart ที่เพิ่งเข้ามา: จำตำแหน่งในเฟรม render ถัดไป (เดิมไล่ GetDescendants ทุกเฟรม)
+	conn: RBXScriptConnection?,
 	lastPos: Vector3?,
 	speed: number,
 	accel: number,
@@ -82,6 +84,8 @@ local function attach(v: Model): Rider?
 		d = d,
 		hipLocal = pv:PointToObjectSpace(hips.WorldPosition),
 		roots = {},
+		newRoots = {},
+		conn = nil,
 		lastPos = nil,
 		speed = 0,
 		accel = 0,
@@ -98,7 +102,26 @@ local function attach(v: Model): Rider?
 	-- คอ/หัวของตัวนี้ RiderMotion เป็นคนคิดมุมมอง (attribute RiderLookYaw) -> ชั้นมีชีวิตไม่สุ่มมองเอง (client/HumanEmotesRunner)
 	--   สองระบบเขียนกระดูกเดียวกัน ในเฟรมที่ Animator ไม่อัปเดต ต่างคนเอาค่าของอีกฝ่ายเป็นฐาน = หัวหมุนสะสมแล้วดีดกลับ (กระตุก)
 	d:SetAttribute("HeadByRider", true)
+	-- RootPart (ตัวจริง + ร่างผีซ้อนที่ Server ใส่ทีหลัง): ฟังตอนเข้ามาแทนการไล่หาทุกเฟรม (Performance 2026-11-12)
+	for _, p in ipairs(d:GetDescendants()) do
+		if p:IsA("BasePart") and p.Name == "RootPart" then
+			table.insert(r.newRoots, p)
+		end
+	end
+	r.conn = d.DescendantAdded:Connect(function(p)
+		if p:IsA("BasePart") and p.Name == "RootPart" then
+			table.insert(r.newRoots, p)
+		end
+	end)
 	return r
+end
+
+local function drop(v: Model)
+	local r = riders[v]
+	if r and r.conn then
+		r.conn:Disconnect()
+	end
+	riders[v] = nil
 end
 
 local function watch(inst: Instance)
@@ -120,7 +143,7 @@ task.spawn(function()
 		for _, v in ipairs(CollectionService:GetTagged(DriveMotion.TAG)) do
 			local r = riders[v :: Model]
 			if not r or not r.d.Parent or r.d.Parent ~= v then
-				riders[v :: Model] = nil
+				drop(v :: Model)
 				watch(v)
 			end
 		end
@@ -139,15 +162,18 @@ RunService:BindToRenderStep("RiderMotion", Enum.RenderPriority.First.Value + 3, 
 	local now = os.clock()
 	for v, r in pairs(riders) do
 		if not (v.Parent and r.d.Parent == v) then
-			riders[v] = nil
+			drop(v)
 			continue
 		end
 		local pv = v:GetPivot()
 		-- RootPart ใหม่ (ร่างผีซ้อนที่ Server ใส่ทีหลัง): จำตำแหน่งเทียบรถตอนยังไม่หมุน
-		for _, p in ipairs(r.d:GetDescendants()) do
-			if p:IsA("BasePart") and p.Name == "RootPart" and not r.roots[p] then
-				r.roots[p] = pv:ToObjectSpace(p.CFrame)
+		if #r.newRoots > 0 then
+			for _, p in ipairs(r.newRoots) do
+				if p.Parent and not r.roots[p] then
+					r.roots[p] = pv:ToObjectSpace(p.CFrame)
+				end
 			end
+			table.clear(r.newRoots)
 		end
 		-- ความเร็ว / ความเร่งตามทิศหน้ารถ (กรองให้นุ่ม)
 		local pos = pv.Position

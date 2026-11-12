@@ -904,8 +904,9 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 		-- ผิวซีดเขียวแบบศพ ตัวโปร่งจางๆ แสงเย็นเรืองรอบตัว (ไม่มีขอบแดงเรือง: ผู้ใช้เอาออกแล้ว 2026-11-05)
 		for _, c in ipairs(double:GetChildren()) do
 			if c:IsA("MeshPart") then
-				-- หัวหันกลับ (twist): ทึบทั้งตัว ไม่งั้นผมยาวด้านหลังกับหน้าที่หันกลับมองทะลุซ้อนกันดูเละ (ผู้ใช้ 2026-11-07)
-				c.Transparency = if kind == "twist" then 0 else 0.22
+				-- ทึบทั้งตัวทุกแบบ: ร่างโปร่งแสง Roblox เรียงลำดับวาดผิด หัววาดทับผม = ผมเหมือนหลุดลอยอยู่หลังหัว
+				-- (twist ทึบตั้งแต่ 2026-11-07, ghost ทึบตาม 2026-11-13 ผู้ใช้: ผีตานีผมหลุดหัวตลอด) ความเป็นผีดูจากผิวซีดเขียว + แสงเรือง
+				c.Transparency = 0
 				if c.Name == "Body" or c.Name == "BodyHead" or string.sub(c.Name, 1, 5) == "Skin_" then
 					local sa = c:FindFirstChildOfClass("SurfaceAppearance")
 					if sa then

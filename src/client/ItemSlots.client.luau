@@ -188,8 +188,7 @@ end
 
 makeSlot(2, "2", "ThaiDessert", Enum.KeyCode.Two, "DessertSlot")
 makeSlot(3, "3", "FuelCan", Enum.KeyCode.Three, "CanSlot")
--- ถ่านไฟฉายที่ซื้อไว้ (server/Flashlight: Tool "FlashlightBattery" มี attribute Count) กด 4 = ใส่ถ่านใหม่ ไม่ต้องถือ
-makeSlot(4, "4", "FlashlightBattery", Enum.KeyCode.Four, "BatterySlot")
+-- ช่องถ่าน (4) ตัดออกแล้ว: แบตไฟฉายชาร์จคืนเอง (server/Flashlight, ผู้ใช้ 2026-11-13)
 
 local function find(name: string): (Tool?, boolean)
 	local char = player.Character
@@ -211,12 +210,8 @@ local function refresh()
 		local tool, equipped = find(s.tool)
 		s.button.Visible = tool ~= nil and show
 		setSlotIcon(s.icon, tool)
-		local txt = ui(s.label)
 		-- แกลลอน: ไม่ต่อท้าย (ว่าง)/(เต็ม) แล้ว ดูจากรูปในช่องแทน (มีน้ำมัน = เห็นสีน้ำมันในแกลลอน) ผู้ใช้ 2026-11-06
-		if s.tool == "FlashlightBattery" and tool then
-			txt ..= " ×" .. tostring(tool:GetAttribute("Count") or 1)
-		end
-		s.text.Text = txt
+		s.text.Text = ui(s.label)
 		s.stroke.Color = if equipped then C.LineHot else C.Line
 		s.text.TextColor3 = if equipped then C.Cream else C.Dim
 		s.badge.TextColor3 = if equipped then C.Cream else C.Dim
@@ -238,14 +233,6 @@ local function toggle(s: Slot)
 	end
 	local tool, equipped = find(s.tool)
 	if not tool then
-		return
-	end
-	-- ถ่าน: ใช้ทันที (ใส่ถ่านก้อนใหม่ให้ไฟฉาย) ไม่ต้องหยิบขึ้นมือ
-	if s.tool == "FlashlightBattery" then
-		local use = ReplicatedStorage:WaitForChild("Remotes"):FindFirstChild("UseBattery")
-		if use and use:IsA("RemoteEvent") then
-			use:FireServer()
-		end
 		return
 	end
 	-- ย้าย Tool เข้า/ออกตัวเอง (ไม่ใช้ EquipTool ที่เก็บของอื่นทั้งหมด): ไฟฉายมือซ้ายถือค้างไว้ได้
@@ -409,7 +396,6 @@ local function watch(container: Instance?)
 	watched[container] = container.ChildAdded:Connect(function(c)
 		if c:IsA("Tool") then
 			c:GetAttributeChangedSignal("Full"):Connect(refresh)
-			c:GetAttributeChangedSignal("Count"):Connect(refresh) -- จำนวนถ่าน
 		end
 		refresh()
 	end)
@@ -417,7 +403,6 @@ local function watch(container: Instance?)
 	for _, c in ipairs(container:GetChildren()) do
 		if c:IsA("Tool") then
 			c:GetAttributeChangedSignal("Full"):Connect(refresh)
-			c:GetAttributeChangedSignal("Count"):Connect(refresh) -- จำนวนถ่าน
 		end
 	end
 end

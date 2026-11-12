@@ -1689,7 +1689,6 @@ local PROMPTS = {
 	TakeDessertPrompt = { "TakeDessert", "DessertTray" },
 	OfferDessertPrompt = { "OfferDessert", "SpiritHouseName" },
 	StartGeneratorPrompt = { "StartGenerator", "GeneratorName" },
-	BuyBatteryPrompt = { "BuyBattery", "BatteryBox" }, -- กล่องถ่านบนเคาน์เตอร์ (server/Flashlight)
 	-- วิทยุ: ปุ่มเปลี่ยนเปิด/ปิดตาม attribute "RadioOn" ที่เซิร์ฟเวอร์ตั้ง (AnomalyManager)
 	TuneRadioPrompt = { "RadioOn", "RadioName", "RadioOff" },
 	-- สะพานไฟ: attribute "LightsOff" (server/Power) -> ปุ่มเปิดไฟกลับ
