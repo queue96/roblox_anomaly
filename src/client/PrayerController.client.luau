@@ -112,6 +112,18 @@ local function setVeil(d: Instance, visible: boolean, instant: boolean)
 	end
 	local fade = d:GetAttribute("VeilFade")
 	local t = if instant then 0 else (if type(fade) == "number" then fade else DEFAULT_FADE)
+	-- ร่างผีที่มีผมแยกชิ้น: ค่อยๆ จาง = ช่วงโปร่งแสง Roblox วาดหัวทับผม ผมหลุดไปอยู่หลังหัว -> โผล่/หายทันที (2026-11-14)
+	if prop == "Transparency" and t > 0 and d:IsA("BasePart") then
+		local m = d:FindFirstAncestorOfClass("Model")
+		if m then
+			for _, c in ipairs(m:GetChildren()) do
+				if c:IsA("BasePart") and string.find(c.Name, "Hair") then
+					t = 0
+					break
+				end
+			end
+		end
+	end
 	if t <= 0 then
 		(d :: any)[prop] = value
 	else

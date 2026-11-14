@@ -135,9 +135,59 @@ local function shopFront(): Vector3
 	return if stop then stop.Position else Vector3.new(-4, 2, -7)
 end
 
+-- ผีที่มีผมแยกชิ้น (ตานี แม่นาค ปอบ ...): ห้ามโปร่งแสงครึ่งๆ กลางๆ เพราะ Roblox เรียงลำดับวาดชิ้นโปร่งแสงตามระยะ
+-- หัววาดทับผม = ผมหลุดไปอยู่หลังหัว (ผู้ใช้ 2026-11-14: ตานีหลังกอกล้วยผมหลุด ตอนกำลังจางเข้า/ออก)
+-- -> โผล่/หายแบบไฟกะพริบ (ทึบ <-> ล่องหน สลับถี่ๆ แล้วค้างที่ค่าสุดท้าย) แทนการค่อยๆ จาง
+local function hasHair(root: Instance): boolean
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("BasePart") and string.find(d.Name, "Hair") then
+			return true
+		end
+	end
+	return false
+end
+
+local function flicker(parts: { BasePart }, t: number, time: number)
+	local target = if t >= 0.5 then 1 else 0
+	for _, p in ipairs(parts) do
+		p:SetAttribute("FlickerTo", target)
+	end
+	local steps = math.max(3, math.floor(time / 0.12))
+	task.spawn(function()
+		for i = 1, steps do
+			if parts[1] and parts[1]:GetAttribute("FlickerTo") ~= target then
+				return -- a newer fade took over
+			end
+			-- ช่วงต้นติดสั้นดับนาน ช่วงท้ายกลับกัน (ค่อยๆ มีตัวตน / ค่อยๆ หาย)
+			local k = i / steps
+			local on = math.random() < (if target == 0 then k else 1 - k)
+			for _, p in ipairs(parts) do
+				p.Transparency = if on then 0 else 1
+			end
+			task.wait(time / steps)
+		end
+		if parts[1] and parts[1]:GetAttribute("FlickerTo") == target then
+			for _, p in ipairs(parts) do
+				p.Transparency = target
+			end
+		end
+	end)
+end
+
 local function fade(root: Instance, t: number, time: number)
+	if time > 0 and hasHair(root) then
+		local parts = {}
+		for _, d in ipairs(root:GetDescendants()) do
+			if d:IsA("BasePart") and d.Name ~= "RootPart" and d.Name ~= "FocusMarker" then
+				table.insert(parts, d)
+			end
+		end
+		flicker(parts, t, time)
+		return
+	end
 	for _, d in ipairs(root:GetDescendants()) do
 		if d:IsA("BasePart") and d.Name ~= "RootPart" and d.Name ~= "FocusMarker" then
+			d:SetAttribute("FlickerTo", nil) -- stops a running flicker
 			if time > 0 then
 				TweenService:Create(d, TweenInfo.new(time), { Transparency = t }):Play()
 			else
