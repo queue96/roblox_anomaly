@@ -9,6 +9,10 @@
 
 อัปเดตล่าสุด 2026-11-04 · อิงจาก anomaly 30 แบบใน `GDD.md` ข้อ 4 (ไม่ได้อิงคลังผี 92 ตัวใน `art_refs/ghosts/GHOSTS.md` ซึ่งเป็นแค่คลัง ref)
 
+> **อัปเดต 2026-11-15:** ผีรูปคน 12 ตัว + ปอบ อยู่บนร่าง Villager v2 แล้ว (`villager/build_ghosts_v2.py`, `villager/export_ghosts_v2.py`)
+> **กุมารทอง** ย้ายมาร่าง v2 แล้ว (`villager/build_kuman_v2.py` -> `KumanV2/upload/ghost_kuman_v2.fbx`) ยังเหลือ `ghost_child` ที่ใช้ร่างเด็กเก่า
+> ท่าผีส่วนใหญ่เป็น mocap ใน `src/shared/GhostClipData.luau` (สร้างจาก `tools/blender/ghost_mocap_retarget.py`)
+
 ## 1. ภาพรวม
 
 - ใน anomaly 30 แบบ มีที่ต้องใช้**ตัวผีจริง** 6 ตัว (ไม่นับหุ่นไล่กา ซึ่งเป็นของที่ถูกผีสิง) ที่เหลือเป็นของในฉาก ตัวหนังสือ หรือเสียง
