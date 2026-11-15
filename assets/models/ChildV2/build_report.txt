@@ -1,0 +1,20 @@
+painted head
+painted c_mohom
+painted c_school
+painted c_tee
+painted c_singlet
+painted c_girl_sin
+painted c_girl_tee
+childified head verts 387 nose relaxed 12
+Hair_child_short scale [1.179, 1.109, 1.052] pushed 163
+Hair_ko scale [1.179, 1.109, 1.052] pushed 264
+Hair_student scale [1.184, 1.024, 1.014] pushed 271
+Hair_bob scale [1.33, 1.129, 1.09] pushed 150
+Hair_ponytail_bow scale [1.33, 1.129, 1.09] pushed 259
+height m -0.003 1.15 tris {'BodyHead': 796, 'BodyLower': 1224, 'BodyUpper': 1476, 'Hair_bob': 888, 'Hair_child_short': 600, 'Hair_ko': 1014, 'Hair_ponytail_bow': 1374, 'Hair_student': 792, 'LowerSkirt': 1296}
+preview C:\xampp\htdocs\roblox_anomaly\assets\models\ChildV2\child_v2_lineup.png
+preview C:\xampp\htdocs\roblox_anomaly\assets\models\ChildV2\child_v2_faces.png
+DONE
+cross ratios: {'foot.L': 0.6, 'foot.R': 0.6, 'forearm.L': 0.66, 'forearm.R': 0.66, 'hand.L': 0.64, 'hand.R': 0.64, 'head': 0.93, 'shin.L': 0.72, 'shin.R': 0.72, 'shoulder.R': 0.58, 'spine': 0.6, 'thigh.L': 0.67, 'thigh.R': 0.67, 'toe.L': 0.58, 'toe.R': 0.58, 'upper_arm.L': 0.6, 'upper_arm.R': 0.59}
+bent Body 1756 / 1756
+bent Lower_skirt 688 / 688

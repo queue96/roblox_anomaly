@@ -26,7 +26,9 @@ local TEMPLATE_OF: { [string]: string } = {
 	human_elder_male = "villager_male",
 	human_female = "villager_female",
 	human_elder_female = "villager_female",
-	human_child = "human_child",
+	-- เด็กร่าง v2 (assets/models/ChildV2, build_child_v2.py): ร่าง v2 ดัดลงโครงกระดูกเด็กเดิม ท่าเด็กเดิมใช้ได้
+	--   ยังไม่ได้นำเข้า villager_child = ใช้แม่แบบ human_child (v1) แทนอัตโนมัติ (template() หาชื่อตัวละครต่อ)
+	human_child = "villager_child",
 }
 -- คนแก่ใช้ท่าเดิน/ยืนเดียวกับผู้ใหญ่ปกติ (ข้ามท่าคนแก่ย่องๆ ตามที่ตกลง 2026-11-10)
 local ANIM_CHAR_OF: { [string]: string } = {
@@ -79,7 +81,15 @@ local OUTFITS_BY: { [string]: { any } } = {
 		{ name = "wan_crop", weight = 1, teen = true, upper = "f_tee_upper", lowerPart = "LowerWide", lower = "f_tee_lower" },
 		{ name = "wan_plaid", weight = 1, teen = true, upper = "f_indigo_upper", lowerPart = "BodyLower", lower = "f_indigo_lower" },
 	},
-	human_child = { { name = "mohom_child", weight = 1 } },
+	-- เด็ก v2: hairs = ทรงผมที่เข้ากับชุดนี้ (ชาย child_short / ko จุก / student · หญิง bob / ponytail_bow)
+	human_child = {
+		{ name = "c_mohom", weight = 3, upper = "c_mohom_upper", lowerPart = "BodyLower", lower = "c_mohom_lower", hairs = { "child_short", "ko", "student" } },
+		{ name = "c_school", weight = 2, upper = "c_school_upper", lowerPart = "BodyLower", lower = "c_school_lower", hairs = { "child_short", "student" } },
+		{ name = "c_tee", weight = 3, upper = "c_tee_upper", lowerPart = "BodyLower", lower = "c_tee_lower", hairs = { "child_short", "ko", "student", "bob", "ponytail_bow" } },
+		{ name = "c_singlet", weight = 2, upper = "c_singlet_upper", lowerPart = "BodyLower", lower = "c_singlet_lower", hairs = { "child_short", "ko" } },
+		{ name = "c_girl_sin", weight = 2, skirt = true, upper = "c_girl_sin_upper", lowerPart = "LowerSkirt", lower = "c_girl_sin_lower", hairs = { "bob", "ponytail_bow" } },
+		{ name = "c_girl_tee", weight = 2, skirt = true, upper = "c_girl_tee_upper", lowerPart = "LowerSkirt", lower = "c_girl_tee_lower", hairs = { "bob", "ponytail_bow" } },
+	},
 	human_elder_male = {
 		{ name = "elder_sarong", weight = 3, skirt = true, upper = "m_elder_upper", lowerPart = "LowerSkirt", lower = "m_elder_lower", sash = true },
 		{ name = "mohom", weight = 2, upper = "m_farmer_upper", lowerPart = "BodyLower", lower = "m_farmer_lower", sash = true },
@@ -93,10 +103,17 @@ local OUTFITS_BY: { [string]: { any } } = {
 		{ name = "sabai", weight = 1, skirt = true, upper = "f_elder_upper", lowerPart = "LowerSkirt", lower = "f_blouse_lower" },
 	},
 }
+-- แม่แบบร่างเดิม v1 (ยังไม่ได้นำเข้าร่าง v2 ของตัวนั้น): ชุด / ทรงผมเดิมที่มีเป็นชิ้น Cloth_* / Hair_* ในแม่แบบ
+local OUTFITS_V1: { [string]: { any } } = {
+	human_child = { { name = "mohom_child", weight = 1 } },
+}
+local HAIRS_V1: { [string]: { string } } = {
+	human_child = { "child_short", "ko", "pia", "klae" },
+}
 local HAIRS_BY: { [string]: { string } } = {
 	human_base = HAIRS,
 	human_female = { "bob", "ponytail_bow" },
-	human_child = { "child_short", "ko", "pia", "klae" },
+	human_child = { "child_short", "ko", "student", "bob", "ponytail_bow" },
 	human_elder_male = { "bald_grey", "student", "rong_song_sung" },
 	human_elder_female = { "bun_grey", "curly_grey" },
 }
@@ -105,12 +122,15 @@ local HAIRS_BY: { [string]: { string } } = {
 local WALK_CLIP_SPEED = 4.3
 -- ความเร็วตามธรรมชาติของแต่ละท่า (studs/วินาที ที่ความเร็วท่า 1 เท้าไม่ไถล) วัดจากระยะก้าวจริงของเท้าใน Studio
 -- คนแก่ใช้ท่าเดียวกับคนปกติ (ชาย/หญิง)
+-- walk_skirt = ท่าเดินนุ่งผ้าซิ่น mocap (2026-11-15, mocap_retarget.py walk_skirt): ก้าวสั้นเท่าท่าเดิม แต่ช้ากว่า (รอบยาวกว่า)
+--   ค่าใหม่ = ค่าเดิม x (ก้าว/รอบ ของท่าใหม่ ÷ ของท่าเดิม) จาก GAIT ใน log: ชาย 1.9 x 0.88 · หญิง 1.7 x 0.77 · เด็ก 1.45 x 0.54
+-- run_skirt = รีบเดินในผ้าถุง mocap (2026-11-15): ก้าวสั้นกว่าท่าวิ่งเดิมนิด ถี่ขึ้น โน้มตัว: ชาย 5.8 x 0.79 · หญิง 5.3 x 0.68 · เด็ก 4.25 x 0.50
 local NATURAL: { [string]: { [string]: number } } = {
-	human_base = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
-	human_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
-	human_child = { walk = 2.88, walk_base = 2.4, walk_skirt = 1.45, run = 10.5, run_skirt = 4.25 },
-	human_elder_male = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.9, run = 14, run_skirt = 5.8 },
-	human_elder_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.7, run = 13, run_skirt = 5.3 },
+	human_base = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.68, run = 14, run_skirt = 4.59 },
+	human_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.3, run = 13, run_skirt = 3.59 },
+	human_child = { walk = 2.88, walk_base = 2.4, walk_skirt = 0.79, run = 10.5, run_skirt = 2.13 },
+	human_elder_male = { walk = 5.33, walk_base = 4.3, walk_skirt = 1.68, run = 14, run_skirt = 4.59 },
+	human_elder_female = { walk = 3.48, walk_base = 4.0, walk_skirt = 1.3, run = 13, run_skirt = 3.59 },
 }
 -- เลือกท่าแรกที่ต้องเร่งไม่เกินนี้ (เร่งมากกว่านี้ดูซอยเท้าถี่ผิดธรรมชาติ)
 local MAX_CLIP_RATE = 1.9
@@ -182,8 +202,8 @@ local function animIds(char: string?): { [string]: string }
 	return setmetatable(t, { __index = base }) :: any
 end
 
-local function pickOutfit(opts: { [string]: any }, char: string): { [string]: any }
-	local outfits = OUTFITS_BY[char] or OUTFITS
+local function pickOutfit(opts: { [string]: any }, char: string, v1: boolean?): { [string]: any }
+	local outfits = (v1 and OUTFITS_V1[char]) or OUTFITS_BY[char] or OUTFITS
 	if opts.outfit then
 		for _, o in ipairs(outfits) do
 			if o.name == opts.outfit then
@@ -270,6 +290,7 @@ local HEAD_TEX_OF: { [string]: string } = {
 	human_elder_male = "male_elder_head",
 	human_female = "female_head",
 	human_elder_female = "female_elder_head",
+	human_child = "c_child_head",
 }
 
 local function applyVillagerTex(part: MeshPart?, texName: string?, tint: Color3?)
@@ -304,10 +325,11 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 		opts.noHelmet = true
 	end
 	local char = opts.char or DEFAULT_CHAR
-	local outfit = pickOutfit(opts, char)
-	local hairs = HAIRS_BY[char] or HAIRS
+	local v1 = d:FindFirstChild("BodyUpper") == nil
+	local outfit = pickOutfit(opts, char, v1)
+	local hairs = (v1 and HAIRS_V1[char]) or outfit.hairs or HAIRS_BY[char] or HAIRS
 	local hair = if opts.hair and table.find(hairs, opts.hair) then opts.hair else hairs[math.random(#hairs)]
-	if d:FindFirstChild("BodyUpper") then
+	if not v1 then
 		-- ร่างชาวบ้าน v2 (villager_male / villager_female): 3 ชิ้นหลัก + ท่อนล่างสลับได้ + ผม/งอบ/ผ้าขาวม้า
 		local lowerPart = outfit.lowerPart or "BodyLower"
 		local keepHat = outfit.hat == true and not opts.noHat and not opts.umbrella and (hair ~= nil and NGOB_OK_HAIR[hair] == true)

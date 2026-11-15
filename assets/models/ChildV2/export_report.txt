@@ -1,0 +1,4 @@
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\ChildV2\upload\villager_child.fbx pngs 12 meshes ['BodyHead', 'BodyLower', 'BodyUpper', 'Hair_bob', 'Hair_child_short', 'Hair_ko', 'Hair_ponytail_bow', 'Hair_student', 'LowerSkirt']
+max bones per vertex 4 tris {'BodyHead': 796, 'BodyLower': 1224, 'BodyUpper': 1476, 'Hair_bob': 888, 'Hair_child_short': 600, 'Hair_ko': 1014, 'Hair_ponytail_bow': 1374, 'Hair_student': 792, 'LowerSkirt': 1296}
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\ChildV2\upload\child_textures.fbx cards 9 pngs 27
+files in upload/ 41

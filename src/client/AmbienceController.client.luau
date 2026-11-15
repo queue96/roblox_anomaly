@@ -511,7 +511,8 @@ local function makeLoop(name, soundId, volume, speed, parent)
 end
 
 -- เสียงจิ้งหรีดรอบตัว (2D) เบาๆ (PlaybackSpeed = 1.0 เพื่อไม่ให้เสียงยืด)
-local cricketBed = makeLoop("CricketBed", ASSETS.CricketBed, 0.35, 1.0, SoundService)
+-- (0.35 -> 0.5 ผู้ใช้ 2026-11-15: เสียงเครื่องปั่นไฟกลบ ตอนเงียบ = ลางผีใหญ่ ต้องได้ยินชัดก่อนว่าร้องอยู่)
+local cricketBed = makeLoop("CricketBed", ASSETS.CricketBed, 0.5, 1.0, SoundService)
 local eerieAir = makeLoop("EerieAir", ASSETS.EerieAir, 0.07, 1.0, SoundService)
 
 -- จิ้งหรีดอีกฝูงในดงกล้วย/ทุ่งหลังร้าน (3D) เดินเข้าใกล้แล้วดังขึ้น
@@ -527,8 +528,8 @@ local function makePositional(name, soundId, position, volume, speed)
 	return s
 end
 
-local groveCrickets = makePositional("GroveCrickets", ASSETS.CricketFar, Vector3.new(30, 3, 30), 0.5, 1.0)
-local fieldCrickets = makePositional("FieldCrickets", ASSETS.CricketBed, Vector3.new(-20, 3, -55), 0.4, 1.0)
+local groveCrickets = makePositional("GroveCrickets", ASSETS.CricketFar, Vector3.new(30, 3, 30), 0.65, 1.0) -- (0.5 -> 0.65: อยู่ข้างเครื่องปั่นไฟ)
+local fieldCrickets = makePositional("FieldCrickets", ASSETS.CricketBed, Vector3.new(-20, 3, -55), 0.5, 1.0) -- (0.4 -> 0.5)
 fieldCrickets.TimePosition = 18 -- เลื่อนจุดเริ่ม ไม่ให้ร้องพร้อมกับ CricketBed
 
 -- ความเหงา: บางช่วงจิ้งหรีดเงียบกริบไปพักหนึ่ง เหลือแต่ลมหวิว แล้วค่อยๆ ร้องกลับมา

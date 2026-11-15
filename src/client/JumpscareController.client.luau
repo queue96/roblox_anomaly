@@ -25,6 +25,8 @@ local SND = {
 -- เอฟเฟกต์ของผีแต่ละแบบ
 --   focus = แบบที่จะเอามาโชว์ ("head" หัวคนขับ, "passenger", "tani", "scarecrow", "body" ทั้งตัวคนขับ)
 --   tint = สีจอ  extra = เอฟเฟกต์พิเศษ
+-- สีจอตอนผีฉากหลอก: แดงแบบนางรำทุกตัว (ผู้ใช้ 2026-11-16 "ให้เป็นสีแดงเหมือนผีนางรำให้หมด")
+local SCENERY_RED = Color3.fromRGB(110, 10, 40)
 local FX = {
 	Anomaly_Headless = { focus = "passenger", tint = Color3.fromRGB(140, 0, 0), extra = "blood" },
 	Anomaly_Cemetery = { focus = "head", tint = Color3.fromRGB(60, 60, 60), extra = "grey" },
@@ -37,19 +39,21 @@ local FX = {
 	Anomaly_Tani = { focus = "head", tint = Color3.fromRGB(20, 80, 30) },
 	Anomaly_Scarecrow = { focus = "head", tint = Color3.fromRGB(90, 40, 0) },
 	-- ผีฉาก (client/SceneryGhostWatch: มองค้างนาน = พุ่งใส่หน้าคนที่มองคนเดียว)
-	Scenery_Tani = { focus = "rigged", tint = Color3.fromRGB(20, 80, 30) },
-	Scenery_Scarecrow = { focus = "scarecrow", tint = Color3.fromRGB(90, 40, 0) },
-	Scenery_Shadow = { focus = "shadow", tint = Color3.fromRGB(10, 0, 0) },
+	Scenery_Tani = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Scarecrow = { focus = "scarecrow", tint = SCENERY_RED },
+	-- เงาหลังต้นไทรเป็นร่างมีกระดูก (ghost_shadow) แล้ว: rigged = โคลนตัวที่โผล่อยู่ (ท่าเดียวกัน) · ยังเป็นเงาเดิม (Part) = shadow
+	Scenery_Shadow = { focus = "rigged", tint = SCENERY_RED },
 	-- ผีฉากแบบมีกระดูก (AnomalyManager.RIGGED_SCENERY): ตัวผีที่โผล่อยู่ส่งมาเป็น source
-	Scenery_Dancer = { focus = "rigged", tint = Color3.fromRGB(110, 10, 40) },
-	Scenery_MaeNak = { focus = "rigged", tint = Color3.fromRGB(60, 20, 70) },
-	Scenery_Kuman = { focus = "rigged", tint = Color3.fromRGB(150, 110, 0) },
-	Scenery_Child = { focus = "rigged", tint = Color3.fromRGB(40, 50, 60) },
-	Scenery_Shroud = { focus = "rigged", tint = Color3.fromRGB(120, 110, 70) },
-	Scenery_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0) },
-	Scenery_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10) },
-	Scenery_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30) },
-	Scenery_Krahang = { focus = "rigged", tint = Color3.fromRGB(80, 50, 10) },
+	Scenery_Dancer = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_MaeNak = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Kuman = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Child = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Shroud = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Krasue = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Pop = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_ShadowRun = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Pret = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_Krahang = { focus = "rigged", tint = SCENERY_RED },
 	-- ผีใหญ่บุกประชิด (server/BigEvents): source = กลุ่มผีที่กำลังเดินอยู่
 	Big_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0) },
 	Big_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30) },
@@ -122,6 +126,10 @@ grey.Parent = Lighting
 
 -- ---------------------------------------------------------------- เลือกตัวผีมาใส่จอ
 local function ghostModel(key: string?, focus: string, source: Instance?): (Model?, BasePart?, { Instance })
+	-- เงาหลังต้นไทรที่ยังเป็นเงาเดิม (Part ไม่มีกระดูก: ยังไม่ได้นำเข้า ghost_shadow) ใช้แบบเดิม
+	if key == "Scenery_Shadow" and focus == "rigged" and source and not source:FindFirstChildWhichIsA("Bone", true) then
+		focus = "shadow"
+	end
 	local m = Instance.new("Model")
 	local focusPart: BasePart? = nil
 	local roots: { Instance } = {} -- ของจริงในฉากที่ถูก Clone มา (ตอนเผยร่างผีในฉาก: ซ่อนของจริงไว้)
@@ -394,13 +402,39 @@ end
 local DASH = 0.18
 local HOLD = 1.0
 local FADE_OUT = 0.55
-local function showScare(key: string?, source: Instance?, opts: { side: number?, instant: boolean? }?)
+-- opts.cling = ผีเกาะหน้านิ่งๆ (ผีฉากที่วิ่ง/คลานพุ่งมาถึงตัวแล้ว: client/SceneryGhosts)
+--   ผู้ใช้ 2026-11-15: "เข้ามาแล้วขยับมันไม่น่ากลัว" -> ไม่พุ่งเข้าจากไกล ไม่สั่น ท่าค้างเฟรมเดียว ใกล้กว่าปกติ
+--   ท่าที่ค้าง = เฟรมแขนเอื้อมสุดของท่ากรีดร้อง (Zombie Scream) · กุมารทองใช้ท่ากรีดร้องของตัวเอง
+local CLING_POSE = { Pop_PossessedSnap = 0.93, kuman_scream = 1.17 }
+local CLING_NEAR = 1.6 -- ระยะกล้อง (เท่าของขนาดหัว) เวอร์ชันที่ผู้ใช้ชมนางรำ (ลอง 2.1 แล้วไม่ใช่)
+local CLING_HOLD = DASH + HOLD -- ค้างเวลาปกติ 1.18 วิ เหมือนเวอร์ชันที่ชม (ลองย่อเหลือ 0.4 แล้วผู้ใช้ว่าไม่ใช่)
+local CLING_FADE = FADE_OUT -- จาง 0.55 ปกติ
+local CLING_LIVE_FRAME = false -- true = กล้องตามหัวจริงทุกเฟรม + หันตามตัว + ขนาดตามตัว (ลองแล้วผู้ใช้ไม่ชอบ) · false = เล็งกระดูกหัวตอนโคลนแบบที่ชม
+local function freezeCling(model: Model)
+	local list = model:GetDescendants()
+	table.insert(list, model)
+	local now = Workspace:GetServerTimeNow()
+	for _, k in ipairs(list) do
+		if k:IsA("Model") and k:GetAttribute("GhostClip") ~= nil then
+			local clip = if k:GetAttribute("GhostClip") == "kuman_scream" then "kuman_scream" else "Pop_PossessedSnap"
+			-- GhostAnimRunner: เวลาในท่า = (now - T0) * speed -> speed เกือบ 0 + T0 ย้อนไป = ค้างที่เฟรมนั้น
+			k:SetAttribute("GhostClip", clip)
+			k:SetAttribute("GhostClipSpeed", 0.001)
+			k:SetAttribute("GhostClipT0", now - CLING_POSE[clip] / 0.001)
+		end
+	end
+end
+local function showScare(key: string?, source: Instance?, opts: { side: number?, instant: boolean?, cling: boolean? }?)
 	local fx = (key and FX[key]) or DEFAULT_FX
 	local side = (opts and opts.side) or 0
-	local instant = (opts and opts.instant) == true
+	local cling = (opts and opts.cling) == true
+	local instant = (opts and opts.instant) == true or cling
 	playScareSound()
 
 	local model, focus = ghostModel(key, fx.focus, source)
+	if cling and model then
+		freezeCling(model)
+	end
 	-- ผีทั้งตัวสีทึบ (หุ่นไล่กา/ตานี) ต้องสว่างกว่าหน้าคนนิดหน่อย ไม่งั้นจมหายในจอมืด
 	vp.Ambient = if fx.focus == "scarecrow" or fx.focus == "tani" or fx.focus == "shadow" then Color3.fromRGB(175, 165, 160) else Color3.fromRGB(135, 125, 125)
 	local function clearViewport()
@@ -476,6 +510,35 @@ local function showScare(key: string?, source: Instance?, opts: { side: number?,
 			end
 			size = math.max(bsize.Y * 0.55, 2.5) -- ถอยให้เห็นทั้งหัว (ตาหุ่นไล่กาเล็กมากบนหน้ากว้าง)
 		end
+		-- เกาะหน้า (ผีฉากมีกระดูก) ให้เฟรมเหมือนนางรำทุกตัว (ผู้ใช้ 2026-11-15 "เอาแบบผีนางรำ"):
+		--   เล็งหัวจริงทุกเฟรม (ท่ากรีดร้องที่ค้างย้ายหัวไปจากตอนโคลน) · หน้า = ทิศที่ทั้งตัวหัน ไม่ใช่ทิศกระดูกหัว
+		--   (ตอนคลาน ตานี/แม่นาค กระดูกหัวชี้ลงพื้น กล้องเลยเอียงเพี้ยน นางรำวิ่งตัวตรงจึงพอดีอยู่ตัวเดียว)
+		--   ขนาดเฟรมตามความยาวสะโพกถึงหัว: นางรำ 2.26 = 0.6 แบบเดิม ผีเด็ก/กุมาร 1.5 ก็เต็มเฟรมเท่ากัน
+		local liveHead: Bone? = nil
+		local rig = focus.Parent
+		if cling and CLING_LIVE_FRAME and focus.Name == "FocusMarker" and rig and rig:IsA("Model") then
+			local hips: Bone? = nil
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("Bone") then
+					if d.Name == "head" then
+						liveHead = d
+					elseif d.Name == "hips" then
+						hips = d
+					end
+				end
+			end
+			local look = rig:GetPivot().LookVector
+			local flat = Vector3.new(look.X, 0, look.Z)
+			if liveHead and flat.Magnitude > 0.01 then
+				front = flat.Unit
+				target = liveHead.TransformedWorldCFrame.Position
+				if hips then
+					size = math.clamp((liveHead.TransformedWorldCFrame.Position - hips.TransformedWorldCFrame.Position).Magnitude * 0.265, 0.3, 0.9)
+				end
+			else
+				liveHead = nil
+			end
+		end
 		local up = Vector3.new(0, 1, 0)
 		local right = front:Cross(up)
 		if right.Magnitude < 0.01 then
@@ -484,7 +547,7 @@ local function showScare(key: string?, source: Instance?, opts: { side: number?,
 			right = right.Unit
 		end
 		-- หยุดห่างพอเห็นหน้าทั้งหน้า + ไหล่ (เดิม 1.05 ใกล้จนเห็นแค่จมูก/ตา)
-		local far, near = size * 9, size * 2.1
+		local far, near = size * 9, size * (if cling then CLING_NEAR else 2.1)
 		local t0 = os.clock()
 		conn = RunService.RenderStepped:Connect(function()
 			local t = os.clock() - t0
@@ -494,7 +557,11 @@ local function showScare(key: string?, source: Instance?, opts: { side: number?,
 			-- โผล่จากด้านข้าง: เลื่อนกล้องเข้าจากฝั่งนั้น
 			local lateral = if side ~= 0 then right * (-side) * size * 5 * (1 - ease) else Vector3.zero
 			-- สั่นเบาๆ หลังเข้าถึงหน้า (สั่นแรงเกินไปจะมองหน้าผีไม่ชัด)
-			local shake = if k >= 1 and t < 0.6 then Vector3.new(math.random(-4, 4), math.random(-4, 4), 0) / 100 * size else Vector3.zero
+			local shake = if k >= 1 and t < 0.6 and not cling then Vector3.new(math.random(-4, 4), math.random(-4, 4), 0) / 100 * size else Vector3.zero
+			local h = liveHead
+			if h then
+				target = h.TransformedWorldCFrame.Position
+			end
 			local camPos = target + front * dist + lateral + shake
 			vpCam.CFrame = CFrame.lookAt(camPos, target + shake * 0.5 + lateral * 0.3)
 			if fx.spin and model then
@@ -519,17 +586,19 @@ local function showScare(key: string?, source: Instance?, opts: { side: number?,
 		end
 	end)
 
-	task.wait(gui:GetAttribute("DebugHold") or (DASH + HOLD)) -- (ทดสอบ: ตั้ง Attribute DebugHold ให้ค้างนานขึ้น)
+	-- เกาะหน้า (ผีฉาก): โผล่แวบเดียวแล้วหายไว (ผู้ใช้ 2026-11-15: หน้าค้างนาน 1.2 วิ + จาง 0.55 "ไม่น่ากลัว" อยากให้หายเร็วเหมือนตอนแรก)
+	local fadeOut = if cling then CLING_FADE else FADE_OUT
+	task.wait(gui:GetAttribute("DebugHold") or (if cling then CLING_HOLD else DASH + HOLD)) -- (ทดสอบ: ตั้ง Attribute DebugHold ให้ค้างนานขึ้น)
 	-- จางออก
-	TweenService:Create(bg, TweenInfo.new(FADE_OUT), { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(vp, TweenInfo.new(FADE_OUT * 0.7), { ImageTransparency = 1 }):Play()
-	TweenService:Create(tintFrame, TweenInfo.new(FADE_OUT), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(bg, TweenInfo.new(fadeOut), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(vp, TweenInfo.new(fadeOut * 0.7), { ImageTransparency = 1 }):Play()
+	TweenService:Create(tintFrame, TweenInfo.new(fadeOut), { BackgroundTransparency = 1 }):Play()
 	for _, d in ipairs(drips:GetChildren()) do
 		if d:IsA("Frame") then
-			TweenService:Create(d, TweenInfo.new(FADE_OUT), { BackgroundTransparency = 1 }):Play()
+			TweenService:Create(d, TweenInfo.new(fadeOut), { BackgroundTransparency = 1 }):Play()
 		end
 	end
-	task.wait(FADE_OUT)
+	task.wait(fadeOut)
 	if conn then
 		conn:Disconnect()
 	end
@@ -557,7 +626,7 @@ revealGrade.Parent = Lighting
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HumanAnimIds = require(Shared:WaitForChild("HumanAnimIds")) :: any
 local GhostAnimIds = require(Shared:WaitForChild("GhostAnimIds")) :: any
-local SKIRT_OUTFITS = { sarong = true, blouse_sin = true, indigo_scarf = true, sabai = true }
+local SKIRT_OUTFITS = { sarong = true, blouse_sin = true, indigo_scarf = true, sabai = true, c_girl_sin = true, c_girl_tee = true }
 local FLOAT_CLIPS = { Float = true, FlapFly = true, Glide = true, shroud_glide = true, Lunge = true }
 local GHOST_MOVE_SIDE = { "run", "TwitchWalk", "ghost_glide", "Float", "FlapFly", "Glide", "shroud_glide", "coffin_walk", "TallSlowWalk" }
 local GHOST_MOVE_LUNGE = { "Lunge", "ghost_glide", "run", "Float", "FlapFly", "Glide", "shroud_glide", "TwitchWalk", "coffin_walk", "TallSlowWalk" }
@@ -871,7 +940,7 @@ local function laughAfterScare(key: string?, source: Instance?)
 end
 
 local busy = false
-local function runScare(key: string?, source: Instance?, reason: string?, plan: any?)
+local function runScare(key: string?, source: Instance?, reason: string?, plan: any?, extra: { cling: boolean? }?)
 	if busy then
 		return
 	end
@@ -881,7 +950,7 @@ local function runScare(key: string?, source: Instance?, reason: string?, plan: 
 	end
 	busy = true
 	local ok, err = pcall(function()
-		local opts = nil
+		local opts: any = extra
 		if reason == "fueled" and type(plan) == "table" then
 			opts = revealGhost(key, source, plan)
 		end
@@ -901,6 +970,7 @@ TriggerJumpscare.OnClientEvent:Connect(function(key: string?, source: Instance?,
 	runScare(key, source, reason, plan)
 end)
 -- ผีหลอกเฉพาะเครื่องนี้ (ผีฉาก: client/SceneryGhostWatch) ไม่ผ่านเซิร์ฟเวอร์ คนอื่นไม่เห็น
-_G.LocalJumpscare = function(key: string, source: Instance?)
-	task.spawn(runScare, key, source)
+-- opts.cling = เกาะหน้านิ่งๆ (ดู showScare)
+_G.LocalJumpscare = function(key: string, source: Instance?, opts: { cling: boolean? }?)
+	task.spawn(runScare, key, source, nil, nil, opts)
 end

@@ -5,6 +5,9 @@
 --   ผีอยู่ที่ของมัน (ดงกล้วย / ต้นไทร / ทุ่ง) ขยับออกมาให้เห็นนิดเดียว + เรืองแสงจางๆ ไม่เดินมาหน้าร้านเอง
 --   ผู้เล่นหันไปเห็น = ผีเดินเข้าหาคนนั้น (ผู้ใช้ 2026-11-04) เดินไล่ทัน / หนีนานเกิน HuntMax / ปิดแผงระหว่างถูกไล่ = ผีหลอก
 --     ใครอยู่นอกร้าน (หรือคนที่ถูกไล่ถึงตัวตอนแผงเปิด) ล้ม + ตาปรือ จนผีปั่นป่วนเสร็จ (server: CoreLoop.Rampage / GhostLinger)
+--   จ้องค้าง (กลางจอต่อเนื่อง StareTime) = วิ่ง/คลานพุ่งเข้าหาเร็วเกินคน ถึงตัว = ผีหลอกเต็มหน้า (ผู้ใช้ 2026-11-15)
+--     วิ่ง: ตานี แม่นาค นางรำ กุมารทอง ผีเด็ก เงาหลังต้นไทร · ลอยพุ่ง: ศพห่อผ้า (ดู rush ใน KINDS)
+--     (ตานี/แม่นาคเคยคลาน: หัวก้มลงพื้น จอหลอกเกาะหน้าเลยเอียง -> วิ่งตัวตรงแบบนางรำ ผู้ใช้ 2026-11-15 "แก้ตัวอื่นให้เป็นแบบนางรำ")
 --   ผีเดินผ่าน (path: เปรต กระหัง) ยังใช้แบบเดิม: มองค้างนาน = พุ่งใส่หน้า (client/SceneryGhostWatch ใช้ tag "SceneryGhost")
 --   หุ่นไล่กา: พอหันไปเห็น ไถลถอยหลังหายไปในทุ่ง (ไม่พุ่งใส่หน้า)
 -- ไฟดับ (เครื่องปั่นไฟ) + พนมมือจนตาทิพย์เปิด: เห็นศพห่อผ้าขาวยืนเต็มทุ่ง -> ลงสมุด 1 อีเวนต์ต่อคืน (Remotes.OutageSwarm)
@@ -47,6 +50,14 @@ local CONFIG = {
 	-- ตอนยืนมองคงทึบไว้ (ผู้ใช้ 2026-11-12: เดิม 0.55 จางไว + ชิ้นโปร่งแสงเรียงผิด หัววาดทับผม ดูหัวล้าน)
 	WatchTransparency = 0,
 	WatchFadeOut = 3, -- ยืนมองครบแล้วค่อยๆ จางหายนานเท่านี้ (วินาที)
+	-- จ้องค้าง = วิ่ง/คลานพุ่งเข้าหาเร็วเกินคน แล้วผีหลอกเต็มหน้า (ผู้ใช้ 2026-11-15) เฉพาะผีที่มี rush ใน KINDS
+	StareTime = 2.5, -- ผีอยู่กลางจอต่อเนื่องกี่วินาที (เท่า SceneryGhostWatch STARE)
+	StareCenter = 0.22, -- ห่างกลางจอไม่เกินสัดส่วนนี้ = กำลังจ้อง
+	StareGrace = 0.4, -- ละสายตาสั้นๆ ไม่เกินนี้ ยังนับจ้องต่อ
+	RushWindup = 0.2, -- หยุดนิ่งหันมามองก่อนพุ่ง (วินาที)
+	RushSpeed = 160, -- studs/วินาที (ผู้เล่นเดิน 10: เร็วกว่าคน 16 เท่า · ผู้ใช้ 2026-11-15: 85 ยังช้า)
+	RushReach = 4, -- ถึงตัวในระยะนี้ = ผีหลอก
+	RushMax = 3, -- พุ่งนานสุดกี่วินาที แล้วหลอกเลย
 	GlowColor = Color3.fromRGB(185, 205, 255),
 	SwarmCount = 14, -- ศพห่อผ้าตอนไฟดับ
 	SwarmRadius = { 24, 72 },
@@ -76,19 +87,33 @@ type Kind = {
 	longLegs: number?, -- ขายาวกี่เท่า (ค่อยๆ ยืดหลังโผล่ แล้วเดินขาโย่งไปมา / เดินไล่ด้วยขายาว)
 	hop: { height: number, rate: number }?, -- กระโดดดึ๋งๆ ตอนเคลื่อน (สูง studs, ครั้งต่อวินาที)
 	float: boolean?, -- ลอย (shared/GhostFloat): ส่ายซ้ายขวา ขึ้นลง เอียงตัว พุ่งเป็นพักๆ เร็วขึ้นตามความดุของรอบ
+	-- จ้องค้าง = พุ่งเข้าหา (CONFIG.Rush*): clip = ท่าตอนพุ่ง (กระดูกชื่อเดียวกันทุกตัว: ยืมท่าข้ามผีได้ เช่น Pop_Crawl), speed = ความเร็วเล่นท่า
+	rush: { clip: string, speed: number }?,
+	pickByView: boolean?, -- เลือกระหว่างที่ประจำกับจุดหน้าร้าน (front) ตามมุมมอง: จุดที่ไม่มีใครมองและอยู่ค่อนไปทางหลังเรา
+	roadRun: boolean?, -- วิ่งไปตามถนนผ่านหน้าร้าน ทางเดียวกับรถลูกค้า (roadRunPath)
+	noGlow: boolean?, -- ไม่มีแสงเรืองรอบตัว (addGlow) ปอบวิ่งถนน: ผู้ใช้ 2026-11-15 ให้เอาแสงหน้าปอบออก
+	screech: boolean?, -- เสียงกรีดแหลมดังติดตัวตลอดทาง (screechOn)
+	fadeIn: number?, -- วินาทีที่ค่อยๆ ปรากฏ (ไม่ใส่ = 2)
+	faint: number?, -- ตัวจางๆ: โปร่งค้างเท่านี้ตอนมองเห็น (attribute "Faint" ใช้ใน fade) ผู้ใช้ 2026-11-16
 }
+local CRAWL = { clip = "Pop_Crawl", speed = 3.5 } -- คลานสี่ขา (ท่าคลานของปอบ) ตอนนี้ไม่มีผีตัวไหนใช้
+local RUN = { clip = "kuman_run", speed = 3.8 } -- วิ่งซอยเท้ายิกๆ
+local FAINT = 0.45 -- ผีฉากตัวจางๆ (0 = ทึบ, 1 = ล่องหน) ผู้ใช้ 2026-11-16 "พวกนี้ทำให้ตัวจางๆ หน่อย"
 local KINDS: { [string]: Kind } = {
 	-- ตานี: เดินลากตัวออกจากดงกล้วย (tani_walk = Zombie Walk เล่นช้าลงให้เท้าไม่ไถล) ผู้ใช้ 2026-11-12: เดิม ghost_idle ไถลตัวแข็ง
-	Tani = { model = "ghost_tani", from = { 28, 7 }, to = { 27.4, 2.1 }, clip = "tani_peek", moveClip = "tani_walk", moveClipSpeed = 0.5, speed = 0.8 },
-	-- นางรำ: ครึ่งหนึ่งโผล่ที่ต้นไทร อีกครึ่งมารำหน้าร้าน (ฝั่งตรงข้ามถนน / ข้างลาน) ผู้ใช้ 2026-11-05
+	-- (ผู้ใช้ 2026-11-16 "ตานีผมยังหลุด": ท่าแอบมอง tani_peek ชะโงก + ชี้แขน ดูหัวกับผมแยกกัน -> ยืนเฉยๆ ghost_idle)
+	Tani = { model = "ghost_tani", from = { 26, 4.5 }, to = { 21.4, 3.1 }, clip = "ghost_idle", moveClip = "tani_walk", moveClipSpeed = 0.5, speed = 0.8, rush = RUN, faint = FAINT }, -- (ผมหลุดจริงๆ มาจากผมเก่าไม่ผูกกระดูกหัว: เปลี่ยนผมใหม่ TaniHairV2 แล้ว 2026-11-16 จางได้)
+	-- นางรำ: รำอยู่ใต้ต้นไทร (เดิมครึ่งหนึ่งมารำหน้าร้าน ผู้ใช้ 2026-11-05 · เหลือต้นไทรที่เดียว 2026-11-16)
 	Dancer = {
 		model = "ghost_dancer",
 		from = { -33, 17 },
 		to = { -30, 13 },
 		clip = "dancer_dance",
 		speed = 0.7,
-		front = { { -16, -20 }, { -4, -21 }, { 8, -20 }, { 12, -2 } },
-		frontChance = 0.5,
+		-- (ผู้ใช้ 2026-11-16: เกิดใต้ต้นไทรที่เดียว เลิกจุดหน้าร้าน front {-16,-20} {-4,-21} {8,-20} {12,-2} และ pickByView)
+		--   ยังรอให้จุดใต้ต้นไทรพ้นสายตาก่อนโผล่ (show) เหมือนผีฉากตัวอื่น
+		faint = FAINT,
+		rush = RUN,
 	},
 	-- แม่นาก: ยื่นมือแล้วแขนยืดยาวออกมาหยิบของ (ตำนานยื่นมือเก็บมะนาว)
 	MaeNak = {
@@ -99,23 +124,35 @@ local KINDS: { [string]: Kind } = {
 		speed = 1.2,
 		after = { 4, "nak_reach" },
 		reach = { side = "R", factor = 4.5, at = 4.8, hold = 2.5, every = 9 },
+		faint = FAINT,
+		rush = RUN,
 	},
 	-- กุมารทอง: กระโดดดึ๋งๆ เข้ามา
-	Kuman = { model = "ghost_kuman_thong", from = { -38, 17 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "run", speed = 3, huntSpeed = 9, hop = { height = 2.6, rate = 1.7 } },
+	Kuman = { model = "ghost_kuman_thong", from = { -38, 17 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "kuman_run", speed = 3, huntSpeed = 9, hop = { height = 2.6, rate = 1.7 }, rush = { clip = "kuman_run", speed = 4.2 }, faint = FAINT },
 	-- ผีเด็ก: ขายืดสูงโย่ง เดินไปมา/เดินไล่ด้วยขายาว
-	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4 },
-	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6, float = true },
+	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4, rush = RUN, faint = FAINT },
+	-- ศพห่อผ้า: ไม่มีขา ลอยพุ่งมาแทนวิ่ง
+	Shroud = { model = "ghost_shroud", from = { -27, -50 }, to = { -25, -44 }, clip = "shroud_idle", moveClip = "shroud_glide", lift = 0.5, speed = 1.6, float = true, rush = { clip = "shroud_glide", speed = 4 }, faint = FAINT },
 	Krasue = { model = "Krasue", from = { -38, -50 }, to = { -34, -44 }, clip = "Float", lift = 5.5, speed = 2.2, huntSpeed = 9, glow = Color3.fromRGB(255, 110, 40), focus = "Head", float = true },
 	-- ปอบ: คลานสี่ขาตลอด ไม่ลุกยืน (ผู้ใช้ 2026-11-12: แยกจากปอบผีใหญ่ที่เดินกระตุกมาเคาะแผง)
 	-- Running Crawl วนเร็ว: ตอนเคลื่อนเล่นช้าลงให้มือเท้าไม่ไถล · ตอนหยุดคลานย่องอยู่กับที่ช้ามาก
-	Pop = { model = "Pop", from = { 32, -26 }, to = { 29, -23 }, clip = "Crawl", clipSpeed = 0.12, moveClip = "Crawl", moveClipSpeed = 0.45, speed = 2 },
+	-- ปอบ (ผู้ใช้ 2026-11-15): คลานสี่ขาพุ่งไปตามถนนตัดหน้าร้าน (ทางรถลูกค้า SpawnPoint <-> ExitPoint ~265 studs ราว 3.5 วิ)
+	--   + เสียงกรีดแหลมดังยาวติดตัวตลอดทาง แล้วหายไปสุดถนน · ท่า Crawl = Running Crawl mocap ของปอบเอง (Pop_Crawl)
+	--   (45 + ท่าวิ่งยืมของกุมาร ผู้ใช้ว่ายังช้าและท่าไม่ใช่ทั้งคลานทั้งวิ่ง -> 75 + ท่าคลาน) · from/to ใช้แค่ตอนหาจุดรถไม่เจอ
+	--   (ผู้ใช้ 2026-11-16: ไม่สุ่มปอบแล้ว ย้ายไปหมวด "ไม่ใช้แล้ว" ใช้เงาดำวิ่งตัด ShadowRun แทน · ปุ่ม admin ยังเรียกได้)
+	Pop = { model = "Pop", from = { -139, -11 }, to = { 126, -12 }, clip = "Crawl", moveClip = "Crawl", moveClipSpeed = 3.5, speed = 75, path = true, roadRun = true, screech = true, fadeIn = 0.2, noGlow = true },
+	-- เงาดำวิ่งตัดถนน (ผู้ใช้ 2026-11-16 แทนปอบ): ร่างเงา ghost_shadow วิ่งเร็วมากไปตามถนนผ่านหน้าร้าน (ทางรถลูกค้า)
+	--   + เสียงกรีด "scream" ดังยาวติดตัว แล้วหายไปสุดถนน · ท่า Pop_Run = วิ่งสปรินต์ที่ทำจาก Walking mocap (ghost_mocap_retarget PART 9)
+	ShadowRun = { model = "ghost_shadow", from = { -139, -11 }, to = { 126, -12 }, clip = "Pop_Run", moveClip = "Pop_Run", moveClipSpeed = 2.6, speed = 100, path = true, roadRun = true, screech = true, fadeIn = 0.2, noGlow = true },
 	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 14, path = true }, -- 5x size (GhostAnimIds.SCALE): stride 5x longer too
 	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true, float = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
-	Shadow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
+	Shadow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "", rush = RUN, faint = FAINT },
 }
 -- ไม่สุ่ม Pret แล้ว (ผู้ใช้ 2026-11-12): เปรตเดินผ่านถนนซ้ำกับผีใหญ่ Big_Pret ทำให้งงกติกา (ปุ่ม admin ยังเรียกได้)
-local KIND_LIST = { "Tani", "Dancer", "MaeNak", "Kuman", "Child", "Shroud", "Krasue", "Pop", "Krahang", "Scarecrow", "Shadow" }
+-- ไม่สุ่ม Krasue / Krahang แล้ว (ผู้ใช้ 2026-11-15): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin (ปุ่มยังเรียกดูได้)
+-- ไม่สุ่ม Pop แล้ว (ผู้ใช้ 2026-11-16): ใช้ ShadowRun (เงาดำวิ่งตัดถนน) แทน
+local KIND_LIST = { "Tani", "Dancer", "MaeNak", "Kuman", "Child", "Shroud", "ShadowRun", "Scarecrow", "Shadow" }
 
 local function rand(r: { number }): number
 	return r[1] + math.random() * (r[2] - r[1])
@@ -147,34 +184,55 @@ local function hasHair(root: Instance): boolean
 	return false
 end
 
-local function flicker(parts: { BasePart }, t: number, time: number)
-	local target = if t >= 0.5 then 1 else 0
+-- ผมแยกชิ้นทึบเสมอตอนมองเห็น (ผู้ใช้ 2026-11-16 ตานีผมยังหลุดตอนตัวจาง): ชิ้นทึบวาดตามความลึกจริง
+--   ผมจึงอยู่หน้าหัวถูกต้อง ไม่โดนหัวที่โปร่งวาดทับ (ตัวยังจางตาม Faint ได้)
+--   ของที่วางบนตัว (มงกุฎ/ดอกไม้นางรำ Cloth_ · ผ้ามัดคางศพ/ลูกแม่นาค Prop_) ทึบด้วย: ลำดับวาดพังแบบเดียวกับผมได้
+local function isHair(p: BasePart): boolean
+	local n = p.Name
+	return string.find(n, "Hair") ~= nil or string.sub(n, 1, 6) == "Cloth_" or string.sub(n, 1, 5) == "Prop_"
+end
+-- SOLID_HAIR = true: ผมและของบนตัวทึบ ตัวจาง (ข้อสรุป 2026-11-16)
+--   ลองผมจางเท่าตัวแล้ว: Roblox วาดหัว/ตัวที่โปร่งทับผมที่โปร่ง = ตานีหัวล้าน มองไม่เห็นผม (รูปผู้ใช้) แก้ในเกมไม่ได้
+--   ส่วน "ผมหลุด" ตอนผมทึบรอบก่อน มาจากท่าแอบมอง tani_peek (ชะโงก + ชี้แขน) ซึ่งเปลี่ยนเป็นยืนเฉยๆ แล้ว
+local SOLID_HAIR = true
+local function partGoal(p: BasePart, goal: number): number
+	return if SOLID_HAIR and goal < 1 and isHair(p) then 0 else goal
+end
+
+-- goal = ค่าที่จะค้าง (0..1) · solid = ตัวตอน "ติด" ระหว่างกะพริบ (ผีจางๆ = ติดเป็นตัวจาง ไม่ใช่ทึบ)
+local function flicker(parts: { BasePart }, goal: number, solid: number, time: number)
+	local appear = goal < 1
 	for _, p in ipairs(parts) do
-		p:SetAttribute("FlickerTo", target)
+		p:SetAttribute("FlickerTo", goal)
 	end
 	local steps = math.max(3, math.floor(time / 0.12))
 	task.spawn(function()
 		for i = 1, steps do
-			if parts[1] and parts[1]:GetAttribute("FlickerTo") ~= target then
+			if parts[1] and parts[1]:GetAttribute("FlickerTo") ~= goal then
 				return -- a newer fade took over
 			end
 			-- ช่วงต้นติดสั้นดับนาน ช่วงท้ายกลับกัน (ค่อยๆ มีตัวตน / ค่อยๆ หาย)
 			local k = i / steps
-			local on = math.random() < (if target == 0 then k else 1 - k)
+			local on = math.random() < (if appear then k else 1 - k)
 			for _, p in ipairs(parts) do
-				p.Transparency = if on then 0 else 1
+				p.Transparency = if on then partGoal(p, solid) else 1
 			end
 			task.wait(time / steps)
 		end
-		if parts[1] and parts[1]:GetAttribute("FlickerTo") == target then
+		if parts[1] and parts[1]:GetAttribute("FlickerTo") == goal then
 			for _, p in ipairs(parts) do
-				p.Transparency = target
+				p.Transparency = partGoal(p, goal)
 			end
 		end
 	end)
 end
 
+-- ผีจางๆ (attribute "Faint" บนตัวผี ผู้ใช้ 2026-11-16 "ทำให้ตัวจางๆ หน่อย"): "มองเห็น" = โปร่งเท่า Faint ไม่ทึบ
+--   t = 1 ล่องหน / ต่ำกว่านั้นถูกยกขึ้นเป็นอย่างน้อย Faint · ก่อนเข้าจอหลอก ตั้ง Faint = 0 แล้ว fade 0 ทันที (solidNow)
+--   ⚠️ ผมแยกชิ้นตอนโปร่งครึ่งๆ Roblox อาจวาดหัวทับผม (ดูหมายเหตุ hasHair) ผู้ใช้ขอจางเองรู้ความเสี่ยงนี้
 local function fade(root: Instance, t: number, time: number)
+	local faint = (root:GetAttribute("Faint") :: number?) or 0
+	local goal = if t >= 1 then 1 else math.max(t, faint)
 	if time > 0 and hasHair(root) then
 		local parts = {}
 		for _, d in ipairs(root:GetDescendants()) do
@@ -182,19 +240,26 @@ local function fade(root: Instance, t: number, time: number)
 				table.insert(parts, d)
 			end
 		end
-		flicker(parts, t, time)
+		flicker(parts, goal, faint, time)
 		return
 	end
 	for _, d in ipairs(root:GetDescendants()) do
 		if d:IsA("BasePart") and d.Name ~= "RootPart" and d.Name ~= "FocusMarker" then
 			d:SetAttribute("FlickerTo", nil) -- stops a running flicker
+			local g = partGoal(d, goal)
 			if time > 0 then
-				TweenService:Create(d, TweenInfo.new(time), { Transparency = t }):Play()
+				TweenService:Create(d, TweenInfo.new(time), { Transparency = g }):Play()
 			else
-				d.Transparency = t
+				d.Transparency = g
 			end
 		end
 	end
+end
+
+-- ทึบทันที (ก่อน JumpscareController โคลนตัวไปขึ้นจอหลอก: หน้าในจอหลอกต้องไม่จาง)
+local function solidNow(m: Instance)
+	m:SetAttribute("Faint", 0)
+	fade(m, 0, 0)
 end
 
 -- ---------------------------------------------------------------- ผีมีกระดูก (ท่าเล่นบนเครื่องนี้เอง)
@@ -383,11 +448,37 @@ local function showScarecrow(): Model?
 	return m
 end
 
+-- เงาหลังต้นไทร: ร่างเงาคนมีกระดูก ghost_shadow (assets/models/ShadowGhostV2, ผู้ใช้ 2026-11-15 "แข็งๆ" -> แก้)
+--   ยืนตรงจุดของเงาเดิม (AnomalyProps.BanyanShadowAnomaly ที่ MapBuilder.HideBanyanShadowBehindTree ย้ายไปหลังลำต้น)
+--   หันหาร้าน ยืนคอเอียงตัวห่อ (shadow_stand: Zombie Idle ลงร่างเงาเอง ผู้ใช้ 2026-11-15 ท่า tani_peek ที่ยืมมาแขนบิดไปข้างหลัง) ค่อยๆ ทึบขึ้น · จ้องค้าง = พุ่งใส่
+--   ยังไม่มีแม่แบบ ghost_shadow ใน GhostModels = ใช้เงาเดิม (กล่อง + ลูกบอล) แบบเก่า
+local SHADOW_CLIP = "shadow_stand"
 local function showShadow(): Model?
 	local ap = Workspace:FindFirstChild("AnomalyProps")
 	local src = ap and ap:FindFirstChild("BanyanShadowAnomaly") :: Model?
 	if not src then
 		return nil
+	end
+	if models and models:FindFirstChild("ghost_shadow") then
+		local rm = spawnRigged("ghost_shadow")
+		if rm then
+			local torso = src:FindFirstChild("ShadowTorso") :: BasePart?
+			local p = if torso then torso.Position else src:GetPivot().Position
+			local feet = Vector3.new(p.X, groundAt(p.X, p.Z), p.Z)
+			local f = shopFront()
+			local look = Vector3.new(f.X - feet.X, 0, f.Z - feet.Z)
+			look = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, -1)
+			rm:PivotTo(CFrame.lookAt(feet, feet + look))
+			rm:SetAttribute("FocusBone", "head")
+			rm:SetAttribute("Faint", KINDS.Shadow.faint) -- ตัวจางๆ
+			rm.Name = "ShadowLocal"
+			fade(rm, 1, 0)
+			rm.Parent = folder
+			fade(rm, 0, 3)
+			play(rm, SHADOW_CLIP)
+			current = { kind = "Shadow", m = rm }
+			return rm
+		end
 	end
 	local m = src:Clone()
 	for _, d in ipairs(m:GetDescendants()) do
@@ -453,7 +544,7 @@ end
 -- ผีอยู่ในสายตาผู้เล่นตอนนี้ไหม (อยู่ค่อนไปทางกลางจอ ไม่ไกลเกิน ไม่มีของทึบบัง)
 local seeParams = RaycastParams.new()
 seeParams.FilterType = Enum.RaycastFilterType.Exclude
-local function inSight(p: Vector3): boolean
+local function inSight(p: Vector3, center: number?): boolean
 	local cam = Workspace.CurrentCamera
 	if not cam then
 		return false
@@ -463,7 +554,7 @@ local function inSight(p: Vector3): boolean
 		return false
 	end
 	local vs = cam.ViewportSize
-	if Vector2.new((sp.X - vs.X / 2) / (vs.X / 2), (sp.Y - vs.Y / 2) / (vs.Y / 2)).Magnitude > CONFIG.SeeCenter then
+	if Vector2.new((sp.X - vs.X / 2) / (vs.X / 2), (sp.Y - vs.Y / 2) / (vs.Y / 2)).Magnitude > (center or CONFIG.SeeCenter) then
 		return false
 	end
 	local camPos = cam.CFrame.Position
@@ -488,6 +579,11 @@ local function inSight(p: Vector3): boolean
 end
 
 -- ผีไล่ถึงแล้ว: ให้ server ตัดสินว่าใครโดน (คนนอกร้าน ล้มจนผีปั่นป่วนเสร็จ) แล้วตอบกลับว่าเครื่องนี้โดนหลอกไหม
+-- จอหลอกของผีฉาก = เกาะหน้า เวอร์ชันที่ผู้ใช้ชม "นางรำดีมากๆ" (2026-11-15): โผล่ประชิดทันที ไม่สั่น ท่ากรีดร้องค้างเฟรมเดียว
+--   กล้องใกล้ 1.6 เล็งตามกระดูกหัวตอนโคลน ค้าง/จางเวลาปกติ (ค่าใน JumpscareController: CLING_NEAR / CLING_LIVE_FRAME / CLING_HOLD)
+--   (ลองแบบอื่นแล้วผู้ใช้ไม่ชอบ: กล้องตามหัวจริง+ระยะ 2.1, ค้างสั้น 0.4, และแบบแรกสุดที่พุ่งเข้า+สั่น+ท่าวิ่ง)
+local CLING: { cling: boolean }? = { cling = true }
+
 local hitRemote: RemoteEvent? = nil
 task.spawn(function()
 	local r = remotes:WaitForChild("SceneryGhostHit") :: RemoteEvent
@@ -498,7 +594,8 @@ task.spawn(function()
 			return
 		end
 		if scared and _G.LocalJumpscare then
-			_G.LocalJumpscare("Scenery_" .. c.kind, c.m)
+			solidNow(c.m)
+			_G.LocalJumpscare("Scenery_" .. c.kind, c.m, CLING)
 		end
 		task.delay(if scared then 0.3 else 0, function()
 			if current == c then
@@ -522,22 +619,177 @@ local function strike(kind: string)
 	end)
 end
 
-local function showRigged(kind: string, def: Kind): Model?
-	local m = spawnRigged(def.model)
-	if not m then
-		return nil
+-- ---------------------------------------------------------------- จ้องค้าง = พุ่งใส่ (ผู้ใช้ 2026-11-15)
+-- ตัวนับจ้อง: เรียกทุกเฟรมด้วยตำแหน่งหัวผี คืน true เมื่อผีอยู่กลางจอต่อเนื่องครบ StareTime
+local function stareTracker(): (Vector3, number) -> boolean
+	local stare, away = 0, 0
+	return function(p: Vector3, dt: number): boolean
+		if inSight(p, CONFIG.StareCenter) then
+			stare += dt
+			away = 0
+		else
+			away += dt
+			if away > CONFIG.StareGrace then
+				stare = 0
+			end
+		end
+		return stare >= CONFIG.StareTime
 	end
-	local lift = def.lift or 0
+end
+
+-- เริ่มพุ่ง: เล่นท่าวิ่ง/คลานเร็วๆ + หัวเราะ/กรีด · ห้ามจางหายเองระหว่างพุ่ง (current.hunting)
+local function rushBegin(kind: string, m: Model, r: { clip: string, speed: number })
+	fade(m, 0, 0.2)
+	play(m, r.clip, r.speed)
+	if current and current.m == m then
+		current.hunting = true
+	end
+	local root = m:FindFirstChild("RootPart") or m.PrimaryPart
+	local set = SoundBank.GhostSounds[kind]
+	if root and set and set.laugh then
+		SoundBank.PlayOneShot(set.laugh, root, 70, 4)
+	end
+end
+
+-- ก้าวพุ่งหนึ่งเฟรม: คืน (ตำแหน่งใหม่, ทิศหันหน้า, ถึงแล้วหรือยัง)
+--   ชนกรอบเพิงร้าน (ผู้เล่นอยู่ในร้าน) = หลอกที่หน้าร้านเลย ไม่ทะลุผนังเข้าไป
+local function rushStep(pos: Vector3, dt: number, since: number): (Vector3, Vector3?, boolean)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return pos, nil, true
+	end
+	local gap = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+	local dir = if gap.Magnitude > 0.01 then gap.Unit else nil
+	if gap.Magnitude <= CONFIG.RushReach or since >= CONFIG.RushMax or not dir then
+		return pos, dir, true
+	end
+	local nextPos = pos + dir * math.min(CONFIG.RushSpeed * dt, gap.Magnitude - CONFIG.RushReach + 0.5)
+	if not inShackBox(pos) and inShackBox(nextPos) then
+		return pos, dir, true
+	end
+	return nextPos, dir, false
+end
+
+-- พุ่งถึงแล้ว: ถูกขังนอกร้าน = ให้ server ตัดสินแบบผีไล่ (ล้ม + ปั่นป่วน) / ไม่งั้น = ผีหลอกเต็มหน้าเฉพาะเครื่องนี้
+local function rushScare(kind: string, m: Model)
+	if lockedOut() then
+		strike(kind)
+		return
+	end
+	if _G.LocalJumpscare then
+		solidNow(m)
+		_G.LocalJumpscare("Scenery_" .. kind, m, CLING)
+	end
+	task.delay(0.3, function()
+		if current and current.m == m then
+			hide(0.3)
+		end
+	end)
+end
+
+-- เงาหลังต้นไทร (ร่างมีกระดูก): ยืนนิ่งที่เดิม จ้องค้าง = วิ่งพุ่งเข้าหา
+local function attachShadowRush(m: Model)
+	local r = KINDS.Shadow.rush
+	if not r or not m:FindFirstChildWhichIsA("Bone", true) then
+		return -- เงาเดิม (Part): ใช้จ้องค้างแล้วพุ่งใส่หน้าของ SceneryGhostWatch แบบเดิม
+	end
+	m:SetAttribute("NoStare", true)
+	local head: Bone? = nil
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("Bone") and d.Name == "head" then
+			head = d
+			break
+		end
+	end
+	local stared = stareTracker()
+	local pos = m:GetPivot().Position
+	local rushing, done, rushGo = false, false, 0
+	local conn = RunService.Heartbeat:Connect(function(dt)
+		if done or not m.Parent then
+			return
+		end
+		if not rushing then
+			local p = if head then head.WorldPosition else pos + Vector3.new(0, 4, 0)
+			if stared(p, dt) then
+				rushing = true
+				rushGo = os.clock() + CONFIG.RushWindup
+				rushBegin("Shadow", m, r)
+			end
+			return
+		end
+		if os.clock() < rushGo then
+			return
+		end
+		local arrived: boolean
+		local dir: Vector3?
+		pos, dir, arrived = rushStep(pos, dt, os.clock() - rushGo)
+		local feet = Vector3.new(pos.X, groundAt(pos.X, pos.Z), pos.Z)
+		if dir then
+			m:PivotTo(CFrame.lookAt(feet, feet + dir))
+		end
+		if arrived then
+			done = true
+			rushScare("Shadow", m)
+		end
+	end)
+	if current and current.m == m then
+		current.conn = conn
+	end
+end
+
+-- จุดเดินออกมา (from) และจุดหยุด (to) ของผีตัวนี้ · frontSpot = จุดหน้าร้านที่ show() สุ่มไว้แล้ว (nil = ที่ประจำ)
+local function rigPath(def: Kind, frontSpot: { number }?, cross: { Vector3 }?): (Vector3, Vector3)
+	if cross then
+		return cross[1], cross[2]
+	end
 	local from = Vector3.new(def.from[1], 0, def.from[2])
 	local to = Vector3.new(def.to[1], 0, def.to[2])
-	if def.front and #def.front > 0 and math.random() < (def.frontChance or 0.5) then
-		local spot = def.front[math.random(#def.front)]
-		to = Vector3.new(spot[1], 0, spot[2])
+	if frontSpot then
+		to = Vector3.new(frontSpot[1], 0, frontSpot[2])
 		local f = shopFront()
 		local away = Vector3.new(to.X - f.X, 0, to.Z - f.Z)
 		away = if away.Magnitude > 0.01 then away.Unit else Vector3.new(0, 0, -1)
 		from = to + away * 3
 	end
+	return from, to
+end
+
+-- เสียงกรีดแหลมดังๆ ติดตัวผี (เสียง 3D อยู่ที่ RootPart วิ่งตามตัว) · ผีหาย = เสียงหายไปด้วย
+--   SCREECH_ID = ไฟล์ "scream" ที่เจ้าของเกมอัปโหลด (2026-11-16) เล่นความเร็วปกติ ไม่แต่งเสียง
+--   (ถ้าเอา id ออก = ใช้เสียงปอบ SoundBank Ghost_Pop เร่งให้แหลม + ดันเสียงแหลม ตัดทุ้ม แทน)
+local SCREECH_ID: string? = "rbxassetid://92000290721684"
+local function screechOn(m: Model)
+	local root = m:FindFirstChild("RootPart") or m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
+	if not root then
+		return
+	end
+	local s = Instance.new("Sound")
+	s.Name = "Screech"
+	s.SoundId = SCREECH_ID or (SoundBank.ResolveId(SoundBank.Presets.Ghost_Pop))
+	s.PlaybackSpeed = if SCREECH_ID then 1 else 1.55
+	s.Looped = true -- กรีดยาวต่อเนื่องตลอดทางที่วิ่ง (ผู้ใช้ 2026-11-15 "กรีดดังยาวๆ") หายไปพร้อมตัวผี
+	s.Volume = 2.5
+	s.RollOffMode = Enum.RollOffMode.InverseTapered
+	s.RollOffMinDistance = 18
+	s.RollOffMaxDistance = 300
+	if not SCREECH_ID then
+		local eq = Instance.new("EqualizerSoundEffect")
+		eq.LowGain = -12
+		eq.MidGain = 2
+		eq.HighGain = 8
+		eq.Parent = s
+	end
+	s.Parent = root
+	s:Play()
+end
+
+local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross: { Vector3 }?): Model?
+	local m = spawnRigged(def.model)
+	if not m then
+		return nil
+	end
+	local lift = def.lift or 0
+	local from, to = rigPath(def, frontSpot, cross)
 	local dir = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
 	local total = dir.Magnitude
 	local unit = if total > 0.01 then dir.Unit else Vector3.new(0, 0, -1)
@@ -586,12 +838,20 @@ local function showRigged(kind: string, def: Kind): Model?
 		m:PivotTo(CFrame.lookAt(feet, feet + look))
 	end
 	place(from, unit)
-	addGlow(m, def.glow or CONFIG.GlowColor)
+	if not def.noGlow then
+		addGlow(m, def.glow or CONFIG.GlowColor)
+	end
 	m:SetAttribute("FocusBone", def.focus or "head")
+	if def.faint then
+		m:SetAttribute("Faint", def.faint) -- ตัวจางๆ (fade ยกค่าโปร่งขึ้นเป็นอย่างน้อยเท่านี้)
+	end
 	fade(m, 1, 0)
 	m.Parent = folder
-	fade(m, 0, 2)
+	fade(m, 0, def.fadeIn or 2)
 	play(m, def.moveClip or def.clip, if def.moveClip then def.moveClipSpeed else nil)
+	if def.screech then
+		screechOn(m)
+	end
 	-- ผีลอย: เร็วขึ้นตามความดุของรอบ (shared/GhostFloat)
 	local floatMult = if def.float then GhostFloat.SpeedMult() else 1
 	local speed = (def.speed or 1) * floatMult
@@ -616,6 +876,9 @@ local function showRigged(kind: string, def: Kind): Model?
 	local huntStart = 0
 	local watching = false
 	local watchUntil = 0
+	local rushing = false
+	local rushGo = 0
+	local stared = stareTracker()
 	local function faceMe()
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
@@ -671,6 +934,35 @@ local function showRigged(kind: string, def: Kind): Model?
 	local conn = RunService.Heartbeat:Connect(function(dt)
 		if not m.Parent or struck then
 			return
+		end
+		-- กำลังพุ่ง: หยุดหันมามองแป๊บ แล้ววิ่ง/คลานเข้าหาเร็วเกินคน ถึงตัว = ผีหลอก
+		if rushing then
+			if os.clock() < rushGo then
+				faceMe()
+				return
+			end
+			local arrived: boolean
+			local dir: Vector3?
+			pos, dir, arrived = rushStep(pos, dt, os.clock() - rushGo)
+			place(pos, dir)
+			if arrived then
+				struck = true
+				rushScare(kind, m)
+			end
+			return
+		end
+		-- จ้องค้าง (กลางจอต่อเนื่อง StareTime) = พุ่งใส่ ไม่ว่าจะกำลังโผล่ ยืนมอง หรือเดินไล่
+		local r = def.rush
+		if r then
+			local p = if focusBone then focusBone.WorldPosition else m:GetPivot().Position + Vector3.new(0, 4, 0)
+			if stared(p, dt) then
+				rushing = true
+				hunting = false
+				watching = false
+				rushGo = os.clock() + CONFIG.RushWindup
+				rushBegin(kind, m, r)
+				return
+			end
 		end
 		-- ร้านยังเปิด: ยืนนิ่งหันมามองคนที่เห็น จางๆ แล้วหายไป (แผงปิดลงระหว่างนั้นและคนนี้อยู่นอกร้าน = เริ่มมาหา)
 		if watching then
@@ -759,7 +1051,7 @@ local function showRigged(kind: string, def: Kind): Model?
 			end
 			if def.after then
 				task.delay(def.after[1], function()
-					if m.Parent and not hunting then
+					if m.Parent and not hunting and not rushing then
 						play(m, def.after[2])
 					end
 				end)
@@ -783,7 +1075,7 @@ local function showRigged(kind: string, def: Kind): Model?
 			GhostStretch.Set(m, "leg", nil, def.longLegs, 2.5)
 			local t1 = os.clock()
 			while m.Parent and os.clock() - t1 < 2.7 do
-				if arrived and not hunting and not watching then
+				if arrived and not hunting and not rushing and not watching then
 					place(pos)
 				end
 				RunService.Heartbeat:Wait()
@@ -794,17 +1086,17 @@ local function showRigged(kind: string, def: Kind): Model?
 			local dirSign = 1
 			while m.Parent do
 				task.wait(3.5)
-				if m.Parent and arrived and not hunting and not watching then
+				if m.Parent and arrived and not hunting and not rushing and not watching then
 					play(m, def.moveClip or def.clip)
 					local t1 = os.clock()
 					local side = Vector3.new(-unit.Z, 0, unit.X) * dirSign
-					while m.Parent and arrived and not hunting and not watching and os.clock() - t1 < 2.5 do
+					while m.Parent and arrived and not hunting and not rushing and not watching and os.clock() - t1 < 2.5 do
 						local dt = RunService.Heartbeat:Wait()
 						pos += side * 1.4 * dt
 						place(pos, side)
 					end
 					dirSign = -dirSign
-					if m.Parent and not hunting then
+					if m.Parent and not hunting and not rushing then
 						play(m, def.clip, def.clipSpeed)
 					end
 				end
@@ -820,7 +1112,7 @@ local function showRigged(kind: string, def: Kind): Model?
 			end
 			task.wait(r.at)
 			while m.Parent do
-				if not hunting then
+				if not hunting and not rushing then
 					GhostStretch.Set(m, "arm", r.side, r.factor, 1.3)
 					task.wait(1.3 + r.hold)
 					if not m.Parent then
@@ -829,7 +1121,7 @@ local function showRigged(kind: string, def: Kind): Model?
 					GhostStretch.Set(m, "arm", r.side, 1, 0.9)
 				end
 				task.wait(r.every)
-				if m.Parent and not hunting then
+				if m.Parent and not hunting and not rushing then
 					play(m, "nak_reach")
 				end
 				task.wait(0.8)
@@ -840,24 +1132,184 @@ local function showRigged(kind: string, def: Kind): Model?
 	return m
 end
 
-local function show(kind: string)
+-- ---------------------------------------------------------------- เกิดตอนไม่มีใครมอง (ผู้ใช้ 2026-11-15)
+-- ผีฉากโผล่เฉพาะตอนจุดเกิดอยู่นอกสายตาเรา (หลังเรา / นอกจอ / มีของทึบบัง) -> หันกลับไปก็ยืนอยู่แล้ว ไม่เห็นตอนมันค่อยๆ โผล่
+--   เช็กทั้งจุดเดินออกมาและจุดหยุด ที่ระดับเท้า อก หัว · ขอบจอเผื่อ 15% (โผล่ตรงขอบจอก็ยังนับว่าเห็น)
+--   รอจนพ้นสายตา: เกิดเองรอได้นานสุด UnseenWait วิ (จ้องจุดนั้นตลอด = คืนนี้ข้ามตัวนี้ไป) · ปุ่ม admin รอไม่จำกัด (หันหลังให้จุดนั้นแล้วมันจะโผล่)
+local UNSEEN_WAIT = 60
+local UNSEEN_MARGIN = 0.15
+local UNSEEN_DIST = 220 -- ไกลกว่านี้หมอกกลืนหมดแล้ว ไม่นับว่าเห็น
+local spotParams = RaycastParams.new()
+spotParams.FilterType = Enum.RaycastFilterType.Exclude
+local function spotSeen(p: Vector3): boolean
+	local cam = Workspace.CurrentCamera
+	if not cam then
+		return false
+	end
+	local camPos = cam.CFrame.Position
+	if (p - camPos).Magnitude > UNSEEN_DIST then
+		return false
+	end
+	local sp = cam:WorldToViewportPoint(p)
+	if sp.Z <= 0 then
+		return false -- อยู่ข้างหลังกล้อง
+	end
+	local vs = cam.ViewportSize
+	local mx, my = vs.X * UNSEEN_MARGIN, vs.Y * UNSEEN_MARGIN
+	if sp.X < -mx or sp.X > vs.X + mx or sp.Y < -my or sp.Y > vs.Y + my then
+		return false
+	end
+	local ignore: { Instance } = { folder }
+	if player.Character then
+		table.insert(ignore, player.Character)
+	end
+	for _ = 1, 6 do
+		spotParams.FilterDescendantsInstances = ignore
+		local hit = Workspace:Raycast(camPos, p - camPos, spotParams)
+		if not hit then
+			return true
+		end
+		-- ใบไม้ / ของโปร่ง / ไม่มีตัวตน มองทะลุได้
+		if hit.Instance.Transparency > 0.5 or not hit.Instance.CanCollide then
+			table.insert(ignore, hit.Instance)
+		else
+			return false
+		end
+	end
+	return true
+end
+
+-- จุดที่ผีตัวนี้จะไปโผล่ (ระดับพื้น) สำหรับเช็กว่ามีใครมองอยู่ไหม
+local function spawnSpots(kind: string, def: Kind, frontSpot: { number }?): { Vector3 }
+	local ap = Workspace:FindFirstChild("AnomalyProps")
+	if kind == "Scarecrow" then
+		local src = ap and ap:FindFirstChild("Scarecrow")
+		if src and src:IsA("Model") then
+			local from = src:GetPivot().Position
+			local p = from:Lerp(shopFront(), 0.2)
+			return { Vector3.new(p.X, groundAt(p.X, p.Z), p.Z) }
+		end
+		return {}
+	elseif kind == "Shadow" then
+		local src = ap and ap:FindFirstChild("BanyanShadowAnomaly")
+		local torso = src and src:FindFirstChild("ShadowTorso", true)
+		local p = if torso and torso:IsA("BasePart") then torso.Position elseif src and src:IsA("Model") then src:GetPivot().Position else nil
+		return if p then { Vector3.new(p.X, groundAt(p.X, p.Z), p.Z) } else {}
+	elseif def.path or def.model == "" then
+		return {} -- ผีบินผ่าน/เดินผ่านไกลๆ (ไม่ได้สุ่มแล้ว): ไม่ต้องรอ
+	end
+	local from, to = rigPath(def, frontSpot)
+	local lift = def.lift or 0
+	return {
+		Vector3.new(from.X, groundAt(from.X, from.Z) + lift, from.Z),
+		Vector3.new(to.X, groundAt(to.X, to.Z) + lift, to.Z),
+	}
+end
+
+local function anySeen(spots: { Vector3 }): boolean
+	for _, s in ipairs(spots) do
+		for _, h in ipairs({ 0.8, 3, 5 }) do
+			if spotSeen(s + Vector3.new(0, h, 0)) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- วิ่งไปตามถนนผ่านหน้าร้าน (roadRun): ทางเดียวกับรถลูกค้า VehicleWaypoints.SpawnPoint (x -139) <-> ExitPoint (x 126)
+--   ทิศสุ่ม · ไม่มีจุด = ใช้ from/to ของผีตัวนั้น
+local function roadRunPath(): { Vector3 }?
+	local w = Workspace:FindFirstChild("VehicleWaypoints")
+	local a = w and w:FindFirstChild("SpawnPoint")
+	local b = w and w:FindFirstChild("ExitPoint")
+	if not (a and b and a:IsA("BasePart") and b:IsA("BasePart")) then
+		return nil
+	end
+	local pa = Vector3.new(a.Position.X, 0, a.Position.Z)
+	local pb = Vector3.new(b.Position.X, 0, b.Position.Z)
+	return if math.random() < 0.5 then { pa, pb } else { pb, pa }
+end
+
+-- เลือกจุดตามมุมมอง (pickByView, ผู้ใช้ 2026-11-15 นางรำ): ที่ประจำ + จุดหน้าร้านทุกจุด
+--   เอาเฉพาะจุดที่ตอนนี้ไม่มีใครมอง แล้วเลือกจุดที่อยู่ค่อนไปทางหลังเรามากที่สุด (สุ่มระหว่าง 2 อันดับแรกไม่ให้ซ้ำที่เดิม)
+--   ทุกจุดอยู่ในสายตาหมด = สุ่มไปก่อน แล้ว show() รอจนพ้นสายตาเอง · คืน nil = ที่ประจำ
+local function pickSpotByView(kind: string, def: Kind): { number }?
+	local cam = Workspace.CurrentCamera
+	local cands: { { spot: { number }?, score: number } } = {}
+	local list: { { spot: { number }? } } = { { spot = nil } }
+	for _, s in ipairs(def.front or {}) do
+		table.insert(list, { spot = s })
+	end
+	for _, c in ipairs(list) do
+		local spots = spawnSpots(kind, def, c.spot)
+		if #spots > 0 and not anySeen(spots) then
+			local score = 0
+			if cam then
+				local to = spots[#spots]
+				local d = Vector3.new(to.X - cam.CFrame.Position.X, 0, to.Z - cam.CFrame.Position.Z)
+				local look = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+				if d.Magnitude > 0.01 and look.Magnitude > 0.01 then
+					score = d.Unit:Dot(look.Unit) -- -1 = ข้างหลังตรงๆ, 1 = ตรงหน้า
+				end
+			end
+			table.insert(cands, { spot = c.spot, score = score })
+		end
+	end
+	if #cands == 0 then
+		return list[math.random(#list)].spot
+	end
+	table.sort(cands, function(a, b)
+		return a.score < b.score
+	end)
+	return cands[math.random(math.min(2, #cands))].spot
+end
+
+local showToken = 0 -- show / hide ใหม่ = ยกเลิกตัวที่ยังรอพ้นสายตาอยู่
+-- natural = เกิดเองตามตาราง (รอได้ไม่เกิน UNSEEN_WAIT และต้องยัง canShow) · คืน true = โผล่แล้ว
+local function show(kind: string, natural: boolean?, canShowNow: (() -> boolean)?): boolean
+	showToken += 1
+	local token = showToken
 	if current then
 		hide(0.5)
 	end
 	local def = KINDS[kind]
 	if not def then
-		return
+		return false
+	end
+	local frontSpot: { number }? = nil
+	if def.pickByView then
+		frontSpot = pickSpotByView(kind, def)
+	elseif def.front and #def.front > 0 and math.random() < (def.frontChance or 0.5) then
+		frontSpot = def.front[math.random(#def.front)]
+	end
+	local spots = spawnSpots(kind, def, frontSpot)
+	local t0 = os.clock()
+	while anySeen(spots) do
+		task.wait(0.4)
+		if token ~= showToken or current then
+			return false -- มีคำสั่งใหม่มาแทน
+		end
+		if natural and (os.clock() - t0 > UNSEEN_WAIT or (canShowNow and not canShowNow())) then
+			return false
+		end
+	end
+	if token ~= showToken then
+		return false
 	end
 	local m: Model?
 	if kind == "Scarecrow" then
 		m = showScarecrow()
 	elseif kind == "Shadow" then
 		m = showShadow()
+		if m then
+			attachShadowRush(m)
+		end
 	else
-		m = showRigged(kind, def)
+		m = showRigged(kind, def, frontSpot, if def.roadRun then roadRunPath() else nil)
 	end
 	if not m then
-		return
+		return false
 	end
 	-- หุ่นไล่กาหนีเองตอนโดนมอง: ไม่ต้องให้พุ่งใส่หน้า
 	if kind ~= "Scarecrow" then
@@ -872,16 +1324,19 @@ local function show(kind: string)
 			hide()
 		end
 	end)
+	return true
 end
 
 -- admin (client/AdminPanel): เรียกผีฉากบนเครื่องตัวเอง ผ่าน attribute "SceneryTest" ของผู้เล่น ("ชนิด:เลขสุ่ม" / "hide:..")
+--   จุดเกิดอยู่ในสายตา = รอจนหันหนีก่อนถึงโผล่ (กดซ่อน = ยกเลิกที่รออยู่)
 player:GetAttributeChangedSignal("SceneryTest"):Connect(function()
 	local v = player:GetAttribute("SceneryTest")
 	local kind = if type(v) == "string" then string.match(v, "^(%w+)") else nil
 	if kind == "hide" then
+		showToken += 1
 		hide(0.5)
 	elseif kind then
-		show(kind)
+		task.spawn(show, kind)
 	end
 end)
 
@@ -923,12 +1378,18 @@ task.spawn(function()
 					end
 				end
 				-- ไม่ซ้ำตัวเดิม (ผู้ใช้ 2026-11-07): ออกครบทุกแบบก่อนถึงจะวนใหม่
-				lastKind = table.remove(tonight, math.random(#tonight))
-				show(lastKind :: string)
-				-- ช่วงท้ายคืน (เงินถึง FinaleFrom ของ server/CoreLoop) ผีฉากถี่ขึ้น
-				local progress = remotes:GetAttribute("NightProgress")
-				local finale = type(progress) == "number" and progress >= CONFIG.FinaleFrom
-				nextAt = os.clock() + rand(CONFIG.Every) * (if finale then CONFIG.FinaleEvery else 1)
+				local kind = table.remove(tonight, math.random(#tonight)) :: string
+				-- รอจนจุดเกิดพ้นสายตาก่อนโผล่ (show) · ไม่ได้โผล่ (จ้องจุดนั้นตลอด / ร้านปิด / ผีใหญ่มา) = คืนชนิดนี้ลงถุง ลองตัวอื่นอีกสักพัก
+				if show(kind, true, canShow) then
+					lastKind = kind
+					-- ช่วงท้ายคืน (เงินถึง FinaleFrom ของ server/CoreLoop) ผีฉากถี่ขึ้น
+					local progress = remotes:GetAttribute("NightProgress")
+					local finale = type(progress) == "number" and progress >= CONFIG.FinaleFrom
+					nextAt = os.clock() + rand(CONFIG.Every) * (if finale then CONFIG.FinaleEvery else 1)
+				else
+					table.insert(tonight, kind)
+					nextAt = os.clock() + rand({ 20, 40 })
+				end
 			end
 		end
 		hide(0.5)

@@ -224,7 +224,7 @@ function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
 			lens[i] = (Vector3.new(b.X, 0, b.Z) - Vector3.new(a.X, 0, a.Z)).Magnitude
 			total += lens[i]
 		end
-		local m = spawnIn(group, "ghost_kuman_thong", CFrame.new(corners[1]), "run")
+		local m = spawnIn(group, "ghost_kuman_thong", CFrame.new(corners[1]), "kuman_run")
 		root = m and m:FindFirstChild("RootPart") :: BasePart?
 		local t0 = os.clock()
 		conn = RunService.Heartbeat:Connect(function()

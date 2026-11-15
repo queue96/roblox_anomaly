@@ -21,6 +21,8 @@ os.makedirs(OUTD, exist_ok=True)
 
 FPS = 30
 STUDS_PER_M = 3.5
+# Pop_Run elbow bend about the forearm X axis (degrees; sign picked from the preview render)
+POP_RUN_ELBOW = float(os.environ.get("POP_RUN_ELBOW", "70"))  # -70 bent the elbows backwards (preview 2026-11-16)
 
 # Load mocap_retarget helpers
 mr_ns = {"__file__": os.path.join(HERE, "mocap_retarget.py"), "__name__": "mr"}
@@ -659,7 +661,146 @@ def build_all_ghost_clips():
             kq[bn] = [Quaternion() for _ in range(ks_n)]
     kloc["hips"] = ks_hl
     write_custom_action(rig, "kuman_scream", kq, kloc, ks_n)
-    export_actions_to_dict(rig, ["kuman_scream"], all_clips, step=2)
+
+    # kuman_giggle (scenery idle / walk-in idle, 2026-11-15 user: animations "แข็ง" -> mocap): Weight Shift mocap body and legs,
+    # the procedural giggle's head/neck/chest shake on top, its hand-to-mouth arms kept (with a little mocap drift).
+    # Length = whole giggle cycles so the shake loops without a jump.
+    wg_q, wg_hl, wg_n = load_mocap_raw(rig, "Weight Shift.fbx", dict(loop=40, inplace=True))
+    gq, gq0 = {}, {}
+    if giggle:
+        set_mode_for(rig, giggle)
+        rig.animation_data.action = giggle
+        g0, g1 = (int(round(x)) for x in giggle.frame_range)
+        P = max(1, g1 - g0)
+        gn = max(1, round((wg_n - 1) / P)) * P + 1
+        wg_q, wg_hl = resample_tracks(wg_q, wg_hl, gn)
+        for i in range(gn):
+            bpy.context.scene.frame_set(g0 + (i % P))
+            for pb in rig.pose.bones:
+                gq.setdefault(pb.name, []).append(pb.matrix_basis.to_quaternion())
+        wg_n = gn
+    kg = {}
+    for pb in rig.pose.bones:
+        bn = pb.name
+        if bn in ("chest", "neck", "head", "shoulder.L", "shoulder.R") and bn in gq and bn in wg_q:
+            g0q = gq[bn][0]
+            kg[bn] = [wg_q[bn][i] @ slerp_q(Quaternion(), gq[bn][i] @ g0q.inverted(), 0.9) for i in range(wg_n)]
+        elif (bn in UPPER_ARM_CHAIN["L"] or bn in UPPER_ARM_CHAIN["R"]) and bn in gq:
+            if bn in wg_q and bn.split(".")[0] in ("upper_arm", "forearm"):
+                m0 = wg_q[bn][0]
+                kg[bn] = [slerp_q(Quaternion(), wg_q[bn][i] @ m0.inverted(), 0.3) @ gq[bn][i] for i in range(wg_n)]
+            else:
+                kg[bn] = gq[bn]
+        elif bn in wg_q:
+            kg[bn] = wg_q[bn]
+        else:
+            kg[bn] = gq.get(bn, [Quaternion() for _ in range(wg_n)])
+    write_custom_action(rig, "kuman_giggle", kg, {"hips": [v * 0.8 for v in wg_hl]}, wg_n)
+
+    # kuman_run (scenery / linger / walk-in move clip; the game adds the hop): the walking mocap, quicker (a child's skip)
+    kr_q, kr_hl, kr_n = load_mocap_raw(rig, "Walking.fbx", dict(loop=0, inplace=True, speedup=1.6))
+    write_custom_action(rig, "kuman_run", {pb.name: kr_q.get(pb.name, [Quaternion() for _ in range(kr_n)]) for pb in rig.pose.bones},
+                        {"hips": kr_hl}, kr_n)
+    print("GHOST_MOCAP|kuman_giggle", wg_n, "frames, kuman_run", kr_n, "frames")
+    export_actions_to_dict(rig, ["kuman_scream", "kuman_giggle", "kuman_run"], all_clips, step=2)
+
+    # ------------------------------------------------------------------
+    # PART 8: banyan shadow (ghost_shadow, v2 male body) — shadow_stand
+    # (user 2026-11-15 "เงาใต้ต้นโพมันบัก": it borrowed tani_peek, whose baked peek pose — pointing arm, Tani's
+    #  hand/hip offsets for a female body — bent the shadow's arms backwards. Retarget onto the shadow's own rig instead.)
+    # Zombie Idle (slumped, arms hanging) + head cocked to one side with a slow roll and two sharp twitches.
+    # ------------------------------------------------------------------
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(M, "ShadowGhostV2", "ghost_shadow.blend"))
+    rig = bpy.data.objects["HumanRig"]
+    for pb in rig.pose.bones:
+        for c in pb.constraints:
+            c.mute = True
+    ss_q, ss_hl, ss_n = load_mocap_raw(rig, "Zombie Idle.fbx", dict(loop=30, inplace=True))
+    if rig.animation_data is None:
+        rig.animation_data_create()  # ghost_shadow.blend was saved with no animation at all
+
+    def ss_pulse(i, at, width=7):
+        d = (i - at) % ss_n
+        if d < 2:
+            return d / 2
+        if d < 2 + width:
+            return 1 - (d - 2) / width
+        return 0.0
+
+    def ss_head(i):
+        t = i / FPS
+        tilt = math.radians(14) + math.radians(5) * math.sin(t * 2 * math.pi / 6.0)
+        tw = ss_pulse(i, int(ss_n * 0.3)) - 0.7 * ss_pulse(i, int(ss_n * 0.75))
+        return Quaternion((0, 0, 1), tilt + math.radians(18) * tw)
+
+    sq = {}
+    for pb in rig.pose.bones:
+        bn = pb.name
+        base = ss_q.get(bn, [Quaternion() for _ in range(ss_n)])
+        if bn == "head":
+            sq[bn] = [ss_head(i) @ base[i] for i in range(ss_n)]
+        elif bn == "neck":
+            sq[bn] = [slerp_q(Quaternion(), ss_head(i), 0.3) @ base[i] for i in range(ss_n)]
+        else:
+            sq[bn] = base
+    write_custom_action(rig, "shadow_stand", sq, {"hips": ss_hl}, ss_n)
+    print("GHOST_MOCAP|shadow_stand", ss_n, "frames")
+    export_actions_to_dict(rig, ["shadow_stand"], all_clips, step=2)
+
+    # ------------------------------------------------------------------
+    # PART 9: Pop sprint — Pop_Run (scenery Pop dashes along the road past the shop)
+    # (user 2026-11-16 "ท่าวิ่ง วิ่งเร็วกว่านี้": kuman_run is a quick walk, not a run; there is no Mixamo running FBX)
+    # Walking mocap, twice as fast, then: thigh swing x1.9, knee bend x1.8, arm swing x1.8 around its own mean,
+    # elbows bent, torso leaning forward, more hip bob.
+    # ------------------------------------------------------------------
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(M, "pop.blend"))
+    rig = bpy.data.objects["HumanRig"]
+    for pb in rig.pose.bones:
+        for c in pb.constraints:
+            c.mute = True
+    if rig.animation_data is None:
+        rig.animation_data_create()
+    pr_q, pr_hl, pr_n = load_mocap_raw(rig, "Walking.fbx", dict(loop=0, inplace=True, speedup=2.0))
+
+    def pr_amp(q, k):
+        q = q if q.w >= 0 else -q
+        ax, ang = q.to_axis_angle()
+        return Quaternion(ax, ang * k)
+
+    def pr_amp_mean(qs, k):
+        mean = qs[0]
+        for i, q in enumerate(qs[1:], 2):
+            mean = mean.slerp(q if q.dot(mean) >= 0 else -q, 1.0 / i)
+        out_ = []
+        for q in qs:
+            d = mean.inverted() @ (q if q.dot(mean) >= 0 else -q)
+            ax, ang = d.to_axis_angle()
+            out_.append(mean @ Quaternion(ax, ang * k))
+        return out_
+
+    PR_LEAN, PR_ELBOW = 16, POP_RUN_ELBOW
+    rq = {}
+    for pb in rig.pose.bones:
+        bn = pb.name
+        base = pr_q.get(bn, [Quaternion() for _ in range(pr_n)])
+        if bn in ("thigh.L", "thigh.R"):
+            rq[bn] = [pr_amp(q, 1.9) for q in base]
+        elif bn in ("shin.L", "shin.R"):
+            rq[bn] = [pr_amp(q, 1.8) for q in base]
+        elif bn in ("upper_arm.L", "upper_arm.R"):
+            rq[bn] = pr_amp_mean(base, 1.8)
+        elif bn in ("forearm.L", "forearm.R"):
+            rq[bn] = [q @ Quaternion((1, 0, 0), math.radians(PR_ELBOW)) for q in base]
+        elif bn in ("spine", "chest"):
+            share = 0.6 if bn == "spine" else 0.4
+            rq[bn] = [q @ Quaternion((1, 0, 0), math.radians(PR_LEAN * share)) for q in base]
+        else:
+            rq[bn] = base
+    avg = sum((v for v in pr_hl), Vector()) / len(pr_hl)
+    pr_hl = [avg + (v - avg) * 1.6 for v in pr_hl]
+    write_custom_action(rig, "Pop_Run", rq, {"hips": pr_hl}, pr_n)
+    print("GHOST_MOCAP|Pop_Run", pr_n, "frames")
+    export_actions_to_dict(rig, ["Pop_Run"], all_clips, step=1)
 
     out_json = os.path.join(OUTD, "ghost_mocap_anims.json")
     json.dump({"fps": FPS, "studs_per_m": STUDS_PER_M, "rest": rest_all, "clips": all_clips}, open(out_json, "w"), separators=(",", ":"))
@@ -780,6 +921,10 @@ def render_preview(all_clips):
         (os.path.join(M, "human_ghosts", "ghost_tani.blend"), "tani_walk"),
         (os.path.join(M, "human_ghosts", "ghost_funeral_man.blend"), "coffin_walk"),
         (os.path.join(M, "human_ghosts", "ghost_kuman_thong.blend"), "kuman_scream"),
+        (os.path.join(M, "human_ghosts", "ghost_kuman_thong.blend"), "kuman_giggle"),
+        (os.path.join(M, "human_ghosts", "ghost_kuman_thong.blend"), "kuman_run"),
+        (os.path.join(M, "ShadowGhostV2", "ghost_shadow.blend"), "shadow_stand"),
+        (os.path.join(M, "pop.blend"), "Pop_Run"),
     ]
     rows_img = []
     for blend_path, clip_name in rows_spec:

@@ -202,7 +202,19 @@ local function startRunSound()
 		return
 	end
 	if not runSound then
-		runSound = SoundBank.CreateSound("GeneratorRun", gp, 70)
+		-- (ผู้ใช้ 2026-11-15: เสียงเครื่องกลบจิ้งหรีดหมด ลางผีใหญ่ = จิ้งหรีดเงียบ เลยฟังไม่ออก)
+		--   ได้ยินไกลแค่ 45 (เดิม 70) + ตัดเสียงกลาง/แหลมทิ้งเหลือแต่หึ่งทุ้มๆ: จิ้งหรีดเสียงแหลม ไม่ชนกันแล้ว
+		--   (WarmEQ ของ SoundBank ตัดแหลมได้สุดแค่ -10 จึงซ้อนอีกตัว)
+		runSound = SoundBank.CreateSound("GeneratorRun", gp, 45)
+		if runSound then
+			local eq = Instance.new("EqualizerSoundEffect")
+			eq.Name = "LeaveRoomForCrickets"
+			eq.LowGain = 0
+			eq.MidGain = -12
+			eq.HighGain = -30
+			eq.Priority = 1
+			eq.Parent = runSound
+		end
 	end
 	if runSound and not runSound.IsPlaying then
 		runSound:Play()

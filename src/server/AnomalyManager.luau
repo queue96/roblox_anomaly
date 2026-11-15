@@ -917,7 +917,7 @@ local WALK_IN = {
 	{ name = "ghost_child", walk = "ghost_glide", idle = "ghost_idle", float = 0.3 },
 	{ name = "ghost_shroud", walk = "shroud_glide", idle = "shroud_idle", float = 0.5 },
 	{ name = "ghost_funeral_woman", walk = "ghost_glide", idle = "ghost_glide", float = 0.4 },
-	{ name = "ghost_kuman_thong", walk = "run", idle = "kuman_giggle" },
+	{ name = "ghost_kuman_thong", walk = "kuman_run", idle = "kuman_giggle" },
 	-- ตานี: เดิมเดินด้วยท่ายืน (ghost_idle) ตัวไถลมาเฉยๆ ดูแปลก (ผู้ใช้ 2026-11-13) -> ลอยร่อนมาแบบผีหญิงงานศพ ยืนท่าแอบมอง
 	{ name = "ghost_tani", walk = "ghost_glide", idle = "tani_peek", float = 0.35 },
 }

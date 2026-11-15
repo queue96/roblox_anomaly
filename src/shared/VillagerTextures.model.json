@@ -208,6 +208,136 @@
 				"ColorMap": "rbxassetid://120176230427693",
 				"AlphaMode": "Overlay"
 			}
+		},
+		{
+			"name": "c_child_head",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://78049111524334",
+				"NormalMap": "rbxassetid://87692309040494",
+				"RoughnessMap": "rbxassetid://99046993761345",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_mohom_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://102949137563093",
+				"NormalMap": "rbxassetid://113677565331084",
+				"RoughnessMap": "rbxassetid://112948288855898",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_mohom_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://106873165075197",
+				"NormalMap": "rbxassetid://77161153851718",
+				"RoughnessMap": "rbxassetid://84292021840493",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_girl_sin_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://115029186144157",
+				"NormalMap": "rbxassetid://134191542060414",
+				"RoughnessMap": "rbxassetid://118168959649058",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_girl_sin_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://85569551225532",
+				"NormalMap": "rbxassetid://113677565331084",
+				"RoughnessMap": "rbxassetid://112948288855898",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_girl_tee_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://111379372403316",
+				"NormalMap": "rbxassetid://109696359151787",
+				"RoughnessMap": "rbxassetid://90795223911145",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_girl_tee_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://124578975318496",
+				"NormalMap": "rbxassetid://134191542060414",
+				"RoughnessMap": "rbxassetid://118168959649058",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_school_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://113473073986790",
+				"NormalMap": "rbxassetid://99129237792139",
+				"RoughnessMap": "rbxassetid://112948288855898",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_school_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://105717767996208",
+				"NormalMap": "rbxassetid://116483735264051",
+				"RoughnessMap": "rbxassetid://133391342406570",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_singlet_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://109268105553878",
+				"NormalMap": "rbxassetid://109696359151787",
+				"RoughnessMap": "rbxassetid://100510015867421",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_singlet_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://79751165659456",
+				"NormalMap": "rbxassetid://77161153851718",
+				"RoughnessMap": "rbxassetid://83350862838069",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_tee_upper",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://80848883824694",
+				"NormalMap": "rbxassetid://109696359151787",
+				"RoughnessMap": "rbxassetid://90795223911145",
+				"AlphaMode": "TintMask"
+			}
+		},
+		{
+			"name": "c_tee_lower",
+			"className": "SurfaceAppearance",
+			"properties": {
+				"ColorMap": "rbxassetid://91594476359347",
+				"NormalMap": "rbxassetid://77161153851718",
+				"RoughnessMap": "rbxassetid://71097248531673",
+				"AlphaMode": "TintMask"
+			}
 		}
 	]
 }

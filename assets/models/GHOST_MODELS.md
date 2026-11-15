@@ -10,7 +10,9 @@
 อัปเดตล่าสุด 2026-11-04 · อิงจาก anomaly 30 แบบใน `GDD.md` ข้อ 4 (ไม่ได้อิงคลังผี 92 ตัวใน `art_refs/ghosts/GHOSTS.md` ซึ่งเป็นแค่คลัง ref)
 
 > **อัปเดต 2026-11-15:** ผีรูปคน 12 ตัว + ปอบ อยู่บนร่าง Villager v2 แล้ว (`villager/build_ghosts_v2.py`, `villager/export_ghosts_v2.py`)
-> **กุมารทอง** ย้ายมาร่าง v2 แล้ว (`villager/build_kuman_v2.py` -> `KumanV2/upload/ghost_kuman_v2.fbx`) ยังเหลือ `ghost_child` ที่ใช้ร่างเด็กเก่า
+> **กุมารทอง** ย้ายมาร่าง v2 แล้ว (`villager/build_kuman_v2.py` -> `KumanV2/upload/ghost_kuman_v2.fbx`)
+> **เด็ก + ผีเด็ก** ย้ายมาร่าง v2 แล้ว (2026-11-15): เด็กเป็น `villager_child` (`villager/build_child_v2.py` + `export_child_v2.py` -> `ChildV2/upload/`, ชุด 6 แบบ ID อยู่ใน `VillagerTextures`) ผีเด็กเป็น `ghost_child` (`villager/build_ghost_child_v2.py` -> `GhostChildV2/upload/`) ตัวเก่าเก็บที่ `ArchivedPlaceholders.ghost_child_v1` · ผีที่ยังเป็นร่างเก่า: เปรต กระหัง กระสือ
+> **เงาหลังต้นไทร** (2026-11-15) เป็นร่างมีกระดูก `ghost_shadow` แล้ว (`villager/build_shadow_v2.py` -> `ShadowGhostV2/upload/`): ร่างชาย v2 ดำด้าน + ตา Neon เล่น `tani_peek` ที่จุดของ `AnomalyProps.BanyanShadowAnomaly` (ตัวเดิมยังอยู่เป็นจุดอ้างอิง/สำรอง) · `SceneryGhosts.showShadow`, จัมป์สแกร์ `Scenery_Shadow` = rigged
 > ท่าผีส่วนใหญ่เป็น mocap ใน `src/shared/GhostClipData.luau` (สร้างจาก `tools/blender/ghost_mocap_retarget.py`)
 
 ## 1. ภาพรวม

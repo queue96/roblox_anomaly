@@ -124,6 +124,10 @@ local function placeNpcGallons()
 	end
 end
 PoseHooks.After(placeNpcGallons)
+-- วางซ้ำอีกรอบก่อนวาดภาพ หลัง client/SmoothDrive (NetSmooth, RenderPriority.First + 1) ย้ายทั้งตัวไปตำแหน่งลื่น
+-- (ผู้ใช้ 2026-11-16: ลูกค้าเดินถือแกลลอนหมุนตัว/มองรอบๆ แล้วแกลลอนหลุดจากมือ ลอยข้างตัว:
+--  ลำตัวหมุนระหว่าง PreSimulation กับตอนวาด แกลลอนที่วางไว้ก่อนเลยค้างตามตำแหน่งมือเก่า)
+game:GetService("RunService"):BindToRenderStep("NpcGallonGrip", Enum.RenderPriority.First.Value + 2, placeNpcGallons)
 
 -- หลัง client/HumanEmotesRunner เขียนท่าถือ (แบมือ / หิ้วแกลลอน) ลงกระดูกเฟรมนี้แล้วเท่านั้น (shared/PoseHooks)
 -- (เดิมต่อ PreSimulation แยก: ลำดับไม่แน่นอน บางเฟรมวางของตามมือท่าเดิน -> แกลลอนสั่น ขนมไม่อยู่ในมือ)

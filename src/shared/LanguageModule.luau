@@ -467,6 +467,32 @@ LanguageModule.UI = {
 	Big_Fail_Move = { th = "คุณขยับ... มันเห็นคุณแล้ว", en = "You moved... it saw you." },
 	Big_Fail_Crouch = { th = "คุณไม่ได้นั่งยอง... มันเห็นคุณแล้ว", en = "You weren't crouching... it saw you." },
 	Big_Fail_Flashlight = { th = "ไฟฉายของคุณยังเปิดอยู่... มันเห็นคุณแล้ว", en = "Your flashlight was on... it saw you." },
+
+	-- ป้ายกฎการเฝ้าร้านข้างฝาในเพิง (แทนกระจกเงา ผู้ใช้ 2026-11-15: MapBuilder.SwapMirrorForRules + client/ShopRulesSign)
+	-- ทุกข้อบอกใบ้กลไกจริงในเกม (ห้ามใส่กฎที่เกมไม่มี ผู้เล่นจะทำตามแล้วงง)
+	ShopRules_Title = { th = "กฎการเฝ้าร้านหลังเที่ยงคืน", en = "RULES AFTER MIDNIGHT" },
+	ShopRules_Sub = { th = "อ่านให้จำ ก่อนเข็มนาฬิกาจะชี้เลขสิบสอง", en = "Learn them by heart before the clock strikes twelve." },
+	ShopRules_1 = {
+		th = "๑. ก่อนเติมน้ำมันทุกครั้ง ให้พนมมือสวดขอเจ้าที่เจ้าทางก่อน สิ่งที่ตาเปล่ามองไม่เห็น บทสวดจะเผยให้เห็นเอง",
+		en = "1. Before every fill-up, press your palms together and pray to the spirits of this land. What your eyes cannot see, the prayer will show you.",
+	},
+	ShopRules_2 = {
+		th = "๒. ถ้าคนที่มาเติม... ไม่ใช่คน ห้ามเติมให้เด็ดขาด เข้ามาในร้านแล้วดึงเชือกลดแผงลง อย่าทิ้งใครไว้ข้างนอก",
+		en = "2. If the one at the pump... is not a person, do not serve it. Get inside and pull the rope to drop the shutter. Leave no one outside.",
+	},
+	ShopRules_3 = {
+		th = "๓. ถ้าเห็นอะไรยืนอยู่ในดงกล้วย ใต้ต้นไทร หรือกลางทุ่ง ให้ทำเป็นมองไม่เห็น อย่าจ้องมัน ถ้ามันรู้ว่าเราเห็น... มันจะมาหาเรา",
+		en = "3. If something stands in the banana grove, under the banyan, or out in the fields, pretend you do not see it. Do not stare. Once it knows you have seen it... it comes for you.",
+	},
+	ShopRules_4 = {
+		th = "๔. ถวายขนมศาลพระภูมิอย่าให้ขาด แล้วคอยดูธูปบนศาลไว้ เติมให้สิ่งที่ไม่ใช่คนครั้งหนึ่ง ธูปดับไปดอกหนึ่ง ดับครบสามดอกเมื่อไหร่ ก็ไม่มีใครคุ้มครองเราอีกแล้ว",
+		en = "4. Keep sweets on the spirit house, and watch its incense. Each time you serve something that is not human, one stick goes out. When all three are out, nothing protects you anymore.",
+	},
+	ShopRules_5 = {
+		th = "๕. ถ้าจิ้งหรีดเงียบกริบไปทั้งทุ่ง แปลว่าบางสิ่งที่ไม่ควรมีอยู่ กำลังมา ลดแผงร้าน สับสะพานไฟลง ปิดไฟฉาย แล้วอยู่นิ่งๆ อย่าขยับ จนกว่ามันจะผ่านไป",
+		en = "5. If every cricket in the field falls silent, something that should not exist is coming. Drop the shutter, cut the power at the switch, turn off your flashlight, and stay still until it passes.",
+	},
+	ShopRules_Footer = { th = "อยู่ให้ถึงเช้า แล้วพี่จะมารับ", en = "Make it to morning. I'll come get you." },
 }
 
 -- ป้ายชื่อที่ลอยตามวัตถุในฉาก (ObjectLabels.client) ชื่อสั้น สุภาพ ไม่อธิบาย

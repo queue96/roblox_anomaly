@@ -1,0 +1,4 @@
+tris {'BodyHead': 796, 'BodyLower': 1224, 'BodyUpper': 1476, 'Eyes': 200}
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\ShadowGhostV2\upload\ghost_shadow.fbx meshes ['BodyHead', 'BodyLower', 'BodyUpper', 'Eyes']
+preview C:\xampp\htdocs\roblox_anomaly\assets\models\ShadowGhostV2\ghost_shadow_preview.png
+DONE

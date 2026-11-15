@@ -557,6 +557,108 @@ function MapBuilder.CreateFlashlightTool()
 	tool.Parent = StarterPack
 end
 
+-- ป้ายกฎการเฝ้าร้าน (ผู้ใช้ 2026-11-15 แทนกระจกเงาข้างฝา): แผ่นไม้เก่า + กระดาษเหลืองเอียงนิดๆ ตอกตะปู 4 มุม หันเข้าในร้าน (-X)
+--   ติดตรงที่เดิมของกระจก (หน้าเสาไม้ x 15.2) · ข้อความ LanguageModule.UI ShopRules_* (ใส่ไทยไว้ก่อน)
+--   client/ShopRulesSign เปลี่ยนตามภาษาผู้เล่น + ย่อตัวหนังสือถ้าล้นกระดาษ (หา SurfaceGui ด้วย tag "ShopRulesSign")
+local SHOP_RULES_AT = Vector3.new(14.6, 6.5, 18) -- หน้าแผ่นไม้ (เดิม MirrorFrame กลาง 14.8 หนา 0.4)
+local SHOP_RULES_KEYS = { "ShopRules_Title", "ShopRules_Sub", "ShopRules_1", "ShopRules_2", "ShopRules_3", "ShopRules_4", "ShopRules_5", "ShopRules_Footer" } -- ข้อ 6 (อย่าสวดเล่นตอนร้านว่าง) ผู้ใช้ตัดออก 2026-11-15
+local function buildShopRules(parent: Instance): Model
+	-- ไม่ใช้ script.Parent: MapBuilder ที่ require จาก Clone (DevCommand) ไม่มี parent แล้วตอนเรียก
+	local Lang = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
+	local m = Instance.new("Model")
+	m.Name = "ShopRules"
+	-- -Z ของ CFrame นี้ชี้เข้าร้าน = หน้า Front ของชิ้น
+	local face = CFrame.lookAt(SHOP_RULES_AT, SHOP_RULES_AT + Vector3.new(-1, 0, 0))
+	local board = createPart("ShopRules_Board", Vector3.new(3.6, 4.8, 0.35), face * CFrame.new(0, 0, 0.175), Color3.fromRGB(58, 40, 27), Enum.Material.WoodPlanks, m)
+	local paperCF = face * CFrame.new(0.03, -0.05, -0.012) * CFrame.Angles(0, 0, math.rad(-1.5))
+	local paper = createPart("ShopRules_Paper", Vector3.new(3.1, 4.3, 0.02), paperCF, Color3.fromRGB(206, 190, 150), Enum.Material.SmoothPlastic, m)
+	for _, p in ipairs({ board, paper }) do
+		p.CanCollide = false
+		p.CanTouch = false
+		p.CastShadow = false
+	end
+	paper.CanQuery = false
+	-- ตะปูสนิม 4 มุม (หัวตะปูโผล่จากกระดาษ)
+	for _, c in ipairs({ Vector2.new(-1.38, 1.98), Vector2.new(1.38, 1.98), Vector2.new(-1.38, -1.98), Vector2.new(1.38, -1.98) }) do
+		local nail = createPart("ShopRules_Nail", Vector3.new(0.06, 0.13, 0.13), paperCF * CFrame.new(c.X, c.Y, -0.03) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(72, 52, 40), Enum.Material.CorrodedMetal, m, Enum.PartType.Cylinder)
+		nail.CanCollide = false
+		nail.CanQuery = false
+		nail.CanTouch = false
+	end
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "ShopRulesGui"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 150
+	gui.LightInfluence = 1 -- มืดตามฉาก ต้องส่องไฟฉายอ่าน
+	gui.AutoLocalize = false -- แปลเองตามภาษาผู้เล่น (client/ShopRulesSign)
+	gui.Parent = paper
+	game:GetService("CollectionService"):AddTag(gui, "ShopRulesSign")
+	local body = Instance.new("Frame")
+	body.Name = "Body"
+	body.Size = UDim2.fromScale(1, 1)
+	body.BackgroundTransparency = 1
+	body.Parent = gui
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0.07, 0)
+	pad.PaddingRight = UDim.new(0.07, 0)
+	pad.PaddingTop = UDim.new(0.05, 0)
+	pad.PaddingBottom = UDim.new(0.04, 0)
+	pad.Parent = body
+	local list = Instance.new("UIListLayout")
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 9)
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.Parent = body
+	-- รอยเปื้อนจางๆ บนกระดาษ (ไม่บังตัวหนังสือ)
+	for i = 1, 3 do
+		local stain = Instance.new("Frame")
+		stain.Name = "Stain"
+		stain.AnchorPoint = Vector2.new(0.5, 0.5)
+		stain.Position = UDim2.fromScale(({ 0.82, 0.18, 0.7 })[i], ({ 0.12, 0.62, 0.9 })[i])
+		stain.Size = UDim2.fromScale(({ 0.3, 0.22, 0.4 })[i], ({ 0.14, 0.12, 0.1 })[i])
+		stain.BackgroundColor3 = Color3.fromRGB(120, 92, 50)
+		stain.BackgroundTransparency = 0.82
+		stain.ZIndex = 0
+		local r = Instance.new("UICorner")
+		r.CornerRadius = UDim.new(0.5, 0)
+		r.Parent = stain
+		stain.Parent = gui -- นอก Body: ไม่โดน UIListLayout จัดเรียง
+	end
+	for i, key in ipairs(SHOP_RULES_KEYS) do
+		local l = Instance.new("TextLabel")
+		l.Name = key
+		l.LayoutOrder = i
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.new(1, 0, 0, 0)
+		l.AutomaticSize = Enum.AutomaticSize.Y
+		l.TextWrapped = true
+		l.RichText = false
+		l.ZIndex = 2
+		l.Text = Lang.GetUI(key, "th")
+		local size, color, font, align = 21, Color3.fromRGB(38, 28, 20), Enum.Font.SpecialElite, Enum.TextXAlignment.Left
+		if key == "ShopRules_Title" then
+			size, color, font, align = 44, Color3.fromRGB(96, 18, 14), Enum.Font.GothamBlack, Enum.TextXAlignment.Center
+		elseif key == "ShopRules_Sub" then
+			size, color, align = 19, Color3.fromRGB(90, 70, 50), Enum.TextXAlignment.Center
+		elseif key == "ShopRules_Footer" then
+			-- เขียนด้วยมือหมึกแดงท้ายกระดาษ เอียงนิดๆ
+			size, color, font, align = 26, Color3.fromRGB(128, 16, 12), Enum.Font.PermanentMarker, Enum.TextXAlignment.Right
+			l.Rotation = -3
+		end
+		l.TextSize = size
+		l:SetAttribute("BaseSize", size)
+		l.TextColor3 = color
+		l.Font = font
+		l.TextXAlignment = align
+		l.Parent = body
+	end
+	m.PrimaryPart = board
+	m.Parent = parent
+	return m
+end
+
 function MapBuilder.Build()
 	-- สร้างหรือปรับแต่งพื้นดินหลักขนาดใหญ่ (500x500 Studs) ด้วยวัสดุหญ้าธรรมชาติเข้ม (LeafyGrass) แทนสีเทาเรียบๆ
 	local baseplate = Workspace:FindFirstChild("Baseplate")
@@ -1258,11 +1360,8 @@ function MapBuilder.Build()
 	taniModel.PrimaryPart = taniTorso
 	addLabel(taniTorso, "PhiTaniGhost (ผีตานีหลังดงกล้วย)", Color3.fromRGB(110, 255, 150))
 
-	-- Prop Hook #1: กระจกเงาบานเก่าพร้อมกรอบไม้ในเพิง
-	createPart("MirrorFrame", Vector3.new(0.4, 4.4, 3.2), CFrame.new(14.8, 6.5, 18), Color3.fromRGB(68, 46, 30), Enum.Material.Wood, anomalyProps)
-	local oldMirror = createPart("OldMirror", Vector3.new(0.25, 3.8, 2.6), CFrame.new(14.65, 6.5, 18), Color3.fromRGB(170, 210, 220), Enum.Material.Glass, anomalyProps)
-	oldMirror.Reflectance = 0.65
-	addLabel(oldMirror, "OldMirror (กระจกเงาข้างฝา - Hook #1)", Color3.fromRGB(170, 230, 255))
+	-- Prop Hook #1: ป้ายกฎการเฝ้าร้านข้างฝา (เดิมกระจกเงา OldMirror + MirrorFrame ผู้ใช้ 2026-11-15 ให้เปลี่ยน)
+	buildShopRules(shackModel)
 
 	-- Prop Hook #2: รูปตาเจ้าของอู่ & ปฏิทินรายวัน
 	local ownerPhoto = createPart("OwnerPhoto", Vector3.new(2.8, 3.4, 0.3), CFrame.new(-6, 7, 27.1), Color3.fromRGB(185, 180, 170), Enum.Material.SmoothPlastic, anomalyProps)
@@ -8944,6 +9043,87 @@ function MapBuilder.SwapAirCompressorV2(assetId: number?): string
 	return "ok"
 end
 
+local RADIO_V2_CENTER, RADIO_V2_H, RADIO_V2_FRONT = Vector3.new(0, 0.882, 0.043), 1.763, 0.441 -- radio_v2.py "BBOX Radio" (FRONT = ระยะ origin -> หน้าปุ่มหมุน)
+
+-- วิทยุทรานซิสเตอร์ v2: แทน InteractiveProps.Radio (Model วิทยุ Toolbox Part 40 ชิ้น) วางบนเคาน์เตอร์ที่เดิม หน้าปุ่มตรงแนวหน้าเดิม
+--   (ตัวใหม่ลึกกว่าเพราะมีถ่านมัดหนังยางข้างหลัง จึงดันไปข้างหลังแทนการยื่นออกมาหาผู้เล่น)
+--   ชิ้นใหญ่สุด = Radio -> AnomalyManager ติด TuneRadioPrompt + เสียงวิทยุที่นี่ (ชิ้นเดียวที่ชน)
+--   ชิ้นแยก: RadioDial (แผ่นสเกล ไว้ทำไฟหน้าปัด), RadioDialNeedle (เข็มแดง เลื่อนตามแกน X ของชิ้นได้ 1.64 studs),
+--   RadioAntenna (เสาอากาศ) · 2 ชิ้นหลังไม่มี texture: ตั้งสี/วัสดุที่นี่ · attribute RadioVersion = 2
+--   ด้านหน้าของ Radio เดิมหัน -X ของ pivot (pivot หัน -Z) ตัวใหม่หน้า = -Z ของไฟล์ จึงหมุน pivot เดิม 90°
+function MapBuilder.SwapRadioV2(assetId: number?): string
+	local inter = Workspace:FindFirstChild("InteractiveProps")
+	local old = inter and inter:FindFirstChild("Radio") :: Model?
+	if not (old and old:IsA("Model")) then
+		return "no InteractiveProps.Radio model"
+	end
+	if old:GetAttribute("RadioVersion") == 2 then
+		return "already v2"
+	end
+	local src = v2Source("RadioV2", assetId)
+	if not src then
+		return "import RadioV2.fbx (assets/models/RadioV2/upload/) first, or pass assetId"
+	end
+	local parts, clonePart = v2Layout(src, "Radio", RADIO_V2_CENTER, RADIO_V2_H)
+	if not (parts and clonePart) then
+		return "imported model has no Radio part"
+	end
+	local piv = old:GetPivot()
+	local cf, size = old:GetBoundingBox()
+	local rot = piv.Rotation * CFrame.Angles(0, math.rad(90), 0)
+	local back = -rot.LookVector
+	local base = Vector3.new(cf.Position.X, cf.Position.Y - size.Y / 2, cf.Position.Z) + back * (RADIO_V2_FRONT - size.X / 2)
+	local target = CFrame.new(base) * rot
+	local m = Instance.new("Model")
+	m.Name = "Radio"
+	local body = clonePart("Radio", target, m) :: BasePart
+	body.CanCollide = true
+	clonePart("RadioDial", target, m)
+	local needle = clonePart("RadioDialNeedle", target, m)
+	if needle then
+		for _, c in ipairs(needle:GetChildren()) do
+			c:Destroy()
+		end
+		needle.Color = Color3.fromRGB(200, 30, 24)
+		needle.Material = Enum.Material.SmoothPlastic
+		needle.CastShadow = false
+	end
+	local ant = clonePart("RadioAntenna", target, m)
+	if ant then
+		for _, c in ipairs(ant:GetChildren()) do
+			c:Destroy()
+		end
+		ant.Color = Color3.fromRGB(196, 198, 204)
+		ant.Material = Enum.Material.Metal
+	end
+	for _, d in ipairs(old:GetDescendants()) do
+		if d:IsA("ProximityPrompt") or d:IsA("Sound") then
+			d.Parent = body
+		end
+	end
+	for key, val in pairs(old:GetAttributes()) do
+		if string.sub(key, 1, 4) ~= "RBX_" then
+			m:SetAttribute(key, val)
+		end
+	end
+	m:SetAttribute("ImportedProp", true)
+	m:SetAttribute("RadioVersion", 2)
+	m.PrimaryPart = body
+	body.PivotOffset = body.CFrame:ToObjectSpace(target)
+	local arch = v2Archive()
+	local prev = arch:FindFirstChild("Radio_v1")
+	if prev then
+		prev:Destroy()
+	end
+	local parent = old.Parent
+	old.Name = "Radio_v1"
+	old.Parent = arch
+	m.Parent = parent
+	src.Name = "RadioV2_Imported"
+	src.Parent = arch
+	return string.format("ok at %.2f,%.2f,%.2f", base.X, base.Y, base.Z)
+end
+
 local SHELF_V2_CENTER, SHELF_V2_H, SHELF_V2_D = Vector3.new(0, 3.500, 0), 7.000, 1.460 -- shack_shelf_v2.py "BBOX ShackShelf"
 
 -- ชั้นของในเพิง v2: แทน MeshPart ShackShelf ใน MapEnvironment.ShackStructure.ImportedShack
@@ -9128,6 +9308,29 @@ function MapBuilder.SwapShackInteriorV2(assetId: number?): string
 	src.Name = "ShackInteriorV2_Imported"
 	src.Parent = v2Archive()
 	return "ok " .. table.concat(done, ", ")
+end
+
+-- กระจกเงาข้างฝาในเพิง -> ป้ายกฎการเฝ้าร้าน (ผู้ใช้ 2026-11-15) รันครั้งเดียวในเพลซที่เซฟไว้ (MapBuilder.Build สร้างป้ายเองแล้ว)
+--   OldMirror (mesh v2) + MirrorFrame (แผ่นไม้เดิม) ย้ายไป ServerStorage.ArchivedPlaceholders · รันซ้ำ = สร้างป้ายใหม่ทับของเดิม
+function MapBuilder.SwapMirrorForRules(): string
+	local anomaly = Workspace:FindFirstChild("AnomalyProps")
+	local moved = {}
+	for _, name in ipairs({ "OldMirror", "MirrorFrame" }) do
+		local old = anomaly and anomaly:FindFirstChild(name)
+		if old then
+			old.Name = name .. "_v1"
+			archivePlaceholder(old)
+			table.insert(moved, name)
+		end
+	end
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local parent = (env and env:FindFirstChild("ShackStructure")) or env or Workspace
+	local existing = parent:FindFirstChild("ShopRules")
+	if existing then
+		existing:Destroy()
+	end
+	buildShopRules(parent)
+	return "ok archived " .. (if #moved > 0 then table.concat(moved, ", ") else "nothing") .. " -> " .. parent:GetFullName() .. ".ShopRules"
 end
 
 return MapBuilder

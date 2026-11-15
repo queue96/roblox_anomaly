@@ -43,10 +43,24 @@ CLIPS = {
     "shrug":        ("Shrugging.fbx", "full", dict(loop=0)),
     "nod_yes":      ("Head Nod Yes.fbx", "full", dict(loop=0)),
     "shake_no":     ("Shaking Head No.fbx", "full", dict(loop=0)),
+    # ปั่นจักรยาน (2026-11-15): ขาปั่นเดิม + ลำตัว/คอ/หัว/ไหล่หายใจขยับตาม mocap นั่ง (เดิมขยับแค่ขา 6 กระดูก)
+    "ride_bicycle": ("Sitting Idle.fbx", "add", dict(base="ride_bicycle", loop=30, gain=1.0, cycle_base=True)),
 }
 ELDER_CLIPS = {"idle_old": ("Old Man Idle.fbx", "full", dict(loop=40)),  # ยืนท่าเดิมใช้ Breathing Idle (Old Man Idle ก้มเอามือยันเข่าบ่อยเกิน)
                "walk": ("Old Man Walk.fbx", "full", dict(loop=0, inplace=True))}
 FEMALE_CLIPS = {"walk": ("Female Walk.fbx", "full", dict(loop=0, inplace=True))}
+# เดินนุ่งผ้าซิ่น / โสร่ง (2026-11-15 ผู้ใช้: "Sarong walk first" ท่าเดิมทำมือ แข็ง): ท่าเดิน mocap เดิม ตัวบน/แขนตามจริง
+#   แต่ก้าวสั้น (skirt = สัดส่วนการเหวี่ยงต้นขา, knee = เข่า, foot = ข้อเท้า, bob = สะโพกขึ้นลง) ให้ขาอยู่ในผ้าถุง
+#   ผู้ชาย (โสร่ง) ใช้ Walking · ผู้หญิง / เด็กหญิง (ผ้าซิ่น) ใช้ Female Walk ก้าวแคบกว่า
+#   ก้าวยาวไม่เกินท่าเดิมที่ทำมาให้พอดีผ้า (วัดระยะหน้า-หลังข้อเท้า: ชาย 0.81 / หญิง 0.68 / เด็ก 0.47 studs)
+SKIRT_OPT = dict(loop=0, inplace=True, skirt=0.22, knee=0.55, foot=0.75, bob=0.7)
+#   run_skirt = รีบเดินในผ้าถุง: ก้าวสั้นเท่ากัน แต่ถี่ขึ้น (speedup) โน้มตัวไปหน้า (lean องศา) แขนแกว่งแรงขึ้น (arms)
+#   ก้าวตอนรีบยาวกว่าตอนเดินได้ (ท่าวิ่งเดิมก้าว ชาย 1.32 / หญิง 1.11 / เด็ก 0.76 ยังอยู่ในผ้า) แต่ไม่เกินของเดิม
+RUN_SKIRT_OPT = dict(SKIRT_OPT, speedup=1.6, lean=9, arms=1.35, skirt=0.36, knee=0.7)
+SKIRT_CLIPS = {"male": {"walk_skirt": ("Walking.fbx", "full", SKIRT_OPT),
+                        "run_skirt": ("Walking.fbx", "full", RUN_SKIRT_OPT)},
+               "female": {"walk_skirt": ("Female Walk.fbx", "full", dict(SKIRT_OPT, skirt=0.19, knee=0.5)),
+                          "run_skirt": ("Female Walk.fbx", "full", dict(RUN_SKIRT_OPT, skirt=0.33, knee=0.65))}}
 
 MAP = {"hips": "Hips", "spine": "Spine1", "chest": "Spine2", "neck": "Neck", "head": "Head"}
 for sd, S in (("L", "Left"), ("R", "Right")):
@@ -185,6 +199,7 @@ def retarget(rig, src, mode, opt, base_act=None):
         sc.frame_set(int(base_act.frame_range[0]))
         base = {pb.name: pb.matrix_basis.to_quaternion() for pb in rig.pose.bones}
         gain = opt.get("gain", 1.0)
+        cyc = opt.get("cycle_base", False)     # ท่าเดิมขยับเป็นรอบ (ปั่นจักรยาน): เก็บแค่ส่วนที่ mocap บวกเพิ่ม ท่าเดิมใส่ทีหลังเป็นรอบ
         res = {}
         for n in ADD_BONES:
             if n not in out:
@@ -194,12 +209,42 @@ def retarget(rig, src, mode, opt, base_act=None):
             for q in out[n]:
                 dq = q @ q0.inverted()
                 dq = Quaternion().slerp(dq, gain)
-                res[n].append(dq @ base[n])
-        for n, q in base.items():
-            if n not in res:
-                res[n] = [q] * len(frames)
+                res[n].append(dq if cyc else dq @ base[n])
+        if not cyc:
+            for n, q in base.items():
+                if n not in res:
+                    res[n] = [q] * len(frames)
         out = res
         hips_loc = [Vector() for _ in frames]
+    # ---- เดินในผ้าถุง: ย่อการเหวี่ยงขา (basis เทียบท่าพักยืนตรง = identity) ตัวบนคงเดิม
+    if opt.get("skirt"):
+        for sd in ("L", "R"):
+            for bn, k in ((f"thigh.{sd}", opt["skirt"]), (f"shin.{sd}", opt.get("knee", 1.0)), (f"foot.{sd}", opt.get("foot", 1.0))):
+                if bn in out:
+                    out[bn] = [Quaternion().slerp(q if q.w >= 0 else -q, k) for q in out[bn]]
+        b = opt.get("bob", 1.0)
+        if hips_loc:
+            avg = sum((v for v in hips_loc), Vector()) / len(hips_loc)
+            hips_loc = [avg + (v - avg) * b for v in hips_loc]
+        if opt.get("lean"):     # โน้มตัวไปข้างหน้า (แกน X ของกระดูกสันหลัง = ก้ม) แบ่งให้ spine 60% chest 40%
+            for bn, share in (("spine", 0.6), ("chest", 0.4)):
+                if bn in out:
+                    tilt = Quaternion((1, 0, 0), math.radians(opt["lean"] * share))
+                    out[bn] = [q @ tilt for q in out[bn]]
+        if opt.get("arms"):     # แขนแกว่งแรงขึ้น: ขยายการหมุนของต้นแขนจากค่าเฉลี่ยของมันเอง
+            for sd in ("L", "R"):
+                bn = f"upper_arm.{sd}"
+                if bn in out:
+                    qs = out[bn]
+                    mean = qs[0]
+                    for q in qs[1:]:
+                        mean = mean.slerp(q if q.dot(mean) >= 0 else -q, 1.0 / (qs.index(q) + 1))
+                    res = []
+                    for q in qs:        # mean * (mean^-1 q)^k : มุมเบี่ยงจากค่าเฉลี่ยคูณ k (slerp ทำเกิน 1 ไม่ได้)
+                        d = mean.inverted() @ (q if q.dot(mean) >= 0 else -q)
+                        ax, ang = d.to_axis_angle()
+                        res.append(mean @ Quaternion(ax, ang * opt["arms"]))
+                    out[bn] = res
     # ---- วนลูป: ช่วงท้าย K เฟรมผสมเข้าหาช่วงต้น
     K = min(opt.get("loop", 0), len(frames) // 3)
     if K > 0:
@@ -226,6 +271,43 @@ def retarget(rig, src, mode, opt, base_act=None):
             else:
                 hl.append(hips_loc[i])
         hips_loc = hl
+    # ---- ท่าเดิมเป็นรอบ (cycle_base): ยืดส่วนที่บวกเพิ่มให้ยาวเท่ารอบท่าเดิมพอดีจำนวนเต็ม แล้วคูณทับท่าเดิมทีละเฟรม
+    #      (ขาปั่นต่อเนื่องตลอดท่า และวนลูปรอบใหม่ได้ไม่กระตุก)
+    if mode == "add" and opt.get("cycle_base"):
+        set_mode_for(rig, base_act)
+        rig.animation_data.action = base_act
+        f0b, f1b = (int(round(x)) for x in base_act.frame_range)
+        P = max(1, f1b - f0b)
+        src_n = len(next(iter(out.values())))
+        dst_n = max(1, round((src_n - 1) / P)) * P + 1
+        us = [i * (src_n - 1) / (dst_n - 1) for i in range(dst_n)]
+        def qat(qs, u):
+            k0 = int(math.floor(u)); k1 = min(src_n - 1, k0 + 1); a = u - k0
+            b2 = qs[k1] if qs[k0].dot(qs[k1]) >= 0 else -qs[k1]
+            return qs[k0].slerp(b2, a)
+        dq = {n: [qat(qs, u) for u in us] for n, qs in out.items()}
+        res = {pb.name: [] for pb in rig.pose.bones}
+        hips_loc = []
+        for i in range(dst_n):
+            sc.frame_set(f0b + (i % P))
+            for pb in rig.pose.bones:
+                bq = pb.matrix_basis.to_quaternion()
+                res[pb.name].append(dq[pb.name][i] @ bq if pb.name in dq else bq)
+            hips_loc.append(rig.pose.bones["hips"].matrix_basis.to_translation())
+        out = res
+        log(f"cycle_base: base period {P} frames, add part {src_n} -> {dst_n} frames ({(dst_n - 1) // P} cycles)")
+    # ---- เร็วขึ้น (ถี่ขึ้น): สุ่มเฟรมใหม่ให้รอบสั้นลง speedup เท่า
+    if opt.get("speedup") and opt["speedup"] != 1:
+        src_n = len(next(iter(out.values())))
+        dst_n = max(4, int(round(src_n / opt["speedup"])))
+        def at(seq, u, lerp):
+            k0 = int(math.floor(u)); k1 = min(src_n - 1, k0 + 1); a = u - k0
+            return lerp(seq[k0], seq[k1], a)
+        def qlerp(a, b, t):
+            return a.slerp(b if a.dot(b) >= 0 else -b, t)
+        us = [i * (src_n - 1) / (dst_n - 1) for i in range(dst_n)]
+        out = {n: [at(qs, u, qlerp) for u in us] for n, qs in out.items()}
+        hips_loc = [at(hips_loc, u, lambda a, b, t: a.lerp(b, t)) for u in us]
     n_frames = len(next(iter(out.values())))
     return out, hips_loc, n_frames
 
@@ -381,7 +463,9 @@ def main():
         clips.update(ELDER_CLIPS)
     if "female" in char and "elder" not in char:
         clips.update(FEMALE_CLIPS)
-    names = [n for n in clips if not want or n in want]
+    # ท่านุ่งผ้าถุง: ทำเฉพาะเมื่อขอชื่อ walk_skirt (ท่าเด็กที่ใช้ = เด็กหญิงนุ่งผ้าซิ่น -> ก้าวแบบผู้หญิง)
+    clips.update(SKIRT_CLIPS["female" if ("female" in char or "child" in char) else "male"])
+    names = [n for n in clips if (n in want) if want] if want else [n for n in clips if n not in SKIRT_CLIPS["male"]]
     made = []
     for name in names:
         fn, mode, opt = clips[name]
@@ -406,12 +490,45 @@ def main():
         bpy.data.objects.remove(src, do_unlink=True)
         made.append(name)
         log(f"{name}: {fn} {mode} -> {n} frames ({n / FPS:.1f} s)")
-    size = export_data(rig, made, os.path.join(OUTD, f"{char}_mocap_anims.json"))
-    log("json", os.path.join(OUTD, f"{char}_mocap_anims.json"), size)
+    # เลือกบางท่า (ชื่อใน argv): แยกไฟล์ผลลัพธ์ ไม่เขียนทับ json/ภาพ/blend ของชุดเต็ม
+    tag = "" if not want else "_" + "_".join(want)
+    jpath = os.path.join(OUTD, f"{char}_mocap{tag}_anims.json")
+    size = export_data(rig, made, jpath)
+    log("json", jpath, size)
+    for n in made:
+        gait_report(rig, n)
+        if n + "__old" in bpy.data.actions:
+            gait_report(rig, n + "__old")
     if "--preview" in argv:
-        preview(rig, [(n + "__old" if (n + "__old") in bpy.data.actions else None, n) for n in made], os.path.join(OUTD, f"{char}_mocap_preview.png"))
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUTD, f"{char}_mocap.blend"), copy=True)
+        preview(rig, [(n + "__old" if (n + "__old") in bpy.data.actions else None, n) for n in made], os.path.join(OUTD, f"{char}_mocap{tag}_preview.png"))
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUTD, f"{char}_mocap{tag}.blend"), copy=True)
     log("done", made)
+
+
+def gait_report(rig, name):
+    """ก้าวยาวแค่ไหน (ระยะหน้า-หลังสูงสุดระหว่างข้อเท้า 2 ข้าง) + ความเร็วที่เท้าไม่ไถล (เท้าที่แตะพื้นเลื่อนถอยหลังเท่าไร)
+    -> ใส่ HumanNPC NATURAL.<char>.<ท่า> (studs/วินาที)"""
+    act = bpy.data.actions[name]
+    set_mode_for(rig, act)
+    rig.animation_data.action = act
+    sc = bpy.context.scene
+    f0, f1 = (int(x) for x in act.frame_range)
+    W = rig.matrix_world
+    pts = {"L": [], "R": []}
+    for f in range(f0, f1 + 1):
+        sc.frame_set(f)
+        for sd in ("L", "R"):
+            pts[sd].append(W @ rig.pose.bones[f"foot.{sd}"].head)
+    sep = max(abs(a.y - b.y) for a, b in zip(pts["L"], pts["R"]))
+    speeds = []
+    for sd in ("L", "R"):
+        zmin = min(p.z for p in pts[sd])
+        for i in range(1, len(pts[sd])):
+            a, b = pts[sd][i - 1], pts[sd][i]
+            if a.z < zmin + 0.012 and b.z < zmin + 0.012:
+                speeds.append(abs(b.y - a.y) * FPS)
+    sp = (sum(speeds) / len(speeds)) if speeds else 0.0
+    log(f"GAIT {name}: frames {f1 - f0 + 1} ankle_sep {sep * STUDS_PER_M:.2f} studs, natural speed {sp * STUDS_PER_M:.2f} studs/s")
 
 
 main()

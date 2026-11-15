@@ -1,0 +1,4 @@
+painted
+exported C:\xampp\htdocs\roblox_anomaly\assets\models\GhostChildV2\upload\ghost_child_v2.fbx pngs 9 meshes ['BodyHead', 'BodyLower', 'BodyUpper', 'Hair_child_short']
+preview C:\xampp\htdocs\roblox_anomaly\assets\models\GhostChildV2\ghost_child_v2_preview.png
+DONE
