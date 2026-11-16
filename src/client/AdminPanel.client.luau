@@ -193,7 +193,7 @@ local function start()
 		corner(l, 12)
 		return l
 	end
-	local shopChip, powerChip, rainChip, moneyChip = chip(), chip(), chip(), chip()
+	local shopChip, powerChip, moneyChip = chip(), chip(), chip()
 	local function paintStatus()
 		local shop = remotes:GetAttribute("ShopOpen") == true
 		shopChip.Text = if shop then "ร้านเปิด" else "ร้านปิด"
@@ -201,13 +201,10 @@ local function start()
 		local power = ReplicatedStorage:GetAttribute("PowerOn") ~= false
 		powerChip.Text = if power then "ไฟติด" else "ไฟดับ"
 		powerChip.TextColor3 = if power then C.Good else C.Bad
-		local rain = remotes:GetAttribute("Weather") == "Rain"
-		rainChip.Text = if rain then "ฝนตก" else "ฟ้าใส"
-		rainChip.TextColor3 = if rain then C.Info else C.Dim
 		moneyChip.Text = string.format("฿%d · ธูป %d", tonumber(remotes:GetAttribute("Money")) or 0, tonumber(remotes:GetAttribute("Incense")) or 0)
 	end
 	paintStatus()
-	for _, a in ipairs({ "ShopOpen", "Weather", "Money", "Incense" }) do
+	for _, a in ipairs({ "ShopOpen", "Money", "Incense" }) do
 		remotes:GetAttributeChangedSignal(a):Connect(paintStatus)
 	end
 	ReplicatedStorage:GetAttributeChangedSignal("PowerOn"):Connect(paintStatus)
@@ -394,9 +391,6 @@ local function start()
 	button(g, "⛽ น้ำมันในตู้เต็ม", "fuelfull")
 	button(g, "🫗 น้ำมันในตู้หมด", "fuelempty")
 	button(g, "💡 ไฟดับ (ต้องสตาร์ทเครื่อง)", "powercut")
-	g = section("shop", "อากาศ")
-	button(g, "🌧️ ฝนตก", "rain")
-	button(g, "☀️ ฟ้าใส", "clear")
 
 	-- คัทซีน: Studio เลือกจำนวนคน (ผู้เล่นจริง + หุ่นทดสอบเติมให้ครบ) ไว้ดูที่นั่ง/ลงรถ/กล้องตอนหลายคน
 	-- รถเปลี่ยนตามจำนวน: 1 มอไซค์ / 2 ตุ๊กตุ๊ก / 3 เก๋ง / 4-6 กระบะ
@@ -450,32 +444,39 @@ local function start()
 	button(g, "🛺 ตุ๊กตุ๊ก", "tuktuk")
 	button(g, "🚶 คนเดินถือแกลลอน", "walker")
 	button(g, "🚲 จักรยานยางแบน", "bicycle")
-	button(g, "☂️ คนมาหลบฝน", "shelter")
-	g = section("customer", "ลูกค้าคันถัดไปเป็นผี", "เลือกผีแล้วลูกค้าจะมาทันที (ผีที่ต้องฝนตก เกมสั่งฝนให้เอง)")
+	g = section("customer", "ลูกค้าคันถัดไปเป็นผี", "เลือกผีแล้วลูกค้าจะมาทันที")
+	local HIDDEN_ANOMALIES = {
+		Anomaly_NoUmbrella = true,
+		Anomaly_GhostWalkIn = true,
+		Anomaly_Krasue = true,
+	}
 	local ok, keys = pcall(function()
 		return HttpService:JSONDecode(ReplicatedStorage:GetAttribute("AdminAnomalies") or "[]")
 	end)
 	for _, k in ipairs(if ok then keys else {}) do
-		local name = k
-		pcall(function()
-			name = LanguageModule.GetBook(k, "th")
-		end)
-		if name == k then
-			name = string.gsub(k, "^Anomaly_", "")
+		if not HIDDEN_ANOMALIES[k] then
+			local name = k
+			pcall(function()
+				name = LanguageModule.GetBook(k, "th")
+			end)
+			if name == k then
+				name = string.gsub(k, "^Anomaly_", "")
+			end
+			button(g, "👻 " .. name, "anomaly:" .. k)
 		end
-		button(g, "👻 " .. name, "anomaly:" .. k)
 	end
 
 	-- ================================================================ แท็บ: อีเวนต์
 	g = section("event", "ขาจรบนถนน", "ปกติเกิดเองคืนละ 1 ครั้ง · ปุ่มนี้เรียกได้ตลอด")
 	button(g, "🏍️ เด็กแว้น / รถซิ่ง", "racer")
-	button(g, "🔊 รถแห่ / รถแดนซ์", "party")
-	button(g, "🥁 ขบวนแห่นาค", "parade")
 	g = section("event", "ผีใหญ่บุกประชิด", "วิธีรอด: ดับไฟที่สะพานไฟ + นั่งยอง [C]")
 	button(g, "🔴 แสงไฟผีกระสือ", "big:Krasue")
 	button(g, "🧍 เปรตเดินผ่าน", "big:Pret")
-	button(g, "⚰️ ขบวนแห่ศพ", "big:Funeral")
 	button(g, "✊ ปอบเคาะแผง", "big:Pop")
+	g = section("event", "ไม่ใช้แล้ว", "ตัดออกจากเกมแล้ว เก็บปุ่มไว้ดูเฉยๆ")
+	button(g, "🔊 รถแห่ / รถแดนซ์", "party")
+	button(g, "🥁 ขบวนแห่นาค", "parade")
+	button(g, "⚰️ ขบวนแห่ศพ", "big:Funeral")
 
 	-- ================================================================ แท็บ: ผีฉาก
 	g = section("scenery", "เรียกผีฉาก", "เห็นเฉพาะเครื่องตัวเอง · จ้องค้าง 2.5 วิ = วิ่ง/คลานพุ่งเข้ามาหลอก")
@@ -483,14 +484,14 @@ local function start()
 	button(g, "หุ่นไล่กาใกล้ร้าน", "scenery:Scarecrow")
 	button(g, "เงาหลังต้นไทร", "scenery:Shadow")
 	button(g, "นางรำโคนต้นไทร", "scenery:Dancer")
-	button(g, "แม่นาคริมคันนา", "scenery:MaeNak")
-	button(g, "กุมารทองข้างศาล", "scenery:Kuman")
-	button(g, "ผีเด็กฝั่งตรงข้าม", "scenery:Child")
-	button(g, "ศพห่อผ้ากลางทุ่ง", "scenery:Shroud")
 	button(g, "เงาดำวิ่งตัดถนน", "scenery:ShadowRun")
 	g = section("scenery", "", nil, 1)
 	button(g, "ซ่อนผีฉากที่โผล่อยู่", "scenery:hide")
 	g = section("scenery", "ไม่ใช้แล้ว", "ตัดออกจากเกมแล้ว เก็บปุ่มไว้ดูเฉยๆ")
+	button(g, "แม่นาคริมคันนา", "scenery:MaeNak")
+	button(g, "กุมารทองข้างศาล", "scenery:Kuman")
+	button(g, "ผีเด็กฝั่งตรงข้าม", "scenery:Child")
+	button(g, "ศพห่อผ้ากลางทุ่ง", "scenery:Shroud")
 	button(g, "กระสือเหนือทุ่งนา", "scenery:Krasue")
 	button(g, "เปรตเดินท้ายทุ่ง", "scenery:Pret")
 	button(g, "กระหังบินข้ามทุ่ง", "scenery:Krahang")

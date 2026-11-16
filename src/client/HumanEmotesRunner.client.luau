@@ -340,7 +340,18 @@ RunService.PreSimulation:Connect(function(dt)
 				if dbl and dbl:IsA("Model") then
 					local st2 = stateOf(dbl)
 					local keep2: { [Bone]: boolean } = {}
+					local isTwist = dbl:GetAttribute("NeckTwist") == true
 					for _, bname in ipairs(LIFE_ORDER) do
+						if isTwist and (bname == "neck" or bname == "head") then
+							local b2 = st2.bones[bname]
+							if b2 then
+								baseOf(st2, b2)
+								local sway = if bname == "head" then CFrame.Angles(math.sin(t * 1.4) * 0.03, 0, math.cos(t * 1.1) * 0.04) else CFrame.identity
+								write(st2, b2, sway)
+								keep2[b2] = true
+							end
+							continue
+						end
 						local w = offs[bname]
 						local g = gest[bname]
 						local b2 = if w or g then st2.bones[bname] else nil

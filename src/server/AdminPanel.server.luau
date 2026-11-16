@@ -18,9 +18,9 @@ local ADMINS = {
 
 -- คำสั่งที่กดได้ (ชื่อตรงกับที่ CoreLoop รับใน DevDecision)
 local ALLOWED = {
-	walker = true, car = true, tuktuk = true, bicycle = true, spawn = true, shelter = true,
+	walker = true, car = true, tuktuk = true, bicycle = true, spawn = true,
 	racer = true, party = true, parade = true,
-	rain = true, clear = true, powercut = true,
+	powercut = true,
 	lose = true, -- ทุกคนตาย (แพ้ทั้งร้าน: ธูปหมด)
 	-- 2026-11-03
 	shopready = true, -- จัดร้านพร้อมขายทันที
@@ -99,11 +99,9 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 		if not AnomalyManager.Anomalies[key] then
 			return
 		end
-		if AnomalyManager.NeedsRain(key) then
-			devDecision():Fire("rain")
-		end
 		devDecision():SetAttribute("ForceAnomaly", key) -- ลูกค้าคันถัดไปเป็นผีตัวนี้
-		devDecision():Fire(AnomalyManager.KindFor(key) == "walker" and "walker" or "spawn")
+		-- "ghost" = CoreLoop สุ่มชนิดลูกค้าแบบเกมจริง เฉพาะชนิดที่ผีตัวนี้เกิดได้ (เดิม "spawn" = มอไซค์/ซาเล้งเสมอ)
+		devDecision():Fire(AnomalyManager.KindFor(key) == "walker" and "walker" or "ghost")
 	elseif cmd == "testmode:on" or cmd == "testmode:off" then
 		-- โหมดทดสอบ: เกมไม่สุ่มอะไรเอง (ลูกค้า ขาจร ฝน ไฟดับ ผีใหญ่ ผีฉาก สวดเรียกผี ศาลหลอก) มีแต่ที่กดจากแผงนี้
 		-- อ่านจาก ReplicatedStorage attribute "TestMode" (CoreLoop / Weather / client SceneryGhosts / HauntEffects)

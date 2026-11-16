@@ -61,8 +61,8 @@ SoundBank.CustomUploadedIds = {
 	Chant4_NamoTassa = "rbxassetid://118042869785522",
 
 	-- 5) เสียงขาจรบนถนน: เด็กแว้น + เพลงแดนซ์รถเครื่องเสียง + เพลงรถแห่งานบวช
-	RacerMotoRevCut = "",       -- assets/sounds/sfx_racer_moto_rev_cut.wav
-	RacerWheeliePass = "",      -- assets/sounds/sfx_racer_wheelie_pass.wav
+	RacerMotoRevCut = "rbxassetid://80964560032865",       -- motorcycle_screams (2026-11-16)
+	RacerWheeliePass = "rbxassetid://80964560032865",      -- motorcycle_screams (2026-11-16)
 	DanceMusic1_SaiYor = "",    -- assets/sounds/music_thai_dance_1_sai_yor.wav
 	DanceMusic2_MorlamEDM = "", -- assets/sounds/music_thai_dance_2_morlam_edm.wav
 	ParadeMusic1_RotHae = "",   -- assets/sounds/music_parade_1_rothe_isan.wav
@@ -500,6 +500,30 @@ SoundBank.Presets = {
 		reverbWet = -8,
 		reverbDecay = 1.5,
 	},
+	-- กระหังบิน/ร่อน (server/GhostLinger หลังคา, ผู้ใช้ 2026-11-16 "เสียงลมตอนบินทำดีๆ กว่านี้"): 2 ชั้นเล่นวนที่ตัวผี
+	--   KrahangWings = เสียงกระพือปีกนก (Bird Wings Flap Flutter) กดความเร็วลงให้ทุ้มหนักเป็นปีกกระด้งใหญ่ = จังหวะกระพือ
+	--   KrahangAir   = ลมพัด (Ambient wind) เร่งความเร็วขึ้นให้เป็นเสียงลมแหวกอากาศ = พื้นเสียงต่อเนื่องใต้จังหวะปีก
+	-- อัปโหลดไฟล์ของตัวเองชื่อ haunt_krahang_wings / haunt_krahang_air ใส่ UploadedSounds = ใช้ไฟล์นั้นแทน (KeyToFileName)
+	KrahangWings = {
+		id = "rbxassetid://9114787449",
+		customKey = "KrahangWings",
+		volume = 1.5,
+		speed = 0.62,
+		looped = true,
+		low = 4,
+		mid = 1,
+		high = -8,
+	},
+	KrahangAir = {
+		id = "rbxassetid://5799870105",
+		customKey = "KrahangAir",
+		volume = 0.55,
+		speed = 1.35,
+		looped = true,
+		low = 2,
+		mid = 0,
+		high = -6,
+	},
 	RoofTinSteps = {
 		id = "rbxassetid://9113542694", -- เสียงย่ำบนสังกะสีเหนือหัว
 		customKey = "RoofTinSteps",
@@ -539,24 +563,22 @@ SoundBank.Presets = {
 
 	-- ================= 5. ขาจรบนถนน (เด็กแว้น / เพลงแดนซ์ / เพลงรถแห่) =================
 	RacerMotoRevCut = {
-		id = "rbxassetid://74974322876141", -- เสียงเบิ้ลท่อสูตรตัดรอบแบบตัดแหลมไม่แสบหู
+		id = "rbxassetid://80964560032865", -- motorcycle_screams
 		customKey = "RacerMotoRevCut",
-		volume = 0.51, -- (+10% ผู้ใช้ 2026-11-05 เดิม 0.46)
+		volume = 0.65,
 		speed = 1.0,
-		looped = true,
-		low = 5,
-		mid = 3,
-		high = -18,
+		uploadedSpeed = 1.0,
+		looped = false,
+		noEffects = true,
 	},
 	RacerWheeliePass = {
-		id = "rbxassetid://74974322876141", -- เสียงยกล้อพุ่งผ่านหน้าร้าน
+		id = "rbxassetid://80964560032865", -- motorcycle_screams
 		customKey = "RacerWheeliePass",
-		volume = 0.52,
+		volume = 0.65,
 		speed = 1.0,
+		uploadedSpeed = 1.0,
 		looped = false,
-		low = 6,
-		mid = 4,
-		high = -18,
+		noEffects = true,
 	},
 	DanceMusic1_SaiYor = {
 		id = "rbxassetid://9040293936", -- เพลงแดนซ์สายย่อสามช่า เบสแน่นตึ๊บๆ ไม่บาดหู
@@ -823,6 +845,8 @@ SoundBank.KeyToFileName = {
 	WalkShopWood1 = "haunt_walk_shop_wood_1",
 	WalkShopWood2 = "haunt_walk_shop_wood_2",
 	RoofTinSteps = "haunt_roof_tin_steps",
+	KrahangWings = "haunt_krahang_wings",
+	KrahangAir = "haunt_krahang_air",
 	ClimbTree1 = "haunt_climb_tree_1",
 	ClimbTree2 = "haunt_climb_tree_2",
 	LukThung1 = "radio_lukthung_1_lamnam_thung_mued",
@@ -839,8 +863,8 @@ SoundBank.KeyToFileName = {
 	Chant2_Anicca_Scared = "chant_thai_2_anicca_scared",
 	Chant3_PhraMalai_Scared = "chant_thai_3_phra_malai_scared",
 	Chant4_NamoTassa_Scared = "chant_thai_4_namo_tassa_scared",
-	RacerMotoRevCut = "sfx_racer_moto_rev_cut",
-	RacerWheeliePass = "sfx_racer_wheelie_pass",
+	RacerMotoRevCut = "motorcycle_screams",
+	RacerWheeliePass = "motorcycle_screams",
 	DanceMusic1_SaiYor = "music_thai_dance_1_sai_yor",
 	DanceMusic2_MorlamEDM = "music_thai_dance_2_morlam_edm",
 	ParadeMusic1_RotHae = "music_parade_1_rothe_isan",
@@ -862,19 +886,30 @@ end
 sanitizeUploadedFolder(ReplicatedStorage:FindFirstChild("UploadedSounds"))
 sanitizeUploadedFolder(SoundService:FindFirstChild("UploadedSounds"))
 
+local LEGACY_FILE_ALIAS: { [string]: string } = {
+	RacerMotoRevCut = "sfx_racer_moto_rev_cut",
+	RacerWheeliePass = "sfx_racer_wheelie_pass",
+}
+
 local function findInUploadedFolder(nameOrKey: string?): string?
 	if not nameOrKey or nameOrKey == "" then
 		return nil
 	end
 	local fileAlias = SoundBank.KeyToFileName[nameOrKey]
-	for _, root in ipairs({ ReplicatedStorage:FindFirstChild("UploadedSounds"), SoundService:FindFirstChild("UploadedSounds") }) do
-		if root then
-			local inst = root:FindFirstChild(nameOrKey, true) or (if fileAlias then root:FindFirstChild(fileAlias, true) else nil)
-			if inst and inst:IsA("Sound") and inst.SoundId ~= "" then
-				if inst.IsPlaying then
-					inst:Stop()
+	local legacyAlias = LEGACY_FILE_ALIAS[nameOrKey]
+	local roots = { ReplicatedStorage:FindFirstChild("UploadedSounds"), SoundService:FindFirstChild("UploadedSounds"), Workspace }
+	for _, query in ipairs({ nameOrKey, fileAlias, legacyAlias }) do
+		if query and query ~= "" then
+			for _, root in ipairs(roots) do
+				if root then
+					local inst = root:FindFirstChild(query, root ~= Workspace)
+					if inst and inst:IsA("Sound") and inst.SoundId ~= "" then
+						if inst.IsPlaying then
+							inst:Stop()
+						end
+						return inst.SoundId
+					end
 				end
-				return inst.SoundId
 			end
 		end
 	end

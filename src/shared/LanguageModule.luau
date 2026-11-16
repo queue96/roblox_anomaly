@@ -538,11 +538,15 @@ LanguageModule.BookOrder = {
 	"Outage_Shrouds",
 	"Big_Krasue",
 	"Big_Pret",
-	"Big_Funeral",
+	-- "Big_Funeral" ตัดขบวนแห่ศพแล้ว (2026-11-16)
 	"Big_Pop",
 	"Anomaly_MonkRadio",
 	"Anomaly_BloodFuel",
-	"Anomaly_NoUmbrella",
+	"Anomaly_BurnedCorpse",
+	"Anomaly_ShoulderChild",
+	"Anomaly_ShroudPickup",
+	"Anomaly_BackFeet",
+	-- "Anomaly_NoUmbrella" ตัดระบบฝนตกแล้ว (2026-11-16)
 }
 LanguageModule.Book = {
 	Anomaly_Headless = {
@@ -550,8 +554,8 @@ LanguageModule.Book = {
 		en = { "Headless Pillion Rider", "Someone rides pillion with no head. The driver has no idea. Try greeting \"you two\"." },
 	},
 	Anomaly_Cemetery = {
-		th = { "ป้ายทะเบียนป่าช้า", "คนขับดูปกติทุกอย่าง แต่ป้ายทะเบียนเขียนว่า \"4444 ตาย\" พนมมือแล้วดูป้ายก่อนเติม" },
-		en = { "Cemetery Plate", "The rider looks perfectly normal, but the plate reads \"4444 DEAD\". Pray and check the plate before you serve." },
+		th = { "ป้ายมรณะ", "คนขับดูปกติทุกอย่าง แต่พอพนมมือ ป้ายทะเบียนกลายเป็นป้ายหน้าศพ เขียนชื่อของเขาเองกับคำว่ามรณะวันนี้" },
+		en = { "Death Plate", "The rider looks perfectly normal. Pray, and the licence plate becomes a funeral name board with their own name and today's date of death." },
 	},
 	Anomaly_WheelHair = {
 		th = { "ผมพันล้อ", "เส้นผมยาวสีดำพันล้อแน่น ลูกค้าบ่นว่าล้อหนักเหมือนมีใครดึง" },
@@ -616,6 +620,22 @@ LanguageModule.Book = {
 	Anomaly_BloodFuel = {
 		th = { "น้ำมันเลือด", "น้ำมันในหลอดแก้วกลายเป็นสีเลือด ลูกค้าบอกว่าหอมดี" },
 		en = { "Blood Fuel", "The fuel in the glass turns blood red. The customer says it smells good." },
+	},
+	Anomaly_BurnedCorpse = {
+		th = { "ศพไฟคลอกมาซื้อน้ำมัน", "มองตาเปล่าเป็นชาวบ้านปกติ แต่พอพนมมือเห็นร่างจริงไหม้เกรียมเป็นตอตะโก มีควันดำลอยกรุ่น" },
+		en = { "Charred Corpse", "Looks like an ordinary villager to the naked eye, but prayer reveals a scorched, smoking corpse." },
+	},
+	Anomaly_ShoulderChild = {
+		th = { "ผีเด็กขี่คอ", "ลูกค้าดูเหมือนมาคนเดียว แต่พอพนมมือเงยดูที่บ่าจะเห็นผีเด็กตัวซีดขี่คอเกาะหัวจ้องลงมา" },
+		en = { "Child on the Shoulders", "The customer seems alone, but praying reveals a pale ghost child straddling their neck and staring down." },
+	},
+	Anomaly_ShroudPickup = {
+		th = { "ศพห่อผ้าท้ายกระบะ", "คนขับกระบะดูปกติทุกอย่าง แต่พอพนมมือแล้วเดินไปดูท้ายรถ จะเห็นศพห่อผ้าขาวยืนอยู่ในคอก หันหน้ามองตาม" },
+		en = { "Shroud in the Truck Bed", "The pickup driver looks perfectly normal. Pray and walk round to the back: a shrouded corpse stands in the bed, its head turning to follow you." },
+	},
+	Anomaly_BackFeet = {
+		th = { "ผีเท้ากลับหลัง", "คนเดินมาซื้อน้ำมันดูเหมือนชาวบ้านทั่วไป แต่พอพนมมือแล้วก้มดูเท้า ปลายเท้าสองข้างชี้ไปข้างหลัง" },
+		en = { "Backward Feet", "The walk-in customer looks like any villager. Pray and look down: both feet point backwards." },
 	},
 	Anomaly_NoUmbrella = {
 		th = { "คนตัวแห้งกลางฝน", "เดินฝ่าฝนหนักมาโดยไม่กางร่ม แต่ตัวแห้งสนิท" },

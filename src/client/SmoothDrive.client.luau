@@ -71,7 +71,18 @@ local function roadFeel(v: Model, st: State, cf: CFrame, s: number, speed: numbe
 	local seed = st.seed
 	local bob = (math.noise(s * 0.45, seed) * 0.8 + math.sin(s * 2.4) * 0.2) * BOB_AMP * k
 	local roll = if #st.wheels <= 2 then math.noise(s * 0.18, seed + 7.3) * ROLL_AMP * (0.4 + 0.6 * k) else 0
-	return cf * CFrame.new(0, bob, 0) * CFrame.Angles(pitch, 0, roll)
+	local wheelieLift = 0
+	if v:GetAttribute("Wheelie") == true and st.drive.dist > 1 then
+		local prog = math.clamp(s / st.drive.dist, 0, 1)
+		if prog > 0.24 and prog < 0.74 then
+			local w = (prog - 0.24) / 0.50
+			local env = if w < 0.22 then math.sin((w / 0.22) * (math.pi / 2))
+				elseif w > 0.78 then math.sin(((1 - w) / 0.22) * (math.pi / 2))
+				else 1
+			wheelieLift = env * math.rad(25)
+		end
+	end
+	return cf * CFrame.new(0, bob + math.sin(wheelieLift) * 1.8, 0) * CFrame.Angles(pitch + wheelieLift, 0, roll)
 end
 
 RunService:BindToRenderStep("SmoothDrive", Enum.RenderPriority.First.Value, function(dt: number)

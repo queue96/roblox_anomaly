@@ -122,12 +122,20 @@ type State = {
 	bones: { [string]: Bone },
 	root: BasePart?,
 	hipScale: number,
+	hipsRel: Vector3,
 	curClip: Clip?,
 	curName: string?,
 	curT0: number,
 	prevClip: Clip?,
 	prevT0: number,
 	switchAt: number,
+	hostModel: Model?,
+	hostNeck: Bone?,
+	hostSpine: Bone?,
+	hostRoot: BasePart?,
+	lookYaw: number,
+	lookPitch: number,
+	lookAt: number,
 }
 
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
@@ -146,7 +154,9 @@ local function stateOf(m: Model): State
 	local hipScale = 1.0
 	local root = m:FindFirstChild("RootPart") :: BasePart?
 	local hips = bones["hips"]
+	local hipsRel = Vector3.new(0, 1.73, 0)
 	if root and hips then
+		hipsRel = root.CFrame:PointToObjectSpace(hips.WorldPosition)
 		local dy = math.abs(hips.WorldPosition.Y - root.Position.Y)
 		if dy > 0.2 then
 			hipScale = math.clamp(dy / 2.95, 0.4, 2.5)
@@ -156,20 +166,169 @@ local function stateOf(m: Model): State
 		bones = bones,
 		root = root,
 		hipScale = hipScale,
+		hipsRel = hipsRel,
 		curClip = nil,
 		curName = nil,
 		curT0 = 0,
 		prevClip = nil,
 		prevT0 = 0,
 		switchAt = 0,
+		hostModel = nil,
+		hostNeck = nil,
+		hostSpine = nil,
+		hostRoot = nil,
+		lookYaw = 0,
+		lookPitch = 0,
+		lookAt = 0,
 	}
 	states[m] = st
 	return st
 end
 
+-- ผีเด็กขี่คอ (Anomaly_ShoulderChild): ขาพาดบนบ่าสองข้างสมมาตร หน้าแข้งห้อยหน้าอก มือสองข้างวางเกาะบนกระหม่อมหัวลูกค้า
+local function poseShoulderRide(st: State, now: number)
+	local sw = math.sin(now * 1.6)
+	local br = math.sin(now * 2.3)
+	local pose: { [string]: CFrame } = {
+		["hips"] = CFrame.Angles(math.rad(-2 + br * 1.0), 0, math.rad(sw * 1.2)),
+		["spine"] = CFrame.Angles(math.rad(-4 + br * 1.2), 0, math.rad(sw * 1.5)),
+		["chest"] = CFrame.Angles(math.rad(-4 + br * 1.2), 0, 0),
+		["neck"] = CFrame.Angles(math.rad(14), math.rad(sw * 4), math.rad(sw * 2.5)),
+		["head"] = CFrame.Angles(math.rad(14 + br * 2), math.rad(-sw * 3), math.rad(4 + sw * 3)),
+		["thigh.L"] = CFrame.Angles(math.rad(-82), math.rad(14), math.rad(-24)),
+		["thigh.R"] = CFrame.Angles(math.rad(-82), math.rad(-14), math.rad(24)),
+		["shin.L"] = CFrame.Angles(math.rad(72 + sw * 2), 0, math.rad(8)),
+		["shin.R"] = CFrame.Angles(math.rad(72 - sw * 2), 0, math.rad(-8)),
+		["foot.L"] = CFrame.Angles(math.rad(-10), 0, 0),
+		["foot.R"] = CFrame.Angles(math.rad(-10), 0, 0),
+		["upper_arm.L"] = CFrame.Angles(math.rad(-40), math.rad(20), math.rad(60)),
+		["upper_arm.R"] = CFrame.Angles(math.rad(-40), math.rad(-20), math.rad(-60)),
+		["forearm.L"] = CFrame.Angles(math.rad(55), math.rad(35), math.rad(92)),
+		["forearm.R"] = CFrame.Angles(math.rad(55), math.rad(-35), math.rad(-92)),
+		["hand.L"] = CFrame.Angles(math.rad(22), 0, 0),
+		["hand.R"] = CFrame.Angles(math.rad(22), 0, 0),
+	}
+	for bname, b in pairs(st.bones) do
+		b.Transform = pose[bname] or CFrame.identity
+	end
+end
+
+-- ยึดสะโพกผีเด็กขี่คอให้เกาะตามกระดูกคอ (neck) ของลูกค้าทุกเฟรม (ผิวไหล่บนสูงกว่า neck +0.30 และหลังหัวอยู่ที่ +0.35)
+local function followShoulderHost(m: Model)
+	if m:GetAttribute("ShoulderRider") ~= true then
+		return
+	end
+	local v = m.Parent
+	local d = v and v:FindFirstChild("DriverNPC")
+	if not (d and d:IsA("Model")) then
+		return
+	end
+	local st = stateOf(m)
+	if st.hostModel ~= d then
+		st.hostModel = d
+		st.hostNeck = nil
+		st.hostSpine = nil
+		st.hostRoot = d:FindFirstChild("RootPart") :: BasePart?
+		for _, b in ipairs(d:GetDescendants()) do
+			if b:IsA("Bone") then
+				if b.Name == "neck" then
+					st.hostNeck = b
+				elseif b.Name == "spine" then
+					st.hostSpine = b
+				end
+			end
+		end
+	end
+	local neck = st.hostNeck
+	if not neck then
+		return
+	end
+	local neckPos = neck.TransformedWorldCFrame.Position
+	local refCF = if st.hostRoot then st.hostRoot.CFrame else (v :: Model):GetPivot()
+	local lv = refCF.LookVector
+	local flat = Vector3.new(lv.X, 0, lv.Z)
+	local yawRot = if flat.Magnitude > 1e-3 then CFrame.lookAt(Vector3.zero, flat.Unit) else (v :: Model):GetPivot().Rotation
+	local spineAnimated = st.hostSpine ~= nil and st.hostSpine.Transform ~= CFrame.identity
+	local off = if not spineAnimated and d:GetAttribute("SeatClip") == "ride_moto"
+		then Vector3.new(0, 0.22, 0.08)
+		else Vector3.new(0, 0.32, 0.34)
+	local hipCF = (CFrame.new(neckPos) * yawRot) * CFrame.new(off)
+	m:PivotTo(hipCF * CFrame.new(-st.hipsRel))
+end
+
+-- คอ/หัวหันตามผู้เล่น (attribute LookAtCamera = true, ผู้ใช้ 2026-11-16: เงาเกาะต้นไทร "ให้คอมองตามผู้เล่น ตัวไม่ต้องขยับ")
+-- เรียกหลังเขียนท่าของ clip แล้ว: หมุนกระดูก neck (ส่วนหนึ่ง) และ head (ที่เหลือ) ทับท่าเดิมให้หน้าหันไปทางกล้อง
+-- ตัว/แขน/ขาไม่แตะ · หันได้ไม่เกิน LOOK_YAW จากทิศหน้าลำตัว ก้ม/เงยไม่เกิน LOOK_PITCH · ค่อยๆ หันตาม (LOOK_RATE) ไม่สะบัด
+local LOOK_YAW = math.rad(80)
+local LOOK_PITCH = math.rad(35)
+local LOOK_RATE = 2.2 -- ยิ่งมากยิ่งหันตามเร็ว (ต่อวินาที)
+local LOOK_NECK = 0.4 -- สัดส่วนที่คอรับไป ที่เหลือเป็นของหัว
+
+local function wrapAngle(a: number): number
+	return (a + math.pi) % (2 * math.pi) - math.pi
+end
+
+-- หมุนกระดูก b เพิ่มในพิกัดโลก (rw) ทับท่าปัจจุบัน
+local function addWorldRotation(b: Bone, rw: CFrame)
+	local t = b.Transform
+	local p = b.TransformedWorldCFrame.Rotation * t.Rotation:Inverse() -- ทิศของกระดูกก่อนคูณ Transform
+	b.Transform = CFrame.new(t.Position) * (p:Inverse() * rw * p * t.Rotation)
+end
+
+local function lookAtCamera(m: Model, st: State, now: number)
+	local head, neck = st.bones["head"], st.bones["neck"]
+	local cam = Workspace.CurrentCamera
+	if not (head and cam) then
+		return
+	end
+	local fwd = m:GetPivot().LookVector
+	local bodyYaw = math.atan2(-fwd.X, -fwd.Z)
+	-- ทิศหน้าของหัวในท่าปัจจุบัน: ทิศหน้าลำตัวตอนกระดูกอยู่ท่าพัก หมุนตามที่ท่าพาหัวไป
+	local headFwdLocal = head.WorldCFrame.Rotation:Inverse() * fwd
+	local cur = head.TransformedWorldCFrame.Rotation * headFwdLocal
+	local to = cam.CFrame.Position - head.TransformedWorldCFrame.Position
+	if to.Magnitude < 0.5 then
+		return
+	end
+	to = to.Unit
+	local wantYaw = math.clamp(wrapAngle(math.atan2(-to.X, -to.Z) - bodyYaw), -LOOK_YAW, LOOK_YAW)
+	local wantPitch = math.clamp(math.asin(math.clamp(to.Y, -1, 1)), -LOOK_PITCH, LOOK_PITCH)
+	-- ค่อยๆ ตามเป้า (เฟรมแรก / เพิ่งกลับมาหลังถูกข้ามเฟรมนาน = เริ่มจากท่าเดิมของ clip)
+	local dt = math.clamp(now - st.lookAt, 0, 0.1)
+	local curYaw = wrapAngle(math.atan2(-cur.X, -cur.Z) - bodyYaw)
+	local curPitch = math.asin(math.clamp(cur.Y, -1, 1))
+	if st.lookAt == 0 or now - st.lookAt > 1 then
+		st.lookYaw, st.lookPitch = curYaw, curPitch
+	end
+	st.lookAt = now
+	local k = 1 - math.exp(-LOOK_RATE * dt)
+	st.lookYaw += (wantYaw - st.lookYaw) * k
+	st.lookPitch += (wantPitch - st.lookPitch) * k
+
+	local function turn(b: Bone, share: number)
+		-- ทิศหน้าของหัวตอนนี้ (หัวเป็นลูกของคอ: หมุนคอในพิกัดโลกเท่าไร หน้าก็หันตามเท่านั้น)
+		local f = head.TransformedWorldCFrame.Rotation * headFwdLocal
+		local dYaw = wrapAngle(st.lookYaw - wrapAngle(math.atan2(-f.X, -f.Z) - bodyYaw)) * share
+		local dPitch = (st.lookPitch - math.asin(math.clamp(f.Y, -1, 1))) * share
+		local right = f:Cross(Vector3.yAxis)
+		local pitchRot = if right.Magnitude > 1e-3 then CFrame.fromAxisAngle(right.Unit, dPitch) else CFrame.identity
+		addWorldRotation(b, CFrame.Angles(0, dYaw, 0) * pitchRot)
+	end
+	if neck then
+		turn(neck, LOOK_NECK)
+	end
+	turn(head, 1) -- หัวรับส่วนที่เหลือทั้งหมด (คำนวณใหม่หลังคอหมุนแล้ว)
+end
+
 local function stepGhost(m: Model, now: number)
 	local clipName = m:GetAttribute("GhostClip")
 	if type(clipName) ~= "string" or clipName == "" then
+		return
+	end
+	if clipName == "shoulder_ride" then
+		local st = stateOf(m)
+		followShoulderHost(m)
+		poseShoulderRide(st, now)
 		return
 	end
 	local gname = (m:GetAttribute("GhostName") :: string?) or m.Name
@@ -213,6 +372,10 @@ local function stepGhost(m: Model, now: number)
 			cf = pcf:Lerp(cf, blend)
 		end
 		b.Transform = cf
+	end
+	-- (ร่างโคลนในจอจั๊มสแกร์อยู่ใน ViewportFrame ไม่ใช่ Workspace: ไม่หันตามกล้องโลกจริง)
+	if m:GetAttribute("LookAtCamera") == true and m:IsDescendantOf(Workspace) then
+		lookAtCamera(m, st, now)
 	end
 end
 
@@ -284,6 +447,15 @@ RunService.PreSimulation:Connect(function()
 					stepGhost(ch, now)
 				end
 			end
+		end
+	end
+end)
+
+-- หลัง RiderMotion (RenderPriority.First + 3) ขยับตัวคนขับตามรถแล้ว ให้ผีเด็กขี่คอขยับตามกระดูกคอคนขับในเฟรมเดียวกัน
+RunService:BindToRenderStep("ShoulderRiderFollow", Enum.RenderPriority.First.Value + 4, function()
+	for inst in pairs(tagged) do
+		if inst:IsA("Model") and inst:GetAttribute("ShoulderRider") == true and inst:IsDescendantOf(Workspace) then
+			followShoulderHost(inst)
 		end
 	end
 end)

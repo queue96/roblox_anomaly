@@ -124,6 +124,42 @@ function GhostNPC.Play(m: Model, clip: string, speed: number?)
 	end)
 end
 
+-- ผีที่ยืมลายเสื้อผ้าชาวบ้าน (เช่น ผีตาโขนใส่ม่อฮ่อม m_farmer_upper/lower): ลายชุดนี้ต้องใช้ AlphaMode = TintMask
+-- (ส่วนผ้าในภาพเป็นช่องโปร่ง เก็บสีผ้าไว้ใน RGB) ถ้าแม่แบบผีตั้งเป็น Overlay ส่วนผ้าจะโชว์สีเทาขาวของชิ้นงานแทน = ตัวขาวทั้งตัวเหมือนไม่ได้ใส่ชุด
+-- (ผู้ใช้ 2026-11-17) แม่แบบใน place แก้แล้ว แต่สคริปต์ตอนเล่นตั้ง AlphaMode เองไม่ได้ จึงกันพลาดด้วยการสลับเป็นสำเนาจาก Shared.VillagerTextures
+local tintMaskByMap: { [string]: SurfaceAppearance }? = nil
+local function fixClothAlpha(m: Model)
+	if not tintMaskByMap then
+		local map: { [string]: SurfaceAppearance } = {}
+		local shared = ReplicatedStorage:FindFirstChild("Shared")
+		local folder = shared and shared:FindFirstChild("VillagerTextures")
+		for _, sa in ipairs(if folder then folder:GetChildren() else {}) do
+			if sa:IsA("SurfaceAppearance") and sa.AlphaMode == Enum.AlphaMode.TintMask then
+				pcall(function()
+					map[(sa :: any).ColorMap] = sa
+				end)
+			end
+		end
+		tintMaskByMap = map
+	end
+	for _, sa in ipairs(m:GetDescendants()) do
+		if sa:IsA("SurfaceAppearance") and sa.AlphaMode ~= Enum.AlphaMode.TintMask then
+			local ok, src = pcall(function()
+				return (tintMaskByMap :: any)[(sa :: any).ColorMap]
+			end)
+			if ok and src then
+				local c = (src :: SurfaceAppearance):Clone()
+				c.Name = sa.Name
+				pcall(function()
+					(c :: any).Color = (sa :: any).Color -- คงสีผิวซีดของผีไว้
+				end)
+				c.Parent = sa.Parent
+				sa:Destroy()
+			end
+		end
+	end
+end
+
 local function prep(name: string): Model?
 	local f = templates()
 	local t = f and f:FindFirstChild(name) :: Model?
@@ -131,6 +167,7 @@ local function prep(name: string): Model?
 		return nil
 	end
 	local m = t:Clone()
+	fixClothAlpha(m)
 	m:SetAttribute("GhostName", name)
 	game:GetService("CollectionService"):AddTag(m, "RiggedGhost")
 	local sc = ids().SCALE
@@ -143,7 +180,8 @@ local function prep(name: string): Model?
 			d.CanCollide = false
 			d.CanTouch = false
 			d.CanQuery = false
-			d.CastShadow = d.Name ~= "RootPart"
+			-- หัวไม่ทอดเงา: จมูกทอดเงาสี่เหลี่ยมดำลงบนปากตัวเองเมื่อโดนไฟฉาย (เหมือนชาวบ้าน HumanNPC, ผู้ใช้ 2026-11-16)
+			d.CastShadow = d.Name ~= "RootPart" and d.Name ~= "BodyHead"
 		end
 	end
 	return m

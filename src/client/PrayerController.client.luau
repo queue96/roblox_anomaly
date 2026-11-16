@@ -28,7 +28,8 @@ local PrayRemote = remotes:WaitForChild("Pray") :: RemoteEvent
 local SIGHT_DELAY = 1.5 -- พนมมือนานเท่านี้ถึงจะเห็นผี
 local GHOST_TAG = "GhostOnly"
 local NORMAL_TAG = "NormalOnly"
-local DEFAULT_FADE = 0.6
+local DEFAULT_FADE = 2.0 -- ค่อยๆ เห็นจากจางๆ ชัดขึ้นเรื่อยๆ ตอนตาทิพย์เปิด (ผู้ใช้ 2026-11-16: ไม่ให้โผล่มาดื้อๆ)
+local CLOSE_FADE = 0.8 -- ตอนเลิกพนมมือ ค่อยๆ จางกลับเป็นปกติ
 
 -- ---------------------------------------------------------------- ม่านตาทิพย์
 local sightOpen = false
@@ -51,7 +52,47 @@ local function locked(d: Instance): boolean
 	return CollectionService:HasTag(d, LOCK_TAG)
 end
 
+local SHADOW_COLOR = Color3.fromRGB(16, 16, 18) -- โทนเงาดำเท่าสีผม: ช่วงโปร่งแสงไม่ให้หัวขาวทับผมจนดูหัวโล้น (2026-11-16)
 local tintShown: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local veilSeq: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+
+local function isDriverReplacement(d: Instance): boolean
+	local a = d.Parent
+	while a and a ~= Workspace do
+		local n = a.Name
+		if n == "GhostDouble" or n == "BurnedCorpseDouble" or n == "GhostRiderModel" or n == "KrasueModel" or n == "TwistedHead" then
+			return true
+		end
+		a = a.Parent
+	end
+	return false
+end
+
+local function setPartTint(d: BasePart, sa: SurfaceAppearance?, col: Color3, saCol: Color3?)
+	d.Color = col
+	if sa and saCol then
+		pcall(function()
+			(sa :: any).Color = saCol
+		end)
+	end
+end
+
+local function tweenPartTint(d: BasePart, sa: SurfaceAppearance?, info: TweenInfo, col: Color3, saCol: Color3?)
+	TweenService:Create(d, info, { Color = col }):Play()
+	if sa and saCol then
+		local ok, tw = pcall(function()
+			return TweenService:Create(sa, info, { Color = saCol } :: any)
+		end)
+		if ok and tw then
+			tw:Play()
+		else
+			pcall(function()
+				(sa :: any).Color = saCol
+			end)
+		end
+	end
+end
+
 local function setVeil(d: Instance, visible: boolean, instant: boolean)
 	if locked(d) then
 		-- ยังล็อก: ผีซ่อนไว้ ของปกติยังเห็น (เหมือนไม่ได้พนมมือ)
@@ -69,6 +110,8 @@ local function setVeil(d: Instance, visible: boolean, instant: boolean)
 	if value == nil then
 		return
 	end
+	local seq = (veilSeq[d] or 0) + 1
+	veilSeq[d] = seq
 	-- ของผีที่ค่อยๆ เปลี่ยนสีหลังโผล่ (น้ำมันเลือด: โผล่มาเป็นสีน้ำมันเดิมก่อน แล้วค่อยๆ แดง)
 	--   VeilTintFrom / VeilTintTo (+ VeilTintSAFrom / VeilTintSATo ของ SurfaceAppearance) / VeilTintTime
 	--   เล่นเฉพาะตอนเพิ่งโผล่ (ซ่อน -> เห็น) ไม่เล่นซ้ำตอน applyAll ระหว่างที่เห็นอยู่แล้ว
@@ -106,28 +149,133 @@ local function setVeil(d: Instance, visible: boolean, instant: boolean)
 			end
 		end
 	end
+	local fade = d:GetAttribute("VeilFade")
+	local defaultT = if sightOpen then DEFAULT_FADE else CLOSE_FADE
+	local t = if instant then 0 else (if type(fade) == "number" then fade else defaultT)
 	if type(value) == "boolean" then
+		if d:IsA("Light") and t > 0 then
+			local origB = d:GetAttribute("VeilOrigBrightness")
+			if type(origB) ~= "number" then
+				origB = (d :: any).Brightness
+				d:SetAttribute("VeilOrigBrightness", origB)
+			end
+			if value then
+				(d :: any).Brightness = 0;
+				(d :: any)[prop] = true
+				TweenService:Create(d, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Brightness = origB }):Play()
+			else
+				TweenService:Create(d, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Brightness = 0 }):Play()
+			end
+			return
+		elseif (d:IsA("SurfaceGui") or d:IsA("BillboardGui")) and t > 0 then
+			if value then
+				(d :: any)[prop] = true
+				for _, ch in ipairs(d:GetDescendants()) do
+					if ch:IsA("TextLabel") then
+						ch.TextTransparency = 1
+						TweenService:Create(ch, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { TextTransparency = 0 }):Play()
+					end
+				end
+				return
+			end
+		end
 		(d :: any)[prop] = value
 		return
 	end
-	local fade = d:GetAttribute("VeilFade")
-	local t = if instant then 0 else (if type(fade) == "number" then fade else DEFAULT_FADE)
-	-- ร่างผีที่มีผมแยกชิ้น: ค่อยๆ จาง = ช่วงโปร่งแสง Roblox วาดหัวทับผม ผมหลุดไปอยู่หลังหัว -> โผล่/หายทันที (2026-11-14)
-	if prop == "Transparency" and t > 0 and d:IsA("BasePart") then
-		local m = d:FindFirstAncestorOfClass("Model")
-		if m then
-			for _, c in ipairs(m:GetChildren()) do
-				if c:IsA("BasePart") and string.find(c.Name, "Hair") then
-					t = 0
-					break
-				end
+	-- การค่อยๆ โผล่ของโมเดลผี/คนโดยไม่ให้หัวโล้น (Roblox วาด BodyHead ทับชิ้นผมถ้า Transparency > 0 และหัวยังเป็นสีขาว):
+	--   ขั้นที่ 1 (0 -> 0.45 วิ): ย้อมเป็นเงาดำเข้มเท่าสีผมขณะเฟดความทึบ (หรือมืดลงจากร่างคนจริง)
+	--   ขั้นที่ 2 (0.45 -> 2.0 วิ): พอ Transparency = 0 (Depth Buffer ทำงานเต็มที่ ผมทับหัว 100%) ค่อยๆ ไล่สีจากเงาดำจนเห็นรายละเอียดผีชัดขึ้นเรื่อยๆ
+	if prop == "Transparency" and d:IsA("BasePart") and tintTo == nil then
+		local origCol = d:GetAttribute("VeilOrigColor") :: Color3?
+		if typeof(origCol) ~= "Color3" then
+			origCol = d.Color
+			d:SetAttribute("VeilOrigColor", origCol)
+		end
+		local sa = d:FindFirstChildOfClass("SurfaceAppearance")
+		local origSACol = d:GetAttribute("VeilOrigSAColor") :: Color3?
+		if sa and typeof(origSACol) ~= "Color3" then
+			origSACol = (sa :: any).Color
+			d:SetAttribute("VeilOrigSAColor", origSACol)
+		end
+		if t <= 0 then
+			d.Transparency = value
+			setPartTint(d, sa, origCol :: Color3, origSACol)
+			return
+		end
+		local isGhostPart = CollectionService:HasTag(d, GHOST_TAG)
+		local isNormalPart = CollectionService:HasTag(d, NORMAL_TAG)
+		if isGhostPart and visible then
+			if isDriverReplacement(d) then
+				-- ร่างผีที่ซ้อนทับคนขับ: รอ 0.45 วิให้คนขับมืดเป็นเงาดำก่อน แล้วสลับเป็นร่างผีที่ Transparency = 0 ค่อยๆ ชัดขึ้นจากเงาดำ
+				d.Transparency = 1
+				setPartTint(d, sa, SHADOW_COLOR, SHADOW_COLOR)
+				task.delay(0.45, function()
+					if veilSeq[d] ~= seq or not d.Parent then
+						return
+					end
+					d.Transparency = value
+					tweenPartTint(d, sa, TweenInfo.new(math.max(0.4, t - 0.45), Enum.EasingStyle.Sine, Enum.EasingDirection.Out), origCol :: Color3, origSACol)
+				end)
+			else
+				-- ผีที่โผล่เพิ่มขึ้นมา (เช่น ผีซ้อนท้าย / ผีเด็กขี่คอ): ก่อตัวจากเงาดำจางๆ จนทึบใน 0.50 วิ (สีเดียวกับผม ไม่เห็นหัวโล้น) แล้วค่อยๆ สว่างชัดขึ้นจนครบ 2 วิ
+				setPartTint(d, sa, SHADOW_COLOR, SHADOW_COLOR)
+				TweenService:Create(d, TweenInfo.new(0.50, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Transparency = value }):Play()
+				task.delay(0.48, function()
+					if veilSeq[d] ~= seq or not d.Parent then
+						return
+					end
+					d.Transparency = value
+					tweenPartTint(d, sa, TweenInfo.new(math.max(0.4, t - 0.48), Enum.EasingStyle.Sine, Enum.EasingDirection.Out), origCol :: Color3, origSACol)
+				end)
 			end
+			return
+		elseif isNormalPart and not visible then
+			-- ร่างคนปกติตอนตาทิพย์เปิด: ค่อยๆ มืดลงเป็นเงาดำใน 0.45 วิ (โดยยังทึบอยู่ ผมไม่หลุด) แล้วสลับให้ร่างผีขึ้นมาแทน
+			local showVal = d:GetAttribute("VeilShow")
+			if type(showVal) == "number" then
+				d.Transparency = showVal
+			end
+			tweenPartTint(d, sa, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.In), SHADOW_COLOR, SHADOW_COLOR)
+			task.delay(0.45, function()
+				if veilSeq[d] ~= seq or not d.Parent then
+					return
+				end
+				d.Transparency = value
+				setPartTint(d, sa, origCol :: Color3, origSACol)
+			end)
+			return
+		elseif isGhostPart and not visible then
+			-- ตอนเลิกพนมมือ: ผีค่อยๆ มืดกลับเป็นเงาดำแล้วจางหายไป
+			tweenPartTint(d, sa, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.In), SHADOW_COLOR, SHADOW_COLOR)
+			task.delay(0.32, function()
+				if veilSeq[d] ~= seq or not d.Parent then
+					return
+				end
+				if isDriverReplacement(d) then
+					d.Transparency = value
+					setPartTint(d, sa, origCol :: Color3, origSACol)
+				else
+					TweenService:Create(d, TweenInfo.new(0.40, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Transparency = value }):Play()
+				end
+			end)
+			return
+		elseif isNormalPart and visible then
+			-- ตอนเลิกพนมมือ: ร่างคนปกติค่อยๆ สว่างกลับมาจากเงาดำ
+			task.delay(0.32, function()
+				if veilSeq[d] ~= seq or not d.Parent then
+					return
+				end
+				setPartTint(d, sa, SHADOW_COLOR, SHADOW_COLOR)
+				d.Transparency = value
+				tweenPartTint(d, sa, TweenInfo.new(0.48, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), origCol :: Color3, origSACol)
+			end)
+			return
 		end
 	end
 	if t <= 0 then
 		(d :: any)[prop] = value
 	else
-		TweenService:Create(d, TweenInfo.new(t, Enum.EasingStyle.Sine), { [prop] = value }):Play()
+		TweenService:Create(d, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { [prop] = value }):Play()
 	end
 end
 

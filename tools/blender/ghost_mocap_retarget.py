@@ -189,6 +189,108 @@ def write_custom_action(rig, name, quats, locs, n):
     return act
 
 
+# shadow_cling: the banyan shadow stands still behind the edge of the trunk, right hand on the bark, head leaning out
+# to watch the shop (user 2026-11-16: "peek out and hold on to the tree, no animation, just stand there holding").
+# Rig space: metres, faces -Y, its right is -X. The trunk is modelled as a vertical cylinder in front-right of the body,
+# so from the front the trunk hides the body's right half. The palm lands on CLING["contact"] with the bark's outward
+# normal CLING["normal"]; MapBuilder.HideBanyanShadowBehindTree uses the same two numbers (in studs) to stand the ghost
+# against the real trunk, so keep them in sync (the values are printed as GHOST_MOCAP|shadow_cling contact ...).
+CLING = dict(
+    trunk_r=0.97,                 # trunk radius (m) = 3.4 studs, measured on the banyan v2 trunk at chest height
+    trunk_c=(-0.92, -0.85),       # trunk axis (x, y): from the front the trunk hides everything right of x = +0.05
+    phi=16.0,                     # where the palm sits: degrees behind the silhouette edge as seen from the front
+    hand_z=1.33,                  # palm height (m)
+    hand_up=24.0,                 # fingers point along the bark towards the viewer, tilted up this much
+    curl=(10.0, 18.0, 14.0),      # finger joint curl (deg) wrapping the edge
+)
+
+
+def shadow_cling_pose(rig):
+    """Return ({bone: Quaternion}, contact Vector, normal Vector) for the static cling pose (built from the rest pose:
+    legs straight, left arm hanging; the Zombie Idle base put the right foot and hip inside the trunk)."""
+    for pb in rig.pose.bones:
+        pb.rotation_mode = "QUATERNION"
+        pb.rotation_quaternion = Quaternion()
+        pb.location = Vector()
+    if rig.animation_data:
+        rig.animation_data.action = None
+    bpy.context.view_layer.update()
+
+    def set_rot(name, R3):
+        """Give pose bone `name` the armature-space orientation R3 (3x3)."""
+        pb = rig.pose.bones[name]
+        par = pb.parent.matrix.to_3x3()
+        rest_rel = pb.parent.bone.matrix_local.to_3x3().inverted() @ pb.bone.matrix_local.to_3x3()
+        pb.rotation_quaternion = ((par @ rest_rel).inverted() @ R3).to_quaternion()
+        bpy.context.view_layer.update()
+
+    def lean(name, side, fwd, yaw=0.0):
+        """Upright torso/neck bone: rest orientation leaned `side` deg to the rig's left (+X), `fwd` deg forward (-Y)."""
+        rest = rig.data.bones[name].matrix_local.to_3x3()
+        D = (Matrix.Rotation(math.radians(yaw), 3, "Z") @ Matrix.Rotation(math.radians(side), 3, "Y")
+             @ Matrix.Rotation(math.radians(fwd), 3, "X"))
+        set_rot(name, D @ rest)
+
+    # torso leans out past the trunk edge, head tilts further and turns a little towards the hand side
+    lean("spine", 7, 8)
+    lean("chest", 12, 13)
+    lean("neck", 17, 8, -6)
+    lean("head", 23, 2, -10)
+
+    R, (cx, cy) = CLING["trunk_r"], CLING["trunk_c"]
+    phi = math.radians(CLING["phi"])
+    normal = Vector((math.cos(phi), math.sin(phi), 0.0))            # out of the bark
+    contact = Vector((cx, cy, CLING["hand_z"])) + normal * R        # palm centre on the bark
+    tang = Vector((math.sin(phi), -math.cos(phi), 0.0))             # along the bark towards the viewer
+    up = math.radians(CLING["hand_up"])
+    hdir = (tang * math.cos(up) + Vector((0, 0, 1)) * math.sin(up)).normalized()
+
+    hand = rig.pose.bones["hand.R"]
+    hlen = hand.bone.length
+    wrist = contact + normal * 0.022 - hdir * (hlen * 0.55)
+
+    ua, fa = rig.pose.bones["upper_arm.R"], rig.pose.bones["forearm.R"]
+    sh = ua.head.copy()
+    l1, l2 = ua.bone.length, fa.bone.length
+    to = wrist - sh
+    d = min(to.length, (l1 + l2) * 0.985)
+    dirv = to.normalized()
+    wrist = sh + dirv * d
+    a = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
+    h = math.sqrt(max(0.0, l1 * l1 - a * a))
+    pole = Vector((-0.55, 0.45, -1.0))                              # elbow hangs down, out and a little back
+    perp = (pole - dirv * pole.dot(dirv)).normalized()
+    elbow = sh + dirv * a + perp * h
+
+    def aim(name, y_dir, prev3):
+        """Orientation whose Y points along y_dir, with the least twist from prev3 (the parent's posed/rest frame)."""
+        y0 = prev3.col[1].normalized()
+        return y0.rotation_difference(y_dir.normalized()).to_matrix() @ prev3
+
+    ua_rest = rig.data.bones["upper_arm.R"].matrix_local.to_3x3()
+    ua3 = aim("upper_arm.R", elbow - sh, ua_rest)
+    set_rot("upper_arm.R", ua3)
+    fa3 = aim("forearm.R", wrist - elbow, ua3)
+    set_rot("forearm.R", fa3)
+    # hand: Y along the bark, Z (back of the hand) out of the bark
+    z = (normal - hdir * normal.dot(hdir)).normalized()
+    x = hdir.cross(z)
+    set_rot("hand.R", Matrix((x, hdir, z)).transposed())
+    for fg in ("index", "middle", "ring", "pinky"):
+        for i, c in zip((1, 2, 3), CLING["curl"]):
+            rig.pose.bones[f"{fg}_0{i}.R"].rotation_quaternion = Quaternion((1, 0, 0), -math.radians(c))
+    rig.pose.bones["thumb_01.R"].rotation_quaternion = Quaternion((1, 0, 0), -math.radians(12))
+    bpy.context.view_layer.update()
+    # left arm hangs at the side (rest is an A-pose), elbow slightly bent
+    la_rest = rig.data.bones["upper_arm.L"].matrix_local.to_3x3()
+    la3 = aim("upper_arm.L", Vector((0.10, 0.03, -1.0)), la_rest)
+    set_rot("upper_arm.L", la3)
+    set_rot("forearm.L", aim("forearm.L", Vector((0.04, -0.16, -1.0)), la3))
+    real_contact = hand.head.lerp(hand.tail, 0.55) - normal * 0.022
+    quats = {pb.name: pb.rotation_quaternion.copy() for pb in rig.pose.bones}
+    return quats, real_contact, normal
+
+
 def build_all_ghost_clips():
     all_clips = {}
     rest_all = {}
@@ -745,61 +847,40 @@ def build_all_ghost_clips():
             sq[bn] = base
     write_custom_action(rig, "shadow_stand", sq, {"hips": ss_hl}, ss_n)
     print("GHOST_MOCAP|shadow_stand", ss_n, "frames")
-    export_actions_to_dict(rig, ["shadow_stand"], all_clips, step=2)
+    # shadow_cling: static pose (2 identical frames) — see shadow_cling_pose above
+    sc_q, sc_contact, sc_normal = shadow_cling_pose(rig)
+    write_custom_action(rig, "shadow_cling", {bn: [q, q] for bn, q in sc_q.items()}, {}, 2)
+    # Roblox model space (studs): x = -blender x, y = blender z, z = blender y (the model faces -Z, feet at the pivot)
+    print("GHOST_MOCAP|shadow_cling contact (studs) %.3f, %.3f, %.3f normal %.4f, %.4f, %.4f" % (
+        -sc_contact.x * STUDS_PER_M, sc_contact.z * STUDS_PER_M, sc_contact.y * STUDS_PER_M,
+        -sc_normal.x, sc_normal.z, sc_normal.y))
+    export_actions_to_dict(rig, ["shadow_stand", "shadow_cling"], all_clips, step=2)
 
     # ------------------------------------------------------------------
-    # PART 9: Pop sprint — Pop_Run (scenery Pop dashes along the road past the shop)
-    # (user 2026-11-16 "ท่าวิ่ง วิ่งเร็วกว่านี้": kuman_run is a quick walk, not a run; there is no Mixamo running FBX)
-    # Walking mocap, twice as fast, then: thigh swing x1.9, knee bend x1.8, arm swing x1.8 around its own mean,
-    # elbows bent, torso leaning forward, more hip bob.
+    # PART 9: Male sprint — Pop_Run (ShadowRun dashes along the road past the shop)
+    # Uses villager_male.blend + male run gait (elbows bent forward along local -Z/+Z, fists curled, male stride)
     # ------------------------------------------------------------------
-    bpy.ops.wm.open_mainfile(filepath=os.path.join(M, "pop.blend"))
+    ba_ns = {"__file__": os.path.join(M, "human_base", "build_anims.py")}
+    ba_src = open(os.path.join(M, "human_base", "build_anims.py"), encoding="utf-8").read()
+    exec(compile(ba_src, "build_anims.py", "exec"), ba_ns)
+
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(M, "villager", "villager_male.blend"))
     rig = bpy.data.objects["HumanRig"]
+    if rig.animation_data is None:
+        rig.animation_data_create()
+    act = bpy.data.actions.new("Pop_Run")
+    rig.animation_data.action = act
+    P = ba_ns["Poser"](rig)
+    st_male = dict(energy=1.15, stride=1.15, arm=1.15, slow=1.0, lean=10, sway=0.7, bounce=1.1)
+    pr_n = 20
+    for f in range(pr_n + 1):
+        t = (f / pr_n) % 1.0
+        ba_ns["gait"](P, t, st_male, 1.0, True)
+        P.key(f + 1)
     for pb in rig.pose.bones:
         for c in pb.constraints:
             c.mute = True
-    if rig.animation_data is None:
-        rig.animation_data_create()
-    pr_q, pr_hl, pr_n = load_mocap_raw(rig, "Walking.fbx", dict(loop=0, inplace=True, speedup=2.0))
-
-    def pr_amp(q, k):
-        q = q if q.w >= 0 else -q
-        ax, ang = q.to_axis_angle()
-        return Quaternion(ax, ang * k)
-
-    def pr_amp_mean(qs, k):
-        mean = qs[0]
-        for i, q in enumerate(qs[1:], 2):
-            mean = mean.slerp(q if q.dot(mean) >= 0 else -q, 1.0 / i)
-        out_ = []
-        for q in qs:
-            d = mean.inverted() @ (q if q.dot(mean) >= 0 else -q)
-            ax, ang = d.to_axis_angle()
-            out_.append(mean @ Quaternion(ax, ang * k))
-        return out_
-
-    PR_LEAN, PR_ELBOW = 16, POP_RUN_ELBOW
-    rq = {}
-    for pb in rig.pose.bones:
-        bn = pb.name
-        base = pr_q.get(bn, [Quaternion() for _ in range(pr_n)])
-        if bn in ("thigh.L", "thigh.R"):
-            rq[bn] = [pr_amp(q, 1.9) for q in base]
-        elif bn in ("shin.L", "shin.R"):
-            rq[bn] = [pr_amp(q, 1.8) for q in base]
-        elif bn in ("upper_arm.L", "upper_arm.R"):
-            rq[bn] = pr_amp_mean(base, 1.8)
-        elif bn in ("forearm.L", "forearm.R"):
-            rq[bn] = [q @ Quaternion((1, 0, 0), math.radians(PR_ELBOW)) for q in base]
-        elif bn in ("spine", "chest"):
-            share = 0.6 if bn == "spine" else 0.4
-            rq[bn] = [q @ Quaternion((1, 0, 0), math.radians(PR_LEAN * share)) for q in base]
-        else:
-            rq[bn] = base
-    avg = sum((v for v in pr_hl), Vector()) / len(pr_hl)
-    pr_hl = [avg + (v - avg) * 1.6 for v in pr_hl]
-    write_custom_action(rig, "Pop_Run", rq, {"hips": pr_hl}, pr_n)
-    print("GHOST_MOCAP|Pop_Run", pr_n, "frames")
+    print("GHOST_MOCAP|Pop_Run (male run)", pr_n + 1, "frames")
     export_actions_to_dict(rig, ["Pop_Run"], all_clips, step=1)
 
     out_json = os.path.join(OUTD, "ghost_mocap_anims.json")
@@ -924,6 +1005,7 @@ def render_preview(all_clips):
         (os.path.join(M, "human_ghosts", "ghost_kuman_thong.blend"), "kuman_giggle"),
         (os.path.join(M, "human_ghosts", "ghost_kuman_thong.blend"), "kuman_run"),
         (os.path.join(M, "ShadowGhostV2", "ghost_shadow.blend"), "shadow_stand"),
+        (os.path.join(M, "ShadowGhostV2", "ghost_shadow.blend"), "shadow_cling"),
         (os.path.join(M, "pop.blend"), "Pop_Run"),
     ]
     rows_img = []

@@ -17,10 +17,15 @@ local RunService = game:GetService("RunService")
 local SoundBank = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SoundBank"))
 local GhostFloat = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GhostFloat")) :: any
 local Bilingual = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual")) -- ป้ายทะเบียนผีตามภาษาของแต่ละคน
+local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) -- ชื่อลูกค้าบนป้ายมรณะ
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
 local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 
 local AnomalyManager = {}
+
+-- ชื่อเดือนย่อบนป้ายมรณะ (Anomaly_Cemetery)
+local TH_MONTHS = { "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค." }
+local EN_MONTHS = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" }
 
 -- ---------------------------------------------------------------- เสียง (Creator Store ฟรี)
 local SOUNDS = {
@@ -477,22 +482,50 @@ AnomalyManager.Anomalies = {
 	},
 	-- 2. ป้ายทะเบียน 4444 ป่าช้า
 	Anomaly_Cemetery = {
-		-- คนขับเป็นคนปกติ เปลี่ยนแค่ป้าย "4444 ตาย" / "4444 DEAD" ตามภาษาของแต่ละคน (ผู้ใช้ 2026-11-07)
+		-- ป้ายมรณะของลูกค้า (ผู้ใช้ 2026-11-16: "4444 ตาย" บอกตรงเกิน ไม่หลอน): คนขับเป็นคนปกติ พนมมือแล้วป้ายทะเบียนกลายเป็น
+		-- ป้ายชื่อหน้าศพ ขาวตัวหนังสือดำ เขียนชื่อคนที่กำลังคุยกับเราอยู่ (ชื่อเดียวกับในซับ) + "มรณะ <วันนี้>" ตามภาษาของแต่ละคน
+		-- ชื่อ: CoreLoop.spawnCustomer ตั้ง attribute CustomerNameKey ไว้ที่รถก่อน Apply (ไม่มี = "ไม่ทราบชื่อ")
 		apply = function(v)
 			local plate = v:FindFirstChild("LicensePlate")
 			if plate then
-				-- ป้ายในแม่แบบรถ (ไฟล์ place) ยังเป็น "ป่าช้า CEMETERY": เขียนทับบรรทัดล่างตอนใช้จริง
+				-- ป้ายในแม่แบบรถ (ไฟล์ place) ยังเป็นป้ายแดงเรือง "4444 / ป่าช้า CEMETERY" + แถบเลือดหยด: แต่งทับตอนใช้จริง
 				local ghostGui = plate:FindFirstChild("GhostPlate")
 				local frame = ghostGui and ghostGui:FindFirstChildOfClass("Frame")
-				if frame then
+				if ghostGui and ghostGui:IsA("SurfaceGui") and frame then
+					local nameKey = v:GetAttribute("CustomerNameKey")
+					local names = (LanguageModule :: any).Names
+					local entry = if type(nameKey) == "string" then names[nameKey] else nil
+					local nameTH = if entry then entry.th else "ไม่ทราบชื่อ"
+					local nameEN = if entry then entry.en else "Name unknown"
+					-- วันนี้ตามเวลาไทย (UTC+7) ปี พ.ศ.
+					local d = os.date("!*t", os.time() + 7 * 3600)
+					local dateTH = string.format("%d %s %d", d.day, TH_MONTHS[d.month], d.year + 543)
+					local dateEN = string.format("%d %s %d", d.day, EN_MONTHS[d.month], d.year)
+					ghostGui.Brightness = 1 -- เดิม 2 (ตัวหนังสือแดงเรือง): ป้ายกระดาษขาวไม่ต้องเรือง แค่อ่านออกในที่มืด
+					frame.BackgroundColor3 = Color3.fromRGB(226, 222, 208)
+					local ink = Color3.fromRGB(18, 16, 16)
 					for _, t in ipairs(frame:GetChildren()) do
 						if t:IsA("TextLabel") then
+							t.TextColor3 = ink
 							if t.Position.Y.Scale > 0.3 then
-								Bilingual.Text(t, "ตาย", "DEAD")
+								t.Font = Enum.Font.SourceSans
+								Bilingual.Text(t, "มรณะ " .. dateTH, "DIED " .. dateEN)
 							else
-								t.Text = "4444"
+								t.Font = Enum.Font.SourceSansBold
+								Bilingual.Text(t, nameTH, nameEN)
 							end
+						elseif t:IsA("Frame") then
+							t.Visible = false -- แถบเลือดหยดของป้ายเดิม
 						end
+					end
+					-- ขอบดำแบบป้ายไว้ทุกข์
+					if not frame:FindFirstChild("MourningBorder") then
+						local stroke = Instance.new("UIStroke")
+						stroke.Name = "MourningBorder"
+						stroke.Color = ink
+						stroke.Thickness = 5
+						stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+						stroke.Parent = frame
 					end
 				end
 				normalOnly((plate :: any).NormalPlate)
@@ -734,14 +767,98 @@ AnomalyManager.Anomalies = {
 			end
 		end,
 	},
-	-- 11. (ฝนตก) คนเดินมาท่ามกลางฝนหนักโดยไม่กางร่ม ตัวแห้งสนิท
-	Anomaly_NoUmbrella = {
+	-- 11. ศพไฟคลอกมาซื้อน้ำมัน: มองปกติเห็นชาวบ้าน พอพนมมือเห็นร่างจริงเป็นศพไหม้เกรียมมีควันดำคุกรุ่น
+	Anomaly_BurnedCorpse = {
 		apply = function(v)
-			-- คนไม่ได้พนมมือยังเห็นร่ม คนพนมมือเห็นว่าเดินตากฝนมาโดยไม่มีร่ม
-			local u = v:FindFirstChild("Umbrella")
-			if u then
-				normalOnly(u)
+			if humanGhost(v, "burned") then
+				return
 			end
+			local d = driverOf(v)
+			if not d then
+				return
+			end
+			local charred = apparition(d, "BurnedCorpseDouble") :: Model
+			for _, p in ipairs(charred:GetDescendants()) do
+				if p:IsA("BasePart") then
+					p.Color = Color3.fromRGB(45, 22, 18)
+					p.Material = Enum.Material.Slate
+				end
+			end
+			charred.Parent = v
+			ghostOnly(charred)
+			normalOnly(d)
+		end,
+	},
+	-- 12. ผีเด็กขี่คอ: มองปกติเห็นลูกค้ามาคนเดียว พอพนมมือเห็นผีเด็ก (ghost_child) นั่งขี่คอเกาะหัวลูกค้าจ้องลงมา
+	Anomaly_ShoulderChild = {
+		apply = function(v)
+			local d = driverOf(v)
+			if not (d and GhostNPC.Has("ghost_child")) then
+				return
+			end
+			-- ถอดหมวกงอบ (Hat_ngob) ออกเพื่อไม่ให้ปีกงอบกว้างๆ ตัดทะลุคอ/ลำตัวของผีเด็กที่นั่งขี่คอ (ทรงผมจริง Hair_* ยังอยู่ครบ)
+			for _, ch in ipairs(d:GetChildren()) do
+				if ch:IsA("BasePart") and (string.sub(ch.Name, 1, 4) == "Hat_" or string.find(string.lower(ch.Name), "ngob")) then
+					ch:Destroy()
+				end
+			end
+			local neckPos: Vector3? = nil
+			local headPos: Vector3? = nil
+			for _, x in ipairs(d:GetDescendants()) do
+				if x:IsA("Bone") then
+					if x.Name == "neck" then
+						neckPos = x.WorldPosition
+					elseif x.Name == "head" then
+						headPos = x.WorldPosition
+					end
+				end
+			end
+			local headPart = d:FindFirstChild("Head") :: BasePart?
+			local basePos = neckPos or headPos or (headPart and headPart.Position)
+			if not basePos then
+				return
+			end
+			local rot = v:GetPivot().Rotation
+			-- ผิวไหล่บน (BodyUpper top) อยู่สูงกว่ากระดูก neck +0.30 และหลังหัว (BodyHead back) อยู่ที่ +0.35
+			--   วางสะโพกที่ (0, +0.32, +0.34) เทียบ neck เพื่อให้ต้นขาพาดบนบ่าพอดี ตัวไม่จมเข้าหัว และมือวางบนกระหม่อมหัวลูกค้า
+			local seatClip = d:GetAttribute("SeatClip")
+			local off = if seatClip == "ride_moto" then Vector3.new(0, 0.22, 0.08) else Vector3.new(0, 0.32, 0.34)
+			local hip = (CFrame.new(basePos) * rot) * CFrame.new(off)
+			local m = GhostNPC.SpawnSeated("ghost_child", hip, "shoulder_ride")
+			if m then
+				m.Name = "GhostPassengerModel"
+				m:SetAttribute("FocusBone", "head")
+				m:SetAttribute("ShoulderRider", true)
+				m.Parent = v
+				ghostOnly(m)
+			end
+		end,
+	},
+	-- 13. ศพห่อผ้าท้ายกระบะ (ผู้ใช้ 2026-11-16): มองปกติท้ายกระบะว่าง พอพนมมือเห็นศพห่อผ้าขาวมัดตราสัง (ghost_shroud) ยืนอยู่ในคอกท้ายกระบะ
+	--   หัวหันตามคนที่มอง (client/GhostAnimRunner.lookAtCamera) · คนขับเป็นคนปกติ ต้องเดินอ้อมไปดูท้ายรถเอง · เกิดกับกระบะเท่านั้น (PICKUP_ONLY)
+	Anomaly_ShroudPickup = {
+		apply = function(v)
+			if not GhostNPC.Has("ghost_shroud") then
+				return
+			end
+			-- พื้นกระบะของ ThaiPickupOld (PickupVersion 2) สูง 3.7 เหนือ pivot ยาว z 1.8..10 (หน้ารถ = -Z) วัดใน Studio 2026-11-16
+			-- ยืนกลางกระบะค่อนไปท้าย หันหน้าออกท้ายรถ (หัวหันซ้ายขวาได้ 80° จึงมองตามได้ทั้งสองข้างรถ)
+			local cf = v:GetPivot() * CFrame.new(0, 3.7, 6.4) * CFrame.Angles(0, math.pi, 0)
+			local m = GhostNPC.Spawn("ghost_shroud", cf, "shroud_idle")
+			if m then
+				m.Name = "GhostPassengerModel"
+				m:SetAttribute("FocusBone", "head")
+				m:SetAttribute("LookAtCamera", true)
+				m.Parent = v
+				ghostOnly(m)
+			end
+		end,
+	},
+	-- 14. ผีเท้ากลับหลัง (ผู้ใช้ 2026-11-16): มองปกติเป็นชาวบ้านเดินมา พอพนมมือเห็นเท้าสองข้างบิดชี้ไปข้างหลัง (ร่างซ้อน HumanNPC.MakeDouble "backfeet")
+	--   ที่เหลือเหมือนคนเดิมทุกอย่าง ต้องก้มมองเท้า · เกิดกับคนเดิน/คนเข็นจักรยานเท่านั้น (WALKER_ONLY: คนบนรถมองไม่เห็นเท้า)
+	Anomaly_BackFeet = {
+		apply = function(v)
+			humanGhost(v, "backfeet")
 		end,
 	},
 } :: { [string]: Anomaly }
@@ -861,53 +978,113 @@ function AnomalyManager.HideScenery(kind: string)
 	end
 end
 
--- ผีที่ใช้ได้เฉพาะกับรถ (ต้องมีคนซ้อน / ป้ายทะเบียน / ล้อ) หรือเฉพาะคนเดินตอนฝนตก
+-- ผีที่ใช้ได้เฉพาะกับรถ (ต้องมีคนซ้อน / ป้ายทะเบียน / ล้อ)
 local VEHICLE_ONLY = {
 	Anomaly_Headless = true,
 	Anomaly_Cemetery = true,
 	Anomaly_TaKhon = true,
 	Anomaly_MirrorGhost = true,
 }
-local WALKER_RAIN_ONLY = { Anomaly_NoUmbrella = true }
 -- ชาวบ้านแบบใหม่เป็นผิวชิ้นเดียว ซ่อนแค่ขาไม่ได้ -> กระสือเกิดกับคนขับรถเท่านั้น
 local NOT_HUMAN_WALKER = { Anomaly_Krasue = true }
+-- ผีเด็กขี่คอ: ไม่สุ่มกับรถยนต์มีหลังคา (หัวเด็กจะทะลุหลังคาเก๋ง/กระบะ) ใช้กับมอไซค์และคนเดินเท้า/จักรยาน
+local NOT_CAR = { Anomaly_ShoulderChild = true }
 
 -- ลูกค้าแบบไหนที่ผีตัวนี้เกิดได้ (ใช้ตอน admin เรียกผีเฉพาะตัว): "vehicle" | "walker"
 function AnomalyManager.KindFor(key: string): string
-	if WALKER_RAIN_ONLY[key] or key == "Anomaly_GhostWalkIn" then
+	if key == "Anomaly_GhostWalkIn" then
 		return "walker"
 	end
 	return "vehicle"
 end
 
--- ผีตัวนี้ต้องฝนตก (คนเดินมาไม่กางร่ม)
-function AnomalyManager.NeedsRain(key: string): boolean
-	return WALKER_RAIN_ONLY[key] == true
+-- ศพห่อผ้าท้ายกระบะ: ต้องมีกระบะท้ายเปิด (ThaiPickupOld) เท่านั้น
+local PICKUP_ONLY = { Anomaly_ShroudPickup = true }
+-- ผีเท้ากลับหลัง: เท้าต้องมองเห็น = คนเดินเท้า / คนเข็นจักรยาน
+local WALKER_ONLY = { Anomaly_BackFeet = true }
+
+-- ผีตัวนี้เกิดกับลูกค้าแบบนี้ได้ไหม
+--   kind = "vehicle" มอไซค์/ซาเล้ง | "walker" คนเดิน/เข็นจักรยาน | "car" เก๋ง/ตุ๊กตุ๊ก | "pickup" กระบะ (นับเป็นรถยนต์ด้วย)
+-- ใช้ทั้งตอนสุ่มผีในเกมจริง (RandomFor) และตอน admin เรียกผีเฉพาะตัว (CoreLoop.devSpawn "ghost")
+function AnomalyManager.Fits(key: string, kind: string): boolean
+	if PICKUP_ONLY[key] and kind ~= "pickup" then
+		return false
+	end
+	if WALKER_ONLY[key] and kind ~= "walker" then
+		return false
+	end
+	if VEHICLE_ONLY[key] and kind ~= "vehicle" then
+		return false
+	end
+	if NOT_CAR[key] and (kind == "car" or kind == "pickup") then
+		return false
+	end
+	if NOT_HUMAN_WALKER[key] and kind == "walker" and HumanNPC.Available() then
+		return false
+	end
+	return true
 end
 
--- สุ่มผีที่เข้ากับลูกค้าแบบนี้ (kind = "vehicle" | "walker")
-function AnomalyManager.RandomFor(kind: string, raining: boolean): string
-	local pool = {}
+-- สุ่มผีที่เข้ากับลูกค้าแบบนี้ (kind = "vehicle" | "walker" | "car" | "pickup")
+-- (ผู้ใช้ 2026-11-16: 1 คืนไม่อยากให้เจอผีลูกค้าซ้ำ) เดิมสุ่มแบบไม่จำ: คืนที่มีผี 4 ตัวซ้ำกันราวครึ่งหนึ่ง และผีที่มากับลูกค้าได้ทุกแบบ
+-- (คอหัก วิทยุสวดศพ น้ำมันเลือด ศพไฟคลอก) ออกรวมกัน 2 ใน 3 ส่วนผีเฉพาะทางแทบไม่ออก
+--   1) usedTonight: ผีที่ออกไปแล้วในคืนนี้ไม่ออกซ้ำ จนกว่าผีที่เข้ากับลูกค้าแบบนั้นจะออกครบทุกตัว (แล้วเริ่มรอบใหม่) · ล้างตอนเริ่มคืน (NewNight)
+--   2) น้ำหนัก: ผีเฉพาะทางได้น้ำหนักมากกว่าเมื่อลูกค้าแบบของมันมา (กระบะมา = ส่วนใหญ่เป็นศพห่อผ้าท้ายกระบะ) ผีทั่วไป = 1
+local usedTonight: { [string]: boolean } = {}
+local function weightOf(key: string): number
+	if PICKUP_ONLY[key] then
+		return 4
+	elseif WALKER_ONLY[key] or VEHICLE_ONLY[key] then
+		return 2
+	elseif NOT_CAR[key] then
+		return 1.5
+	end
+	return 1
+end
+
+-- เริ่มคืนใหม่: ลืมว่าผีตัวไหนออกไปแล้ว (CoreLoop.resetGame)
+function AnomalyManager.NewNight()
+	table.clear(usedTonight)
+end
+
+-- ผีตัวนี้ออกไปแล้วในคืนนี้ (สุ่มได้ / admin บังคับ / สวดเรียกมา)
+function AnomalyManager.MarkUsed(key: string)
+	usedTonight[key] = true
+end
+
+function AnomalyManager.RandomFor(kind: string, _raining: boolean?): string
+	local pool, fresh = {}, {}
 	for _, k in ipairs(AnomalyManager.Keys) do
-		local ok = true
-		if VEHICLE_ONLY[k] and kind ~= "vehicle" then
-			ok = false
-		end
-		if WALKER_RAIN_ONLY[k] and not (kind == "walker" and raining) then
-			ok = false
-		end
-		if NOT_HUMAN_WALKER[k] and kind == "walker" and HumanNPC.Available() then
-			ok = false
-		end
 		-- ผีเดินมาทั้งร่าง: CoreLoop สุ่มแยกเอง (WalkInChance)
-		if k == "Anomaly_GhostWalkIn" then
-			ok = false
-		end
-		if ok then
+		if k ~= "Anomaly_GhostWalkIn" and AnomalyManager.Fits(k, kind) then
 			table.insert(pool, k)
+			if not usedTonight[k] then
+				table.insert(fresh, k)
+			end
 		end
 	end
-	return pool[math.random(#pool)]
+	if #fresh == 0 then
+		-- ผีที่เข้ากับลูกค้าแบบนี้ออกครบแล้ว: เริ่มรอบใหม่เฉพาะกลุ่มนี้
+		for _, k in ipairs(pool) do
+			usedTonight[k] = nil
+		end
+		fresh = pool
+	end
+	local total = 0
+	for _, k in ipairs(fresh) do
+		total += weightOf(k)
+	end
+	local r = math.random() * total
+	local chosen = fresh[#fresh]
+	for _, k in ipairs(fresh) do
+		r -= weightOf(k)
+		if r <= 0 then
+			chosen = k
+			break
+		end
+	end
+	usedTonight[chosen] = true
+	return chosen
 end
 
 -- ผีที่เดินมาซื้อทั้งร่าง (ไม่แปลงร่าง): ท่าเดิน / ท่ายืนของแต่ละตัว
@@ -1062,7 +1239,8 @@ end
 --   Anomaly_Krasue: กระสือมีเป็นผีใหญ่ (BigEvents) + ผีฉากอยู่แล้ว ผีลูกค้าซ้ำซ้อน ผู้ใช้สั่งตัด 2026-11-12
 --   Anomaly_GhostWalkIn: ผีเดินมาซื้อทั้งร่าง เห็นได้โดยไม่ต้องพนมมือ ไม่ได้ทดสอบอะไร ผู้ใช้สั่งตัด 2026-11-16
 --     (CoreLoop.CONFIG.WalkInChance = 0 · ForceAnomaly "Anomaly_GhostWalkIn" ยังสร้างร่างผีเดินมาได้)
-local RETIRED = { Anomaly_Krasue = true, Anomaly_GhostWalkIn = true }
+--   Anomaly_NoUmbrella: ตัดระบบฝนตกออกแล้ว 2026-11-16
+local RETIRED = { Anomaly_Krasue = true, Anomaly_GhostWalkIn = true, Anomaly_NoUmbrella = true }
 
 AnomalyManager.Keys = {}
 for k in pairs(AnomalyManager.Anomalies) do
@@ -1087,9 +1265,7 @@ end
 -- และตอนหลอกใช้ร่างผีนี้ ไม่ใช่ร่างคน (ผู้ใช้ 2026-11-06) ผีที่มีร่างของตัวเองอยู่แล้ว (กระสือ ตาโขน หันหัว ยิ้ม) ไม่ต้องใส่
 -- ผีซ้อนท้าย (หัวขาด / มองกระจก): ตัวผีคือคนซ้อน คนขับเป็นคนปกติ
 -- (ป้ายป่าช้า / วิทยุสวดศพ: เอาออกแล้ว คนขับเป็นคนปกติ จับผิดจากป้าย/วิทยุอย่างเดียว ผู้ใช้ 2026-11-07)
-local CUSTOMER_GHOST_FORM = {
-	Anomaly_NoUmbrella = true,
-}
+local CUSTOMER_GHOST_FORM: { [string]: boolean } = {}
 
 function AnomalyManager.Apply(key: string, vehicle: Model): boolean
 	local a = AnomalyManager.Anomalies[key]
@@ -1097,6 +1273,7 @@ function AnomalyManager.Apply(key: string, vehicle: Model): boolean
 		warn("[AnomalyManager] ไม่รู้จักผี " .. tostring(key))
 		return false
 	end
+	usedTonight[key] = true -- รวมผีที่ admin บังคับและผีที่สวดเรียกมา: คืนนี้ไม่สุ่มซ้ำ
 	a.apply(vehicle)
 	if vehicle and CUSTOMER_GHOST_FORM[key] then
 		local d = driverOf(vehicle)
@@ -1211,19 +1388,7 @@ function AnomalyManager.StartAmbience()
 		snd.Parent = emitter
 		sounds[a.name] = snd
 	end
-	-- ฟ้าร้อง (เฉพาะตอนฝนตก) เสียงทั่วทั้งแมพ + Client ทำฟ้าแลบจาก Attribute ThunderAt
-	local thunder = Instance.new("Sound")
-	thunder.Name = "Thunder"
-	thunder.SoundId = THUNDER_ID
-	thunder.Volume = 0.42
-	local thunderEq = Instance.new("EqualizerSoundEffect")
-	thunderEq.LowGain = 3
-	thunderEq.MidGain = 0
-	thunderEq.HighGain = -10 -- ฟ้าร้องทุ้มลึก ไม่แสบหู
-	thunderEq.Parent = thunder
-	thunder.Parent = game:GetService("SoundService")
-	local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
-
+	-- (ตัดฟ้าร้องและระบบฝนตกออกแล้ว 2026-11-16)
 	local total = 0
 	for _, a in ipairs(AMBIENT) do
 		total += a.weight
@@ -1288,7 +1453,6 @@ function AnomalyManager.StartAmbience()
 				for _, s in pairs(sounds) do
 					s:Stop()
 				end
-				thunder:Stop()
 			end
 		end)
 		task.delay(25, function()
@@ -1301,17 +1465,6 @@ function AnomalyManager.StartAmbience()
 			task.wait(45)
 			if not inCutscene() then
 				playAmbient(pickAmbient())
-			end
-		end
-	end)
-	task.spawn(function()
-		while true do
-			task.wait(math.random(40, 80)) -- (เดิม 18-40 ฝนตกยาวขึ้นแล้วถี่เกิน)
-			if remotes:GetAttribute("Weather") == "Rain" and not game:GetService("ReplicatedStorage"):GetAttribute("CutsceneRunning") then
-				remotes:SetAttribute("ThunderAt", os.clock()) -- Client: ฟ้าแลบก่อน
-				task.wait(0.4 + math.random() * 0.8) -- แล้วเสียงตามมา
-				thunder.PlaybackSpeed = 1.0
-				thunder:Play()
 			end
 		end
 	end)

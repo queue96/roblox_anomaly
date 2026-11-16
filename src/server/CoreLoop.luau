@@ -78,8 +78,7 @@ local CONFIG = {
 	RoadEventsPerNight = 1, -- คืนละไม่เกินเท่านี้ครั้ง และแต่ละแบบไม่ซ้ำกันในคืนเดียว (ผู้ใช้ 2026-11-07) · ปุ่ม admin ไม่นับ
 	RoadEvents = {
 		{ kind = "racer", weight = 3, rain = true },
-		{ kind = "party", weight = 2, rain = false },
-		{ kind = "parade", weight = 1, rain = false },
+		-- ตัด party (รถแห่/รถแดนซ์) และ parade (ขบวนแห่นาค) ออกจากการสุ่มในเกมแล้ว (2026-11-16)
 	},
 	MaxQueue = 1, -- ห้ามมีคิวต่อแถว มาได้ทีละ 1 รายเท่านั้น
 	QueueSpacing = 9, -- ระยะห่างคันที่รอคิว (studs)
@@ -1556,7 +1555,7 @@ devDecision.Event:Connect(function(choice: string)
 		shopOpened = true
 	elseif choice == "spawn" then
 		devSpawn("vehicle") -- เสกลูกค้าเพิ่ม 1 คันทันที (ทดสอบคิว)
-	elseif choice == "walker" or choice == "car" or choice == "tuktuk" or choice == "bicycle" then
+	elseif choice == "walker" or choice == "car" or choice == "tuktuk" or choice == "bicycle" or choice == "ghost" then
 		devSpawn(choice) -- ลูกค้าแต่ละแบบ
 	elseif choice == "racer" or choice == "party" or choice == "parade" then
 		devRoadEvent(choice) -- ขาจรบนถนน
@@ -2075,6 +2074,12 @@ local function spawnCustomer(kind: string?)
 		kind = if math.random() < (if raining then CONFIG.WalkerChanceRain else CONFIG.WalkerChance) then "walker" else pickKind()
 	end
 	local k = kind :: string
+	-- "pickup" = รถยนต์ที่ต้องเป็นกระบะ (admin เรียกผีที่เกิดกับกระบะเท่านั้น เช่น ศพห่อผ้าท้ายกระบะ) · carName = แม่แบบรถยนต์ที่ใช้จริง
+	local carName: string? = nil
+	if k == "pickup" then
+		k = "car"
+		carName = "ThaiPickupOld"
+	end
 	local walking = k == "walker" or k == "bicycle"
 	local forced = devDecision:GetAttribute("ForceAnomaly")
 	devDecision:SetAttribute("ForceAnomaly", nil)
@@ -2111,7 +2116,8 @@ local function spawnCustomer(kind: string?)
 		bike.Parent = v
 		service = "air"
 	elseif k == "car" or k == "tuktuk" then
-		local tname = if k == "car" then pick(CAR_TEMPLATES) else "ThaiTukTuk"
+		local tname = if k == "car" then (if carName and templateOrNil(carName) then carName else pick(CAR_TEMPLATES)) else "ThaiTukTuk"
+		carName = tname
 		v = (templateOrNil(tname) :: Model):Clone()
 		prepThaiVehicle(v)
 		seatDriver(v)
@@ -2128,7 +2134,7 @@ local function spawnCustomer(kind: string?)
 	local anomaly: string? = nil
 	local deferred: string? = nil
 	if ghost then
-		local anomalyKind = if k == "vehicle" then "vehicle" elseif walking then "walker" else "car"
+		local anomalyKind = if k == "vehicle" then "vehicle" elseif walking then "walker" elseif carName == "ThaiPickupOld" then "pickup" else "car"
 		anomaly = if forced then forced else AnomalyManager.RandomFor(anomalyKind, raining)
 		-- ผีบางตัวไม่แปลงร่าง: เดินมาซื้อทั้งร่างผีเลย (คนเดินเท่านั้น)
 		if k == "walker" and (forced == "Anomaly_GhostWalkIn" or (not forced and math.random() < CONFIG.WalkInChance)) then
@@ -2143,6 +2149,8 @@ local function spawnCustomer(kind: string?)
 	if not walking and (anomaly ~= "Anomaly_Krasue" or GhostNPC.Has("Krasue")) then
 		humanizeDriver(v :: Model, look)
 	end
+	-- ชื่อของลูกค้ารายนี้ติดไว้ที่รถ/ตัว: ผีป้ายมรณะ (Anomaly_Cemetery) เขียนชื่อนี้บนป้ายทะเบียน
+	(v :: Model):SetAttribute("CustomerNameKey", who.name)
 	if ghost then
 		if AnomalyManager.IsWorld(anomaly :: string) then
 			deferred = anomaly
@@ -2527,45 +2535,67 @@ local function exitPos(): Vector3
 	return Vector3.new(e.X, e.Y, e.Z)
 end
 
--- 1) เด็กแว้น: มอไซค์ซิ่ง 1-2 คัน บิดเสียงดัง ยกล้อหน้าร้าน ตะโกนแซว แล้วซิ่งออกไป
+-- 1) เด็กแว้น: มอไซค์ซิ่งออก 2 คันตลอด (1 คันยกล้อผ่านหน้าร้าน) วิ่งเร็วรวดเดียวและเสียงค่อยๆ เบาหายไปไม่ตัดห้วน
 local function eventRacers()
-	local count = math.random(1, 2)
+	local count = 2
+	local wheelieIdx = math.random(1, 2)
+	local speed = 68
 	for i = 1, count do
 		task.spawn(function()
-			task.wait((i - 1) * 1.2)
+			task.wait((i - 1) * 0.75)
 			local v = roadVehicle("ThaiRacingMoto")
 			if not v then
 				return
 			end
-			local root = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
-			eventSound(root :: Instance, "RacerMotoRevCut", 0.53, true, 160, false) -- (+10%)
-			local stop = stopPoint.Position
-			local wheelieAt = stop - ROAD_DIR * 14 + Vector3.new(0, 0, 2.5 * (i - 1))
-			driveTo(v, wheelieAt, false, 40)
-			-- ยกล้อ: เงยหน้ารถ 25° วิ่งผ่านหน้าร้าน ~30 studs (Server ขยับทุกเฟรม -> เครื่องผู้เล่นเกลี่ยให้ลื่น shared/NetSmooth)
-			CoreLoop.NetSmooth.Track(v)
-			local from = v:GetPivot()
-			local t0 = os.clock()
-			local dur = 1.4
-			local wheels = wheelsOf(v)
-			local lastK = 0
-			while os.clock() - t0 < dur and v.Parent do
-				local k = (os.clock() - t0) / dur
-				spinWheels(wheels, v:GetPivot().RightVector, 30 * (k - lastK))
-				lastK = k
-				local pos = from.Position + ROAD_DIR * (30 * k)
-				local lift = math.sin(math.min(k * 1.4, 1) * math.pi / 2) * math.rad(25) * (if k > 0.85 then (1 - k) / 0.15 else 1)
-				local y = groundAt(pos)
-				local at = Vector3.new(pos.X, y + lift * 1.6, pos.Z)
-				v:PivotTo(CFrame.lookAt(at, at + ROAD_DIR) * CFrame.Angles(lift, 0, 0)) -- หน้ารถเงยขึ้น lift เรเดียน
-				task.wait()
+			if i == wheelieIdx then
+				v:SetAttribute("Wheelie", true)
 			end
-			eventSound(root :: Instance, "RacerWheeliePass", 0.52, false, 200, false)
-			driveTo(v, exitPos(), false, 46)
+			local laneOffset = Vector3.new(0, 0, 2.8 * (i - 1))
+			local start = spawnPoint.Position + laneOffset
+			start = Vector3.new(start.X, groundAt(start), start.Z)
+			v:PivotTo(CFrame.lookAt(start, start + ROAD_DIR))
+			local target = exitPos() + laneOffset
+			local dist = ((target - start) * Vector3.new(1, 0, 1)).Magnitude
+			local dur = dist / speed
+			local root = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart", true)
+			local snd = eventSound(root :: Instance, "RacerMotoRevCut", 0.65, true, 260, false)
+			snd.RollOffMode = Enum.RollOffMode.InverseTapered
+			snd.RollOffMinDistance = 20
+			snd.RollOffMaxDistance = 260
+			snd.Volume = 0
+			TweenService:Create(snd, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Volume = 0.65 }):Play()
+			-- ช่วงครึ่งหลังหลังพ้นหน้าร้าน: ค่อยๆ หรี่เสียงลงต่อเนื่องจนรถวิ่งออกไปสุดถนน
+			local fadeStart = math.max(0.5, dur * 0.52)
+			local fadeDur = math.max(1.2, dur - fadeStart + 1.4)
+			task.delay(fadeStart, function()
+				if snd and snd.Parent then
+					TweenService:Create(snd, TweenInfo.new(fadeDur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume = 0 }):Play()
+				end
+			end)
+			driveTo(v, target, false, speed)
+			-- ย้ายเสียงมาไว้ที่จุดปลายทางชั่วคราวให้หางเสียงค่อยๆ จางจบจนเป็น 0 ก่อนลบ (ไม่ตัดขาดตอนลบรถ)
+			if snd and snd.Parent then
+				local tail = Instance.new("Part")
+				tail.Name = "RacerSoundTail"
+				tail.Anchored = true
+				tail.CanCollide = false
+				tail.CanQuery = false
+				tail.CanTouch = false
+				tail.Transparency = 1
+				tail.Size = Vector3.new(1, 1, 1)
+				tail.Position = target
+				tail.Parent = Workspace
+				snd.Parent = tail
+				TweenService:Create(snd, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume = 0 }):Play()
+				task.delay(1.5, function()
+					snd:Stop()
+					tail:Destroy()
+				end)
+			end
 			v:Destroy()
 		end)
 	end
-	task.wait(9 + count * 1.2)
+	task.wait(6.5)
 end
 
 -- 2) รถซิ่งเปิดเพลงแดนซ์: จอดหน้าร้าน เปิดเพลงดัง สาวโคโยตี้ยืนข้างรถ (ไม่ได้เต้นบนรถ) วัยรุ่นเต้นตามรถ แล้วพากันไปต่อ
@@ -2735,6 +2765,25 @@ end
 function devSpawn(kind: string)
 	if gameOver then
 		return
+	end
+	-- admin เรียกผีเฉพาะตัว (ForceAnomaly): สุ่มชนิดลูกค้าด้วยสัดส่วนเดียวกับเกมจริง เอาเฉพาะชนิดที่ผีตัวนี้เกิดได้
+	-- (เดิมเป็น "vehicle" ตายตัว กดกี่ครั้งก็ได้แต่มอไซค์/ซาเล้ง ผู้ใช้ 2026-11-16)
+	if kind == "ghost" then
+		local key = devDecision:GetAttribute("ForceAnomaly")
+		kind = "vehicle"
+		if type(key) == "string" then
+			for _ = 1, 40 do
+				local k = if math.random() < CONFIG.WalkerChance then "walker" else pickKind()
+				local fit = if k == "vehicle" then "vehicle" elseif k == "walker" or k == "bicycle" then "walker" else "car"
+				if AnomalyManager.Fits(key, fit) then
+					kind = k
+					break
+				elseif k == "car" and AnomalyManager.Fits(key, "pickup") then
+					kind = "pickup" -- ผีที่เกิดกับกระบะเท่านั้น: บังคับแม่แบบเป็นกระบะ
+					break
+				end
+			end
+		end
 	end
 	if kind == "shelter" then
 		spawnShelter()
@@ -3513,6 +3562,7 @@ local function resetGame()
 	gameOver = false
 	forceGhostNext = false
 	summoned = nil
+	AnomalyManager.NewNight() -- คืนใหม่: ผีลูกค้าทุกตัวกลับมาสุ่มได้อีก (ในคืนเดียวไม่ออกซ้ำ)
 	clearQueue()
 	Weather.Reset()
 	refreshIncense()

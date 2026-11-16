@@ -142,8 +142,8 @@ local KINDS: { [string]: Kind } = {
 	--   (ผู้ใช้ 2026-11-16: ไม่สุ่มปอบแล้ว ย้ายไปหมวด "ไม่ใช้แล้ว" ใช้เงาดำวิ่งตัด ShadowRun แทน · ปุ่ม admin ยังเรียกได้)
 	Pop = { model = "Pop", from = { -139, -11 }, to = { 126, -12 }, clip = "Crawl", moveClip = "Crawl", moveClipSpeed = 3.5, speed = 75, path = true, roadRun = true, screech = true, fadeIn = 0.2, noGlow = true },
 	-- เงาดำวิ่งตัดถนน (ผู้ใช้ 2026-11-16 แทนปอบ): ร่างเงา ghost_shadow วิ่งเร็วมากไปตามถนนผ่านหน้าร้าน (ทางรถลูกค้า)
-	--   + เสียงกรีด "scream" ดังยาวติดตัว แล้วหายไปสุดถนน · ท่า Pop_Run = วิ่งสปรินต์ที่ทำจาก Walking mocap (ghost_mocap_retarget PART 9)
-	ShadowRun = { model = "ghost_shadow", from = { -139, -11 }, to = { 126, -12 }, clip = "Pop_Run", moveClip = "Pop_Run", moveClipSpeed = 2.6, speed = 100, path = true, roadRun = true, screech = true, fadeIn = 0.2, noGlow = true },
+	--   + เสียงกรีด "scream" ดังยาวติดตัว แล้วค่อยๆ เบาลงและจางหายไปสุดถนน · ท่า Pop_Run = วิ่งสปรินต์ที่ทำจาก Walking mocap (ghost_mocap_retarget PART 9)
+	ShadowRun = { model = "ghost_burned", from = { -139, -11 }, to = { 126, -12 }, clip = "Pop_Run", moveClip = "Pop_Run", moveClipSpeed = 1.65, speed = 100, path = true, roadRun = true, screech = true, fadeIn = 0.2, noGlow = true },
 	Pret = { model = "Pret", from = { -80, -62 }, to = { 85, -62 }, clip = "TallSlowWalk", speed = 14, path = true }, -- 5x size (GhostAnimIds.SCALE): stride 5x longer too
 	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true, float = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
@@ -151,8 +151,8 @@ local KINDS: { [string]: Kind } = {
 }
 -- ไม่สุ่ม Pret แล้ว (ผู้ใช้ 2026-11-12): เปรตเดินผ่านถนนซ้ำกับผีใหญ่ Big_Pret ทำให้งงกติกา (ปุ่ม admin ยังเรียกได้)
 -- ไม่สุ่ม Krasue / Krahang แล้ว (ผู้ใช้ 2026-11-15): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin (ปุ่มยังเรียกดูได้)
--- ไม่สุ่ม Pop แล้ว (ผู้ใช้ 2026-11-16): ใช้ ShadowRun (เงาดำวิ่งตัดถนน) แทน
-local KIND_LIST = { "Tani", "Dancer", "MaeNak", "Kuman", "Child", "Shroud", "ShadowRun", "Scarecrow", "Shadow" }
+-- ไม่สุ่ม Pop / MaeNak / Kuman / Child / Shroud แล้ว (ผู้ใช้ 2026-11-16): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin
+local KIND_LIST = { "Tani", "Dancer", "ShadowRun", "Scarecrow", "Shadow" }
 
 local function rand(r: { number }): number
 	return r[1] + math.random() * (r[2] - r[1])
@@ -366,7 +366,12 @@ local function hide(fadeTime: number?)
 	CollectionService:RemoveTag(c.m, "SceneryGhost")
 	local t = fadeTime or 1.5
 	fade(c.m, 1, t)
-	task.delay(t + 0.1, function()
+	for _, d in ipairs(c.m:GetDescendants()) do
+		if d:IsA("Sound") and d.IsPlaying then
+			TweenService:Create(d, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Volume = 0 }):Play()
+		end
+	end
+	task.delay(t + 0.15, function()
 		c.m:Destroy()
 	end)
 end
@@ -453,6 +458,7 @@ end
 --   หันหาร้าน ยืนคอเอียงตัวห่อ (shadow_stand: Zombie Idle ลงร่างเงาเอง ผู้ใช้ 2026-11-15 ท่า tani_peek ที่ยืมมาแขนบิดไปข้างหลัง) ค่อยๆ ทึบขึ้น · จ้องค้าง = พุ่งใส่
 --   ยังไม่มีแม่แบบ ghost_shadow ใน GhostModels = ใช้เงาเดิม (กล่อง + ลูกบอล) แบบเก่า
 local SHADOW_CLIP = "shadow_stand"
+local SHADOW_CLING_CLIP = "shadow_cling"
 local function showShadow(): Model?
 	local ap = Workspace:FindFirstChild("AnomalyProps")
 	local src = ap and ap:FindFirstChild("BanyanShadowAnomaly") :: Model?
@@ -469,13 +475,22 @@ local function showShadow(): Model?
 			local look = Vector3.new(f.X - feet.X, 0, f.Z - feet.Z)
 			look = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, -1)
 			rm:PivotTo(CFrame.lookAt(feet, feet + look))
+			-- ท่าเกาะต้นไม้ (ผู้ใช้ 2026-11-16): MapBuilder.HideBanyanShadowBehindTree วัดผิวลำต้นแล้วเก็บจุดยืน + ทิศไว้ที่ ClingCFrame
+			-- ยืนนิ่งหลังขอบลำต้น มือขวาทาบต้นไม้ หัวโผล่มองร้าน (shadow_cling = ท่านิ่ง ไม่ขยับ) · ไม่มี attribute = ยืนแบบเดิม
+			local cling = src:GetAttribute("ClingCFrame")
+			local clip = SHADOW_CLIP
+			if typeof(cling) == "CFrame" then
+				rm:PivotTo(cling)
+				clip = SHADOW_CLING_CLIP
+				rm:SetAttribute("LookAtCamera", true) -- คอ/หัวหันตามผู้เล่น ตัวนิ่ง (client/GhostAnimRunner.lookAtCamera)
+			end
 			rm:SetAttribute("FocusBone", "head")
 			rm:SetAttribute("Faint", KINDS.Shadow.faint) -- ตัวจางๆ
 			rm.Name = "ShadowLocal"
 			fade(rm, 1, 0)
 			rm.Parent = folder
 			fade(rm, 0, 3)
-			play(rm, SHADOW_CLIP)
+			play(rm, clip)
 			current = { kind = "Shadow", m = rm }
 			return rm
 		end
@@ -758,17 +773,18 @@ end
 --   SCREECH_ID = ไฟล์ "scream" ที่เจ้าของเกมอัปโหลด (2026-11-16) เล่นความเร็วปกติ ไม่แต่งเสียง
 --   (ถ้าเอา id ออก = ใช้เสียงปอบ SoundBank Ghost_Pop เร่งให้แหลม + ดันเสียงแหลม ตัดทุ้ม แทน)
 local SCREECH_ID: string? = "rbxassetid://92000290721684"
-local function screechOn(m: Model)
+local SCREECH_VOL = 2.5
+local function screechOn(m: Model): Sound?
 	local root = m:FindFirstChild("RootPart") or m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
 	if not root then
-		return
+		return nil
 	end
 	local s = Instance.new("Sound")
 	s.Name = "Screech"
 	s.SoundId = SCREECH_ID or (SoundBank.ResolveId(SoundBank.Presets.Ghost_Pop))
 	s.PlaybackSpeed = if SCREECH_ID then 1 else 1.55
-	s.Looped = true -- กรีดยาวต่อเนื่องตลอดทางที่วิ่ง (ผู้ใช้ 2026-11-15 "กรีดดังยาวๆ") หายไปพร้อมตัวผี
-	s.Volume = 2.5
+	s.Looped = true -- กรีดยาวต่อเนื่องตลอดทางที่วิ่ง (ผู้ใช้ 2026-11-15 "กรีดดังยาวๆ") แล้วค่อยๆ เบาลงจนเงียบตอนวิ่งลับไป
+	s.Volume = 0
 	s.RollOffMode = Enum.RollOffMode.InverseTapered
 	s.RollOffMinDistance = 18
 	s.RollOffMaxDistance = 300
@@ -781,6 +797,8 @@ local function screechOn(m: Model)
 	end
 	s.Parent = root
 	s:Play()
+	TweenService:Create(s, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Volume = SCREECH_VOL }):Play()
+	return s
 end
 
 local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross: { Vector3 }?): Model?
@@ -835,6 +853,14 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			m:PivotTo(CFrame.lookAt(feet, feet + look) * rot)
 			return
 		end
+		if def.roadRun and not m:FindFirstChildWhichIsA("Bone", true) then
+			-- โมเดลชิ้นเดียวไม่มีกระดูก (Burned_corpse 96336906407826): โยกตัวขึ้นลงและโน้มหน้าตามจังหวะฝีเท้าตอนพุ่งตัดถนน
+			local tRun = os.clock() - floatT0
+			local bob = math.abs(math.sin(tRun * 18)) * 0.32
+			local sway = math.sin(tRun * 18) * math.rad(5)
+			m:PivotTo(CFrame.lookAt(feet + Vector3.new(0, bob, 0), feet + Vector3.new(0, bob, 0) + look) * CFrame.Angles(math.rad(-12), 0, sway))
+			return
+		end
 		m:PivotTo(CFrame.lookAt(feet, feet + look))
 	end
 	place(from, unit)
@@ -849,8 +875,9 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 	m.Parent = folder
 	fade(m, 0, def.fadeIn or 2)
 	play(m, def.moveClip or def.clip, if def.moveClip then def.moveClipSpeed else nil)
+	local screechSound: Sound? = nil
 	if def.screech then
-		screechOn(m)
+		screechSound = screechOn(m)
 	end
 	-- ผีลอย: เร็วขึ้นตามความดุของรอบ (shared/GhostFloat)
 	local floatMult = if def.float then GhostFloat.SpeedMult() else 1
@@ -1046,6 +1073,11 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			arrived = true
 			pos = to
 			place(to)
+			if def.roadRun then
+				-- วิ่งตัดถนน: จางและหรี่เสียงมาตั้งแต่ช่วงท้ายทางแล้ว ไม่หยุดยืนที่ปลายทาง
+				hide(0.8)
+				return
+			end
 			if def.moveClip then
 				play(m, def.clip, def.clipSpeed)
 			end
@@ -1061,8 +1093,18 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			end
 			return
 		end
+		local prog = s / total
+		if screechSound and prog > 0.55 then
+			-- ช่วงครึ่งหลังของถนน: เสียงกรีดค่อยๆ เบาลงตามระยะที่วิ่งห่างออกไป ไม่ตัดจบห้วนๆ
+			local fadeK = math.clamp((1 - prog) / 0.45, 0, 1)
+			screechSound.Volume = SCREECH_VOL * (fadeK * fadeK)
+		end
+		if def.roadRun and prog > 0.78 and not m:GetAttribute("RoadFading") then
+			m:SetAttribute("RoadFading", true)
+			fade(m, 1, math.max(0.35, (total - s) / speed + 0.35))
+		end
 		local tan: Vector3
-		pos, tan = along(s / total)
+		pos, tan = along(prog)
 		hopUntil = os.clock() + 0.1
 		place(pos, tan)
 	end)

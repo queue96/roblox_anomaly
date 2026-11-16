@@ -288,21 +288,53 @@ function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
 					m:PivotTo((base :: CFrame) + Vector3.new(0, lift, 0))
 				end
 			end)
-			-- เสียงบนหลังคา: ฝีเท้าย่ำสังกะสีติดตัวผี (คนในร้านได้ยินจากทิศที่ผีอยู่)
-			local steps = SoundBank.CreateSound("RoofTinSteps", rootPart, 70)
-			if steps then
-				steps.Looped = true
-				steps.Volume = 0
-				steps.RollOffMinDistance = 10
+			-- เสียงตอนบิน/ร่อน ติดตัวผี (คนในร้านได้ยินจากทิศที่ผีอยู่): กระพือปีกกระด้งทุ้มๆ เป็นจังหวะ + ลมแหวกอากาศ
+			-- (ผู้ใช้ 2026-11-16: เดิมเล่นเสียงย่ำสังกะสีสังเคราะห์ haunt_roof_tin_steps วนตอนร่อน ฟังเป็นเสียงลมซ่าๆ ไม่เข้ากับท่าบิน)
+			-- strength 1 = โฉบลงมาจากฟ้า (ดัง เร็ว) · 0.75 = ร่อนเลียดหลังคาไปจุดใหม่ · ตอนเกาะนิ่ง = เงียบ ได้ยินแต่เสียงกระแทก/หัวเราะ
+			local wings = SoundBank.CreateSound("KrahangWings", rootPart, 85)
+			local air = SoundBank.CreateSound("KrahangAir", rootPart, 70)
+			local wingVol = if wings then wings.Volume else 1
+			local wingSpeed = if wings then wings.PlaybackSpeed else 1
+			local airVol = if air then air.Volume else 1
+			local airSpeed = if air then air.PlaybackSpeed else 1
+			for _, s in ipairs({ wings, air } :: { Sound? }) do
+				if s then
+					s.Looped = true
+					s.Volume = 0
+					s.RollOffMinDistance = 12
+				end
+			end
+			local function flying(strength: number, fadeTime: number?)
+				local info = TweenInfo.new(fadeTime or 0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+				local on = strength > 0
+				if wings then
+					if on and not wings.IsPlaying then
+						-- เริ่มจากจุดสุ่มในไฟล์: แต่ละรอบจังหวะปีกไม่ซ้ำกัน
+						wings.TimePosition = if wings.TimeLength > 1 then math.random() * (wings.TimeLength - 1) else 0
+						wings:Play()
+					end
+					-- บินแรง = กระพือถี่และแหลมขึ้นนิด · ร่อน = ช้าทุ้ม
+					TweenService:Create(wings, info, { Volume = wingVol * strength, PlaybackSpeed = wingSpeed * (0.85 + 0.3 * strength) }):Play()
+				end
+				if air then
+					if on and not air.IsPlaying then
+						air.TimePosition = if air.TimeLength > 1 then math.random() * (air.TimeLength - 1) else 0
+						air:Play()
+					end
+					TweenService:Create(air, info, { Volume = airVol * strength, PlaybackSpeed = airSpeed * (0.8 + 0.4 * strength) }):Play()
+				end
+				if not on then
+					task.delay((fadeTime or 0.3) + 0.05, function()
+						for _, s in ipairs({ wings, air } :: { Sound? }) do
+							if s and s.Volume <= 0.01 then
+								s:Stop()
+							end
+						end
+					end)
+				end
 			end
 			local function stepping(on: boolean)
-				if steps then
-					if on and not steps.IsPlaying then
-						steps:Play()
-					end
-					-- ฝีเท้าย่ำสังกะสี: ดังขึ้น (เดิม 0.9 ผู้ใช้ 2026-11-08)
-					TweenService:Create(steps, TweenInfo.new(0.25), { Volume = if on then 1.6 else 0 }):Play()
-				end
+				flying(if on then 0.75 else 0, if on then 0.3 else 0.35)
 			end
 			local function thud()
 				-- กระหังตกกระแทกหลังคาสังกะสี: ดังชัด (เดิม ShutterCloseSlam × 0.55 ตัด 1.2 วิ เบาไป ผู้ใช้ 2026-11-08)
@@ -322,8 +354,11 @@ function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
 				end
 			end)
 			tw:Play()
+			flying(1, 0.5) -- โฉบลงมา: เสียงปีก + ลมดังขึ้นตามตัวที่ใกล้เข้ามา แล้วเงียบวูบก่อนกระแทกหลังคา
 			task.spawn(function()
-				task.wait(2.2)
+				task.wait(1.95)
+				flying(0, 0.25)
+				task.wait(0.25)
 				cv:Destroy()
 				if not (m.Parent and current and current.token == my) then
 					return

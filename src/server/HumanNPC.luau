@@ -12,6 +12,7 @@
 --     DriverNPC (ตัวละคร, attribute Human = true, Outfit, Hair)
 --       Head / Torso  ชิ้นล่องหน วางที่หัว/อก (ตำแหน่งกล่องคำพูด, กล้อง jumpscare)
 --       GhostDouble   (มีเมื่อโดนผีบางแบบ) ร่างผีซ้อน เห็นเฉพาะตอนพนมมือ เล่นท่าพร้อมตัวจริง
+local CollectionService = game:GetService("CollectionService")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -357,7 +358,13 @@ function HumanNPC.Dress(d: Model, opts: { [string]: any }): { [string]: any }
 			end
 		end
 		local tint = opts.skinTint or SKIN_TINTS[math.random(#SKIN_TINTS)]
-		applyVillagerTex(d:FindFirstChild("BodyHead") :: MeshPart?, HEAD_TEX_OF[char] or "male_head", tint)
+		local headPart = d:FindFirstChild("BodyHead") :: MeshPart?
+		applyVillagerTex(headPart, HEAD_TEX_OF[char] or "male_head", tint)
+		-- หัวไม่ทอดเงา (ผู้ใช้ 2026-11-16): ไฟฉายของผู้เล่นทำเงา จมูกทอดเงาสี่เหลี่ยมดำลงบนริมฝีปากบน/ปากตัวเอง เหมือนไว้หนวดจิ๋ม
+		-- (เงาของ Roblox หยาบเกินกว่าจะเป็นเงาจมูกจริง) ผม/งอบ/ลำตัวยังทอดเงาตามปกติ หน้ายังรับเงาจากของอื่นได้
+		if headPart then
+			headPart.CastShadow = false
+		end
 		applyVillagerTex(d:FindFirstChild("BodyUpper") :: MeshPart?, outfit.upper, tint)
 		applyVillagerTex(d:FindFirstChild(lowerPart) :: MeshPart?, outfit.lower, tint)
 		local sash = d:FindFirstChild("Sash_pakama") :: MeshPart?
@@ -853,6 +860,7 @@ local GHOST_BODY: { [string]: { string } } = {
 	human_elder_male = { "ghost_funeral_elder_man" },
 	human_elder_female = { "ghost_funeral_elder_woman" },
 	human_child = { "ghost_child" },
+	burned = { "ghost_burned" },
 }
 
 local function ghostBody(char: string, d: Model): Model?
@@ -905,6 +913,7 @@ end
 
 -- ร่างผีซ้อน (เห็นเฉพาะตอนพนมมือ) เล่นท่าเดียวกับตัวจริง
 --   kind = "ghost" (ร่างผีจริง) | "twist" (ร่างผี + หัวหันกลับ 180°) | "pale" (สำเนาตัวจริง ผิวซีดเขียว)
+--        | "burned" (ศพไฟคลอก) | "backfeet" (สำเนาตัวจริง เท้ากลับหลัง)
 --   คืนค่า (ร่างผี, รายชื่อชิ้นของตัวจริงที่ต้องซ่อนตอนพนมมือ)
 function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 	local rig = rigs[m]
@@ -918,10 +927,10 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 			table.insert(real, c)
 		end
 	end
-	-- ร่างผีจริง (ghost / twist): ผีจากแม่แบบผีที่กระดูกชุดเดียวกับชาวบ้าน (ServerStorage.GhostTemplates) ซ้อนทับตัวจริง
-	-- ไม่มีแม่แบบผี = ใช้สำเนาตัวจริงแบบเดิม (twist = หัวหันกลับ, pale = ผิวซีด)
-	local double = if kind == "ghost" or kind == "twist" then ghostBody(rig.char, d) else nil
-	if double then
+	-- ร่างผีจริง (เฉพาะ kind == "ghost" หรือ "burned"): ผีจากแม่แบบผีที่กระดูกชุดเดียวกับชาวบ้าน (ServerStorage.GhostTemplates) ซ้อนทับตัวจริง
+	-- ส่วน "twist" (คอบิด 180°) และ "pale" ใช้สำเนาโมเดลคนเดิมของลูกค้า (d:Clone())
+	local double = if kind == "ghost" then ghostBody(rig.char, d) elseif kind == "burned" then ghostBody("burned", d) else nil
+	if double and kind == "ghost" then
 		-- พนมมือแล้วต้องรู้ทันทีว่าเป็นผี (ผู้ใช้ 2026-11-06: ร่างผีชุดขาวดูเหมือนคนธรรมดา สวดนานก็ไม่รู้ว่าผี)
 		-- ผิวซีดเขียวแบบศพ ตัวโปร่งจางๆ แสงเย็นเรืองรอบตัว (ไม่มีขอบแดงเรือง: ผู้ใช้เอาออกแล้ว 2026-11-05)
 		for _, c in ipairs(double:GetChildren()) do
@@ -957,21 +966,121 @@ function HumanNPC.MakeDouble(m: Model, kind: string): (Model?, { Instance })
 	if not double then
 		-- ต้อง Clone ทั้งโมเดลในครั้งเดียว: ประกอบใหม่จากชิ้นที่ Clone ทีละชิ้น ผิวจะไม่ผูกกับกระดูกของร่างใหม่ (ค้างท่า A-pose)
 		double = d:Clone()
+		CollectionService:RemoveTag(double, "HumanLife")
+		CollectionService:RemoveTag(double, "HumanEmote")
 		for _, c in ipairs((double :: Model):GetChildren()) do
 			if c.Name == "Head" or c.Name == "Torso" or c.Name == "GhostDouble" then
 				c:Destroy()
 			end
 		end
+		for _, x in ipairs((double :: Model):GetDescendants()) do
+			if x:IsA("BasePart") then
+				x.Anchored = true
+				x.CanCollide = false
+				x.CanTouch = false
+				x.CanQuery = false
+			end
+		end
+		-- ผูก IKControl ของร่างที่ Clone ให้ชี้ไปที่กระดูกของตัวเอง (มือจับแฮนด์ / เท้าวางที่พักเท้าเหมือนตัวจริง)
+		local gac = (double :: Model):FindFirstChildOfClass("AnimationController")
+		if gac then
+			for _, ik in ipairs(gac:GetChildren()) do
+				if ik:IsA("IKControl") and ik.ChainRoot and ik.EndEffector then
+					local rootB, tipB = bone(double :: Model, ik.ChainRoot.Name), bone(double :: Model, ik.EndEffector.Name)
+					if rootB and tipB then
+						ik.ChainRoot = rootB
+						ik.EndEffector = tipB
+					end
+				end
+			end
+		end
 	end
 	assert(double)
 	double.Name = "GhostDouble"
-	local pivot = d:GetPivot()
 	if kind == "twist" then
-		-- หมุนกระดูกหัวรอบแกนตั้งของตัว (แกนกระดูกของ Roblox ไม่ตรงกับ Blender จึงหมุนรอบแกนโลก)
+		double:SetAttribute("NeckTwist", true)
+		-- บิดคอ 2 ท่อน (neck + head) รวม 180° พร้อมหักพับเอียงข้างแบบคอหัก (ไม่หมุนท่อนเดียว 180° ไม่งั้นคอจะบิดแฟบเป็นเกลียว)
+		local nb = bone(double, "neck")
 		local hb = bone(double, "head")
+		local rNeck = CFrame.Angles(0, math.rad(75), 0) * CFrame.Angles(math.rad(8), 0, math.rad(20))
+		local rTotal = CFrame.Angles(0, math.pi, 0) * CFrame.Angles(math.rad(16), 0, math.rad(38))
+		local rHead = if nb then rNeck:Inverse() * rTotal else rTotal
+		if nb then
+			nb.CFrame = nb.CFrame * rNeck
+		end
 		if hb then
-			local axis = hb.WorldCFrame:VectorToObjectSpace(pivot.UpVector)
-			hb.CFrame = hb.CFrame * CFrame.fromAxisAngle(axis, math.pi)
+			hb.CFrame = hb.CFrame * rHead
+		end
+		-- กดสีผิวให้ซีดหม่นแบบศพคอหัก (เสื้อผ้าและทรงผมใช้ของชาวบ้านคนเดิม)
+		for _, c in ipairs(double:GetChildren()) do
+			if c:IsA("MeshPart") and (string.sub(c.Name, 1, 4) == "Body" or string.sub(c.Name, 1, 5) == "Lower" or string.sub(c.Name, 1, 5) == "Skin_") then
+				local sa = c:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then
+					pcall(function()
+						(sa :: any).Color = Color3.fromRGB(165, 180, 168)
+					end)
+				else
+					c.Color = Color3.fromRGB(165, 180, 168)
+				end
+			end
+		end
+	elseif kind == "burned" then
+		-- ศพไฟคลอก (Anomaly_BurnedCorpse): พื้นผิวรอยไหม้เกรียมสีแดง ZombieBurn + ควันดำลอยกรุ่น + แสงถ่านไฟคุสีส้ม
+		local BURN_TEX = "rbxassetid://108896651911486"
+		for _, c in ipairs(double:GetChildren()) do
+			if c:IsA("MeshPart") then
+				if c.Name == "BodyHead" or c.Name == "BodyUpper" or c.Name == "BodyLower" or c.Name == "Body" or string.sub(c.Name, 1, 5) == "Skin_" then
+					for _, sub in ipairs(c:GetChildren()) do
+						if sub:IsA("SurfaceAppearance") then
+							sub:Destroy()
+						end
+					end
+					c.TextureID = BURN_TEX
+					c.Color = Color3.fromRGB(220, 185, 175)
+					c.Material = Enum.Material.Slate
+					c.Transparency = 0
+				elseif string.sub(c.Name, 1, 7) == "Outfit_" or string.sub(c.Name, 1, 5) == "Hair_" then
+					c:Destroy()
+				end
+			end
+		end
+		local gRoot = double:FindFirstChild("RootPart") :: BasePart?
+		if gRoot then
+			local a = Instance.new("Attachment")
+			a.Position = gRoot.CFrame:PointToObjectSpace(d:GetPivot().Position + Vector3.new(0, 3.0, 0))
+			a.Parent = gRoot
+			local l = Instance.new("PointLight")
+			l.Color = Color3.fromRGB(255, 85, 30)
+			l.Range = 8
+			l.Brightness = 0.85
+			l.Shadows = false
+			l.Parent = a
+			local smoke = Instance.new("ParticleEmitter")
+			smoke.Name = "CharSmoke"
+			smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+			smoke.Color = ColorSequence.new(Color3.fromRGB(22, 18, 16))
+			smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1.65) })
+			smoke.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.9),
+				NumberSequenceKeypoint.new(0.25, 0.55),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			smoke.Lifetime = NumberRange.new(1.2, 2.0)
+			smoke.Rate = 7
+			smoke.Speed = NumberRange.new(1.1, 2.0)
+			smoke.SpreadAngle = Vector2.new(18, 18)
+			smoke.LightInfluence = 0.6
+			smoke.Parent = a
+		end
+	elseif kind == "backfeet" then
+		-- ผีเท้ากลับหลัง (Anomaly_BackFeet): หมุนกระดูกเท้าสองข้าง 180° รอบแกนตั้งที่ข้อเท้า ปลายเท้าชี้ไปข้างหลัง ส้นชี้ไปข้างหน้า
+		-- (แก้ที่ Bone.CFrame เหมือนคอบิด: ท่าเดิน/ยืนที่เล่นทับยังขยับเท้าตามปกติ แต่กลับด้าน) ที่เหลือเหมือนตัวจริงทุกอย่าง
+		for _, n in ipairs({ "foot.L", "foot.R" }) do
+			local fb = bone(double, n)
+			if fb then
+				local upLocal = fb.WorldCFrame:VectorToObjectSpace(Vector3.yAxis)
+				fb.CFrame = fb.CFrame * CFrame.fromAxisAngle(upLocal, math.pi)
+			end
 		end
 	elseif kind == "pale" then
 		for _, c in ipairs(double:GetChildren()) do

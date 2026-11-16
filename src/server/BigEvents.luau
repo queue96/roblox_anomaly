@@ -28,7 +28,7 @@ BigEvents.Config = {
 	Grace = 0.6, -- ช่วงแรกของ Danger ยังไม่ตรวจ (คนที่กำลังจะนั่งลงพอดี)
 	StillSpeed = 1.5, -- เร็วกว่านี้ (studs/วินาที) = ขยับ
 }
-BigEvents.Kinds = { "Krasue", "Pret", "Funeral", "Pop" }
+BigEvents.Kinds = { "Krasue", "Pret", "Pop" } -- ตัด Funeral (ขบวนแห่ศพ) ออกจากการสุ่มแล้ว (2026-11-16)
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local CrouchRemote = remotes:FindFirstChild("Crouch") or Instance.new("RemoteEvent")

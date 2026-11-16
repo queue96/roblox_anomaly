@@ -4158,8 +4158,7 @@ function MapBuilder.AddShackLightLeaks(maxBeams: number?): number
 	return made
 end
 
--- ย้ายเงาคนแอบ (AnomalyProps.BanyanShadowAnomaly) ออกจากลำต้นไทรใหม่ ไปยืนหลบชิดลำต้นฝั่งที่มองไม่เห็นจากถนน/ร้าน
--- หาผิวลำต้นด้วย raycast จากด้านนอกเข้าหาแกนต้น แล้ววางเงาห่างผิว 0.6 stud หันหน้าเข้าหาลำต้น (ท่าแอบ)
+-- ย้ายเงาคนแอบ (AnomalyProps.BanyanShadowAnomaly) ออกจากเนื้อลำต้นไทร ไปยืนข้างลำต้น หันหน้าหาร้าน (ยืนดู)
 function MapBuilder.HideBanyanShadowBehindTree()
 	local anomaly = Workspace:FindFirstChild("AnomalyProps")
 	local shadow = anomaly and anomaly:FindFirstChild("BanyanShadowAnomaly")
@@ -4169,24 +4168,45 @@ function MapBuilder.HideBanyanShadowBehindTree()
 		warn("[MapBuilder] HideBanyanShadowBehindTree: ไม่พบ BanyanShadowAnomaly หรือ SacredBanyanTree")
 		return
 	end
+	-- ต้นไทร v2 (banyan_v2.py): ลำต้นอ้วนขึ้น (รัศมี ~4.5–5 + โคนรากบานถึง ~7) จุดเดิมห่างแกน 3.2 studs = ตัวเงาจมอยู่ในเนื้อไม้
+	-- (ผู้ใช้ 2026-11-16) -> ย้ายออกมายืนข้างลำต้นฝั่งถนน ค่อนไปทางไกลร้าน ยืนดูร้านเฉยๆ
+	-- แกนลำต้น = กลางผ้าสามสีที่พันรอบต้น (BanyanTrunk.Position เป็นกลางกล่องที่รวมกิ่งเอียง ใช้ไม่ได้)
+	-- ทิศ/ระยะวัดใน Studio ด้วย GetPartsInPart รอบต้น: มุม 240° ห่างแกน 6.5 = จุดใกล้ลำต้นที่สุดที่ทั้งตัวไม่ชนลำต้น/ราก/รากอากาศ พื้นเรียบ
+	local ribbons = tree:FindFirstChild("SacredThaiRibbons") :: BasePart?
 	local trunk = tree:FindFirstChild("BanyanTrunk") :: BasePart
-	-- แกนลำต้นที่โคน = pivot ของต้นไทร (ตำแหน่งลำต้นในฉาก - ในต้นแบบ) ; ไม่ใช้ trunk.Position เพราะเป็นกึ่งกลางกล่องที่รวมกิ่งเอียง
-	local store = game:GetService("ServerStorage"):FindFirstChild("ImportedProps")
-	local tplTree = store and store:FindFirstChild("SacredBanyanTree")
-	local center = if tplTree then trunk.Position - tplTree.BanyanTrunk.Position + tplTree:GetPivot().Position else trunk.Position
-	-- ถนนอยู่ฝั่ง -Z และร้านอยู่ฝั่ง +X ของต้นไทร: หลบไปทาง +Z ค่อนไป -X
-	local dir = Vector3.new(-0.45, 0, 1).Unit
-	local _, size = shadow:GetBoundingBox()
-	-- รัศมีลำต้นช่วงอกราว 4.8 studs: วางเงาห่างแกน 6.5 studs ให้พ้นผิวลำต้นแต่ยังชิดพอให้ดูเหมือนแอบ
+	local center = if ribbons then ribbons.Position else trunk.Position
+	local dir = Vector3.new(-0.5, 0, -0.866)
 	local spot = Vector3.new(center.X, 0, center.Z) + dir * 6.5
 	local floorY = groundY(spot.X, spot.Z)
-	local pos = Vector3.new(spot.X, floorY + size.Y / 2, spot.Z)
-	local look = Vector3.new(center.X, pos.Y, center.Z)
-	local target = CFrame.lookAt(pos, look)
-	-- ย้ายทั้งโมเดลตาม bounding box (ไม่แตะโครงสร้างภายใน)
-	local bboxCF = shadow:GetBoundingBox()
-	shadow:PivotTo(target * bboxCF:ToObjectSpace(shadow:GetPivot()))
-	print("👤 [MapBuilder] ย้ายเงาคนแอบไปหลบหลังต้นไทรแล้ว")
+	-- client/SceneryGhosts วางร่างเงา (ghost_shadow) ที่ตำแหน่ง ShadowTorso: ย้ายทั้งโมเดลให้ ShadowTorso ลงจุดนี้พอดี หันหน้าหาร้าน
+	local torso = shadow:FindFirstChild("ShadowTorso") :: BasePart?
+	local anchor = if torso then torso.CFrame else shadow:GetBoundingBox()
+	local half = if torso then torso.Size.Y / 2 else select(2, shadow:GetBoundingBox()).Y / 2
+	local pos = Vector3.new(spot.X, floorY + half, spot.Z)
+	local wps = Workspace:FindFirstChild("VehicleWaypoints")
+	local stop = wps and wps:FindFirstChild("StopPoint") :: BasePart?
+	local shop = if stop then stop.Position else Vector3.new(-4, 2, -7)
+	local target = CFrame.lookAt(pos, Vector3.new(shop.X, pos.Y, shop.Z))
+	shadow:PivotTo(target * anchor:ToObjectSpace(shadow:GetPivot()))
+	print(string.format("👤 [MapBuilder] ย้ายเงาคนแอบไปยืนข้างลำต้นไทรแล้ว (%.1f, %.1f, %.1f)", pos.X, pos.Y, pos.Z))
+
+	-- ท่าเกาะต้นไม้ (clip shadow_cling, ผู้ใช้ 2026-11-16 "โผล่และเกาะตรงต้นไม้ ยืนเกาะเฉยๆ"): ยืนหลังขอบลำต้นบนโคนรากนูน
+	-- มือขวาทาบผ้าสามสี หัวโผล่ออกมามองร้าน · จุดยืน + ทิศ เก็บเป็น attribute ClingCFrame ให้ client/SceneryGhosts ใช้
+	-- ค่าตายตัวเทียบกลางผ้าสามสี (ต้นไทรวางแบบไม่หมุน) หาจาก mesh จริงใน Blender ไม่ใช่ raycast ใน Studio:
+	--   ผิวชนของ MeshPart ต้นไทรเป็นทรงนูนหยาบ คลาดจากผิวที่เห็นได้ครึ่ง stud และรากอากาศเป็นก้อนทึบทั้งก้อน (ตั้ง CollisionFidelity จากสคริปต์ไม่ติด)
+	--   จึงนำ assets/models/SacredBanyanTree.fbx มาทาบกับตำแหน่งชิ้นส่วนในฉาก แล้วไล่หามุมที่ฝ่ามือแตะผิวและไม่มีลำต้น/ราก/รากอากาศทะลุตัว
+	--   ผล: ฝ่ามือห่างผิว 0.08 stud · แขนห่างรากอากาศที่เลื้อยบนลำต้น 0.13 · ลำตัว/ขา/หัวห่างทุกอย่าง 0.59 ขึ้นไป · เท้าอยู่บนราก สูงจากดิน 1.63
+	-- ย้ายต้นไทร / เปลี่ยนโมเดลต้นไทร / แก้ท่า shadow_cling (tools/blender/ghost_mocap_retarget.py CLING) = ต้องหาค่านี้ใหม่
+	local CLING_OFFSET = Vector3.new(-4.593, -2.956, -1.722) -- เท้าของร่างเงา เทียบกลาง SacredThaiRibbons
+	local CLING_YAW = -78 -- องศา (CFrame.Angles แกน Y)
+	if ribbons then
+		local origin = ribbons.Position + CLING_OFFSET
+		shadow:SetAttribute("ClingCFrame", CFrame.new(origin) * CFrame.Angles(0, math.rad(CLING_YAW), 0))
+		print(string.format("👤 [MapBuilder] ท่าเกาะต้นไทร: เท้า (%.2f, %.2f, %.2f) หัน %d°", origin.X, origin.Y, origin.Z, CLING_YAW))
+	else
+		shadow:SetAttribute("ClingCFrame", nil)
+		warn("[MapBuilder] HideBanyanShadowBehindTree: ไม่พบ SacredThaiRibbons ใช้ท่ายืนเดิม")
+	end
 end
 
 -- ===================================================================================

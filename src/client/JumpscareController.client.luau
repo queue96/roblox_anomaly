@@ -65,6 +65,10 @@ local FX = {
 	Anomaly_TaKhon = { focus = "rider", tint = Color3.fromRGB(130, 0, 0) },
 	Anomaly_MirrorGhost = { focus = "passenger", tint = Color3.fromRGB(40, 60, 70) },
 	Anomaly_BloodFuel = { focus = "head", tint = Color3.fromRGB(150, 0, 0), extra = "blood" },
+	Anomaly_BurnedCorpse = { focus = "head", tint = Color3.fromRGB(165, 35, 0) },
+	Anomaly_ShoulderChild = { focus = "passenger", tint = Color3.fromRGB(110, 15, 35) },
+	Anomaly_ShroudPickup = { focus = "passenger", tint = Color3.fromRGB(190, 190, 180), extra = "grey" }, -- ศพห่อผ้าท้ายกระบะ (GhostPassengerModel)
+	Anomaly_BackFeet = { focus = "head", tint = Color3.fromRGB(95, 10, 10) }, -- ผีเท้ากลับหลัง (หน้าหลอนของลูกค้า)
 	Anomaly_NoUmbrella = { focus = "head", tint = Color3.fromRGB(200, 210, 255), extra = "lightning" },
 }
 local DEFAULT_FX = { focus = "head", tint = Color3.fromRGB(120, 0, 0) }
@@ -273,7 +277,8 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 			focusPart = boneFocus(c, "head")
 		elseif focus == "passenger" and source:FindFirstChild("GhostPassengerModel") then
 			local c = addClone(source.GhostPassengerModel)
-			focusPart = boneFocus(c, "neck")
+			local fb = source.GhostPassengerModel:GetAttribute("FocusBone")
+			focusPart = boneFocus(c, if type(fb) == "string" then fb else "neck")
 		elseif focus == "passenger" and source:FindFirstChild("GhostPassenger") then
 			local c = addClone(source.GhostPassenger)
 			focusPart = c:FindFirstChild("NeckStump") :: BasePart?
@@ -896,6 +901,7 @@ local LAUGH_BY_KEY: { [string]: string } = {
 	Anomaly_Krasue = "Krasue",
 	Anomaly_Headless = "Headless",
 	Anomaly_MirrorGhost = "Mirror",
+	Anomaly_ShroudPickup = "FuneralWoman",
 	Anomaly_Tani = "Tani",
 	Big_Funeral = "FuneralMan",
 	Scenery_Child = "Mirror",
