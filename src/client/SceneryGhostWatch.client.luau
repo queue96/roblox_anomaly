@@ -161,10 +161,7 @@ RunService.RenderStepped:Connect(function(dt)
 		local p = focusPoint(m)
 		local off = p and visibility(cam, m, p)
 		if off then
-			if not w.stung and sightOpen() then
-				w.stung = true
-				sting()
-			end
+			-- (ผู้ใช้ 2026-11-17: หันกล้องผ่านไปเห็นผีฉากเฉยๆ ไม่ต้องขึ้นเสียงจั้มสแกร์ ให้ขึ้นตอนผีวิ่งพุ่งมาหาใน SceneryGhosts แทน)
 			if off <= CENTER then
 				w.stare += step
 				w.away = 0

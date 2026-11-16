@@ -39,14 +39,14 @@ local CONFIG = {
 	FinaleFrom = 0.85, -- (= CoreLoop CONFIG.FinaleFrom) เงินถึงเท่านี้ = ช่วงท้ายคืน
 	FinaleEvery = 0.6, -- ช่วงท้ายคืน: ห่างกันแค่ 60% ของ Every
 	-- (เลิกใช้ MaxPerNight 3 / KindsPerNight 4 แล้ว: ไม่จำกัดจำนวน 2026-11-08)
-	Stay = { 30, 45 }, -- โผล่ค้างกี่วินาที (ถ้าไม่มีใครหันไปเห็น ก็จางหายไปเอง)
-	SeeTime = 0.7, -- อยู่ในสายตาต่อเนื่องกี่วินาทีถึงนับว่าเห็น
+	Stay = { 95, 130 }, -- โผล่ค้างรอนานขึ้นมาก (เดิม 30-45 วิ หายก่อนผู้เล่นหันมาเห็น · ผู้ใช้ 2026-11-17)
+	SeeTime = 1.35, -- ต้องมองเห็นตรงกลางจอต่อเนื่องนานเท่านี้ถึงนับว่าเห็นจริง (กันหันกล้องปัดผ่านเฉยๆ แล้วผีเริ่มนับเวลาหาย)
 	SeeDist = 110, -- ไกลกว่านี้ไม่นับว่าเห็น
-	SeeCenter = 0.45, -- ห่างกลางจอไม่เกินสัดส่วนนี้ (ของครึ่งจอ)
+	SeeCenter = 0.28, -- ห่างกลางจอไม่เกินสัดส่วนนี้ (เดิม 0.45 กว้างไป แค่หางตาก็นับว่าเห็นแล้ว)
 	HuntSpeed = 7.5, -- เดินไล่ (studs/วินาที) ผู้เล่นเดิน 10 จึงเดินหนีได้
 	HuntReach = 5, -- ถึงตัวในระยะนี้ = ผีหลอก
 	HuntMax = 14, -- ไล่นานสุดกี่วินาที แล้วหลอกเลย (เดินหนีไม่พ้น ถ้ายังอยู่นอกร้าน)
-	WatchTime = 9, -- ร้านยังเปิด: ผีที่ถูกเห็นยืนมองนานเท่านี้แล้วจางหาย (ไม่เดินมาหา) (ผู้ใช้ 2026-11-12: 5 จางไวไป)
+	WatchTime = 20, -- ร้านยังเปิด: ผีที่ถูกเห็นยืนมองนานเท่านี้แล้วจางหาย (เดิม 9 วิ สั้นไป · ผู้ใช้ 2026-11-17)
 	-- ตอนยืนมองคงทึบไว้ (ผู้ใช้ 2026-11-12: เดิม 0.55 จางไว + ชิ้นโปร่งแสงเรียงผิด หัววาดทับผม ดูหัวล้าน)
 	WatchTransparency = 0,
 	WatchFadeOut = 3, -- ยืนมองครบแล้วค่อยๆ จางหายนานเท่านี้ (วินาที)
@@ -421,12 +421,12 @@ local function showScarecrow(): Model?
 		local sp, on = cam:WorldToViewportPoint(head)
 		local vs = cam.ViewportSize
 		local off = Vector2.new((sp.X - vs.X / 2) / (vs.X / 2), (sp.Y - vs.Y / 2) / (vs.Y / 2)).Magnitude
-		if on and sp.Z > 0 and sp.Z < 110 and off < 0.45 then
+		if on and sp.Z > 0 and sp.Z < 110 and off < CONFIG.SeeCenter then
 			seenFor += dt
 		else
 			seenFor = 0
 		end
-		if seenFor > 0.7 then
+		if seenFor > 1.3 then
 			fleeing = true
 			conn:Disconnect()
 			-- ไถลถอยหลังเร็วๆ จมลงดินนิดๆ แล้วจางหาย
@@ -652,13 +652,35 @@ local function stareTracker(): (Vector3, number) -> boolean
 	end
 end
 
--- เริ่มพุ่ง: เล่นท่าวิ่ง/คลานเร็วๆ + หัวเราะ/กรีด · ห้ามจางหายเองระหว่างพุ่ง (current.hunting)
+-- เสียงตกใจตอนผีฉากเริ่มวิ่งพุ่งเข้ามาหา (ย้ายมาจาก SceneryGhostWatch ตอนหันไปเห็นเฉยๆ ผู้ใช้ 2026-11-17)
+local RUSH_STING_ID = "rbxassetid://105012119508747"
+local RUSH_STING_VOL = 2
+local function playRushSting()
+	local s = Instance.new("Sound")
+	s.Name = "SceneryGhostRushSting"
+	s.SoundId = RUSH_STING_ID
+	s.Volume = RUSH_STING_VOL
+	s:SetAttribute("SoundCategory", "Music") -- ไม่โดน PrayMuffle ตอนพนมมือ
+	s.Parent = game:GetService("SoundService")
+	s:Play()
+	s.Ended:Once(function()
+		s:Destroy()
+	end)
+	task.delay(30, function()
+		if s.Parent then
+			s:Destroy()
+		end
+	end)
+end
+
+-- เริ่มพุ่ง: เล่นท่าวิ่ง/คลานเร็วๆ + เสียงจั้มสแกร์ตอนวิ่งมาหา + หัวเราะ/กรีด · ห้ามจางหายเองระหว่างพุ่ง (current.hunting)
 local function rushBegin(kind: string, m: Model, r: { clip: string, speed: number })
 	fade(m, 0, 0.2)
 	play(m, r.clip, r.speed)
 	if current and current.m == m then
 		current.hunting = true
 	end
+	playRushSting()
 	local root = m:FindFirstChild("RootPart") or m.PrimaryPart
 	local set = SoundBank.GhostSounds[kind]
 	if root and set and set.laugh then
@@ -924,6 +946,7 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			current.hunting = true
 		end
 		play(m, if def.model == "Pop" then "Crawl" else (def.moveClip or def.clip))
+		playRushSting()
 		-- ผีลอยมาหา: หัวเราะคิกคักล้อเลียนก่อนโฉบเข้ามา
 		local root = m:FindFirstChild("RootPart")
 		local set = SoundBank.GhostSounds[kind]
@@ -1307,6 +1330,23 @@ local function pickSpotByView(kind: string, def: Kind): { number }?
 	return cands[math.random(math.min(2, #cands))].spot
 end
 
+local function lookingAtRoad(): boolean
+	local cam = Workspace.CurrentCamera
+	if not cam then
+		return true
+	end
+	local front = shopFront()
+	local toRoad = Vector3.new(front.X - cam.CFrame.Position.X, 0, front.Z - cam.CFrame.Position.Z)
+	local look = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+	if toRoad.Magnitude < 6 then
+		return look.Z < 0.35
+	end
+	if toRoad.Magnitude < 0.01 or look.Magnitude < 0.01 then
+		return true
+	end
+	return toRoad.Unit:Dot(look.Unit) > 0.25
+end
+
 local showToken = 0 -- show / hide ใหม่ = ยกเลิกตัวที่ยังรอพ้นสายตาอยู่
 -- natural = เกิดเองตามตาราง (รอได้ไม่เกิน UNSEEN_WAIT และต้องยัง canShow) · คืน true = โผล่แล้ว
 local function show(kind: string, natural: boolean?, canShowNow: (() -> boolean)?): boolean
@@ -1327,6 +1367,18 @@ local function show(kind: string, natural: boolean?, canShowNow: (() -> boolean)
 	end
 	local spots = spawnSpots(kind, def, frontSpot)
 	local t0 = os.clock()
+	if def.roadRun and natural then
+		-- เงาดำวิ่งตัดถนน: รอให้ผู้เล่นหันหน้ามาทางถนนหน้าร้านก่อนค่อยวิ่ง จะได้ไม่วิ่งผ่านไปตอนหันหลังอยู่ในร้าน (ผู้ใช้ 2026-11-17)
+		while not lookingAtRoad() do
+			task.wait(0.25)
+			if token ~= showToken or current then
+				return false
+			end
+			if os.clock() - t0 > UNSEEN_WAIT or (canShowNow and not canShowNow()) then
+				return false
+			end
+		end
+	end
 	while anySeen(spots) do
 		task.wait(0.4)
 		if token ~= showToken or current then
