@@ -269,95 +269,94 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 -- ---------------------------------------------------------------- นับถอยหลังศาลพระภูมิ (มุมขวาบน ใต้ปุ่มตั้งค่า)
--- รูปศาลอย่างเดียว (ไม่มีตัวหนังสือ): เวลาคุ้มครองแสดงบนรูป ส่วนที่ใช้ไปแล้วมืดลงจากบนลงล่าง
---   ส่วนสว่างที่เหลือ = เวลาที่ยังคุ้มครอง (ลดจากบนลงล่าง) + เส้นระดับ / ใกล้หมดสีส้มกะพริบ / หมดแล้วรูปแดง
--- รูป = ตัวศาลพระภูมิจริง (เฉพาะตัวเรือน ไม่เอาเสา/ฐาน)
+-- ผู้ใช้ 2026-11-16 "คุมธีม": เลิกใช้กล่องรูปศาล 3 มิติ เปลี่ยนเป็นไอคอนเส้นบางจางๆ แบบเดียวกับไอคอนปุ่มขอบขวา (client/KeyHints)
+--   ศาลพระภูมิเส้น (หลังคาจั่วแหลมปลายงอน + ช่อฟ้า + ตัวเรือน + ประตู + ชาน + เสา) + แถบเวลาคุ้มครองใต้ไอคอน
+--   คุ้มครองอยู่ = ทอง · เหลือ ≤ 25 วิ = ส้มกะพริบ · หมดแล้ว = แดงกะพริบ (แถบว่าง)
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
-local SHRINE_SIZE = 60
+local S_IDLE = Color3.fromRGB(235, 232, 225)
+local S_GOLD = Color3.fromRGB(255, 205, 120)
+local S_EMBER = Color3.fromRGB(235, 140, 60)
+local BLOOD = Color3.fromRGB(205, 50, 40)
 local shrine = Instance.new("Frame")
 shrine.Name = "ShrineTimer"
 shrine.AnchorPoint = Vector2.new(1, 0)
-shrine.Position = UDim2.new(1, -16 - require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SafeArea")).Pad(), 0, 56) -- มือถือเว้นขอบเพิ่ม
-shrine.Size = UDim2.fromOffset(SHRINE_SIZE, SHRINE_SIZE)
--- ขอบเหมือนปุ่มตั้งค่าที่อยู่ด้านบน (client/SettingsController: มุม 2 เส้น 1) ผู้ใช้ 2026-11-06
-shrine.BackgroundColor3 = Color3.fromRGB(16, 14, 12)
-shrine.BackgroundTransparency = 0.15
-shrine.BorderSizePixel = 0
+shrine.Position = UDim2.new(1, -18 - require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SafeArea")).Pad(), 0, 60) -- มือถือเว้นขอบเพิ่ม
+shrine.Size = UDim2.fromOffset(56, 58)
+shrine.BackgroundTransparency = 1
 shrine.Visible = false
 shrine.Parent = gui
-Instance.new("UICorner", shrine).CornerRadius = UDim.new(0, 2)
-local shrineStroke = Instance.new("UIStroke", shrine)
-shrineStroke.Color = C.Line
-shrineStroke.Thickness = 1
-shrineStroke.Transparency = 0.1
-shrineStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
--- รูป + แถบเวลาอยู่ในกรอบในที่เว้นจากขอบ 3px: แถบสี่เหลี่ยมไม่ล้นมุมโค้ง ไม่ทับเส้นขอบ
-local SHRINE_INSET = 3
-local shrineInner = Instance.new("Frame")
-shrineInner.Name = "Inner"
-shrineInner.AnchorPoint = Vector2.new(0.5, 0.5)
-shrineInner.Position = UDim2.fromScale(0.5, 0.5)
-shrineInner.Size = UDim2.new(1, -SHRINE_INSET * 2, 1, -SHRINE_INSET * 2)
-shrineInner.BackgroundColor3 = Color3.fromRGB(30, 28, 24)
-shrineInner.BorderSizePixel = 0
-shrineInner.ClipsDescendants = true
-shrineInner.Parent = shrine
--- รูปศาล: ถ่ายเฉพาะตัวเรือนด้านบน (ศาลเป็น mesh ชิ้นเดียวรวมเสา: เล็งกล้องไปที่ส่วนบน)
-local shrineIcon = ModelIcon.Make(UDim2.fromScale(1, 1))
-shrineIcon.ZIndex = 1
-shrineIcon.Parent = shrineInner
--- ส่วนที่ใช้ไปแล้ว: เงามืดยาวลงมาจากด้านบน
-local shrineSpent = Instance.new("Frame")
-shrineSpent.Name = "Spent"
-shrineSpent.Size = UDim2.fromScale(1, 0)
-shrineSpent.BackgroundColor3 = Color3.fromRGB(6, 5, 4)
-shrineSpent.BackgroundTransparency = 0.3
-shrineSpent.BorderSizePixel = 0
-shrineSpent.ZIndex = 2
-shrineSpent.Parent = shrineInner
--- ส่วนที่เหลือ: แสงจางๆ สีของสถานะ (ครีม / ส้มเมื่อใกล้หมด) ชิดด้านล่าง
-local shrineLeftFill = Instance.new("Frame")
-shrineLeftFill.Name = "Remaining"
-shrineLeftFill.AnchorPoint = Vector2.new(0, 1)
-shrineLeftFill.Position = UDim2.fromScale(0, 1)
-shrineLeftFill.Size = UDim2.fromScale(1, 1)
-shrineLeftFill.BackgroundColor3 = C.Cream
-shrineLeftFill.BackgroundTransparency = 0.88
-shrineLeftFill.BorderSizePixel = 0
-shrineLeftFill.ZIndex = 2
-shrineLeftFill.Parent = shrineInner
--- เส้นระดับ: ขอบบนของส่วนที่เหลือ
-local shrineLevel = Instance.new("Frame")
-shrineLevel.Name = "Level"
-shrineLevel.Size = UDim2.new(1, 0, 0, 2)
-shrineLevel.BackgroundColor3 = C.Cream
-shrineLevel.BorderSizePixel = 0
-shrineLevel.ZIndex = 3
-shrineLevel.Parent = shrineLeftFill
-local shrineIconDone = false
-local function setShrineIcon()
-	if shrineIconDone then
-		return
-	end
-	local sh = workspace:FindFirstChild("SpiritHouse")
-	local body = sh and sh:FindFirstChild("SpiritHouseOnStilts")
-	if body and body:IsA("BasePart") then
-		-- ตัวเรือนอยู่ส่วนบนของ mesh (ฐาน+เสายาวลงล่าง) ด้านหน้าศาล = แกน (+X, -Z) ของชิ้น
-		local top = body.Size.Y / 2
-		shrineIconDone = ModelIcon.Set(shrineIcon, body, Vector3.new(0.75, 0.3, -0.75), { center = Vector3.new(0.8, top - 2.3, -0.2), radius = 2.4 })
-	end
+local shrineIcon = Instance.new("Frame")
+shrineIcon.Name = "Icon"
+shrineIcon.AnchorPoint = Vector2.new(0.5, 0)
+shrineIcon.Position = UDim2.new(0.5, 0, 0, 0)
+shrineIcon.Size = UDim2.fromOffset(44, 44)
+shrineIcon.BackgroundTransparency = 1
+shrineIcon.Parent = shrine
+local shrineLines: { Frame } = {} -- เส้นทึบ (ทาสีตามสถานะ)
+local shrineStrokes: { UIStroke } = {} -- กรอบเส้น
+local function sBar(x0: number, y0: number, x1: number, y1: number, w: number?)
+	local f = Instance.new("Frame")
+	local dx, dy = x1 - x0, y1 - y0
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromOffset((x0 + x1) / 2, (y0 + y1) / 2)
+	f.Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy) + 1, w or 2)
+	f.Rotation = math.deg(math.atan2(dy, dx))
+	f.BorderSizePixel = 0
+	f.Parent = shrineIcon
+	table.insert(shrineLines, f)
 end
+local function sBox(cx: number, cy: number, w: number, h: number)
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromOffset(cx, cy)
+	f.Size = UDim2.fromOffset(w, h)
+	f.BackgroundTransparency = 1
+	f.Parent = shrineIcon
+	local st = Instance.new("UIStroke")
+	st.Thickness = 2
+	st.Parent = f
+	table.insert(shrineStrokes, st)
+end
+sBar(22, 2, 22, 7) -- ช่อฟ้ายอดจั่ว
+sBar(9, 18, 22, 7) -- หลังคาซ้าย
+sBar(22, 7, 35, 18) -- หลังคาขวา
+sBar(9, 18, 5, 15) -- ปลายงอนซ้าย
+sBar(35, 18, 39, 15) -- ปลายงอนขวา
+sBox(22, 25, 16, 11) -- ตัวเรือน
+sBox(22, 27, 5, 7) -- ประตู
+sBar(8, 34, 36, 34) -- ชาน
+sBar(22, 35, 22, 43, 3) -- เสา
+-- แถบเวลาคุ้มครอง (ใต้ไอคอน)
+local shrineBarBg = Instance.new("Frame")
+shrineBarBg.Name = "TimeBar"
+shrineBarBg.AnchorPoint = Vector2.new(0.5, 0)
+shrineBarBg.Position = UDim2.new(0.5, 0, 0, 50)
+shrineBarBg.Size = UDim2.fromOffset(30, 5)
+shrineBarBg.BackgroundTransparency = 1
+shrineBarBg.Parent = shrine
+local barStroke = Instance.new("UIStroke")
+barStroke.Thickness = 1
+barStroke.Parent = shrineBarBg
+table.insert(shrineStrokes, barStroke)
+local shrineFill = Instance.new("Frame")
+shrineFill.Name = "Fill"
+shrineFill.BorderSizePixel = 0
+shrineFill.Size = UDim2.fromScale(1, 1)
+shrineFill.Parent = shrineBarBg
 
-local BLOOD = Color3.fromRGB(205, 36, 28)
-local blink = false
-local function setLevel(frac: number, color: Color3)
-	-- ลดจากบนลงล่าง: ส่วนที่เหลือชิดล่าง สูงตามเวลาที่เหลือ / ส่วนที่ใช้ไปมืดจากบน
-	TweenService:Create(shrineLeftFill, TweenInfo.new(0.9, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, frac) }):Play()
-	TweenService:Create(shrineSpent, TweenInfo.new(0.9, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1 - frac) }):Play()
-	shrineLeftFill.BackgroundColor3 = color
-	shrineLevel.BackgroundColor3 = color
-	shrineLevel.Visible = frac > 0.02 and frac < 0.99
+local function paintShrine(color: Color3, t: number)
+	for _, f in ipairs(shrineLines) do
+		f.BackgroundColor3 = color
+		f.BackgroundTransparency = t
+	end
+	for _, st in ipairs(shrineStrokes) do
+		st.Color = color
+		st.Transparency = t
+	end
+	shrineFill.BackgroundColor3 = color
+	shrineFill.BackgroundTransparency = t
 end
+local blink = false
 local function refreshShrine()
 	local left = remotes:GetAttribute("OfferingLeft")
 	local total = remotes:GetAttribute("OfferingTotal")
@@ -368,23 +367,19 @@ local function refreshShrine()
 	end
 	total = if type(total) == "number" and total > 0 then total else 150
 	blink = not blink
-	setShrineIcon()
+	local frac = math.clamp(left / total, 0, 1)
+	TweenService:Create(shrineFill, TweenInfo.new(0.9, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(frac, 1) }):Play()
 	if left <= 0 then
-		-- หมดแล้ว: รูปแดงมืด ขอบแดงกะพริบ
-		shrineIcon.ImageColor3 = Color3.fromRGB(150, 90, 90)
-		setLevel(0, BLOOD)
-		shrineStroke.Color = if blink then BLOOD else C.Line
-		return
+		paintShrine(BLOOD, if blink then 0.1 else 0.5)
+	elseif left <= 25 then
+		paintShrine(S_EMBER, if blink then 0.1 else 0.45)
+	else
+		paintShrine(S_GOLD, 0.15)
 	end
-	shrineIcon.ImageColor3 = Color3.new(1, 1, 1)
-	local warn = left <= 25
-	setLevel(math.clamp(left / total, 0, 1), if warn then C.Ember else C.Cream)
-	shrineStroke.Color = if warn and blink then C.Ember elseif warn then C.Ember else C.Line
-	shrineStroke.Transparency = if warn and not blink then 0.5 else 0.1
 end
+paintShrine(S_IDLE, 0.45)
 remotes:GetAttributeChangedSignal("OfferingLeft"):Connect(refreshShrine)
 player:GetAttributeChangedSignal("ShowHUD"):Connect(refreshShrine)
-player:GetAttributeChangedSignal("Lang"):Connect(refreshShrine)
 refreshShrine()
 
 -- ติดตามของในกระเป๋า/มือ (หยิบ ถวาย เติม/เทแกลลอน)

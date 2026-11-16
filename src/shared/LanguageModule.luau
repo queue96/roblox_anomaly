@@ -243,6 +243,7 @@ end
 -- ข้อความหน้าจอ (HUD)
 LanguageModule.UI = {
 	Money = { th = "เงินในกระป๋อง", en = "Money Tin" },
+	BoardTitle = { th = "ยอดวันนี้", en = "Tonight" }, -- หัวกระดานชนวนยอดเงิน (MapBuilder.AddMoneyChalkboard / HUDController)
 	Incense = { th = "ธูปศาลพระภูมิ", en = "Shrine Incense" },
 	Win = { th = "เก็บเงินครบโควตาแล้ว! ปิดร้านกลับบ้านได้ รอดไปอีกคืน", en = "Quota reached! You survived the night." },
 	Lose = { th = "ธูปดับหมดแล้ว... ศาลพระภูมิคุ้มครองไม่ไหวอีกต่อไป", en = "All the incense is out... the shrine can no longer protect you." },
@@ -335,7 +336,7 @@ LanguageModule.UI = {
 	ScareWarnTitle = { th = "คำเตือน", en = "WARNING" },
 	ScareWarnBody = { th = "เกมนี้มีฉากผีหลอกและเสียงดังกะทันหัน (จั้มสแกร์)", en = "This game contains jump scares and sudden loud sounds." },
 	RestartBy = { th = "{name} เลือกเริ่มใหม่...", en = "{name} chose to restart..." },
-	WaitOpen = { th = "ไฟดับ... กด [1] เปิดไฟฉาย ดึงเชือกเปิดแผงร้าน แล้วไปสตาร์ทเครื่องปั่นไฟ", en = "The power's out... press [1] for the flashlight, pull the shutter rope, then go start the generator." },
+	WaitOpen = { th = "ไฟดับ... กด [F] เปิดไฟฉาย ดึงเชือกเปิดแผงร้าน แล้วไปสตาร์ทเครื่องปั่นไฟ", en = "The power's out... press [F] for the flashlight, pull the shutter rope, then go start the generator." },
 	-- มินิเกมเติมน้ำมัน / เติมลม
 	MG_FuelTitle = { th = "สูบเบนซิน", en = "Hand-Crank Petrol" },
 	MG_DieselTitle = { th = "สูบดีเซล", en = "Hand-Crank Diesel" },
@@ -367,7 +368,7 @@ LanguageModule.UI = {
 	Tut_FillCan_Touch = { th = "ไปที่ถังน้ำมันหลังร้าน แตะปุ่มค้างไว้เพื่อตักน้ำมันใส่แกลลอน (ถังไหนก็ได้ เทได้ทั้งตู้ซ้ายและขวา)", en = "Go to the fuel drums behind the shop and hold the button to fill the can (any drum works for either pump)." },
 	Tut_Pour_Touch = { th = "กลับมาที่ตู้น้ำมันหน้าร้าน แตะปุ่มค้างไว้เพื่อเทน้ำมันใส่ตู้ (ตู้หมดเมื่อไหร่ทำแบบนี้อีก)", en = "Back at the pumps, hold the button to pour the fuel in (repeat whenever a pump runs dry)." },
 	Tut_Offer_Touch = { th = "หยิบขนมไทยที่ถาดบนเคาน์เตอร์ ไปที่ศาลพระภูมิ แตะปุ่มค้างไว้เพื่อถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Take the Thai sweets from the tray on the counter, go to the spirit house and hold the button to offer them (protection timer is top-right)." },
-	Tut_Ghosts_Touch = { th = "ลูกค้ามาแล้วแตะปุ่ม สวด ค้างไว้เพื่อพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน", en = "When customers arrive, hold the Pray button to see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside." },
+	Tut_Ghosts_Touch = { th = "ลูกค้ามาแล้วแตะปุ่ม สวด ค้างไว้เพื่อพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน · ยอดเงินดูที่กระดานชนวนบนเคาน์เตอร์", en = "When customers arrive, hold the Pray button to see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside. Your takings are chalked on the little slate on the counter." },
 	MG_AirMiss = { th = "ผิดจังหวะ! รอเข็มวิ่งกลับ", en = "Missed! Wait for needle" },
 	MG_Success = { th = "สำเร็จ!", en = "Complete!" },
 	MG_CancelHint = { th = "[X] ปิด", en = "[X] Close" },
@@ -392,14 +393,14 @@ LanguageModule.UI = {
 	-- สอนเล่นทีละขั้น (TutorialController)
 	Tut_Title = { th = "วิธีเฝ้าร้าน", en = "How to mind the shop" },
 	Tut_Hide = { th = "[H] ย่อ/เปิด · กด [V] ปลดเมาส์แล้วคลิก ข้าม หรือ ซ่อน", en = "[H] hide/show · press [V] to free the mouse, then click Skip or Hide" },
-	Tut_Flashlight = { th = "ไฟดับมืดตื้อ... กด [1] เปิดไฟฉายก่อน", en = "It's pitch dark... press [1] to turn on your flashlight." },
+	Tut_Flashlight = { th = "ไฟดับมืดตื้อ... กด [F] เปิดไฟฉายก่อน", en = "It's pitch dark... press [F] to turn on your flashlight." },
 	Tut_OpenShop = { th = "เดินไปที่เชือกหลังโต๊ะ แล้วกด [E] ดึงเปิดแผงร้าน", en = "Go to the rope behind the counter and press [E] to raise the shutter." },
 	Tut_Generator = { th = "ไฟร้านยังดับ: ไปที่เครื่องปั่นไฟข้างร้าน กด [E] แล้วกดตามจังหวะจนเครื่องติด", en = "Still no power: go to the generator beside the shop, press [E], and follow the rhythm until it starts." },
 	Tut_TakeCan = { th = "ตู้ยังไม่มีน้ำมัน: หยิบแกลลอนมุมหลังร้าน กด [E]", en = "The pumps are empty: take the jerry can in the back corner of the shop with [E]." },
 	Tut_FillCan = { th = "ไปที่ถังน้ำมันหลังร้าน กด [E] ค้างตักน้ำมันใส่แกลลอน (ถังไหนก็ได้ เทได้ทั้งตู้ซ้ายและขวา)", en = "Go to the fuel drums behind the shop and hold [E] to fill the can (any drum works for either pump)." },
 	Tut_Pour = { th = "กลับมาที่ตู้น้ำมันหน้าร้าน กด [E] ค้างเทน้ำมันใส่ตู้ (ตู้หมดเมื่อไหร่ทำแบบนี้อีก)", en = "Back at the pumps, hold [E] to pour the fuel in (repeat whenever a pump runs dry)." },
 	Tut_Offer = { th = "หยิบขนมไทยที่ถาดบนเคาน์เตอร์ [E] ไปที่ศาลพระภูมิ กด [E] ค้างถวาย (ดูเวลาคุ้มครองมุมขวาบน)", en = "Take the Thai sweets from the tray on the counter [E], go to the spirit house and hold [E] to offer them (protection timer is top-right)." },
-	Tut_Ghosts = { th = "ลูกค้ามาแล้วกด [G] ค้างพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน", en = "When customers arrive, hold [G] to pray and see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside." },
+	Tut_Ghosts = { th = "ลูกค้ามาแล้วกด [G] ค้างพนมมือดูผี ถ้าเป็นผีห้ามเติม! ดึงเชือกปิดแผงร้านแล้วอยู่ในร้าน · ยอดเงินดูที่กระดานชนวนบนเคาน์เตอร์", en = "When customers arrive, hold [G] to pray and see ghosts. If it's a ghost, DON'T serve — pull the rope to close the shutter and stay inside. Your takings are chalked on the little slate on the counter." },
 	RackName = { th = "แผงน้ำมันขวด", en = "Bottle Rack" },
 	StartRefuel = { th = "ตู้กับแผงยังไม่มีน้ำมัน! หยิบแกลลอนในร้าน ไปตักที่ถังหลังร้านมาเติมก่อนลูกค้ามา", en = "The pumps and bottle rack are empty! Grab the jerry can, fill it at the drum behind the shop, and refuel before customers arrive." },
 	NeedCan = { th = "ต้องถือแกลลอนเปล่าก่อน", en = "You need an empty jerry can" },
@@ -533,7 +534,7 @@ LanguageModule.BookOrder = {
 	-- "Anomaly_Krasue" ตัดผีลูกค้ากระสือแล้ว (2026-11-12) เหลือ Big_Krasue
 	"Anomaly_TaKhon",
 	"Anomaly_MirrorGhost",
-	"Anomaly_GhostWalkIn",
+	-- "Anomaly_GhostWalkIn" ตัดผีเดินมาซื้อทั้งร่างแล้ว (2026-11-16)
 	"Outage_Shrouds",
 	"Big_Krasue",
 	"Big_Pret",

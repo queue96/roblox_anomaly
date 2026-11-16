@@ -5273,8 +5273,11 @@ function MapBuilder.AddNightPracticalLights(): { string }
 		local cord = createPart("Cord", Vector3.new(ceilingY - bulbPos.Y, 0.06, 0.06),
 			CFrame.new(bulbPos + Vector3.new(0, (ceilingY - bulbPos.Y) / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
 			Color3.fromRGB(20, 18, 16), Enum.Material.SmoothPlastic, m, Enum.PartType.Cylinder)
-		local bulb = createPart("Bulb", Vector3.new(0.6, 0.6, 0.6), CFrame.new(bulbPos),
-			Color3.fromRGB(255, 205, 140), Enum.Material.Neon, m, Enum.PartType.Ball)
+		-- ลูกไฟ Neon กลม 0.6 + NightBloom ฟุ้งนุ่ม (ผู้ใช้ 2026-11-16 ลองหลอดไส้ปั้นใหม่ SwapHangingBulbV2 แล้วไม่สวย ให้กลับมาใช้ลูกนี้)
+		-- สีส้มหลอดไส้ + เล็กลง 0.6 -> 0.45 (ผู้ใช้ 2026-11-16: สีเดิม 255,205,140 ผ่าน ColdNightGrade + Bloom เป็นแผ่นขาวอมเขียวขอบแข็ง)
+		--   แสงฟุ้งนุ่มรอบลูกไฟ = client/AmbienceController addBulbGlow (รูป assets/textures/bulb_glow/BulbGlow.png)
+		local bulb = createPart("Bulb", Vector3.new(0.45, 0.45, 0.45), CFrame.new(bulbPos),
+			Color3.fromRGB(255, 168, 84), Enum.Material.Neon, m, Enum.PartType.Ball)
 		for _, p in ipairs({ cord, bulb }) do
 			p.CanCollide = false
 			p.CanQuery = false
@@ -5290,6 +5293,95 @@ function MapBuilder.AddNightPracticalLights(): { string }
 		table.insert(done, ("HangingBulb@%.1f,%.1f,%.1f"):format(bulbPos.X, bulbPos.Y, bulbPos.Z))
 	end
 	return done
+end
+
+-- กระดานชนวนยอดเงินบนเคาน์เตอร์ (ผู้ใช้ 2026-11-16: เลิกโชว์เงินบนจอ ให้เดินมาดูที่โต๊ะแบบเดียวกับธูปที่ศาล)
+--   กระดานชนวนเล็กแบบเด็กนักเรียนสมัยก่อน วางพิงเอียงไปหน้าร้านบนเคาน์เตอร์ (ข้างกองสมุด ระหว่างเชือกดึงแผงกับปี๊บเงิน)
+--   หน้ากระดานหันเข้าในร้าน (+Z คนยืนหลังเคาน์เตอร์อ่าน) หัวข้อ "ยอดวันนี้" + ตัวเลขชอล์กลายมือจางๆ
+--   (รุ่นแรกกระดานดำตั้งตรงกว้าง 2.4 + หัวข้อไทยตัวพิมพ์ ใหญ่และใหม่เกิน ผู้ใช้บอกดูตลก ไม่เข้าธีม)
+--   SurfaceGui "Chalk" มี Title / Amount / Target ว่างไว้ client/HUDController เติมตัวเลขจริง (UpdateHUD) · รันซ้ำได้
+function MapBuilder.AddMoneyChalkboard(): string
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local counter = shack and shack:FindFirstChild("CounterTable", true) :: BasePart?
+	if not (shack and counter) then
+		return "no ShackStructure.CounterTable"
+	end
+	local old = shack:FindFirstChild("MoneyChalkboard")
+	if old then
+		old:Destroy()
+	end
+	local top = counter.Position.Y + counter.Size.Y / 2
+	local W, H, T, FR = 1.35, 0.95, 0.05, 0.07 -- กว้าง / สูงแผ่นชนวน / หนา / กรอบไม้
+	local LEAN = math.rad(-24) -- เอียงยอดไปทาง -Z (หน้าร้าน) หน้ากระดาน (+Z) เงยขึ้นให้คนในร้านอ่าน
+	-- พิงขอบปี๊บเงิน/กล่องคุกกี้ฝั่งในร้าน (ผู้ใช้ 2026-11-16: ตำแหน่งเดิม x -4 ทับกองสมุด)
+	--   ขอบล่างวางบนโต๊ะห่างขอบปี๊บเท่าที่เอียงแล้วแตะขอบบนฝาพอดี (สูงปี๊บรวมฝา * tan(เอียง))
+	local tin = Workspace:FindFirstChild("MoneyTin", true) :: BasePart?
+	local lid = Workspace:FindFirstChild("MoneyTin_Lid", true) :: BasePart?
+	local bx, bz = -1.5, counter.Position.Z + 0.85
+	if tin then
+		local tinTop = if lid then lid.Position.Y + lid.Size.Y / 2 else tin.Position.Y + tin.Size.Y / 2
+		bx = tin.Position.X
+		bz = tin.Position.Z + tin.Size.Z / 2 + (tinTop - top) * math.tan(-LEAN) + 0.04
+	end
+	-- หมุนรอบขอบล่างที่วางบนโต๊ะ
+	local base = CFrame.new(bx, top, bz) * CFrame.Angles(LEAN, math.rad(4), 0)
+	local m = Instance.new("Model")
+	m.Name = "MoneyChalkboard"
+	local function part(name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = mat
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Parent = m
+		return p
+	end
+	local wood = Color3.fromRGB(78, 58, 40)
+	local cy = FR + H / 2
+	local board = part("Board", Vector3.new(W, H, T), base * CFrame.new(0, cy, 0), Color3.fromRGB(34, 38, 36), Enum.Material.Slate)
+	part("FrameTop", Vector3.new(W + FR * 2, FR, T + 0.04), base * CFrame.new(0, cy + H / 2 + FR / 2, 0), wood, Enum.Material.Wood)
+	part("FrameBottom", Vector3.new(W + FR * 2, FR, T + 0.04), base * CFrame.new(0, FR / 2, 0), wood, Enum.Material.Wood)
+	part("FrameLeft", Vector3.new(FR, H, T + 0.04), base * CFrame.new(-W / 2 - FR / 2, cy, 0), wood, Enum.Material.Wood)
+	part("FrameRight", Vector3.new(FR, H, T + 0.04), base * CFrame.new(W / 2 + FR / 2, cy, 0), wood, Enum.Material.Wood)
+	-- ตัวเลขชอล์ก (ลายมือ จาง เอียงนิดๆ) หน้าเดียว ฝั่งในร้าน
+	local chalk = Color3.fromRGB(214, 214, 204)
+	local sg = Instance.new("SurfaceGui")
+	sg.Name = "Chalk"
+	sg.Face = Enum.NormalId.Back
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.PixelsPerStud = 160
+	sg.LightInfluence = 0.85
+	sg.Brightness = 1
+	sg.MaxDistance = 40
+	local function label(name: string, x: number, y: number, w: number, h: number, text: string, transparency: number, rot: number)
+		local t = Instance.new("TextLabel")
+		t.Name = name
+		t.BackgroundTransparency = 1
+		t.Position = UDim2.fromScale(x, y)
+		t.Size = UDim2.fromScale(w, h)
+		t.Rotation = rot
+		t.FontFace = Font.fromEnum(Enum.Font.PatrickHand)
+		t.TextScaled = true
+		t.TextColor3 = chalk
+		t.TextTransparency = transparency
+		t.Text = text
+		t.Parent = sg
+	end
+	label("Title", 0.08, 0.04, 0.84, 0.24, "ยอดวันนี้", 0.3, -3)
+	label("Amount", 0.08, 0.26, 0.84, 0.44, "0", 0.22, -4)
+	label("Target", 0.3, 0.68, 0.6, 0.26, "/ 1,000", 0.38, -3)
+	sg.Parent = board
+	m.PrimaryPart = board
+	m.Parent = shack
+	return ("ok slate at %s"):format(tostring(board.Position))
 end
 
 -- ย้อมสีกระท่อมให้หลอน: สังกะสี/ไม้ เทาอมเขียวหม่นแบบขึ้นตะไคร่ ป้ายร้านเข้มกว่าอีกระดับ (รวม ShutterDoor)
@@ -9274,6 +9366,122 @@ function MapBuilder.SwapTireStackV2(assetId: number?): string
 	src.Name = "TireStackV2_Imported"
 	src.Parent = v2Archive()
 	return "ok " .. n .. " tires"
+end
+
+-- หลอดไส้ห้อยสาย v2 + แม่แบบแมลงเม่า (ผู้ใช้ 2026-11-16): tools/blender/hanging_bulb_v2.py -> assets/models/HangingBulbV2/upload/
+--   แทนลูก Neon กลมใน ShackStructure.HangingBulb ด้วย Socket (ขั้วเบกาไลต์) + Bulb (กระเปาะแก้ว Neon อำพันโปร่ง ย้าย PointLight มาไว้)
+--   + Filament (ไส้ Neon) ต่อใต้ปลายสาย Cord พอดี · ชื่อ Bulb / Filament อยู่ใน Power.LIGHT_PARTS (ไฟดับ = หลอดมืด)
+--   แม่แบบแมลงเม่า -> ReplicatedStorage.AmbientProps.Moth (Body + WingL/WingR มี attribute Hinge) client/AmbienceController ใช้บิน+กระพือปีก
+--   รันซ้ำได้ · ถ้ารัน AddNightPracticalLights ใหม่ (สร้างลูกกลมเดิม) ต้องรันอันนี้ตามอีกที
+--   ⚠️ ไม่ใช้หลอดนี้แล้ว (ผู้ใช้ 2026-11-16: ในเกมดูแย่กว่าลูกกลม ใช้ลูกกลมเดิมจาก AddNightPracticalLights)
+--      แม่แบบแมลงเม่าที่ฟังก์ชันนี้สร้างไว้ใน ReplicatedStorage.AmbientProps.Moth ยังใช้อยู่ — ถ้ารันอีกต้องรัน AddNightPracticalLights ตาม
+function MapBuilder.SwapHangingBulbV2(assetId: number?): string
+	local src = v2Source("HangingBulbV2", assetId)
+	if not src then
+		return "import HangingBulbV2.fbx (assets/models/HangingBulbV2/upload/) first, or pass assetId"
+	end
+	-- hanging_bulb_v2.py "BBOX Bulb_Socket" · origin ของไฟล์ = จุดต่อสายไฟบนยอดขั้ว · บานพับปีก WING_HINGE
+	local parts, clonePart, k = v2Layout(src, "Bulb_Socket", Vector3.new(-0.036, -0.321, 0.0), 0.641)
+	if not (parts and clonePart) then
+		return "imported model has no Bulb_Socket"
+	end
+	for _, n in ipairs({ "Bulb_Glass", "Bulb_Filament", "Moth_Body", "Moth_WingL", "Moth_WingR" }) do
+		if not parts[n] then
+			return "imported model has no " .. n
+		end
+	end
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local shack = env and env:FindFirstChild("ShackStructure")
+	local hb = shack and shack:FindFirstChild("HangingBulb")
+	if shack and not hb then
+		MapBuilder.AddNightPracticalLights()
+		hb = shack:FindFirstChild("HangingBulb")
+	end
+	local cord = hb and hb:FindFirstChild("Cord") :: BasePart?
+	if not (hb and cord) then
+		return "no ShackStructure.HangingBulb.Cord"
+	end
+	local oldBulb = hb:FindFirstChild("Bulb")
+	local light = oldBulb and oldBulb:FindFirstChildOfClass("PointLight")
+	if light then
+		light.Parent = nil
+	end
+	for _, c in ipairs(hb:GetChildren()) do
+		if c:IsA("BasePart") and c ~= cord then
+			c:Destroy()
+		end
+	end
+	local piv = CFrame.new(cord.Position.X, cord.Position.Y - cord.Size.X / 2, cord.Position.Z)
+	local function prep(p: BasePart?, name: string, _parent: Instance, shadow: boolean): BasePart
+		local q = p :: BasePart
+		q.Name = name
+		q.CanQuery = false
+		q.CastShadow = shadow
+		return q
+	end
+	prep(clonePart("Bulb_Socket", piv, hb), "Socket", hb, true)
+	-- แก้ว/ไส้ห้ามบังแสงตัวเอง (PointLight อยู่ในแก้ว Shadows = true)
+	local glass = prep(clonePart("Bulb_Glass", piv, hb), "Bulb", hb, false)
+	local fil = prep(clonePart("Bulb_Filament", piv, hb), "Filament", hb, false)
+	for _, p in ipairs({ glass, fil }) do
+		for _, c in ipairs(p:GetChildren()) do
+			c:Destroy() -- ไม่มี texture: สี/วัสดุตั้งที่นี่
+		end
+	end
+	-- แก้วต้องสว่างพอให้ NightBloom (Threshold 0.92) ฟุ้งเป็นแสงนุ่มกลบทรงหลอด (ผู้ใช้ 2026-11-16: สีส้มเข้ม 196,104,38 / โปร่ง 0.42
+	-- ไม่ฟุ้ง ดูเป็นแผ่นส้มแบน · ลองวงกลม BillboardGui ซ้อนชั้นแล้วเห็นเป็นวงขั้นบันได ไม่ใช้)
+	glass.Material = Enum.Material.Neon
+	glass.Color = Color3.fromRGB(255, 186, 108)
+	glass.Transparency = 0.2
+	fil.Material = Enum.Material.Neon
+	fil.Color = Color3.fromRGB(255, 240, 212)
+	if not light then
+		light = Instance.new("PointLight")
+		light.Name = "HangingBulbLight"
+		light.Color = Color3.fromRGB(255, 196, 130)
+		light.Brightness = 1.2
+		light.Range = 20
+		light.Shadows = true
+	end
+	light.Parent = glass
+
+	-- แม่แบบแมลงเม่า (client clone ไปบินเอง ไม่อยู่ใน Workspace)
+	local RS = game:GetService("ReplicatedStorage")
+	local folder = RS:FindFirstChild("AmbientProps") or Instance.new("Folder")
+	folder.Name = "AmbientProps"
+	folder.Parent = RS
+	local oldMoth = folder:FindFirstChild("Moth")
+	if oldMoth then
+		oldMoth:Destroy()
+	end
+	local moth = Instance.new("Model")
+	moth.Name = "Moth"
+	local mpiv = CFrame.new(0, 0, 0)
+	local body = prep(clonePart("Moth_Body", mpiv, moth), "Body", moth, false)
+	local wl = prep(clonePart("Moth_WingL", mpiv, moth), "WingL", moth, false)
+	local wr = prep(clonePart("Moth_WingR", mpiv, moth), "WingR", moth, false)
+	body.Material = Enum.Material.Fabric
+	body.Color = Color3.fromRGB(112, 92, 70)
+	for _, w in ipairs({ wl, wr }) do
+		w.Material = Enum.Material.SmoothPlastic
+		w.Color = Color3.fromRGB(196, 180, 150)
+		for _, c in ipairs(w:GetChildren()) do
+			c:Destroy()
+		end
+		-- บานพับปีก (ข้างลำตัว) ในพิกัดของ Body: ปีกซ้ายอยู่ฝั่ง x < 0 ของ Roblox (ไฟล์ Blender +X = ซ้าย)
+		local side = if w == wl then -1 else 1
+		-- (ระยะหลังวางแล้วเป็น studs จริง ไม่ต้องคูณ k: k ใช้แปลงหน่วยของชิ้นที่นำเข้าเท่านั้น)
+		w:SetAttribute("Hinge", body.CFrame:PointToObjectSpace(mpiv * Vector3.new(side * 0.012, 0, 0)))
+	end
+	for _, c in ipairs(body:GetChildren()) do
+		c:Destroy()
+	end
+	moth.PrimaryPart = body
+	moth.Parent = folder
+
+	src.Name = "HangingBulbV2_Imported"
+	src.Parent = v2Archive()
+	return ("ok bulb + moth (scale %.3f)"):format(k)
 end
 
 -- ของในเพิง v2 (คุมโทนเก่า หม่น): tools/blender/shack_interior_v2.py -> assets/models/ShackInteriorV2/upload/

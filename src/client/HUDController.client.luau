@@ -787,7 +787,9 @@ local function updateFlashlightSlot()
 		lastSlotHasTool = hasTool
 		lastSlotEquipped = isEquipped
 		lastSlotShowHUD = showHUD
-		flashlightSlot.Visible = hasTool and showHUD
+		-- คีย์บอร์ด: ช่องไฟฉายล่างจอซ่อน ใช้ไอคอน F + หลอดถ่านขอบจอขวา (client/KeyHints) แทน · มือถือยังต้องแตะช่องนี้
+		flashlightSlot.Visible = hasTool and showHUD and IS_TOUCH
+		localPlayer:SetAttribute("FlashlightOn", isEquipped == true) -- client/KeyHints
 		slotStroke.Color = if isEquipped then Color3.fromRGB(185, 140, 88) else Color3.fromRGB(70, 64, 54)
 		slotLabel.TextColor3 = if isEquipped then C.Cream else C.Dim
 		slotKeyBadge.TextColor3 = if isEquipped then C.Cream else C.Dim
@@ -1448,6 +1450,7 @@ local function updateMouseHint()
 end
 local function setMouseUnlocked(unlocked: boolean)
 	mouseUnlocked = unlocked
+	localPlayer:SetAttribute("MouseUnlocked", unlocked) -- client/KeyHints: ไอคอนแม่กุญแจปลด/ล็อก
 	mouseModalBtn.Visible = unlocked
 	UserInputService.MouseIconEnabled = isAnyModalOpen()
 	updateMouseHint()
@@ -1536,7 +1539,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 	if input.KeyCode == Enum.KeyCode.V or input.KeyCode == Enum.KeyCode.LeftAlt then
 		setMouseUnlocked(not mouseUnlocked)
-	elseif input.KeyCode == Enum.KeyCode.One then
+	elseif input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.One or input.KeyCode == Enum.KeyCode.ButtonL1 then -- F (ผู้ใช้ 2026-11-16 ไอคอนขอบจอขวา) · 1 = แบบเดิมยังใช้ได้
 		toggleFlashlightEquip()
 	end
 end)
@@ -1550,25 +1553,88 @@ end)
 
 -- ---------------------------------------------------------------- ซ่อน/แสดง HUD ตามการตั้งค่า (คำพูดลูกค้า + แถบประกาศแสดงเสมอ)
 local function applyShowHUD()
-	local show = localPlayer:GetAttribute("ShowHUD") ~= false
-	panel.Visible = show
+	panel.Visible = false -- กล่องเงินเลิกใช้ (2026-11-16): ยอดอยู่ที่กระดานชอล์กบนเคาน์เตอร์ ดู moneyBoard
 	updateFlashlightSlot()
 end
 applyShowHUD()
 localPlayer:GetAttributeChangedSignal("ShowHUD"):Connect(applyShowHUD)
 
 -- ---------------------------------------------------------------- เงิน
-local lastMoney = 0
+-- ผู้ใช้ 2026-11-16: ไม่มีกล่องเงินค้างบนจอแล้ว (panel ซ่อนตลอด ดู applyShowHUD) ยอดอยู่ที่กระดานชนวนบนเคาน์เตอร์
+--   (MapBuilder.AddMoneyChalkboard) + ได้เงินเมื่อไหร่ขึ้น "+100 ฿" ลอยขึ้นแล้วจางไป 2 วิ (เงินลด = เริ่มคืนใหม่ ไม่ต้องขึ้น)
+local moneyBoard = { money = 0, target = 0, last = nil :: number?, faces = {} :: { Instance } }
+function moneyBoard.commas(n: number): string
+	local s = tostring(math.floor(n))
+	local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return (out:gsub("^,", ""))
+end
+function moneyBoard.draw()
+	if #moneyBoard.faces == 0 then
+		local env = workspace:FindFirstChild("MapEnvironment")
+		local shack = env and env:FindFirstChild("ShackStructure")
+		local mb = shack and shack:FindFirstChild("MoneyChalkboard")
+		local board = mb and mb:FindFirstChild("Board")
+		if not board then
+			return
+		end
+		for _, sg in ipairs(board:GetChildren()) do
+			if sg:IsA("SurfaceGui") then
+				table.insert(moneyBoard.faces, sg)
+			end
+		end
+	end
+	for _, sg in ipairs(moneyBoard.faces) do
+		local title, amount, tgt = sg:FindFirstChild("Title"), sg:FindFirstChild("Amount"), sg:FindFirstChild("Target")
+		if title then
+			(title :: TextLabel).Text = ui("BoardTitle")
+		end
+		if amount then
+			(amount :: TextLabel).Text = moneyBoard.commas(moneyBoard.money)
+		end
+		if tgt and moneyBoard.target > 0 then
+			(tgt :: TextLabel).Text = "/ " .. moneyBoard.commas(moneyBoard.target) -- ตัวเลขล้วน (ลายมือชอล์ก ไม่ต้องแปลภาษา)
+		end
+	end
+end
+moneyBoard.toast = text(gui, {
+	Name = "MoneyToast",
+	AnchorPoint = if IS_TOUCH then Vector2.new(1, 0) else Vector2.new(1, 1),
+	Position = if IS_TOUCH then UDim2.new(1, -110, 0, 56) else UDim2.new(1, -24, 1, -24),
+	Size = UDim2.fromOffset(160, 34),
+	TextXAlignment = Enum.TextXAlignment.Right,
+	FontFace = FONT_BODY,
+	TextColor3 = Color3.fromRGB(190, 236, 150),
+	TextTransparency = 1,
+	MaxTextSize = 26,
+	Text = "",
+})
+shadow(moneyBoard.toast)
+function moneyBoard.pop(amount: number)
+	local t = moneyBoard.toast
+	local home = if IS_TOUCH then UDim2.new(1, -110, 0, 56) else UDim2.new(1, -24, 1, -24)
+	t.Text = "+" .. moneyBoard.commas(amount) .. " ฿"
+	t.Position = home
+	t.TextTransparency = 0
+	local stroke = t:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Transparency = 0.35
+		TweenService:Create(stroke, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	end
+	TweenService:Create(t, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		TextTransparency = 1,
+		Position = home + UDim2.fromOffset(0, -34),
+	}):Play()
+end
 UpdateHUD.OnClientEvent:Connect(function(money: number, target: number, _incense: number, _maxIncense: number)
 	moneyText.Text = string.format("฿%d / ฿%d", money, target)
-	if money > lastMoney then
-		moneyText.TextColor3 = Color3.fromRGB(170, 230, 140)
-		TweenService:Create(moneyText, TweenInfo.new(1), { TextColor3 = C.Cream }):Play()
-	elseif money < lastMoney then
-		moneyText.TextColor3 = C.BloodLit
-		TweenService:Create(moneyText, TweenInfo.new(1.5), { TextColor3 = C.Cream }):Play()
+	local last = moneyBoard.last
+	if last ~= nil and money > last then
+		moneyBoard.pop(money - last)
 	end
-	lastMoney = money
+	moneyBoard.last = money
+	moneyBoard.money = money
+	moneyBoard.target = target
+	moneyBoard.draw()
 end)
 
 -- ---------------------------------------------------------------- คำพูดลูกค้า
@@ -1739,6 +1805,7 @@ end
 -- เปลี่ยนภาษาทุกข้อความที่แสดงอยู่
 local function refreshLanguage()
 	moneyTitle.Text = ui("Money")
+	moneyBoard.draw()
 	updateMouseHint()
 	slotLabel.Text = ui("FlashlightSlot")
 	drawSpeaker()

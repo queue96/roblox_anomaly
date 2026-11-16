@@ -27,6 +27,9 @@ local ASSETS = {
 	CricketFar = "rbxassetid://9112764040", -- Crickets Canyon 1 (ProSoundEffects) จิ้งหรีดอีกฝูงไกลๆ
 	EerieAir = "rbxassetid://9114244841", -- Electric Forest Airy (ProSoundEffects) ลมหวิวๆ เบาๆ ใต้เสียงจิ้งหรีด
 	MistTexture = "rbxasset://textures/particles/smoke_main.dds",
+	-- แสงฟุ้งนุ่มรอบลูกไฟหลอดห้อย: assets/textures/bulb_glow/BulbGlow.png (ขาว + alpha ไล่นุ่ม ย้อมสีด้วย ImageColor3)
+	--   ว่าง = ยังไม่ได้อัปโหลด ไม่ใส่แสงฟุ้ง
+	BulbGlow = "",
 }
 
 ---------------------------------------------------------------------
@@ -63,8 +66,9 @@ sky.CelestialBodiesShown = true
 local grade = Lighting:FindFirstChild("ColdNightGrade") or Instance.new("ColorCorrectionEffect")
 grade.Name = "ColdNightGrade"
 grade.TintColor = Color3.fromRGB(235, 245, 235)
-grade.Saturation = -0.25
-grade.Contrast = 0.20
+-- ภาพนุ่มหม่นแบบแมพสยองอ้างอิง (ผู้ใช้ 2026-11-16): คอนทราสต์ต่ำ เงาไม่ดำจัด สีซีดลงอีกนิด (เดิม Saturation -0.25 / Contrast 0.20)
+grade.Saturation = -0.32
+grade.Contrast = 0.04
 grade.Brightness = 0
 grade.Parent = Lighting
 
@@ -77,23 +81,28 @@ bloom.Size = 32
 bloom.Threshold = 0.92
 bloom.Parent = Lighting
 
+-- ภาพนุ่ม/ฉากหลังเบลอเปิดตลอด (ผู้ใช้ 2026-11-16 ให้ภาพเบลอๆ เหมือนแมพอ้างอิง)
+--   ทั้งจอเบลอนิดๆ (SOFT_BLUR) + ไกลเกิน ~40 studs เบลอเพิ่ม (DOF ระยะไกลอย่างเดียว ร้าน/ตู้ปั๊ม/ลูกค้ายังชัด)
+--   มือถือ: เบลอเบากว่า และไม่เปิด DOF ค้าง (Performance 2026-11-07: DOF หนักบนการ์ดจอเล็ก) เปิดแค่ตอนตาทิพย์
+local IS_PHONE = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DeviceInfo")) :: any).IsPhone()
+local SOFT_BLUR = if IS_PHONE then 1.0 else 1.6
+local DOF_BASE = { on = not IS_PHONE, focus = 10, radius = 30, far = 0.3 }
 local dof = (Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?) or Instance.new("DepthOfFieldEffect")
 dof.Name = "NightDepthOfField"
--- Performance (2026-11-07): ระยะชัดลึกหนักบนการ์ดจอเล็ก เปิดเฉพาะตอนตาทิพย์เปิด (updatePrayerOptics) ไม่เปิดค้างทั้งเกม
-dof.Enabled = false
-dof.FocusDistance = 20
-dof.InFocusRadius = 40
-dof.NearIntensity = 0.1
-dof.FarIntensity = 0.15
+dof.Enabled = DOF_BASE.on
+dof.FocusDistance = DOF_BASE.focus
+dof.InFocusRadius = DOF_BASE.radius
+dof.NearIntensity = 0
+dof.FarIntensity = DOF_BASE.far
 dof.Parent = Lighting
 
 local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?) or Instance.new("BlurEffect")
 softBlur.Name = "SoftFilmBlur"
-softBlur.Size = 0 -- ภาพคมเป็นค่าเริ่มต้น เบลอเฉพาะตอนเปิดตาทิพย์
-softBlur.Enabled = false -- เบลอ Size 0 ยังกินแรงเรนเดอร์ทั้งจอ: เปิดเฉพาะตอน Size > 0 (ตามด้านล่าง)
 softBlur:GetPropertyChangedSignal("Size"):Connect(function()
-	softBlur.Enabled = softBlur.Size > 0.01
+	softBlur.Enabled = softBlur.Size > 0.01 -- เบลอ Size 0 ยังกินแรงเรนเดอร์ทั้งจอ
 end)
+softBlur.Size = SOFT_BLUR
+softBlur.Enabled = SOFT_BLUR > 0.01
 softBlur.Parent = Lighting
 -- Bloom เดิมในไฟล์ place (ชื่อ "Bloom" Intensity 0) ไม่ได้ทำให้ภาพต่างแต่ยังเป็นอีกหนึ่งรอบเรนเดอร์ ปิดไว้ (เหลือ NightBloom ตัวเดียว)
 local legacyBloom = Lighting:FindFirstChild("Bloom")
@@ -146,48 +155,300 @@ local vigBottom = createVignetteEdge("BottomEdge", UDim2.fromScale(0, 1), Vector
 local vigLeft = createVignetteEdge("LeftEdge", UDim2.fromScale(0, 0), Vector2.new(0, 0), UDim2.fromScale(0.20, 1), 0)
 local vigRight = createVignetteEdge("RightEdge", UDim2.fromScale(1, 0), Vector2.new(1, 0), UDim2.fromScale(0.20, 1), 180)
 
--- 1.3 แมลงเม่าบินตอมหลอดไฟนีออนเสาไม้ & ไฟในเพิงสังกะสี (NightMoths)
-local function attachNightMoths(bulbPart: BasePart, rate: number)
-	if bulbPart:FindFirstChild("NightMoths") then
+-- 1.3 แมลงเม่าบินตอมหลอดไฟ (NightMoths) — ผู้ใช้ 2026-11-16: ประกายดาว ParticleEmitter ~15 ดวงต่อหลอดดูถี่และเหมือนกากเพชร
+--   เปลี่ยนเป็นแมลงตัวจิ๋วไม่กี่ตัว (ชิ้นส่วนบนเครื่องตัวเอง) บินวนแบบไม่เป็นจังหวะ: วนรอบหลอด + ส่ายไปมา + ปีกกระพือ (กะพริบแสง)
+--   บางตัวพุ่งชนหลอดแล้วเด้งออก บินหนีไปแล้วกลับมาใหม่ จำนวนที่เห็นเลยเปลี่ยนไปเรื่อยๆ 0..maxCount · ไฟดับ = บินหนีหมด
+--   ไกลกล้องเกิน MOTH_FAR ไม่ขยับ (ประหยัด)
+local MOTH_FAR = 70
+local function attachNightMoths(bulbPart: BasePart, maxCount: number)
+	if bulbPart:GetAttribute("NightMoths") then
 		return
 	end
-	local moths = Instance.new("ParticleEmitter")
-	moths.Name = "NightMoths"
-	moths.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	moths.Shape = Enum.ParticleEmitterShape.Sphere
-	moths.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	moths.Rate = rate
-	moths.Lifetime = NumberRange.new(2.2, 3.8)
-	moths.Speed = NumberRange.new(0.9, 1.9)
-	moths.SpreadAngle = Vector2.new(180, 180)
-	moths.Acceleration = Vector3.new(0, 0.55, 0) -- บินร่อนเข้าหาไอร้อนของหลอดไฟด้านบน
-	moths.Drag = 1.6 -- เกาะกลุ่มบินวนรอบๆ หลอดไฟ ไม่พุ่งหนีไปไกล
-	moths.Rotation = NumberRange.new(0, 360)
-	moths.RotSpeed = NumberRange.new(-180, 180)
-	moths.Color = ColorSequence.new(Color3.fromRGB(245, 225, 175))
-	moths.LightEmission = 0.55
-	moths.LightInfluence = 0.45
-	moths.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.05),
-		NumberSequenceKeypoint.new(0.5, 0.13),
-		NumberSequenceKeypoint.new(1, 0.04),
-	})
-	moths.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.2, 0.22),
-		NumberSequenceKeypoint.new(0.8, 0.22),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	moths.Parent = bulbPart
-
-	-- ปิดแมลงเม่าอัตโนมัติถ้าหลอดไฟดับ (เช่น สับคัตเอาต์ หรือไฟดับ)
+	bulbPart:SetAttribute("NightMoths", true)
+	local old = bulbPart:FindFirstChild("NightMoths")
+	if old then
+		old:Destroy() -- ParticleEmitter รุ่นเก่า (ถ้ามีค้างในไฟล์ place)
+	end
 	local light = bulbPart:FindFirstChildOfClass("PointLight") or bulbPart:FindFirstChildOfClass("SpotLight")
+	local folder = Workspace:FindFirstChild("LocalMoths") or Instance.new("Folder")
+	folder.Name = "LocalMoths"
+	folder.Parent = Workspace
+
+	-- ตัวแมลงเม่า: แม่แบบ ReplicatedStorage.AmbientProps.Moth (MapBuilder.SwapHangingBulbV2: Body + WingL/WingR + attribute Hinge)
+	--   ยังไม่มีแม่แบบ = จุดกลมเล็กๆ แทน
+	local props = ReplicatedStorage:FindFirstChild("AmbientProps") or ReplicatedStorage:WaitForChild("AmbientProps", 5)
+	local tmpl = props and props:FindFirstChild("Moth") :: Model?
+	local tBody = tmpl and tmpl:FindFirstChild("Body") :: BasePart?
+	local function makeMoth()
+		if tmpl and tBody then
+			local c = tmpl:Clone()
+			local body = c:FindFirstChild("Body") :: BasePart
+			local wings = {}
+			for _, n in ipairs({ "WingL", "WingR" }) do
+				local w = c:FindFirstChild(n) :: BasePart?
+				if w then
+					local hinge = (w:GetAttribute("Hinge") :: Vector3?) or Vector3.zero
+					table.insert(wings, { part = w, hinge = hinge, rel = body.CFrame:ToObjectSpace(w.CFrame), side = if hinge.X < 0 then -1 else 1 })
+				end
+			end
+			local parts = { body }
+			for _, w in ipairs(wings) do
+				table.insert(parts, w.part)
+			end
+			for _, p in ipairs(parts) do
+				p.Anchored = true
+				p.CanCollide = false
+				p.CanQuery = false
+				p.CanTouch = false
+				p.CastShadow = false
+				p.Transparency = 1
+			end
+			c.Parent = folder
+			return body, wings, parts
+		end
+		local p = Instance.new("Part")
+		p.Name = "Moth"
+		p.Shape = Enum.PartType.Ball
+		p.Size = Vector3.new(0.06, 0.06, 0.06)
+		p.Material = Enum.Material.SmoothPlastic
+		p.Color = Color3.fromRGB(226, 210, 178)
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Transparency = 1
+		p.Parent = folder
+		return p, {}, { p }
+	end
+
+	local moths = {}
+	for i = 1, maxCount do
+		local body, wings, parts = makeMoth()
+		table.insert(moths, {
+			part = body,
+			wings = wings,
+			parts = parts,
+			look = Vector3.new(0, 0, -1),
+			last = bulbPart.Position,
+			seed = math.random() * 1000,
+			state = "away", -- away -> arrive -> orbit -> leave -> away
+			t0 = os.clock(),
+			wait = 1 + math.random() * 6 + (i - 1) * 2, -- ไม่มาพร้อมกันทั้งฝูง
+			dir = if math.random() < 0.5 then 1 else -1,
+			ang = math.random() * math.pi * 2,
+			spin = 2.2 + math.random() * 2.6, -- rad/s วนรอบหลอด
+			r = 0.9,
+			rTarget = 0.9,
+			nextDart = 0,
+			from = Vector3.zero,
+			to = Vector3.zero,
+		})
+	end
+
+	local function lightOn(): boolean
+		return bulbPart.Parent ~= nil and (light == nil or light.Enabled)
+	end
+	local function farPoint(): Vector3
+		local a = math.random() * math.pi * 2
+		return Vector3.new(math.cos(a) * 6, 1.5 + math.random() * 3, math.sin(a) * 6)
+	end
+	local function setT(m, t: number)
+		for _, p in ipairs(m.parts) do
+			p.Transparency = t
+		end
+	end
+
+	local conn
+	conn = RunService.Heartbeat:Connect(function(dt)
+		if bulbPart.Parent == nil then
+			conn:Disconnect()
+			for _, m in ipairs(moths) do
+				local holder = m.part.Parent
+				for _, p in ipairs(m.parts) do
+					p:Destroy()
+				end
+				if holder and holder ~= folder then
+					holder:Destroy() -- Model แมลงเม่าที่ clone มา
+				end
+			end
+			return
+		end
+		local cam = Workspace.CurrentCamera
+		local center = bulbPart.Position
+		local near = cam ~= nil and (cam.CFrame.Position - center).Magnitude < MOTH_FAR
+		local on = lightOn()
+		local now = os.clock()
+		for _, m in ipairs(moths) do
+			local p = m.part
+			if not near then
+				setT(m, 1)
+				continue
+			end
+			local age = now - m.t0
+			if m.state == "away" then
+				setT(m, 1)
+				if on and age > m.wait then
+					m.state = "arrive"
+					m.t0 = now
+					m.from = farPoint()
+					m.rTarget = 0.6 + math.random() * 0.7
+					m.r = m.rTarget
+				end
+				continue
+			end
+			if not on and m.state ~= "leave" then
+				m.state = "leave"
+				m.t0 = now
+				m.from = p.Position - center
+				m.to = farPoint()
+				age = 0
+			end
+
+			-- วนรอบหลอด: รัศมีเปลี่ยนเป็นพักๆ (พุ่งเข้าชนหลอด / ถอยออก) + ส่ายขึ้นลงแบบสุ่ม
+			m.ang += m.dir * m.spin * dt
+			if now > m.nextDart then
+				m.nextDart = now + 0.6 + math.random() * 1.8
+				m.rTarget = if math.random() < 0.3 then 0.32 else 0.55 + math.random() * 0.85
+				if math.random() < 0.25 then
+					m.dir = -m.dir
+				end
+			end
+			m.r += (m.rTarget - m.r) * math.min(1, dt * 5)
+			local s = m.seed
+			local wob = Vector3.new(
+				math.noise(now * 1.3, s, 0),
+				math.noise(now * 1.1, s, 7),
+				math.noise(now * 1.3, s, 13)
+			) * 0.9
+			local jit = Vector3.new(
+				math.noise(now * 9, s, 21),
+				math.noise(now * 9, s, 27),
+				math.noise(now * 9, s, 33)
+			) * 0.12
+			local orbit = Vector3.new(math.cos(m.ang) * m.r, -0.15 + wob.Y * 0.8, math.sin(m.ang) * m.r) + Vector3.new(wob.X, 0, wob.Z) * 0.5 + jit
+
+			local off = orbit
+			if m.state == "arrive" then
+				local k = math.clamp(age / 1.4, 0, 1)
+				k = k * k * (3 - 2 * k)
+				off = m.from:Lerp(orbit, k)
+				if k >= 1 then
+					m.state = "orbit"
+					m.t0 = now
+					m.wait = 7 + math.random() * 12 -- อยู่ตอมนานเท่านี้แล้วบินหนี
+				end
+			elseif m.state == "orbit" then
+				if age > m.wait then
+					m.state = "leave"
+					m.t0 = now
+					m.from = orbit
+					m.to = farPoint()
+				end
+			elseif m.state == "leave" then
+				local k = math.clamp(age / 1.2, 0, 1)
+				off = m.from:Lerp(m.to, k * k) + jit
+				if k >= 1 then
+					m.state = "away"
+					m.t0 = now
+					m.wait = 2 + math.random() * 8
+				end
+			end
+			-- หันหัวไปทางที่บิน (หน่วงนิดๆ ไม่สะบัด) แล้วกระพือปีกรอบบานพับ
+			local pos = center + off
+			local vel = pos - m.last
+			m.last = pos
+			if vel.Magnitude > 1e-4 then
+				m.look = m.look:Lerp(vel.Unit, math.min(1, dt * 12))
+			end
+			local look = if m.look.Magnitude > 1e-3 then m.look.Unit else Vector3.new(0, 0, -1)
+			local bodyCF = if math.abs(look.Y) > 0.98 then CFrame.new(pos) else CFrame.lookAt(pos, pos + look)
+			p.CFrame = bodyCF
+			local flap = math.rad(20 + 50 * math.sin(now * 42 + s))
+			for _, w in ipairs(m.wings) do
+				w.part.CFrame = bodyCF * CFrame.new(w.hinge) * CFrame.Angles(0, 0, -w.side * flap) * CFrame.new(-w.hinge) * w.rel
+			end
+			-- ไกลหลอดจางลง (ตอนบินมา/บินหนี) · จุดกลมสำรองกะพริบเหมือนปีกสะท้อนแสง
+			local fade = math.clamp((off.Magnitude - 1.6) / 3.5, 0, 1)
+			if #m.wings == 0 then
+				setT(m, math.clamp(0.08 + (0.5 + 0.5 * math.sin(now * 38 + s)) * 0.35 + fade * 0.6, 0, 1))
+			else
+				setT(m, math.clamp(fade * 0.8, 0, 1))
+			end
+		end
+	end)
+end
+
+-- 1.3a แสงฟุ้งนุ่มรอบลูกไฟหลอดห้อย (ผู้ใช้ 2026-11-16) — รูปไล่ alpha จริง (ห้ามใช้วงกลม Frame ซ้อนชั้น: เห็นเป็นขั้นบันได)
+--   ลอยหน้าลูกไฟนิดๆ (StudsOffset z) ให้กลบขอบแข็งของ Neon · ผนังยังบังได้ · ไฟดับ = หาย · แกว่งตามลูกไฟ (Adornee)
+local function addBulbGlow(bulbPart: BasePart, sizeStuds: number)
+	if ASSETS.BulbGlow == "" or bulbPart:FindFirstChild("BulbGlow") then
+		return
+	end
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "BulbGlow"
+	bb.Adornee = bulbPart
+	bb.Size = UDim2.fromScale(sizeStuds, sizeStuds)
+	bb.StudsOffset = Vector3.new(0, 0, 0.35)
+	bb.LightInfluence = 0
+	bb.Brightness = 1.6
+	bb.MaxDistance = 160
+	local img = Instance.new("ImageLabel")
+	img.Size = UDim2.fromScale(1, 1)
+	img.BackgroundTransparency = 1
+	img.Image = ASSETS.BulbGlow
+	img.ImageColor3 = Color3.fromRGB(255, 186, 112)
+	img.Parent = bb
+	bb.Parent = bulbPart
+	local light = bulbPart:FindFirstChildOfClass("PointLight")
 	if light then
-		moths.Enabled = light.Enabled
+		bb.Enabled = light.Enabled
 		light:GetPropertyChangedSignal("Enabled"):Connect(function()
-			moths.Enabled = light.Enabled
+			bb.Enabled = light.Enabled
 		end)
 	end
+end
+
+-- 1.3b หลอดไส้ห้อยแกว่งเบาๆ รอบปลายสายไฟบนเพดาน (ผู้ใช้ 2026-11-16) — ขยับเฉพาะบนเครื่องตัวเอง แสง/เงาในเพิงขยับตาม
+--   คาบ ~1.4 วิ (ลูกตุ้มยาวเท่าสาย) แกว่งเป็นวงรี 1-3° + ลมกระโชกเป็นพักๆ ให้แกว่งแรงขึ้นแล้วค่อยๆ หยุด
+local function swayHangingBulb(model: Instance)
+	local cord = model:FindFirstChild("Cord") :: BasePart?
+	if not cord then
+		return
+	end
+	local pivot = CFrame.new(cord.Position + Vector3.new(0, cord.Size.X / 2, 0)) -- Cord หมุน 90° แกน X ของมันคือแนวตั้ง
+	local items = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			table.insert(items, { d, pivot:ToObjectSpace(d.CFrame) })
+		end
+	end
+	local seed = math.random() * 100
+	local gust, gustTarget, nextGust = 0, 0, os.clock() + 5
+	local conn
+	conn = RunService.Heartbeat:Connect(function(dt)
+		if model.Parent == nil then
+			conn:Disconnect()
+			return
+		end
+		local cam = Workspace.CurrentCamera
+		if not cam or (cam.CFrame.Position - pivot.Position).Magnitude > 90 then
+			return
+		end
+		local now = os.clock()
+		if now > nextGust then
+			nextGust = now + 8 + math.random() * 14
+			gustTarget = 0.6 + math.random() * 0.6
+		end
+		gustTarget = math.max(0, gustTarget - dt * 0.35)
+		gust += (gustTarget - gust) * math.min(1, dt * 1.5)
+		local amp = math.rad(1.0 + 1.6 * (0.5 + math.noise(now * 0.12, seed, 0)) + 2.6 * gust)
+		local w = 4.5
+		local cf = pivot * CFrame.Angles(amp * math.sin(now * w + seed), 0, amp * 0.55 * math.sin(now * w * 1.07 + seed * 2))
+		for _, it in ipairs(items) do
+			it[1].CFrame = cf * it[2]
+		end
+	end)
 end
 
 task.spawn(function()
@@ -198,19 +459,23 @@ task.spawn(function()
 	local dirtRoad = mapEnv:WaitForChild("DirtRoad", 10)
 	local neonPoleBulb = dirtRoad and dirtRoad:WaitForChild("NeonLightPart", 10)
 	if neonPoleBulb and neonPoleBulb:IsA("BasePart") then
-		attachNightMoths(neonPoleBulb, 6)
+		attachNightMoths(neonPoleBulb, 4)
 	end
 	local shack = mapEnv:WaitForChild("ShackStructure", 10)
 	-- หลังสลับเป็นโมเดล Import หลอดในเพิงชื่อ ShackLight_Neon (เดิม ShackLightBulb)
 	local shackBulb = shack and (shack:FindFirstChild("ShackLight_Neon", true) or shack:FindFirstChild("ShackLightBulb"))
 	if shackBulb and shackBulb:IsA("BasePart") then
-		attachNightMoths(shackBulb, 4)
+		attachNightMoths(shackBulb, 2)
 	end
 	-- หลอดไส้ห้อยสายไฟ (MapBuilder.AddNightPracticalLights)
 	local hanging = shack and shack:FindFirstChild("HangingBulb")
 	local hangingBulb = hanging and hanging:FindFirstChild("Bulb")
+	if hanging then
+		swayHangingBulb(hanging)
+	end
 	if hangingBulb and hangingBulb:IsA("BasePart") then
-		attachNightMoths(hangingBulb, 5)
+		addBulbGlow(hangingBulb, 3.2)
+		attachNightMoths(hangingBulb, 3)
 	end
 end)
 
@@ -332,12 +597,16 @@ local function updatePrayerOptics(active: boolean)
 		Intensity = if active then 0.65 else 0.45,
 		Size = if active then 38 else 32,
 	}):Play()
-	-- ตาทิพย์ต้องเห็นชัดพอจับผิดผีได้: เบลอนิดเดียว ระยะไกลไม่เบลอเพิ่ม
+	-- ตาทิพย์ต้องเห็นชัดพอจับผิดผีได้: ภาพคมขึ้นกว่าปกติ (เบลอทั้งจอน้อยลง) ระยะชัดตามจุดที่มอง ไกลเบลอน้อยลง
 	TweenService:Create(softBlur, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
-		Size = if active then 1.4 else 0,
+		Size = if active then math.min(SOFT_BLUR, 0.9) else SOFT_BLUR,
 	}):Play()
-	-- ระยะชัดลึกเปิดเฉพาะตอนตาทิพย์เปิด (Performance 2026-11-07)
-	dof.Enabled = active
+	dof.Enabled = active or DOF_BASE.on
+	TweenService:Create(dof, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
+		FarIntensity = if active then 0.15 else DOF_BASE.far,
+		InFocusRadius = if active then 40 else DOF_BASE.radius,
+		FocusDistance = if active then currentFocus else DOF_BASE.focus,
+	}):Play()
 	-- ขอบจอ (Vignette) บีบเข้ามาเบาๆ แต่จางกว่าปกติ ไม่ให้ภาพมืดลงตอนเพ่งดูผี
 	local edgeTrans = if active then 0.5 else 0.36
 	local vSize = if active then UDim2.fromScale(1, 0.33) else UDim2.fromScale(1, 0.24)
@@ -359,7 +628,7 @@ task.spawn(function()
 	while true do
 		task.wait(0.1)
 		local cam = Workspace.CurrentCamera
-		if cam and dof.Enabled then -- ไม่เปิดระยะชัดลึก = ไม่ต้องยิง ray หาโฟกัส
+		if cam and praySightfxActive then -- นอกตาทิพย์ใช้ระยะชัดคงที่ (DOF_BASE) ไม่ต้องยิง ray หาโฟกัส
 			local filter = {}
 			if localPlayer.Character then
 				table.insert(filter, localPlayer.Character)

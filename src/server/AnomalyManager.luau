@@ -1060,7 +1060,9 @@ end
 
 -- ตัดออกจากการสุ่ม (ยังเรียกทดสอบผ่าน ForceAnomaly ได้):
 --   Anomaly_Krasue: กระสือมีเป็นผีใหญ่ (BigEvents) + ผีฉากอยู่แล้ว ผีลูกค้าซ้ำซ้อน ผู้ใช้สั่งตัด 2026-11-12
-local RETIRED = { Anomaly_Krasue = true }
+--   Anomaly_GhostWalkIn: ผีเดินมาซื้อทั้งร่าง เห็นได้โดยไม่ต้องพนมมือ ไม่ได้ทดสอบอะไร ผู้ใช้สั่งตัด 2026-11-16
+--     (CoreLoop.CONFIG.WalkInChance = 0 · ForceAnomaly "Anomaly_GhostWalkIn" ยังสร้างร่างผีเดินมาได้)
+local RETIRED = { Anomaly_Krasue = true, Anomaly_GhostWalkIn = true }
 
 AnomalyManager.Keys = {}
 for k in pairs(AnomalyManager.Anomalies) do

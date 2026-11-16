@@ -58,7 +58,8 @@ local function genPart(): BasePart?
 end
 
 -- ไฟของร้าน: หลอดนีออนเสาหน้าร้าน หลอดในเพิง หลอดไส้ห้อย ตะเกียง (ไฟดับ = มืดสนิท ต้องใช้ไฟฉาย)
-local LIGHT_PARTS = { NeonLightPart = true, ShackLight_Neon = true, ShackLightBulb = true, Bulb = true, StormLantern_Neon = true }
+-- Filament = ไส้หลอดของหลอดไส้ห้อย v2 (MapBuilder.SwapHangingBulbV2: กระเปาะแก้วชื่อ Bulb)
+local LIGHT_PARTS = { NeonLightPart = true, ShackLight_Neon = true, ShackLightBulb = true, Bulb = true, Filament = true, StormLantern_Neon = true }
 -- ไฟดับ: ฟ้าแทบไม่ให้แสงเลย (PrayerController ยังปรับ ExposureCompensation ตอนพนมมือ "ตาทิพย์" เห็นในความมืดได้
 -- แต่ผีจะมาหามากขึ้น: CoreLoop.prayerSummonLoop)
 local DARK = { Ambient = Color3.fromRGB(0, 0, 0), OutdoorAmbient = Color3.fromRGB(3, 3, 5), Brightness = 0 }
