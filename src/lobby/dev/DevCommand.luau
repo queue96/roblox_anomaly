@@ -1,4 +1,4 @@
--- DevCommand.luau — compile check SceneryGhosts stay/see/roadRun update (2026-11-17)
+-- DevCommand.luau — compile check SceneryGhosts one scare (2026-11-17)
 local function compile(src: Instance?, name: string)
 	if not src then
 		print("DEVCMD|COMPILE " .. name .. " MISSING")
@@ -12,7 +12,7 @@ local function compile(src: Instance?, name: string)
 	print("DEVCMD|COMPILE " .. name .. " " .. (if ok then "OK" else "FAIL " .. tostring(err)))
 end
 return {
-	id = "compile_scenery_stay_fix_20261117b",
+	id = "compile_scenery_one_scare_20261117d",
 	placeId = 114125276809667,
 	run = function()
 		local sps = game:GetService("StarterPlayer").StarterPlayerScripts

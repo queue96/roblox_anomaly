@@ -652,39 +652,15 @@ local function stareTracker(): (Vector3, number) -> boolean
 	end
 end
 
--- เสียงตกใจตอนผีฉากเริ่มวิ่งพุ่งเข้ามาหา (ย้ายมาจาก SceneryGhostWatch ตอนหันไปเห็นเฉยๆ ผู้ใช้ 2026-11-17)
-local RUSH_STING_ID = "rbxassetid://105012119508747"
-local RUSH_STING_VOL = 2
-local function playRushSting()
-	local s = Instance.new("Sound")
-	s.Name = "SceneryGhostRushSting"
-	s.SoundId = RUSH_STING_ID
-	s.Volume = RUSH_STING_VOL
-	s:SetAttribute("SoundCategory", "Music") -- ไม่โดน PrayMuffle ตอนพนมมือ
-	s.Parent = game:GetService("SoundService")
-	s:Play()
-	s.Ended:Once(function()
-		s:Destroy()
-	end)
-	task.delay(30, function()
-		if s.Parent then
-			s:Destroy()
-		end
-	end)
-end
+-- จั้มสแกร์มีครั้งเดียว = ตอนผีมาถึงหน้า (จอหลอก JumpscareController เล่นเสียงหลอก + หัวเราะเอง)
+--   ตอนวิ่งมาให้เงียบ (ผู้ใช้ 2026-11-17: เคยมีเสียง Jumpscare_1 ตอนเริ่มวิ่ง + จอหลอกตอนถึง = หลอก 2 ครั้ง)
 
--- เริ่มพุ่ง: เล่นท่าวิ่ง/คลานเร็วๆ + เสียงจั้มสแกร์ตอนวิ่งมาหา + หัวเราะ/กรีด · ห้ามจางหายเองระหว่างพุ่ง (current.hunting)
-local function rushBegin(kind: string, m: Model, r: { clip: string, speed: number })
+-- เริ่มพุ่ง: เล่นท่าวิ่ง/คลานเร็วๆ เงียบๆ · ห้ามจางหายเองระหว่างพุ่ง (current.hunting)
+local function rushBegin(_kind: string, m: Model, r: { clip: string, speed: number })
 	fade(m, 0, 0.2)
 	play(m, r.clip, r.speed)
 	if current and current.m == m then
 		current.hunting = true
-	end
-	playRushSting()
-	local root = m:FindFirstChild("RootPart") or m.PrimaryPart
-	local set = SoundBank.GhostSounds[kind]
-	if root and set and set.laugh then
-		SoundBank.PlayOneShot(set.laugh, root, 70, 4)
 	end
 end
 
@@ -946,7 +922,7 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			current.hunting = true
 		end
 		play(m, if def.model == "Pop" then "Crawl" else (def.moveClip or def.clip))
-		playRushSting()
+		-- (ไม่มีเสียงจั้มสแกร์ตอนเริ่มไล่: ให้หลอกครั้งเดียวตอนถึงตัว)
 		-- ผีลอยมาหา: หัวเราะคิกคักล้อเลียนก่อนโฉบเข้ามา
 		local root = m:FindFirstChild("RootPart")
 		local set = SoundBank.GhostSounds[kind]
