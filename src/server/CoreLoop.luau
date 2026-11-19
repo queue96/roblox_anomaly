@@ -32,7 +32,7 @@ local CONFIG = {
 	-- บริการแต่ละแบบ: ตู้ไหน / ราคาให้เลือก / คำถามราคา (เติมผิดตู้ ลูกค้าท้วง)
 	Services = {
 		petrol = { choice = "fuel", prices = { 80, 100, 120 }, normal = 100, ask = "AskPrice" },
-		diesel = { choice = "diesel", prices = { 250, 300, 350 }, normal = 300, ask = "AskPriceDiesel" },
+		diesel = { choice = "diesel", prices = { 120, 150, 180 }, normal = 150, ask = "AskPriceDiesel" },
 		air = { choice = "air", prices = { 10, 20, 30 }, normal = 20, ask = "AskPriceAir" },
 	},
 	MaxWrongService = 2, -- เติมผิดตู้เกินนี้ ลูกค้าเลิกรอ
@@ -1421,22 +1421,8 @@ offerPrompt.Triggered:Connect(function(player)
 		end
 		m.Parent = spirit
 		offeredPlate = m
-		ShrineHand.Take(m, spirit, shrineBody, nil, function(at: BasePart): Sound?
-			-- เสียงตอนมือผีออกมาหยิบขนม (ดัง 50% ของไฟล์) ShrineHand เฟดลงเองถ้าหยิบจบก่อนเสียงจบ
-			local s = Instance.new("Sound")
-			s.Name = "GhostTakeSound"
-			s.SoundId = "rbxassetid://75963826001031"
-			s.Volume = 0.5
-			s.RollOffMode = Enum.RollOffMode.InverseTapered
-			s.RollOffMinDistance = 6
-			s.RollOffMaxDistance = 40
-			s.Parent = at
-			s.Ended:Connect(function()
-				s:Destroy()
-			end)
-			s:Play()
-			return s
-		end)
+		-- มือผีออกมาหยิบขนมแบบเงียบๆ (ผู้ใช้สั่งตัดเสียง 2026-11-19)
+		ShrineHand.Take(m, spirit, shrineBody, nil, nil)
 	end
 	SoundBank.PlayOneShot("CoinTinDrop1", shrineBody, 40, 1.2)
 	Notice:FireAllClients("ShrineOffered", 4)
@@ -3393,7 +3379,7 @@ end
 -- scenery ghosts live on the client, so the server can't see the hit itself: accept only known kinds, only from a
 -- player who is one of the victims (outside the shop), at most once per HIT_COOLDOWN per player; others are only
 -- knocked down when the lingering ghost really appears (otherwise just the reporter)
-local SCENERY_KINDS = { Tani = true, Dancer = true, MaeNak = true, Kuman = true, Child = true, Shroud = true, Krasue = true, Pop = true, Pret = true, Krahang = true, Scarecrow = true, Shadow = true }
+local SCENERY_KINDS = { Tani = true, Dancer = true, MaeNak = true, Kuman = true, Child = true, Shroud = true, Krasue = true, Pop = true, Pret = true, Krahang = true, Scarecrow = true, Shadow = true, HutShadow = true }
 local HIT_COOLDOWN = 20
 local lastHit: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 remote("SceneryGhostHit").OnServerEvent:Connect(function(p: Player, kind: any)

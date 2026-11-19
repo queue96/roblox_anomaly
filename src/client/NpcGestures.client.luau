@@ -73,7 +73,11 @@ speech.OnClientEvent:Connect(function(key: any, head: any)
 	if not g then
 		return
 	end
-	if d:GetAttribute("SeatClip") ~= nil then
+	-- คนนั่งรถ หรือคนเดินที่ถือแกลลอน (owner มี Gallon): ใช้ท่าครึ่งตัวบน (SeatGesture: พยักหน้า/ส่ายหน้า/ยักไหล่/คุย เฉพาะลำตัวบน-หัว)
+	-- เพื่อไม่ให้ท่า mocap ทั้งตัวบิดสะโพก/เหวี่ยงแขนซ้ายที่ถือแกลลอนจนแกลลอนลอยหลุดจากมือ (ผู้ใช้ 2026-11-19)
+	local owner = d.Parent
+	local holdingGallon = owner ~= nil and owner:FindFirstChild("Gallon") ~= nil
+	if d:GetAttribute("SeatClip") ~= nil or holdingGallon then
 		local sg = if g == "wave" then "nod_yes" else g
 		d:SetAttribute("SeatGesture", sg)
 		d:SetAttribute("SeatGestureT0", os.clock())

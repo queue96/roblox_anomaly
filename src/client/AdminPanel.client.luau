@@ -370,6 +370,8 @@ local function start()
 			-- ผีฉากเกิดบนเครื่องตัวเอง (client/SceneryGhosts) ไม่ผ่านเซิร์ฟเวอร์
 			if type(c) == "string" and string.sub(c, 1, 8) == "scenery:" then
 				Players.LocalPlayer:SetAttribute("SceneryTest", string.sub(c, 9) .. ":" .. os.clock())
+			elseif type(c) == "string" and string.sub(c, 1, 10) == "scarecrow:" then
+				Players.LocalPlayer:SetAttribute("ScarecrowTest", string.sub(c, 11) .. ":" .. os.clock())
 			else
 				remote:FireServer(c)
 			end
@@ -483,10 +485,16 @@ local function start()
 	button(g, "ตานีหลังกอกล้วย", "scenery:Tani")
 	button(g, "หุ่นไล่กาใกล้ร้าน", "scenery:Scarecrow")
 	button(g, "เงาหลังต้นไทร", "scenery:Shadow")
+	button(g, "เงากระท่อมปลายนา", "scenery:HutShadow")
 	button(g, "นางรำโคนต้นไทร", "scenery:Dancer")
 	button(g, "เงาดำวิ่งตัดถนน", "scenery:ShadowRun")
 	g = section("scenery", "", nil, 1)
 	button(g, "ซ่อนผีฉากที่โผล่อยู่", "scenery:hide")
+	g = section("scenery", "หุ่นไล่กา (Weeping Angel & ตอนไฟดับ)", "ย้ายจุดอัตโนมัติเมื่อละสายตา · ไฟดับหายตัว + สุ่มไปดักหลังผู้เล่น รอให้หันไปเจอเอง")
+	button(g, "🌾 ย้ายจุดหุ่นไล่กาถัดไป", "scarecrow:move")
+	button(g, "😱 หุ่นดักข้างหลัง (หันไปเจอเอง)", "scarecrow:close")
+	button(g, "💨 หุ่นไล่กาหายตัว", "scarecrow:vanish")
+	button(g, "🏠 คืนหุ่นกลับเสากลางทุ่ง", "scarecrow:home")
 	g = section("scenery", "ไม่ใช้แล้ว", "ตัดออกจากเกมแล้ว เก็บปุ่มไว้ดูเฉยๆ")
 	button(g, "แม่นาคริมคันนา", "scenery:MaeNak")
 	button(g, "กุมารทองข้างศาล", "scenery:Kuman")

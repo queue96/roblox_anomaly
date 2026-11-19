@@ -619,9 +619,10 @@ function HumanNPC.Is(m: Instance): boolean
 	return rigs[m :: Model] ~= nil
 end
 
--- ท่ายืน: สุ่มต่อตัว 1 ใน 4 แบบ (mocap 2026-11-09) เฉพาะแบบที่ตัวละครนี้มีของตัวเอง
+-- ท่ายืน: สุ่มต่อตัว 1 ใน 2 แบบ (mocap 2026-11-09) เฉพาะแบบที่ตัวละครนี้มีของตัวเอง
+--   (ตัด idle_look และ idle_bored ออกตามที่ผู้ใช้สั่ง 2026-11-19: ท่าหันตัวบิดซ้าย-ขวาแรงทำให้แกลลอนในมือลูกค้าเดินเท้าลอยตามมือไม่ทัน)
 --   (animIds เติมท่าที่ขาดจาก human_base: คนแก่จะได้ท่ายืนของผู้ชายหนุ่ม -> ไม่เอา) · ชื่อท่ายังเป็น "idle" ทุกที่ เปลี่ยนแค่ id
-local IDLE_VARIANTS = { "idle", "idle_weight", "idle_look", "idle_bored" }
+local IDLE_VARIANTS = { "idle", "idle_weight", "idle_old" }
 local function idleIdOf(rig: Rig, ids: { [string]: string }): string?
 	if rig.idleAlt == nil then
 		local shared = ReplicatedStorage:FindFirstChild("Shared")

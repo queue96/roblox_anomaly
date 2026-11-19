@@ -938,7 +938,8 @@ function AnomalyManager.ShowScenery(kind: string): Instance?
 		ghost:PivotTo(CFrame.lookAt(p, Vector3.new(pump.X, p.Y, pump.Z)) * CFrame.Angles(0, math.pi, 0))
 		for _, d in ipairs(ghost:GetDescendants()) do
 			if d:IsA("BasePart") and string.find(d.Name, "Eye") then
-				d.Color = Color3.fromRGB(255, 20, 20)
+				d.Color = Color3.fromRGB(26, 22, 20)
+				d.Material = Enum.Material.SmoothPlastic
 			end
 		end
 		fadeParts(ghost, 1, 0)
@@ -1226,11 +1227,15 @@ function AnomalyManager.WalkInMoving(m: Model, moving: boolean)
 	end
 end
 
--- จำสีตาหุ่นไล่กาไว้ก่อน (ใช้ตอน reset)
+-- ตัดตาเรืองแสงของหุ่นไล่กาออกทั้งหมด (ผู้ใช้ 2026-11-18: ตาเป็นสีดำด้านปกติ ไม่เรืองแสง)
 if scarecrow then
 	for _, d in ipairs(scarecrow:GetDescendants()) do
 		if d:IsA("BasePart") and string.find(d.Name, "Eye") then
+			d.Color = Color3.fromRGB(26, 22, 20)
+			d.Material = Enum.Material.SmoothPlastic
 			d:SetAttribute("BaseColor", d.Color)
+		elseif d:IsA("Light") then
+			d.Enabled = false
 		end
 	end
 end

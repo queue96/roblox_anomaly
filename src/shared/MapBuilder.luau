@@ -9561,4 +9561,196 @@ function MapBuilder.SwapMirrorForRules(): string
 	return "ok archived " .. (if #moved > 0 then table.concat(moved, ", ") else "nothing") .. " -> " .. parent:GetFullName() .. ".ShopRules"
 end
 
+-- ===================================================================================
+-- หุ่นไล่กา v2 (ScarecrowV2): assets/models/ScarecrowV2/upload/ScarecrowV2.fbx
+--   IDs ที่อัปโหลด: Texture Color = 108853319549462, Mesh/Model = 116518610707431, 129313867191098
+--   วางแทน AnomalyProps.Scarecrow ณ ตำแหน่งเดิม หันหน้าเข้าหาตู้ปั๊มน้ำมัน (หน้าหุ่น = -LookVector ของ pivot)
+--   เรียกได้ทั้งจาก Edit Mode (SwapScarecrowV2) และทำงานอัตโนมัติใน GameManager ตอนกด Play
+-- ===================================================================================
+local SCARECROW_V2_IDS = { 108853319549462, 116518610707431, 129313867191098 }
+local SCARECROW_V2_COLOR_TEX = "rbxassetid://108853319549462"
+local SCARECROW_V2_HEIGHT_STUDS = 7.2 -- ความสูงหุ่นไล่กาเท่ากับตัวเดิม (~2.0165 m / 0.28 = 7.2 studs)
+
+local function findOrBuildScarecrowV2Source(assetId: number?): (Model?, BasePart?)
+	-- 1) หาจากที่ Import 3D วางไว้ใน Workspace.ScarecrowV2 หรือใน ArchivedPlaceholders
+	local candidates: { Instance } = {}
+	for _, d in ipairs(Workspace:GetChildren()) do
+		if d.Name == "ScarecrowV2" then
+			table.insert(candidates, d)
+		end
+	end
+	local arch = v2Archive():FindFirstChild("ScarecrowV2_Imported")
+	if arch then
+		table.insert(candidates, arch)
+	end
+	for _, c in ipairs(candidates) do
+		if c:IsA("MeshPart") then
+			local wrap = Instance.new("Model")
+			wrap.Name = "ScarecrowV2"
+			c.Parent = wrap
+			wrap.Parent = Workspace
+			return wrap, c
+		elseif c:IsA("Model") then
+			local mp = c:FindFirstChildWhichIsA("MeshPart", true)
+			if mp then
+				return c, mp
+			end
+		end
+	end
+
+	-- 2) ลองโหลดจาก Asset IDs (Model หรือ MeshPart)
+	local tryIds = {}
+	if assetId then
+		table.insert(tryIds, assetId)
+	end
+	for _, id in ipairs(SCARECROW_V2_IDS) do
+		table.insert(tryIds, id)
+	end
+	local AssetService = game:GetService("AssetService")
+	local InsertService = game:GetService("InsertService")
+	for _, id in ipairs(tryIds) do
+		local okM, mp = pcall(function()
+			return AssetService:CreateMeshPartAsync("rbxassetid://" .. tostring(id))
+		end)
+		if okM and mp and mp:IsA("MeshPart") then
+			local m = Instance.new("Model")
+			m.Name = "ScarecrowV2"
+			mp.Name = "ScarecrowV2"
+			mp.Parent = m
+			return m, mp
+		end
+		local okI, pkg = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if okI and pkg then
+			local foundMp = pkg:FindFirstChildWhichIsA("MeshPart", true)
+			if foundMp then
+				local m = pkg:FindFirstChildWhichIsA("Model")
+				if not m then
+					m = Instance.new("Model")
+					foundMp.Parent = m
+				else
+					m.Parent = nil
+				end
+				m.Name = "ScarecrowV2"
+				pkg:Destroy()
+				return m, foundMp
+			end
+			pkg:Destroy()
+		end
+	end
+	return nil, nil
+end
+
+function MapBuilder.SwapScarecrowV2(assetId: number?, spotOverride: Vector3?): string
+	local anomaly = Workspace:FindFirstChild("AnomalyProps")
+	if not anomaly then
+		return "no Workspace.AnomalyProps"
+	end
+	local existing = anomaly:FindFirstChild("Scarecrow")
+	-- ถ้าสลับเป็น V2 (Orientation v3) ไปแล้วและไม่มี Workspace.ScarecrowV2 ตัวใหม่ที่เพิ่งลากเข้ามา ให้ข้ามได้เลย
+	if existing and existing:GetAttribute("ScarecrowVersion") == 3 and not Workspace:FindFirstChild("ScarecrowV2") and not spotOverride then
+		return "already ScarecrowV2"
+	end
+
+	local srcModel, srcMesh = findOrBuildScarecrowV2Source(assetId)
+	if not (srcModel and srcMesh) then
+		return "import ScarecrowV2.fbx first or check asset IDs"
+	end
+
+	-- ตำแหน่งยืนเดิม (12.16, -45.64 หรือจุดที่หุ่นเดิมยืนอยู่)
+	local oldModel = Workspace:FindFirstChild("scarecrow") or existing
+	local spot = Vector3.new(12.16, 0, -45.64)
+	if oldModel then
+		local cf = if oldModel:IsA("Model") then oldModel:GetBoundingBox() else (oldModel :: BasePart).CFrame
+		if math.abs(cf.Position.X) > 0.01 or math.abs(cf.Position.Z) > 0.01 then
+			spot = Vector3.new(cf.Position.X, 0, cf.Position.Z)
+		end
+	end
+	if spotOverride then
+		spot = Vector3.new(spotOverride.X, 0, spotOverride.Z)
+	end
+
+	-- Clone ชิ้นหุ่นไล่กาออกมาประกอบเป็น Model ใหม่
+	local body = srcMesh:Clone()
+	body.Name = "ScarecrowV2"
+	body.Anchored = true
+	body.CanCollide = true
+	body.CanQuery = true
+	body.CanTouch = false
+	body.CastShadow = true
+	for _, ch in ipairs(body:GetChildren()) do
+		if not ch:IsA("SurfaceAppearance") then
+			ch:Destroy()
+		end
+	end
+
+	-- ใส่ Texture Color (ถ้า MeshPart ยังไม่มี TextureID หรือ SurfaceAppearance)
+	local sa = body:FindFirstChildOfClass("SurfaceAppearance")
+	if sa then
+		if sa.ColorMap == "" then
+			sa.ColorMap = SCARECROW_V2_COLOR_TEX
+		end
+	elseif body.TextureID == "" then
+		body.TextureID = SCARECROW_V2_COLOR_TEX
+	end
+
+	-- ปรับขนาดให้สูง 7.2 studs (เท่าหุ่นไล่กาตัวเดิมในฉาก)
+	local rawSize = if body.Size.Y > 0.01 then body.Size else body.MeshSize
+	if rawSize.Y > 0.01 then
+		local scale = SCARECROW_V2_HEIGHT_STUDS / rawSize.Y
+		body.Size = rawSize * scale
+	end
+
+	-- หันหน้าเข้าหาตู้ปั๊มน้ำมัน (ในไฟล์ ScarecrowV2.fbx แกน -Y ของ Blender = +Z ของ Roblox = -LookVector ของ MeshPart)
+	local target = Vector3.new(-6, 0, 2.5)
+	local gas = findPump("GasPump")
+	if gas then
+		target = gas:GetPivot().Position
+	end
+	local want = ((target - spot) * Vector3.new(1, 0, 1))
+	want = if want.Magnitude > 0.01 then want.Unit else Vector3.new(0, 0, 1)
+
+	local base = Vector3.new(spot.X, groundY(spot.X, spot.Z) - 0.6, spot.Z) -- โคนเสาปักลงดิน 0.6 เหมือนตัวเดิม
+	local centerPos = base + Vector3.new(0, body.Size.Y / 2, 0)
+	-- ให้ด้านหน้าของหุ่น (LookVector ของ MeshPart = -Z) หันไปทาง want (ตู้ปั๊ม)
+	body.CFrame = CFrame.lookAt(centerPos, centerPos + want)
+
+	local m = Instance.new("Model")
+	m.Name = "Scarecrow"
+	body.Parent = m
+	m.PrimaryPart = body
+	-- ตั้ง Pivot ของ Model ที่โคนเสา และให้หน้าหุ่นอยู่ฝั่ง -LookVector ของ pivot (ตามที่ AnomalyManager & SceneryGhosts ใช้หมุน 180°)
+	body.PivotOffset = body.CFrame:ToObjectSpace(CFrame.lookAt(base, base - want))
+	m:SetAttribute("ImportedProp", true)
+	m:SetAttribute("ScarecrowVersion", 3)
+
+	-- เก็บหุ่นตัวเก่าและต้นแบบที่นำเข้าไว้ใน ArchivedPlaceholders
+	local arch = v2Archive()
+	if oldModel and oldModel ~= srcModel then
+		local prevOld = arch:FindFirstChild("Scarecrow_v1")
+		if prevOld then
+			prevOld:Destroy()
+		end
+		oldModel.Name = "Scarecrow_v1"
+		oldModel.Parent = arch
+	end
+	m.Parent = anomaly
+	-- บังคับอัปเดต WorldPivot/PivotOffset หลังเข้า Workspace
+	body.PivotOffset = body.CFrame:ToObjectSpace(CFrame.lookAt(base, base - want))
+
+	if srcModel.Parent == Workspace then
+		local prevImp = arch:FindFirstChild("ScarecrowV2_Imported")
+		if prevImp and prevImp ~= srcModel then
+			prevImp:Destroy()
+		end
+		srcModel.Name = "ScarecrowV2_Imported"
+		srcModel.Parent = arch
+	elseif srcModel.Parent == nil then
+		srcModel:Destroy()
+	end
+
+	return string.format("ok ScarecrowV2 at (%.2f, %.2f, %.2f) size=(%.2f, %.2f, %.2f)", base.X, base.Y, base.Z, body.Size.X, body.Size.Y, body.Size.Z)
+end
+
 return MapBuilder

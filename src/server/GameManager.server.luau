@@ -75,6 +75,14 @@ end
 -- บังคับเปลี่ยนแสงเป็นตอนเที่ยงคืนมืดหลอนเฉพาะตอนกด Play เข้าเกม! (พอออกจากโหมด Play แมพจะกลับไปสว่างให้ Dev ง่ายๆ)
 MapBuilder.SetNightLighting()
 
+-- อัปเกรดหุ่นไล่กาเป็น ScarecrowV2 อัตโนมัติ (ถ้าในฉากยังเป็นหุ่นเดิม หรือเพิ่งนำเข้า ScarecrowV2 มาใน Workspace)
+pcall(function()
+	local res = MapBuilder.SwapScarecrowV2()
+	if res and res ~= "already ScarecrowV2" then
+		print("🌾 [Server] SwapScarecrowV2:", res)
+	end
+end)
+
 -- ปิดเงาใบไม้/ทุ่งนา/ต้นไม้ขอบแมพ, ลบสำเนาเก่าใน ServerStorage, ลบป้ายข้อความลอย และปรับสีต้นข้าวไม่ให้สะท้อนไฟฉายสว่างเกินไป
 MapBuilder.OptimizeShadowsAndCleanup()
 MapBuilder.RemoveZoneLabels()

@@ -43,6 +43,7 @@ local FX = {
 	Scenery_Scarecrow = { focus = "scarecrow", tint = SCENERY_RED },
 	-- เงาหลังต้นไทรเป็นร่างมีกระดูก (ghost_shadow) แล้ว: rigged = โคลนตัวที่โผล่อยู่ (ท่าเดียวกัน) · ยังเป็นเงาเดิม (Part) = shadow
 	Scenery_Shadow = { focus = "rigged", tint = SCENERY_RED },
+	Scenery_HutShadow = { focus = "rigged", tint = SCENERY_RED },
 	-- ผีฉากแบบมีกระดูก (AnomalyManager.RIGGED_SCENERY): ตัวผีที่โผล่อยู่ส่งมาเป็น source
 	Scenery_Dancer = { focus = "rigged", tint = SCENERY_RED },
 	Scenery_MaeNak = { focus = "rigged", tint = SCENERY_RED },
@@ -131,7 +132,7 @@ grey.Parent = Lighting
 -- ---------------------------------------------------------------- เลือกตัวผีมาใส่จอ
 local function ghostModel(key: string?, focus: string, source: Instance?): (Model?, BasePart?, { Instance })
 	-- เงาหลังต้นไทรที่ยังเป็นเงาเดิม (Part ไม่มีกระดูก: ยังไม่ได้นำเข้า ghost_shadow) ใช้แบบเดิม
-	if key == "Scenery_Shadow" and focus == "rigged" and source and not source:FindFirstChildWhichIsA("Bone", true) then
+	if (key == "Scenery_Shadow" or key == "Scenery_HutShadow") and focus == "rigged" and source and not source:FindFirstChildWhichIsA("Bone", true) then
 		focus = "shadow"
 	end
 	local m = Instance.new("Model")

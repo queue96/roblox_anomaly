@@ -148,11 +148,12 @@ local KINDS: { [string]: Kind } = {
 	Krahang = { model = "Krahang", from = { 90, -30 }, to = { -95, -30 }, clip = "FlapFly", lift = 16, speed = 11, path = true, float = true },
 	Scarecrow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "" },
 	Shadow = { model = "", from = { 0, 0 }, to = { 0, 0 }, clip = "", rush = RUN, faint = FAINT },
+	HutShadow = { model = "ghost_shadow", from = { -33, -55 }, to = { -33, -55 }, clip = "ghost_idle", rush = RUN, faint = 0.72 },
 }
 -- ไม่สุ่ม Pret แล้ว (ผู้ใช้ 2026-11-12): เปรตเดินผ่านถนนซ้ำกับผีใหญ่ Big_Pret ทำให้งงกติกา (ปุ่ม admin ยังเรียกได้)
 -- ไม่สุ่ม Krasue / Krahang แล้ว (ผู้ใช้ 2026-11-15): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin (ปุ่มยังเรียกดูได้)
 -- ไม่สุ่ม Pop / MaeNak / Kuman / Child / Shroud แล้ว (ผู้ใช้ 2026-11-16): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin
-local KIND_LIST = { "Tani", "Dancer", "ShadowRun", "Scarecrow", "Shadow" }
+local KIND_LIST = { "Tani", "Dancer", "ShadowRun", "Scarecrow", "Shadow", "HutShadow" }
 
 local function rand(r: { number }): number
 	return r[1] + math.random() * (r[2] - r[1])
@@ -371,33 +372,43 @@ local function hide(fadeTime: number?)
 			TweenService:Create(d, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Volume = 0 }):Play()
 		end
 	end
+	if c.kind == "Scarecrow" then
+		-- ผีฉากหุ่นไล่กาจบ: คืนหุ่นตัวจริงเมื่อไฟไม่ได้ดับ
+		task.delay(t + 0.1, function()
+			if ReplicatedStorage:GetAttribute("PowerOn") ~= false then
+				player:SetAttribute("ScarecrowTest", "restore:" .. os.clock())
+			end
+		end)
+	end
 	task.delay(t + 0.15, function()
 		c.m:Destroy()
 	end)
 end
 
--- หุ่นไล่กา: ยืนครึ่งทางระหว่างที่เดิมกับตู้ปั๊ม ตาแดง พอหันไปเห็น = ไถลถอยหลังหายไปในทุ่ง
+-- หุ่นไล่กา: ยืนครึ่งทางระหว่างที่เดิมกับตู้ปั๊ม (ไม่มีตาเรืองแสง ผู้ใช้ 2026-11-18) พอหันไปเห็น = ไถลถอยหลังหายไปในทุ่ง
 local function showScarecrow(): Model?
 	local ap = Workspace:FindFirstChild("AnomalyProps")
 	local src = ap and ap:FindFirstChild("Scarecrow") :: Model?
 	if not src then
 		return nil
 	end
+	-- ซ่อนหุ่นตัวจริงไม่ให้มี 2 ตัวในฉากพร้อมกัน
+	player:SetAttribute("ScarecrowTest", "vanish:" .. os.clock())
 	local m = src:Clone()
 	for _, d in ipairs(m:GetDescendants()) do
-		if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("Script") or d:IsA("ProximityPrompt") then
+		if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("Script") or d:IsA("ProximityPrompt") or d:IsA("Light") then
 			d:Destroy()
 		elseif d:IsA("BasePart") then
 			d.Anchored = true
 			d.CanCollide = false
 			d.CanQuery = false
 			if string.find(d.Name, "Eye") then
-				d.Color = Color3.fromRGB(255, 20, 20)
-				d.Material = Enum.Material.Neon
+				d.Color = Color3.fromRGB(26, 22, 20)
+				d.Material = Enum.Material.SmoothPlastic
 			end
 		end
 	end
-	local from = src:GetPivot().Position
+	local from = Vector3.new(12.16, 0.01, -45.64)
 	local front = shopFront()
 	local p = from:Lerp(front, 0.2)
 	p = Vector3.new(p.X, groundAt(p.X, p.Z) + (from.Y - groundAt(from.X, from.Z)), p.Z)
@@ -446,6 +457,9 @@ local function showScarecrow(): Model?
 					current = nil
 				end
 				m:Destroy()
+				if ReplicatedStorage:GetAttribute("PowerOn") ~= false then
+					player:SetAttribute("ScarecrowTest", "restore:" .. os.clock())
+				end
 			end)
 		end
 	end)
@@ -748,6 +762,130 @@ local function attachShadowRush(m: Model)
 	if current and current.m == m then
 		current.conn = conn
 	end
+end
+
+-- เงาดำที่กระท่อมปลายนา (HutShadow, ผู้ใช้ 2026-11-19):
+--   ยืนอยู่นานที่หน้าเถียงนาร้างกลางทุ่ง (-33, -55) มองไกลๆ เห็นยืนจ้องมาทางร้านเฉยๆ ไม่วิ่งใส่ถ้าแค่ยืนมองไกลๆ
+--   แต่ถ้าผู้เล่นเดินเข้าไปใกล้ในระยะ HUT_TRIGGER_DIST (48 studs) และเปิดไฟฉายส่องไปที่ตัวมันต่อเนื่อง HUT_FLASH_TIME (0.45 วิ)
+--   มันจะวิ่งพุ่งเข้าชาร์จด้วยความเร็วสูง แล้ว Jumpscare เต็มหน้าทันที!
+local HUT_POS = Vector3.new(-33.0, 0, -55.0)
+local HUT_TRIGGER_DIST = 48 -- ระยะที่เดินเข้าไปใกล้เถียงนาแล้วส่องไฟฉายจะโดนพุ่งใส่ (จากหน้าร้านห่าง ~56 studs ต้องก้าวลงไปริมถนน/คันนา)
+local HUT_FLASH_CENTER = 0.36 -- รัศมีลำแสงไฟฉายกลางจอ
+local HUT_FLASH_TIME = 0.45 -- ส่องไฟฉายจี้ต่อเนื่องกี่วินาทีถึงเริ่มวิ่งพุ่งมา
+
+local function isFlashlightOn(): boolean
+	local char = player.Character
+	local tool = char and char:FindFirstChild("FrogFlashlight")
+	if not (tool and tool:IsA("Tool")) then
+		return false
+	end
+	local origin = Workspace:FindFirstChild("CameraFlashlightOrigin")
+	local beam = origin and origin:FindFirstChild("CameraBeamLight") :: SpotLight?
+	if beam then
+		return beam.Enabled
+	end
+	local bat = tool:GetAttribute("Battery")
+	return type(bat) ~= "number" or bat > 0
+end
+
+local function showHutShadow(): Model?
+	local feet = Vector3.new(HUT_POS.X, groundAt(HUT_POS.X, HUT_POS.Z), HUT_POS.Z)
+	local f = shopFront()
+	local look = Vector3.new(f.X - feet.X, 0, f.Z - feet.Z)
+	look = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, 1)
+
+	local rm: Model? = nil
+	if models and models:FindFirstChild("ghost_shadow") then
+		rm = spawnRigged("ghost_shadow")
+	end
+	if not rm then
+		local ap = Workspace:FindFirstChild("AnomalyProps")
+		local src = ap and ap:FindFirstChild("BanyanShadowAnomaly") :: Model?
+		if not src then
+			return nil
+		end
+		rm = src:Clone()
+		for _, d in ipairs(rm:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+			end
+		end
+	end
+	local m = rm :: Model
+	m:PivotTo(CFrame.lookAt(feet, feet + look))
+	m:SetAttribute("FocusBone", "head")
+	m:SetAttribute("Faint", KINDS.HutShadow.faint)
+	m:SetAttribute("NoStare", true) -- ไม่ใช้จ้องไกลๆ แล้วพุ่ง ต้องเดินเข้าไปส่องไฟฉายในระยะเท่านั้น
+	m.Name = "HutShadowLocal"
+	fade(m, 1, 0)
+	m.Parent = folder
+	fade(m, 0, 3)
+	if m:FindFirstChildWhichIsA("Bone", true) then
+		-- ใช้ท่ายืนตรงปกติ (ghost_idle) ไม่ใช้ shadow_stand ที่คอเอียงตัวห่อ
+		play(m, "ghost_idle")
+	end
+
+	local head: Bone? = nil
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("Bone") and d.Name == "head" then
+			head = d
+			break
+		end
+	end
+
+	local pos = feet
+	local flashHold = 0
+	local rushing, done, rushGo = false, false, 0
+	local r = KINDS.HutShadow.rush or RUN
+
+	local conn = RunService.Heartbeat:Connect(function(dt)
+		if done or not m.Parent then
+			return
+		end
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return
+		end
+		if not rushing then
+			-- หันหน้ามองตามผู้เล่นตลอดเวลาที่ยืนอยู่หน้ากระท่อม
+			local toPlayer = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+			if toPlayer.Magnitude > 0.1 then
+				m:PivotTo(CFrame.lookAt(pos, pos + toPlayer.Unit))
+			end
+			-- เช็กระยะห่าง + เปิดไฟฉายส่องตรงตัวผี
+			local dist = toPlayer.Magnitude
+			local targetPt = if head then head.WorldPosition else pos + Vector3.new(0, 4, 0)
+			if dist <= HUT_TRIGGER_DIST and isFlashlightOn() and inSight(targetPt, HUT_FLASH_CENTER) then
+				flashHold += dt
+				if flashHold >= HUT_FLASH_TIME then
+					rushing = true
+					rushGo = os.clock() + CONFIG.RushWindup
+					rushBegin("HutShadow", m, r)
+				end
+			else
+				flashHold = math.max(0, flashHold - dt * 1.5)
+			end
+			return
+		end
+		if os.clock() < rushGo then
+			return
+		end
+		local arrived: boolean
+		local dir: Vector3?
+		pos, dir, arrived = rushStep(pos, dt, os.clock() - rushGo)
+		local curFeet = Vector3.new(pos.X, groundAt(pos.X, pos.Z), pos.Z)
+		if dir then
+			m:PivotTo(CFrame.lookAt(curFeet, curFeet + dir))
+		end
+		if arrived then
+			done = true
+			rushScare("HutShadow", m)
+		end
+	end)
+	current = { kind = "HutShadow", m = m, conn = conn }
+	return m
 end
 
 -- จุดเดินออกมา (from) และจุดหยุด (to) ของผีตัวนี้ · frontSpot = จุดหน้าร้านที่ show() สุ่มไว้แล้ว (nil = ที่ประจำ)
@@ -1236,6 +1374,8 @@ local function spawnSpots(kind: string, def: Kind, frontSpot: { number }?): { Ve
 		local torso = src and src:FindFirstChild("ShadowTorso", true)
 		local p = if torso and torso:IsA("BasePart") then torso.Position elseif src and src:IsA("Model") then src:GetPivot().Position else nil
 		return if p then { Vector3.new(p.X, groundAt(p.X, p.Z), p.Z) } else {}
+	elseif kind == "HutShadow" then
+		return { Vector3.new(HUT_POS.X, groundAt(HUT_POS.X, HUT_POS.Z), HUT_POS.Z) }
 	elseif def.path or def.model == "" then
 		return {} -- ผีบินผ่าน/เดินผ่านไกลๆ (ไม่ได้สุ่มแล้ว): ไม่ต้องรอ
 	end
@@ -1375,21 +1515,25 @@ local function show(kind: string, natural: boolean?, canShowNow: (() -> boolean)
 		if m then
 			attachShadowRush(m)
 		end
+	elseif kind == "HutShadow" then
+		m = showHutShadow()
 	else
 		m = showRigged(kind, def, frontSpot, if def.roadRun then roadRunPath() else nil)
 	end
 	if not m then
 		return false
 	end
-	-- หุ่นไล่กาหนีเองตอนโดนมอง: ไม่ต้องให้พุ่งใส่หน้า
-	if kind ~= "Scarecrow" then
+	-- หุ่นไล่กาหนีเองตอนโดนมอง / เงากระท่อมต้องเดินเข้าไปเอาไฟฉายส่อง: ไม่ให้ SceneryGhostWatch จ้องไกลๆ แล้วพุ่งเอง
+	if kind ~= "Scarecrow" and kind ~= "HutShadow" then
 		showId += 1
 		m:SetAttribute("SceneryKind", kind)
 		m:SetAttribute("ShowId", showId)
 		CollectionService:AddTag(m, "SceneryGhost")
 	end
 	local mine = m
-	task.delay(rand(CONFIG.Stay), function()
+	-- เงาดำที่กระท่อมปลายนาอยู่นานเป็นพิเศษ (180-240 วิ) รอให้ผู้เล่นสังเกตเห็นแล้วเดินเอาไฟฉายไปส่องดู
+	local stayTime = if kind == "HutShadow" then rand({ 180, 240 }) else rand(CONFIG.Stay)
+	task.delay(stayTime, function()
 		if current and current.m == mine and not current.hunting then
 			hide()
 		end
@@ -1525,3 +1669,562 @@ RunService.Heartbeat:Connect(function()
 		clearSwarm()
 	end
 end)
+
+-- ================================================================ หุ่นไล่กาขยับเองเมื่อละสายตา (Weeping Angel) + ตอนไฟดับ (ผู้ใช้ 2026-11-18)
+-- 1. ตลอดคืนตอนไฟติด: ทุกๆ 28-55 วิ ถ้าผู้เล่นละสายตาจากจุดที่หุ่นยืนอยู่และจุดปลายทาง หุ่นไล่กาตัวจริง (AnomalyProps.Scarecrow)
+--    จะเปลี่ยนจุดไปยืนตามจุดต่างๆ รอบทุ่ง/ริมถนน/ข้างดงกล้วย/ข้างศาล หรือหายตัวไปชั่วคราว (ไม่มีตาเรืองแสง)
+-- 2. จังหวะที่ไฟดับ (PowerOn == false): หุ่นไล่กาตัวจริงกลางทุ่งจะหายตัวไปทันที
+-- 3. ระหว่างไฟดับ: สุ่มจังหวะที่ผู้เล่นหมุนกล้องหันหน้า (yaw เปลี่ยนเร็ว) ให้ไปจ๊ะเอ๋หุ่นไล่การะยะประชิดตรงหน้า
+--    พร้อมเสียง Jumpscare เบาๆ พอผู้เล่นหันมุมกล้องหลบไปทางอื่น หุ่นก็จะหายไปทันที
+do
+	local SoundService = game:GetService("SoundService")
+	local SOFT_SCARE_ID = "rbxassetid://105012119508747" -- Jumpscare_1 แบบเบาๆ
+	local SOFT_SCARE_VOL = 0.85
+
+	-- จุดที่หุ่นไล่กาย้ายไปยืนได้ตามภาพที่ผู้ใช้กำหนด (x, z) · "vanish" = หายตัวไปเลยชั่วคราว
+	-- ⚠️ ห้ามใช้ nil ใน array ของ Luau เพราะ `#ROAM_SPOTS` จะนับแค่ถึงตัวก่อน nil ทำให้ช่องหายตัวไม่ถูกสุ่ม!
+	local ROAM_SPOTS: { any } = {
+		{ 12.16, -45.64 }, -- 1) จุดที่ 1: แปลงนากลางทุ่ง (จุดเริ่มต้นเดิม)
+		{ -23.5, -51.0 }, -- 2) จุดที่ 2: แปลงนาถัดไปฝั่งขวา (หน้าเถียงนาร้าง)
+		{ 19.5, 4.5 }, -- 3) จุดที่ 3: ข้างเพิงฝั่งซ้าย (หน้าดงกล้วยตานี)
+		{ -31.0, 2.0 }, -- 4) จุดที่ 4: ลานหญ้าหน้าศาลพระภูมิ/โต๊ะม้าหินฝั่งขวา
+		"vanish", -- 5) หายตัวไปเลยชั่วคราว
+	}
+
+	local realScarecrow: Model? = nil
+	local homePivot: CFrame? = nil
+	local homeGroundOffset = 0
+	local baseTrans: { [BasePart]: number } = {}
+	local baseCollide: { [BasePart]: boolean } = {}
+	local realHidden = false
+	local currentSpotIdx = 1
+	local lastVisiblePivot: CFrame? = nil
+
+	local function initRealScarecrow(): Model?
+		if realScarecrow and realScarecrow.Parent and next(baseTrans) ~= nil then
+			return realScarecrow
+		end
+		local ap = Workspace:FindFirstChild("AnomalyProps")
+		local sc = ap and ap:FindFirstChild("Scarecrow") :: Model?
+		if not sc then
+			return nil
+		end
+		realScarecrow = sc
+		if not homePivot then
+			local piv = sc:GetPivot()
+			homePivot = piv
+			lastVisiblePivot = piv
+			homeGroundOffset = piv.Position.Y - groundAt(piv.Position.X, piv.Position.Z)
+		end
+		table.clear(baseTrans)
+		table.clear(baseCollide)
+		for _, d in ipairs(sc:GetDescendants()) do
+			if d:IsA("BasePart") then
+				-- ตัดตาเรืองแสงออกถาวร
+				if string.find(d.Name, "Eye") then
+					d.Color = Color3.fromRGB(26, 22, 20)
+					d.Material = Enum.Material.SmoothPlastic
+				end
+				baseTrans[d] = if d.Transparency < 1 then d.Transparency else 0
+				baseCollide[d] = d.CanCollide
+			elseif d:IsA("Light") then
+				d.Enabled = false
+			end
+		end
+		return sc
+	end
+
+	local function setRealVisible(vis: boolean)
+		local sc = initRealScarecrow()
+		if not sc then
+			return
+		end
+		realHidden = not vis
+		for _, d in ipairs(sc:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local t = baseTrans[d] or 0
+				d.Transparency = if vis then t else 1
+				d.CanCollide = if vis then (baseCollide[d] or false) else false
+			end
+		end
+		-- ย้ายลงใต้ดินตอนซ่อน เพื่อกัน SurfaceAppearance / เงา / การชนค้างในฉาก
+		if not vis then
+			local piv = sc:GetPivot()
+			if piv.Position.Y > -100 then
+				lastVisiblePivot = piv
+				sc:PivotTo(piv - Vector3.new(0, 300, 0))
+			end
+		elseif lastVisiblePivot and sc:GetPivot().Position.Y <= -100 then
+			sc:PivotTo(lastVisiblePivot)
+		end
+	end
+
+	local function anyPlayerLookingAt(p: Vector3): boolean
+		if spotSeen(p) then
+			return true
+		end
+		-- เช็กมุมมองของผู้เล่นคนอื่นในห้องด้วย (ห้ามย้ายถ้ามีเพื่อนคนไหนหันหน้าไปทางจุดนั้นอยู่)
+		for _, other in ipairs(Players:GetPlayers()) do
+			if other ~= player and other.Character then
+				local head = (other.Character:FindFirstChild("Head") or other.Character:FindFirstChild("HumanoidRootPart")) :: BasePart?
+				if head then
+					local toTarget = p - head.Position
+					local dist = toTarget.Magnitude
+					if dist <= UNSEEN_DIST and dist > 0.1 then
+						local look = head.CFrame.LookVector
+						-- มุมมองด้านหน้า ~125 องศา (dot > 0.15)
+						if (toTarget / dist):Dot(look) > 0.15 then
+							return true
+						end
+					end
+				end
+			end
+		end
+		return false
+	end
+
+	local function scarecrowBoxSeen(pos: Vector3): boolean
+		return anyPlayerLookingAt(pos + Vector3.new(0, 1.0, 0))
+			or anyPlayerLookingAt(pos + Vector3.new(0, 3.2, 0))
+			or anyPlayerLookingAt(pos + Vector3.new(0, 5.2, 0))
+	end
+
+	local function currentRealGroundPos(): Vector3
+		local coord = ROAM_SPOTS[currentSpotIdx]
+		if type(coord) == "table" then
+			return Vector3.new(coord[1], groundAt(coord[1], coord[2]), coord[2])
+		end
+		if lastVisiblePivot then
+			return lastVisiblePivot.Position
+		end
+		if homePivot then
+			return homePivot.Position
+		end
+		return Vector3.new(12.16, 0, -45.64)
+	end
+
+	local function placeRealAtSpot(idx: number)
+		local sc = initRealScarecrow()
+		if not sc or not homePivot then
+			return
+		end
+		local coord = ROAM_SPOTS[idx]
+		currentSpotIdx = idx
+		if type(coord) ~= "table" then
+			setRealVisible(false)
+			return
+		end
+		local x, z = coord[1], coord[2]
+		local y = groundAt(x, z) + homeGroundOffset
+		local p = Vector3.new(x, y, z)
+		local front = shopFront()
+		local targetCF = CFrame.lookAt(p, Vector3.new(front.X, y, front.Z)) * CFrame.Angles(0, math.pi, 0)
+		lastVisiblePivot = targetCF
+		-- หน้าหุ่นอยู่ฝั่ง -LookVector ของ pivot จึงหมุน 180° ให้หันหน้าเข้าหาร้านเสมอ
+		sc:PivotTo(targetCF)
+		setRealVisible(true)
+	end
+
+	-- ---------------------------------------------------------------- ตอนไฟดับ: หันหน้าจ๊ะเอ๋หุ่นไล่การะยะประชิด + เสียงเบาๆ หันหลบแล้วหาย
+	local closeModel: Model? = nil
+	local closeConn: RBXScriptConnection? = nil
+	local nextOutagePopAt = 0
+
+	local function clearCloseScarecrow(restoreReal: boolean?)
+		local hadModel = closeModel ~= nil
+		if closeConn then
+			closeConn:Disconnect()
+			closeConn = nil
+		end
+		if closeModel then
+			closeModel:Destroy()
+			closeModel = nil
+		end
+		-- ถ้าไม่ได้ไฟดับอยู่ (เช่น กดเทสต์ตอนไฟติด) พอหุ่นที่ตามหลังหายไปแล้ว ให้คืนหุ่นตัวจริงกลับเข้าจุดเดิมเมื่อไม่ได้มอง
+		if hadModel and restoreReal and ReplicatedStorage:GetAttribute("PowerOn") ~= false then
+			task.spawn(function()
+				local sc = initRealScarecrow()
+				if not sc or not homePivot then
+					return
+				end
+				local idx = if type(ROAM_SPOTS[currentSpotIdx]) == "table" then currentSpotIdx else 1
+				local c = ROAM_SPOTS[idx]
+				local checkPos = if type(c) == "table" then Vector3.new(c[1], groundAt(c[1], c[2]), c[2]) else homePivot.Position
+				while scarecrowBoxSeen(checkPos) do
+					task.wait(0.5)
+					if ReplicatedStorage:GetAttribute("PowerOn") == false or closeModel ~= nil then
+						return
+					end
+				end
+				placeRealAtSpot(idx)
+			end)
+		end
+	end
+
+	local function playSoftJumpscareSound()
+		local s = Instance.new("Sound")
+		s.Name = "ScarecrowCloseSting"
+		s.SoundId = SOFT_SCARE_ID
+		s.Volume = SOFT_SCARE_VOL
+		local sfx = SoundService:FindFirstChild("SFX")
+		if sfx and sfx:IsA("SoundGroup") then
+			s.SoundGroup = sfx
+		end
+		s.Parent = SoundService
+		s:Play()
+		s.Ended:Once(function()
+			s:Destroy()
+		end)
+		task.delay(6, function()
+			if s.Parent then
+				s:Destroy()
+			end
+		end)
+	end
+
+	local function spawnCloseScarecrow(forcePowerOff: boolean?): boolean
+		local sc = initRealScarecrow()
+		local cam = Workspace.CurrentCamera
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not (sc and cam and root) then
+			return false
+		end
+		-- วางดักไว้ด้านหลังกล้อง (~150-210 องศาจากทิศที่มองอยู่) ระยะประชิด 4.5 studs
+		-- เพื่อให้ผู้เล่นต้องหันหลัง/หันข้างมาเจอด้วยตัวเอง ไม่ใช่เสกโผล่ปุ๊บปั๊บต่อหน้า
+		local look = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+		if look.Magnitude < 0.05 then
+			return false
+		end
+		look = look.Unit
+		local dist = 4.5
+		local rayP = RaycastParams.new()
+		rayP.FilterType = Enum.RaycastFilterType.Exclude
+		rayP.FilterDescendantsInstances = { player.Character :: Instance, folder, sc }
+
+		local chosenDir: Vector3? = nil
+		local chosenAngle = 0
+		-- ลองสุ่มมุมด้านหลังผู้เล่น (180° ± 35° หรือเยื้องหลังซ้าย/ขวา) ที่ไม่มีกำแพงกั้นและอยู่นอกจอแน่นอน
+		local baseAngles = { 180, 155, -155, 130, -130 }
+		local startShift = math.random(0, #baseAngles - 1)
+		for i = 1, #baseAngles do
+			local deg = baseAngles[((i + startShift - 1) % #baseAngles) + 1] + (math.random() - 0.5) * 16
+			local rad = math.rad(deg)
+			local dir = CFrame.Angles(0, rad, 0):VectorToWorldSpace(look)
+			local hit = Workspace:Raycast(root.Position + Vector3.new(0, 1.5, 0), dir * (dist + 0.8), rayP)
+			if not (hit and hit.Instance.CanCollide and hit.Instance.Transparency < 0.5) then
+				local testPos = root.Position + dir * dist + Vector3.new(0, 2.5, 0)
+				local _, onScreen = cam:WorldToViewportPoint(testPos)
+				if not onScreen then
+					chosenDir = dir
+					chosenAngle = math.atan2(dir.X, dir.Z)
+					break
+				end
+			end
+		end
+		if not chosenDir then
+			return false
+		end
+		local targetXZ = root.Position + chosenDir * dist
+
+		clearCloseScarecrow()
+		-- ตอนหุ่นไล่กาเริ่มแอบตามหลังผู้เล่น หุ่นไล่กาตัวหลักในทุ่งต้องหายไปทันที (ไม่ให้มีหุ่น 2 ตัวในฉากพร้อมกัน)
+		setRealVisible(false)
+		if current and current.kind == "Scarecrow" then
+			hide(0.2)
+		end
+		local m = sc:Clone()
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("Script") or d:IsA("ProximityPrompt") or d:IsA("Light") then
+				d:Destroy()
+			elseif d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+				if string.find(d.Name, "Eye") then
+					d.Color = Color3.fromRGB(26, 22, 20)
+					d.Material = Enum.Material.SmoothPlastic
+				end
+				d.Transparency = baseTrans[d] or 0
+			end
+		end
+		local y = groundAt(targetXZ.X, targetXZ.Z) + homeGroundOffset
+		local pos = Vector3.new(targetXZ.X, y, targetXZ.Z)
+		-- หันหน้าจ้องแผ่นหลังผู้เล่น รอให้ผู้เล่นหันมาจ๊ะเอ๋เอง
+		m:PivotTo(CFrame.lookAt(pos, Vector3.new(root.Position.X, y, root.Position.Z)) * CFrame.Angles(0, math.pi, 0))
+		m.Name = "ScarecrowOutageClose"
+		m.Parent = folder
+		closeModel = m
+
+		local seenOnce = false
+		local stungOnce = false
+		local seenDuration = 0
+		local lookAwayTime = 0
+		local bornAt = os.clock()
+		local stalkAngle = chosenAngle -- มุมข้างหลังที่หุ่นแอบเดินตามเกาะติดตอนผู้เล่นยังไม่หันมามอง
+		local lastRootXZ = Vector3.new(root.Position.X, 0, root.Position.Z)
+
+		closeConn = RunService.Heartbeat:Connect(function(dt)
+			if not closeModel or not closeModel.Parent then
+				clearCloseScarecrow()
+				return
+			end
+			-- ถ้าไฟกลับมา หรือเข้าคัทซีน หรืออยู่ในหน้าโหลด/ยังไม่เปิดร้าน ให้หายทันที (ยกเว้นกดเทสต์จากปุ่ม Admin)
+			local inCut = Lighting:GetAttribute("Cutscene") == true or ReplicatedStorage:GetAttribute("CutsceneRunning") == true
+			local shopOpen = remotes:GetAttribute("ShopOpen") == true
+			if (not forcePowerOff and (ReplicatedStorage:GetAttribute("PowerOn") ~= false or not shopOpen)) or inCut then
+				clearCloseScarecrow()
+				return
+			end
+			local c = Workspace.CurrentCamera
+			local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not (c and r) then
+				return
+			end
+
+			-- ตราบใดที่ผู้เล่นยังไม่หันมาเห็น: ถ้าผู้เล่นเดินเคลื่อนที่ ให้หุ่นแอบขยับตามข้างหลังผู้เล่นเงียบๆ (ระยะ 4.5 studs)
+			-- แต่จะไม่หมุนหนีตามการหันเมาส์ เพื่อให้เวลาผู้เล่นหันหลังกลับมาจ๊ะเอ๋ได้ทันทีแม้กำลังเดินอยู่!
+			if not seenOnce then
+				local curRootXZ = Vector3.new(r.Position.X, 0, r.Position.Z)
+				if (curRootXZ - lastRootXZ).Magnitude > 0.02 then
+					lastRootXZ = curRootXZ
+					-- เช็กว่าตำแหน่งที่จะขยับตามไป এখনওอยู่นอกจอและไม่ติดกำแพง
+					local stalkDir = Vector3.new(math.sin(stalkAngle), 0, math.cos(stalkAngle))
+					local nextXZ = curRootXZ + stalkDir * dist
+					local testScreen, onScr = c:WorldToViewportPoint(Vector3.new(nextXZ.X, r.Position.Y + 2.2, nextXZ.Z))
+					if not (onScr and testScreen.Z > 0) then
+						local hit = Workspace:Raycast(r.Position + Vector3.new(0, 1.5, 0), stalkDir * (dist + 0.6), rayP)
+						if not (hit and hit.Instance.CanCollide and hit.Instance.Transparency < 0.5) then
+							local ny = groundAt(nextXZ.X, nextXZ.Z) + homeGroundOffset
+							pos = Vector3.new(nextXZ.X, ny, nextXZ.Z)
+							closeModel:PivotTo(CFrame.lookAt(pos, Vector3.new(r.Position.X, ny, r.Position.Z)) * CFrame.Angles(0, math.pi, 0))
+						end
+					end
+				else
+					-- ผู้เล่นยืนนิ่งแต่หมุนตัว: หันหน้าหุ่นจ้องผู้เล่นเสมอ
+					closeModel:PivotTo(CFrame.lookAt(pos, Vector3.new(r.Position.X, pos.Y, r.Position.Z)) * CFrame.Angles(0, math.pi, 0))
+				end
+			end
+
+			local cf, size = closeModel:GetBoundingBox()
+			local chest = cf.Position + Vector3.new(0, size.Y * 0.15, 0)
+			local head = cf.Position + Vector3.new(0, size.Y * 0.35, 0)
+			local sp1, on1 = c:WorldToViewportPoint(chest)
+			local sp2, on2 = c:WorldToViewportPoint(head)
+			local vs = c.ViewportSize
+			local inView = false
+			local wellSeen = false
+			for _, pair in ipairs({ { sp1, on1 }, { sp2, on2 } }) do
+				local sp, on = pair[1], pair[2]
+				if on and sp.Z > 0 then
+					local dx = math.abs(sp.X - vs.X / 2) / (vs.X / 2)
+					local dy = math.abs(sp.Y - vs.Y / 2) / (vs.Y / 2)
+					if dx <= 0.85 and dy <= 0.90 then
+						inView = true
+					end
+					-- เข้ามาในกรอบสายตาแล้วถึงดังเสียงจั๊มสแกร์เบาๆ และหยุดขยับตามทันที
+					if dx <= 0.65 and dy <= 0.75 then
+						wellSeen = true
+					end
+				end
+			end
+			if inView and not seenOnce then
+				-- ทันทีที่ขอบตัวหุ่นเริ่มเข้าจอ ให้หยุดขยับตามผู้เล่นทันที (ยืนแข็งทื่อรอจ๊ะเอ๋)
+				seenOnce = true
+			end
+			if wellSeen and not stungOnce then
+				stungOnce = true
+				seenOnce = true
+				playSoftJumpscareSound()
+			end
+			if inView then
+				if stungOnce then
+					seenDuration += dt
+					lookAwayTime = 0
+				end
+			elseif stungOnce and seenDuration >= 0.10 then
+				lookAwayTime += dt
+				-- พอหันเจอแล้วสะบัดมุมกล้องหลบพ้นจอปุ๊บ หายไปทันที
+				if lookAwayTime >= 0.08 then
+					clearCloseScarecrow(true)
+				end
+			elseif not stungOnce and os.clock() - bornAt > 25 then
+				-- ตามหลังมา 25 วิแล้วยังไม่หันมาเจอ ก็สลายไปเงียบๆ รอรอบหน้า
+				clearCloseScarecrow(true)
+			end
+		end)
+		return true
+	end
+
+	-- ซ่อนหุ่นตัวจริงทันทีที่ไฟดับ และสุ่มวางหุ่นดักข้างหลังผู้เล่นเงียบๆ รอให้หันไปเจอเอง
+	-- (ผู้ใช้ 2026-11-19: ตอนไฟดับตอนเริ่มเกมยังไม่ต้องหลอก/หุ่นยังไม่ต้องหาย ให้รอจนสตาร์ทเครื่องปั่นไฟติดครั้งแรกก่อน)
+	local wasPowerOff = false
+	local powerEverRestored = false
+	local lastShopState = false
+	local movesThisNight = 0
+	local MAX_MOVES_PER_NIGHT = 2
+
+	RunService.Heartbeat:Connect(function(_dt)
+		local powerOff = ReplicatedStorage:GetAttribute("PowerOn") == false
+		local shopOpen = remotes:GetAttribute("ShopOpen") == true
+		local inCutscene = Lighting:GetAttribute("Cutscene") == true or ReplicatedStorage:GetAttribute("CutsceneRunning") == true
+		local testMode = ReplicatedStorage:GetAttribute("TestMode") == true
+
+		-- เริ่มคืนใหม่: รีเซ็ตจำนวนครั้งที่ย้าย และสถานะไฟติดครั้งแรกของคืน
+		if shopOpen and not lastShopState then
+			lastShopState = true
+			powerEverRestored = not powerOff
+			movesThisNight = 0
+			wasPowerOff = false
+			clearCloseScarecrow()
+			placeRealAtSpot(1)
+		elseif not shopOpen and lastShopState then
+			lastShopState = false
+			powerEverRestored = false
+			movesThisNight = 0
+			wasPowerOff = false
+			clearCloseScarecrow()
+			placeRealAtSpot(1)
+		end
+
+		if shopOpen and not powerOff and not powerEverRestored then
+			powerEverRestored = true
+		end
+
+		-- ไฟดับจริงในเกม = ต้องเปิดร้านแล้ว + ผ่านการปั่นไฟติดตอนเริ่มเกมมาแล้ว (powerEverRestored) + ไม่อยู่ในคัทซีน
+		local activeOutage = powerOff and shopOpen and powerEverRestored and not inCutscene
+
+		if activeOutage and not wasPowerOff then
+			wasPowerOff = true
+			-- จังหวะที่ไฟดับระหว่างคืน: หุ่นไล่กาหายตัวไปเมื่อไม่มีใครมอง
+			task.spawn(function()
+				while ReplicatedStorage:GetAttribute("PowerOn") == false and not realHidden and scarecrowBoxSeen(currentRealGroundPos()) do
+					task.wait(0.25)
+				end
+				if ReplicatedStorage:GetAttribute("PowerOn") == false then
+					setRealVisible(false)
+				end
+			end)
+			if current and current.kind == "Scarecrow" then
+				hide(0.2)
+			end
+			-- รอ 4-9 วิหลังไฟดับถึงเริ่มสุ่มแอบมายืนดักข้างหลัง
+			nextOutagePopAt = os.clock() + rand({ 4, 9 })
+		elseif not activeOutage and wasPowerOff then
+			wasPowerOff = false
+			clearCloseScarecrow()
+			-- ไฟกลับมา: รอจังหวะที่ไม่มีใครมองจุดเดิม แล้วคืนหุ่นกลับมาที่เสากลางทุ่ง
+			if not powerOff then
+				task.spawn(function()
+					local sc = initRealScarecrow()
+					if not sc or not homePivot then
+						return
+					end
+					while scarecrowBoxSeen(homePivot.Position) do
+						task.wait(0.5)
+						if ReplicatedStorage:GetAttribute("PowerOn") == false then
+							return
+						end
+					end
+					placeRealAtSpot(1)
+				end)
+			end
+		end
+
+		-- ตอนไฟดับ (เฉพาะหลังปั่นไฟรอบแรกติดแล้ว): ซ่อนหุ่นตัวจริงเมื่อไม่มีใครมอง และสุ่มเอาหุ่นไปยืนดักข้างหลังเงียบๆ
+		if activeOutage then
+			if not realHidden and not scarecrowBoxSeen(currentRealGroundPos()) then
+				setRealVisible(false)
+			end
+			local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			local praying = player:GetAttribute("Praying") == true
+			if not testMode and hum and hum.Health > 0 and not praying and not closeModel and os.clock() >= nextOutagePopAt then
+				if math.random() < 0.55 and spawnCloseScarecrow() then
+					-- โผล่ดักข้างหลังแล้ว รอผู้เล่นหันมาเจอ (หรือหมดเวลา 25 วิ) แล้วเว้น 16-30 วิ
+					nextOutagePopAt = os.clock() + rand({ 16, 30 })
+				else
+					nextOutagePopAt = os.clock() + rand({ 4, 8 })
+				end
+			end
+		end
+	end)
+
+	-- ลูปย้ายจุดเมื่อละสายตา (ผู้ใช้ 2026-11-19):
+	--   1. ครึ่งแรกของเกม (NightProgress < 0.5) หุ่นไล่กาอยู่ที่เดิมตลอด
+	--   2. ย้ายได้เฉพาะตอนไม่มีใครมอง (ทั้งจุดปัจจุบันและจุดที่จะไป)
+	--   3. 1 เกม (1 คืน) ย้ายได้มากสุด 2 ครั้ง (MAX_MOVES_PER_NIGHT = 2)
+	task.spawn(function()
+		task.wait(3)
+		initRealScarecrow()
+		while true do
+			task.wait(rand({ 65, 110 }))
+			local powerOff = ReplicatedStorage:GetAttribute("PowerOn") == false
+			local shopOpen = remotes:GetAttribute("ShopOpen") == true
+			local testMode = ReplicatedStorage:GetAttribute("TestMode") == true
+			local inCutscene = Lighting:GetAttribute("Cutscene") == true or ReplicatedStorage:GetAttribute("CutsceneRunning") == true
+			local progress = (remotes:GetAttribute("NightProgress") :: number?) or 0
+
+			if shopOpen and not powerOff and not testMode and not inCutscene and progress >= 0.5 and movesThisNight < MAX_MOVES_PER_NIGHT and not (current and current.kind == "Scarecrow") then
+				local sc = initRealScarecrow()
+				if sc then
+					-- รอจนไม่มีใครมองตำแหน่งปัจจุบันของหุ่นเลย
+					local t0 = os.clock()
+					while not realHidden and scarecrowBoxSeen(currentRealGroundPos()) and os.clock() - t0 < 40 do
+						task.wait(0.4)
+					end
+					if ReplicatedStorage:GetAttribute("PowerOn") ~= false and movesThisNight < MAX_MOVES_PER_NIGHT and (realHidden or not scarecrowBoxSeen(currentRealGroundPos())) then
+						-- เลือกจุดใหม่ที่ไม่ซ้ำจุดเดิม และไม่มีใครหันมองจุดนั้นอยู่
+						local cands: { number } = {}
+						for i = 1, #ROAM_SPOTS do
+							if i ~= currentSpotIdx then
+								local c = ROAM_SPOTS[i]
+								if type(c) ~= "table" then
+									table.insert(cands, i) -- หายตัวไปเลย ("vanish")
+								else
+									local p = Vector3.new(c[1], groundAt(c[1], c[2]), c[2])
+									if not scarecrowBoxSeen(p) then
+										table.insert(cands, i)
+									end
+								end
+							end
+						end
+						if #cands > 0 then
+							local pickIdx = cands[math.random(#cands)]
+							-- เช็กซ้ำอีกรอบก่อนย้ายจริงว่าไม่มีใครหันมามองจุดเดิมหรือจุดใหม่ในเสี้ยววินาทีสุดท้าย
+							local dst = ROAM_SPOTS[pickIdx]
+							local dstSeen = if type(dst) == "table" then scarecrowBoxSeen(Vector3.new(dst[1], groundAt(dst[1], dst[2]), dst[2])) else false
+							if (realHidden or not scarecrowBoxSeen(currentRealGroundPos())) and not dstSeen then
+								placeRealAtSpot(pickIdx)
+								movesThisNight += 1
+							end
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	-- ปุ่มทดสอบจาก AdminPanel หรือเรียกผ่าน attribute ScarecrowTest ("close" / "move" / "vanish" / "home")
+	player:GetAttributeChangedSignal("ScarecrowTest"):Connect(function()
+		local v = player:GetAttribute("ScarecrowTest")
+		local cmd = if type(v) == "string" then string.match(v, "^(%w+)") else nil
+		if cmd == "close" then
+			spawnCloseScarecrow(true)
+		elseif cmd == "move" then
+			local nextIdx = (currentSpotIdx % #ROAM_SPOTS) + 1
+			placeRealAtSpot(nextIdx)
+		elseif cmd == "vanish" then
+			clearCloseScarecrow()
+			if current and current.kind == "Scarecrow" then
+				hide(0.2)
+			end
+			setRealVisible(false)
+		elseif cmd == "home" then
+			clearCloseScarecrow()
+			placeRealAtSpot(1)
+		elseif cmd == "restore" then
+			local idx = if type(ROAM_SPOTS[currentSpotIdx]) == "table" then currentSpotIdx else 1
+			placeRealAtSpot(idx)
+		end
+	end)
+end
