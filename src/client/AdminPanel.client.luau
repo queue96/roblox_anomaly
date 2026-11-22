@@ -370,6 +370,8 @@ local function start()
 			-- ผีฉากเกิดบนเครื่องตัวเอง (client/SceneryGhosts) ไม่ผ่านเซิร์ฟเวอร์
 			if type(c) == "string" and string.sub(c, 1, 8) == "scenery:" then
 				Players.LocalPlayer:SetAttribute("SceneryTest", string.sub(c, 9) .. ":" .. os.clock())
+			elseif c == "scarecrow:move" or c == "scarecrow:home" then
+				remote:FireServer(c) -- ย้ายจุดหุ่นตัวจริงที่ server (server/ScarecrowRoam) ทุกคนเห็นเหมือนกัน
 			elseif type(c) == "string" and string.sub(c, 1, 10) == "scarecrow:" then
 				Players.LocalPlayer:SetAttribute("ScarecrowTest", string.sub(c, 11) .. ":" .. os.clock())
 			else
@@ -471,23 +473,24 @@ local function start()
 	-- ================================================================ แท็บ: อีเวนต์
 	g = section("event", "ขาจรบนถนน", "ปกติเกิดเองคืนละ 1 ครั้ง · ปุ่มนี้เรียกได้ตลอด")
 	button(g, "🏍️ เด็กแว้น / รถซิ่ง", "racer")
-	g = section("event", "ผีใหญ่บุกประชิด", "วิธีรอด: ดับไฟที่สะพานไฟ + นั่งยอง [C]")
+	g = section("event", "ผีใหญ่บุกประชิด", "วิธีรอด: ปิดแผงร้าน + ดับไฟที่สะพานไฟ")
 	button(g, "🔴 แสงไฟผีกระสือ", "big:Krasue")
 	button(g, "🧍 เปรตเดินผ่าน", "big:Pret")
-	button(g, "✊ ปอบเคาะแผง", "big:Pop")
 	g = section("event", "ไม่ใช้แล้ว", "ตัดออกจากเกมแล้ว เก็บปุ่มไว้ดูเฉยๆ")
 	button(g, "🔊 รถแห่ / รถแดนซ์", "party")
 	button(g, "🥁 ขบวนแห่นาค", "parade")
 	button(g, "⚰️ ขบวนแห่ศพ", "big:Funeral")
+	button(g, "✊ ปอบเคาะแผง", "big:Pop")
 
 	-- ================================================================ แท็บ: ผีฉาก
-	g = section("scenery", "เรียกผีฉาก", "เห็นเฉพาะเครื่องตัวเอง · จ้องค้าง 2.5 วิ = วิ่ง/คลานพุ่งเข้ามาหลอก")
+	g = section("scenery", "เรียกผีฉาก", "เห็นเฉพาะเครื่องตัวเอง · จ้องค้าง 1.5 วิ = วิ่ง/คลานพุ่งเข้ามาหลอก")
 	button(g, "ตานีหลังกอกล้วย", "scenery:Tani")
 	button(g, "หุ่นไล่กาใกล้ร้าน", "scenery:Scarecrow")
 	button(g, "เงาหลังต้นไทร", "scenery:Shadow")
 	button(g, "เงากระท่อมปลายนา", "scenery:HutShadow")
 	button(g, "นางรำโคนต้นไทร", "scenery:Dancer")
 	button(g, "เงาดำวิ่งตัดถนน", "scenery:ShadowRun")
+	button(g, "กุมารทองข้างศาล", "scenery:Kuman")
 	g = section("scenery", "", nil, 1)
 	button(g, "ซ่อนผีฉากที่โผล่อยู่", "scenery:hide")
 	g = section("scenery", "หุ่นไล่กา (Weeping Angel & ตอนไฟดับ)", "ย้ายจุดอัตโนมัติเมื่อละสายตา · ไฟดับหายตัว + สุ่มไปดักหลังผู้เล่น รอให้หันไปเจอเอง")
@@ -497,7 +500,6 @@ local function start()
 	button(g, "🏠 คืนหุ่นกลับเสากลางทุ่ง", "scarecrow:home")
 	g = section("scenery", "ไม่ใช้แล้ว", "ตัดออกจากเกมแล้ว เก็บปุ่มไว้ดูเฉยๆ")
 	button(g, "แม่นาคริมคันนา", "scenery:MaeNak")
-	button(g, "กุมารทองข้างศาล", "scenery:Kuman")
 	button(g, "ผีเด็กฝั่งตรงข้าม", "scenery:Child")
 	button(g, "ศพห่อผ้ากลางทุ่ง", "scenery:Shroud")
 	button(g, "กระสือเหนือทุ่งนา", "scenery:Krasue")

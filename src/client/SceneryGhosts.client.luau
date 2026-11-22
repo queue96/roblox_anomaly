@@ -51,7 +51,7 @@ local CONFIG = {
 	WatchTransparency = 0,
 	WatchFadeOut = 3, -- ยืนมองครบแล้วค่อยๆ จางหายนานเท่านี้ (วินาที)
 	-- จ้องค้าง = วิ่ง/คลานพุ่งเข้าหาเร็วเกินคน แล้วผีหลอกเต็มหน้า (ผู้ใช้ 2026-11-15) เฉพาะผีที่มี rush ใน KINDS
-	StareTime = 2.5, -- ผีอยู่กลางจอต่อเนื่องกี่วินาที (เท่า SceneryGhostWatch STARE)
+	StareTime = 1.5, -- (2.5 -> 1.5 ผู้ใช้ 2026-11-22) ผีอยู่กลางจอต่อเนื่องกี่วินาที (เท่า SceneryGhostWatch STARE)
 	StareCenter = 0.22, -- ห่างกลางจอไม่เกินสัดส่วนนี้ = กำลังจ้อง
 	StareGrace = 0.4, -- ละสายตาสั้นๆ ไม่เกินนี้ ยังนับจ้องต่อ
 	RushWindup = 0.2, -- หยุดนิ่งหันมามองก่อนพุ่ง (วินาที)
@@ -59,6 +59,7 @@ local CONFIG = {
 	RushReach = 4, -- ถึงตัวในระยะนี้ = ผีหลอก
 	RushMax = 3, -- พุ่งนานสุดกี่วินาที แล้วหลอกเลย
 	GlowColor = Color3.fromRGB(185, 205, 255),
+	Glow = false, -- แสงเรืองรอบตัวผีฉาก (addGlow): ปิดทุกตัว ผู้ใช้ 2026-11-22 (เปิดกลับ = true; noGlow ต่อตัวยังใช้ได้)
 	SwarmCount = 14, -- ศพห่อผ้าตอนไฟดับ
 	SwarmRadius = { 24, 72 },
 }
@@ -71,6 +72,10 @@ type Kind = {
 	to: { number },
 	clip: string,
 	clipSpeed: number?, -- ความเร็วเล่นท่าตอนหยุด (ไม่ใส่ = 1)
+	noFace: boolean?, -- ไม่หันตัวตามผู้เล่นตอนยืนมอง (ไม่มีคอหันตามด้วย) เช่น นางรำที่รำอยู่ หันแล้วท่าเพี้ยน
+	lookOnly: boolean?, -- ตัวไม่หันตามผู้เล่น มีแต่คอ/หัวบิดมอง (attribute LookAtCamera -> client/GhostAnimRunner)
+	armsDown: number?, -- แขนห้อยข้างตัว 0..1 (attribute ArmsDown -> client/GhostAnimRunner) ใช้คู่กับ stillBones ที่ล็อกแขน
+	stillBones: string?, -- กระดูกที่ล็อกท่าพัก ไม่เล่นตามท่า (attribute StillBones, คั่นด้วย , ) เช่น ขาในผ้าซิ่น
 	moveClip: string?,
 	moveClipSpeed: number?, -- ความเร็วเล่นท่าตอนเคลื่อน (ท่าเดิน mocap เร็วกว่าที่ผีเคลื่อนจริง: ลดลงกันเท้าไถล)
 	lift: number?,
@@ -88,7 +93,7 @@ type Kind = {
 	hop: { height: number, rate: number }?, -- กระโดดดึ๋งๆ ตอนเคลื่อน (สูง studs, ครั้งต่อวินาที)
 	float: boolean?, -- ลอย (shared/GhostFloat): ส่ายซ้ายขวา ขึ้นลง เอียงตัว พุ่งเป็นพักๆ เร็วขึ้นตามความดุของรอบ
 	-- จ้องค้าง = พุ่งเข้าหา (CONFIG.Rush*): clip = ท่าตอนพุ่ง (กระดูกชื่อเดียวกันทุกตัว: ยืมท่าข้ามผีได้ เช่น Pop_Crawl), speed = ความเร็วเล่นท่า
-	rush: { clip: string, speed: number }?,
+	rush: { clip: string, speed: number, float: boolean? }?, -- float = ลอยพุ่ง/ลอยไล่ (ผีชุดยาวที่ขาอยู่ในผ้า เช่น นางรำ v2)
 	pickByView: boolean?, -- เลือกระหว่างที่ประจำกับจุดหน้าร้าน (front) ตามมุมมอง: จุดที่ไม่มีใครมองและอยู่ค่อนไปทางหลังเรา
 	roadRun: boolean?, -- วิ่งไปตามถนนผ่านหน้าร้าน ทางเดียวกับรถลูกค้า (roadRunPath)
 	noGlow: boolean?, -- ไม่มีแสงเรืองรอบตัว (addGlow) ปอบวิ่งถนน: ผู้ใช้ 2026-11-15 ให้เอาแสงหน้าปอบออก
@@ -102,18 +107,36 @@ local FAINT = 0.45 -- ผีฉากตัวจางๆ (0 = ทึบ, 1 = �
 local KINDS: { [string]: Kind } = {
 	-- ตานี: เดินลากตัวออกจากดงกล้วย (tani_walk = Zombie Walk เล่นช้าลงให้เท้าไม่ไถล) ผู้ใช้ 2026-11-12: เดิม ghost_idle ไถลตัวแข็ง
 	-- (ผู้ใช้ 2026-11-16 "ตานีผมยังหลุด": ท่าแอบมอง tani_peek ชะโงก + ชี้แขน ดูหัวกับผมแยกกัน -> ยืนเฉยๆ ghost_idle)
-	Tani = { model = "ghost_tani", from = { 26, 4.5 }, to = { 21.4, 3.1 }, clip = "ghost_idle", moveClip = "tani_walk", moveClipSpeed = 0.5, speed = 0.8, rush = RUN, faint = FAINT }, -- (ผมหลุดจริงๆ มาจากผมเก่าไม่ผูกกระดูกหัว: เปลี่ยนผมใหม่ TaniHairV2 แล้ว 2026-11-16 จางได้)
+	-- ตานี v2 (ผู้ใช้ 2026-11-22): "ไม่ต้องขยับอะไรมาก แค่ยืนบิดคอมองเราเฉยๆ" + "ให้เห็นชัดขึ้น" + "เท้าดูแปลก"
+	--   ยืนอยู่ที่เดิม (ไม่เดินออกจากดงกล้วยแล้ว) ตัวหันไปทางร้าน คอ/หัวหันตามผู้เล่น (LookAtCamera) ท่ายืนช้าลง
+	--   ขา/สะโพกล็อกท่าพัก (StillBones: ผ้าซิ่นกับเท้าไม่บิด) · จางน้อยลง 0.45 -> 0.15 · จ้องค้างยังลอยพุ่ง (ขาอยู่ในผ้าซิ่น)
+	-- (รอบ 4 "ขยับไปหลังๆ นิดนึง ตรงนี้สว่างและโจ่งแจ้งไป": ถอยเข้าดงกล้วย 3 studs จาก (21.4, 3.1) ตามทางเดินเดิม)
+	-- (รอบ 5: ย้ายไปจุดที่ผู้ใช้วงไว้ริมดงกล้วยฝั่งนอก (39.5, 0.5) แสงไฟร้านจางถึงตรงนั้น ~36 studs + ปลูกกล้วยเพิ่ม 3 ต้น TaniCover)
+	Tani = { model = "ghost_tani", from = { 39.5, 0.5 }, to = { 39.5, 0.5 }, clip = "tani_wave", speed = 0.8, lookOnly = true,
+		-- (ผู้ใช้ 2026-11-22 รอบ 2 "ให้ยืนตัวตรงเลยไม่ได้หรอ": ghost_idle โน้มตัว/ก้มคอ -> ล็อกลำตัว คอ หัว ด้วย
+		--  เหลือแขนห้อยตามท่า ส่วนคอ/หัวหมุนจากท่าตรงไปมองผู้เล่นด้วย LookAtCamera)
+		-- (รอบ 3 "ทำไมต้องยืนทำมือแบบนี้": ghost_idle เป็นท่าผียื่นแขน -> ล็อกแขนด้วยแล้วให้ห้อยข้างตัว armsDown)
+		-- (รอบ 7 "ให้ยืนโบกมือเรื่อยๆ": ท่าใหม่ tani_wave (tools/blender/tani_wave.py) แขนซ้ายห้อย แขนขวาโบก 3 ทีแล้วค้างมือ วน 6 วิ
+		--  ปลดล็อกแขนให้เล่นตามท่า ไม่ใช้ armsDown แล้ว ลำตัว/ขา/คอ/หัวยังล็อก (คอหันมองด้วย LookAtCamera))
+		stillBones = "root,hips,spine,chest,neck,head,thigh.L,thigh.R,shin.L,shin.R,foot.L,foot.R,toe.L,toe.R",
+		rush = { clip = "tani_wave", speed = 1.4, float = true }, faint = 0.35, -- (0.15 -> 0.35 ผู้ใช้ 2026-11-22 "ทำให้ตัวจางกว่านี้หน่อย")
+		noGlow = true }, -- (รอบ 6 ผู้ใช้ 2026-11-22: มีแสงเรืองออกมา -> ไม่มีแสงรอบตัวแล้ว ให้กลืนกับความมืด)
 	-- นางรำ: รำอยู่ใต้ต้นไทร (เดิมครึ่งหนึ่งมารำหน้าร้าน ผู้ใช้ 2026-11-05 · เหลือต้นไทรที่เดียว 2026-11-16)
 	Dancer = {
 		model = "ghost_dancer",
-		from = { -33, 17 },
-		to = { -30, 13 },
+		-- (ผู้ใช้ 2026-11-22: ยืนทับม้าหินอ่อน (-30, 13) -> (-33, 14) แล้ว "ขามันหด" = ขาจมในรากไทร (BanyanRoots)
+		--  -> (-33, 6) จุดใกล้สุดที่ใต้ตัวเป็นดินจริง ไม่มีรากหรือของแข็งในกรอบตัว และโผล่ตรงนั้นเลย ไม่เดินผ่านราก)
+		from = { -33, 6 },
+		to = { -33, 6 },
 		clip = "dancer_dance",
+		clipSpeed = 1.5, -- ท่ารำไทย 18 วิ -> 12 วิต่อรอบ (ผู้ใช้: "รำเร็วกว่านี้หน่อย")
 		speed = 0.7,
 		-- (ผู้ใช้ 2026-11-16: เกิดใต้ต้นไทรที่เดียว เลิกจุดหน้าร้าน front {-16,-20} {-4,-21} {8,-20} {12,-2} และ pickByView)
 		--   ยังรอให้จุดใต้ต้นไทรพ้นสายตาก่อนโผล่ (show) เหมือนผีฉากตัวอื่น
 		faint = FAINT,
-		rush = RUN,
+		-- นางรำ v2 (Hy3D, ผู้ใช้ 2026-11-22): ขาอยู่ในผ้านุ่งยาว วิ่งแล้วผ้าบิด -> ลอยพุ่งเข้าหาแทน ท่ารำตั้งวงค้างไว้
+		rush = { clip = "dancer_idle", speed = 1.3, float = true },
+		noFace = true, -- (ผู้ใช้ 2026-11-22: หันตามผู้เล่นแล้วท่ารำเพี้ยน) รำหันหน้าทางเดิมต่อไป
 	},
 	-- แม่นาก: ยื่นมือแล้วแขนยืดยาวออกมาหยิบของ (ตำนานยื่นมือเก็บมะนาว)
 	MaeNak = {
@@ -128,7 +151,8 @@ local KINDS: { [string]: Kind } = {
 		rush = RUN,
 	},
 	-- กุมารทอง: กระโดดดึ๋งๆ เข้ามา
-	Kuman = { model = "ghost_kuman_thong", from = { -38, 17 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "kuman_run", speed = 3, huntSpeed = 9, hop = { height = 2.6, rate = 1.7 }, rush = { clip = "kuman_run", speed = 4.2 }, faint = FAINT },
+	-- กุมารทอง v3 (ผู้ใช้ 2026-11-22): เกิดยืนข้างศาลเลย ไม่กระโดดเข้ามาจากที่อื่น (from = to) · กลับมาสุ่มใน KIND_LIST
+	Kuman = { model = "ghost_kuman_thong", from = { -35, 12 }, to = { -35, 12 }, clip = "kuman_giggle", moveClip = "kuman_run", speed = 3, huntSpeed = 9, hop = { height = 2.6, rate = 1.7 }, rush = { clip = "kuman_run", speed = 4.2 }, faint = FAINT },
 	-- ผีเด็ก: ขายืดสูงโย่ง เดินไปมา/เดินไล่ด้วยขายาว
 	Child = { model = "ghost_child", from = { 30, -32 }, to = { 27, -29 }, clip = "ghost_idle", moveClip = "ghost_glide", speed = 1.6, longLegs = 2.4, rush = RUN, faint = FAINT },
 	-- ศพห่อผ้า: ไม่มีขา ลอยพุ่งมาแทนวิ่ง
@@ -153,7 +177,7 @@ local KINDS: { [string]: Kind } = {
 -- ไม่สุ่ม Pret แล้ว (ผู้ใช้ 2026-11-12): เปรตเดินผ่านถนนซ้ำกับผีใหญ่ Big_Pret ทำให้งงกติกา (ปุ่ม admin ยังเรียกได้)
 -- ไม่สุ่ม Krasue / Krahang แล้ว (ผู้ใช้ 2026-11-15): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin (ปุ่มยังเรียกดูได้)
 -- ไม่สุ่ม Pop / MaeNak / Kuman / Child / Shroud แล้ว (ผู้ใช้ 2026-11-16): ย้ายไปหมวด "ไม่ใช้แล้ว" ในแผง admin
-local KIND_LIST = { "Tani", "Dancer", "ShadowRun", "Scarecrow", "Shadow", "HutShadow" }
+local KIND_LIST = { "Tani", "Dancer", "ShadowRun", "Scarecrow", "Shadow", "HutShadow", "Kuman" } -- Kuman กลับมา 2026-11-22
 
 local function rand(r: { number }): number
 	return r[1] + math.random() * (r[2] - r[1])
@@ -650,10 +674,36 @@ end
 
 -- ---------------------------------------------------------------- จ้องค้าง = พุ่งใส่ (ผู้ใช้ 2026-11-15)
 -- ตัวนับจ้อง: เรียกทุกเฟรมด้วยตำแหน่งหัวผี คืน true เมื่อผีอยู่กลางจอต่อเนื่องครบ StareTime
-local function stareTracker(): (Vector3, number) -> boolean
+-- จุดที่นับว่าจ้อง: หัว (focus) อก สะโพก (ผู้ใช้ 2026-11-22 "มองตั้งนานไม่วิ่งมา": เดิมนับแค่หัว
+--   เสาเพิง/ตู้ปั๊มบังแค่หัว หรือมองที่ตัวแล้วหัวหลุดกลางจอ = ไม่นับ) ตำแหน่งตามท่าจริง (TransformedWorldCFrame)
+local function stareSpots(m: Model, focus: Bone?): { Vector3 }
+	local out: { Vector3 } = {}
+	if focus then
+		table.insert(out, focus.TransformedWorldCFrame.Position)
+	end
+	for _, n in ipairs({ "chest", "hips" }) do
+		local b = m:FindFirstChild(n, true)
+		if b and b:IsA("Bone") and b ~= focus then
+			table.insert(out, b.TransformedWorldCFrame.Position)
+		end
+	end
+	if #out == 0 then
+		table.insert(out, m:GetPivot().Position + Vector3.new(0, 4, 0))
+	end
+	return out
+end
+
+local function stareTracker(): ({ Vector3 }, number) -> boolean
 	local stare, away = 0, 0
-	return function(p: Vector3, dt: number): boolean
-		if inSight(p, CONFIG.StareCenter) then
+	return function(spots: { Vector3 }, dt: number): boolean
+		local seen = false
+		for _, p in ipairs(spots) do
+			if inSight(p, CONFIG.StareCenter) then
+				seen = true
+				break
+			end
+		end
+		if seen then
 			stare += dt
 			away = 0
 		else
@@ -670,9 +720,12 @@ end
 --   ตอนวิ่งมาให้เงียบ (ผู้ใช้ 2026-11-17: เคยมีเสียง Jumpscare_1 ตอนเริ่มวิ่ง + จอหลอกตอนถึง = หลอก 2 ครั้ง)
 
 -- เริ่มพุ่ง: เล่นท่าวิ่ง/คลานเร็วๆ เงียบๆ · ห้ามจางหายเองระหว่างพุ่ง (current.hunting)
-local function rushBegin(_kind: string, m: Model, r: { clip: string, speed: number })
+local function rushBegin(_kind: string, m: Model, r: { clip: string, speed: number, float: boolean? })
 	fade(m, 0, 0.2)
 	play(m, r.clip, r.speed)
+	if r.float and m:GetAttribute("GlideT0") == nil then
+		m:SetAttribute("GlideT0", os.clock()) -- place(): ยกตัวลอยขึ้นจากพื้น + ส่ายแบบผีลอย
+	end
 	if current and current.m == m then
 		current.hunting = true
 	end
@@ -736,8 +789,7 @@ local function attachShadowRush(m: Model)
 			return
 		end
 		if not rushing then
-			local p = if head then head.WorldPosition else pos + Vector3.new(0, 4, 0)
-			if stared(p, dt) then
+			if stared(stareSpots(m, head), dt) then
 				rushing = true
 				rushGo = os.clock() + CONFIG.RushWindup
 				rushBegin("Shadow", m, r)
@@ -982,6 +1034,15 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			look = Vector3.new(f.X - feet.X, 0, f.Z - feet.Z)
 			look = if look.Magnitude > 0.01 then look.Unit else unit
 		end
+		local glide0 = m:GetAttribute("GlideT0") :: number?
+		if glide0 and not def.float then
+			-- ลอยพุ่ง/ลอยไล่ (rush.float): ค่อยๆ ยกตัวพ้นพื้น 0.8 studs ใน 0.5 วิ แล้วส่ายแบบผีลอย (ผู้ใช้ 2026-11-22 นางรำ v2)
+			feet += Vector3.new(0, math.min(1, (os.clock() - glide0) / 0.5) * 0.8, 0)
+			local off, rot = GhostFloat.Offset(floatSeed, os.clock() - floatT0, look)
+			feet += off
+			m:PivotTo(CFrame.lookAt(feet, feet + look) * rot)
+			return
+		end
 		if def.float then
 			-- ลอย: ส่ายซ้ายขวา ขึ้นลง เอียงตัวตามทางส่าย ตลอดเวลา (ไม่ลอยนิ่งเป็นเส้นตรง)
 			local off, rot = GhostFloat.Offset(floatSeed, os.clock() - floatT0, look)
@@ -1000,17 +1061,26 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 		m:PivotTo(CFrame.lookAt(feet, feet + look))
 	end
 	place(from, unit)
-	if not def.noGlow then
+	if CONFIG.Glow and not def.noGlow then
 		addGlow(m, def.glow or CONFIG.GlowColor)
 	end
 	m:SetAttribute("FocusBone", def.focus or "head")
 	if def.faint then
 		m:SetAttribute("Faint", def.faint) -- ตัวจางๆ (fade ยกค่าโปร่งขึ้นเป็นอย่างน้อยเท่านี้)
 	end
+	if def.lookOnly then
+		m:SetAttribute("LookAtCamera", true)
+	end
+	if def.stillBones then
+		m:SetAttribute("StillBones", def.stillBones)
+	end
+	if def.armsDown then
+		m:SetAttribute("ArmsDown", def.armsDown)
+	end
 	fade(m, 1, 0)
 	m.Parent = folder
 	fade(m, 0, def.fadeIn or 2)
-	play(m, def.moveClip or def.clip, if def.moveClip then def.moveClipSpeed else nil)
+	play(m, def.moveClip or def.clip, if def.moveClip then def.moveClipSpeed else def.clipSpeed)
 	local screechSound: Sound? = nil
 	if def.screech then
 		screechSound = screechOn(m)
@@ -1043,6 +1113,9 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 	local rushGo = 0
 	local stared = stareTracker()
 	local function faceMe()
+		if def.lookOnly or def.noFace then
+			return -- ตัวไม่หัน มีแต่คอบิดมอง (LookAtCamera)
+		end
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			local d = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
@@ -1060,6 +1133,9 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			current.hunting = true
 		end
 		play(m, if def.model == "Pop" then "Crawl" else (def.moveClip or def.clip))
+		if def.rush and def.rush.float and m:GetAttribute("GlideT0") == nil then
+			m:SetAttribute("GlideT0", os.clock()) -- ลอยไล่แทนเดิน (นางรำ v2: ขาอยู่ในผ้านุ่ง)
+		end
 		-- (ไม่มีเสียงจั้มสแกร์ตอนเริ่มไล่: ให้หลอกครั้งเดียวตอนถึงตัว)
 		-- ผีลอยมาหา: หัวเราะคิกคักล้อเลียนก่อนโฉบเข้ามา
 		local root = m:FindFirstChild("RootPart")
@@ -1118,8 +1194,7 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 		-- จ้องค้าง (กลางจอต่อเนื่อง StareTime) = พุ่งใส่ ไม่ว่าจะกำลังโผล่ ยืนมอง หรือเดินไล่
 		local r = def.rush
 		if r then
-			local p = if focusBone then focusBone.WorldPosition else m:GetPivot().Position + Vector3.new(0, 4, 0)
-			if stared(p, dt) then
+			if stared(stareSpots(m, focusBone), dt) then
 				rushing = true
 				hunting = false
 				watching = false
@@ -1209,6 +1284,8 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 		if s >= total then
 			arrived = true
 			pos = to
+			-- ผีกระโดด (hop): จบการกระโดดก่อนวางตัว ไม่งั้นค้างกลางอากาศตรงจังหวะสุดท้าย (กุมารลอย ผู้ใช้ 2026-11-22)
+			hopUntil = 0
 			place(to)
 			if def.roadRun then
 				-- วิ่งตัดถนน: จางและหรี่เสียงมาตั้งแต่ช่วงท้ายทางแล้ว ไม่หยุดยืนที่ปลายทาง
@@ -1754,8 +1831,16 @@ do
 				lastVisiblePivot = piv
 				sc:PivotTo(piv - Vector3.new(0, 300, 0))
 			end
-		elseif lastVisiblePivot and sc:GetPivot().Position.Y <= -100 then
-			sc:PivotTo(lastVisiblePivot)
+		elseif sc:GetPivot().Position.Y <= -100 then
+			-- ตำแหน่งจริงมาจาก server/ScarecrowRoam (SpotCFrame) ทุกเครื่องเห็นจุดเดียวกัน · server ให้หายตัว (Spot = vanish) = ไม่ดึงกลับขึ้นมา
+			local spotCF = sc:GetAttribute("SpotCFrame")
+			if typeof(spotCF) == "CFrame" then
+				if spotCF.Position.Y > -100 then
+					sc:PivotTo(spotCF)
+				end
+			elseif lastVisiblePivot then
+				sc:PivotTo(lastVisiblePivot)
+			end
 		end
 	end
 
@@ -1790,6 +1875,11 @@ do
 	end
 
 	local function currentRealGroundPos(): Vector3
+		local sc0 = initRealScarecrow()
+		local spotCF = sc0 and sc0:GetAttribute("SpotCFrame")
+		if typeof(spotCF) == "CFrame" then
+			return spotCF.Position
+		end
 		local coord = ROAM_SPOTS[currentSpotIdx]
 		if type(coord) == "table" then
 			return Vector3.new(coord[1], groundAt(coord[1], coord[2]), coord[2])
@@ -1803,9 +1893,14 @@ do
 		return Vector3.new(12.16, 0, -45.64)
 	end
 
+	-- (2026-11-22) ย้ายจุดทำที่ server/ScarecrowRoam แล้ว (ทุกคนเห็นเหมือนกัน): ที่นี่แค่โชว์หุ่นกลับมาที่จุดจริงของ server
 	local function placeRealAtSpot(idx: number)
 		local sc = initRealScarecrow()
 		if not sc or not homePivot then
+			return
+		end
+		if typeof(sc:GetAttribute("SpotCFrame")) == "CFrame" then
+			setRealVisible(true)
 			return
 		end
 		local coord = ROAM_SPOTS[idx]
@@ -1828,6 +1923,9 @@ do
 	-- ---------------------------------------------------------------- ตอนไฟดับ: หันหน้าจ๊ะเอ๋หุ่นไล่การะยะประชิด + เสียงเบาๆ หันหลบแล้วหาย
 	local closeModel: Model? = nil
 	local closeConn: RBXScriptConnection? = nil
+	-- หุ่นดักข้างหลังตอนไฟดับ: คืนละครั้ง (นับตอนผู้เล่นหันมาเจอจริง ผู้ใช้ 2026-11-22 "จั้มสแกจากข้างหลังแค่ครั้งเดียวพอ")
+	local MAX_CLOSE_SCARES = 1
+	local closeScaresThisNight = 0
 	local nextOutagePopAt = 0
 
 	local function clearCloseScarecrow(restoreReal: boolean?)
@@ -2035,6 +2133,7 @@ do
 			if wellSeen and not stungOnce then
 				stungOnce = true
 				seenOnce = true
+				closeScaresThisNight += 1
 				playSoftJumpscareSound()
 			end
 			if inView then
@@ -2075,6 +2174,7 @@ do
 			lastShopState = true
 			powerEverRestored = not powerOff
 			movesThisNight = 0
+			closeScaresThisNight = 0
 			wasPowerOff = false
 			clearCloseScarecrow()
 			placeRealAtSpot(1)
@@ -2138,7 +2238,7 @@ do
 			end
 			local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 			local praying = player:GetAttribute("Praying") == true
-			if not testMode and hum and hum.Health > 0 and not praying and not closeModel and os.clock() >= nextOutagePopAt then
+			if not testMode and hum and hum.Health > 0 and not praying and not closeModel and os.clock() >= nextOutagePopAt and closeScaresThisNight < MAX_CLOSE_SCARES then
 				if math.random() < 0.55 and spawnCloseScarecrow() then
 					-- โผล่ดักข้างหลังแล้ว รอผู้เล่นหันมาเจอ (หรือหมดเวลา 25 วิ) แล้วเว้น 16-30 วิ
 					nextOutagePopAt = os.clock() + rand({ 16, 30 })
@@ -2149,60 +2249,8 @@ do
 		end
 	end)
 
-	-- ลูปย้ายจุดเมื่อละสายตา (ผู้ใช้ 2026-11-19):
-	--   1. ครึ่งแรกของเกม (NightProgress < 0.5) หุ่นไล่กาอยู่ที่เดิมตลอด
-	--   2. ย้ายได้เฉพาะตอนไม่มีใครมอง (ทั้งจุดปัจจุบันและจุดที่จะไป)
-	--   3. 1 เกม (1 คืน) ย้ายได้มากสุด 2 ครั้ง (MAX_MOVES_PER_NIGHT = 2)
-	task.spawn(function()
-		task.wait(3)
-		initRealScarecrow()
-		while true do
-			task.wait(rand({ 65, 110 }))
-			local powerOff = ReplicatedStorage:GetAttribute("PowerOn") == false
-			local shopOpen = remotes:GetAttribute("ShopOpen") == true
-			local testMode = ReplicatedStorage:GetAttribute("TestMode") == true
-			local inCutscene = Lighting:GetAttribute("Cutscene") == true or ReplicatedStorage:GetAttribute("CutsceneRunning") == true
-			local progress = (remotes:GetAttribute("NightProgress") :: number?) or 0
-
-			if shopOpen and not powerOff and not testMode and not inCutscene and progress >= 0.5 and movesThisNight < MAX_MOVES_PER_NIGHT and not (current and current.kind == "Scarecrow") then
-				local sc = initRealScarecrow()
-				if sc then
-					-- รอจนไม่มีใครมองตำแหน่งปัจจุบันของหุ่นเลย
-					local t0 = os.clock()
-					while not realHidden and scarecrowBoxSeen(currentRealGroundPos()) and os.clock() - t0 < 40 do
-						task.wait(0.4)
-					end
-					if ReplicatedStorage:GetAttribute("PowerOn") ~= false and movesThisNight < MAX_MOVES_PER_NIGHT and (realHidden or not scarecrowBoxSeen(currentRealGroundPos())) then
-						-- เลือกจุดใหม่ที่ไม่ซ้ำจุดเดิม และไม่มีใครหันมองจุดนั้นอยู่
-						local cands: { number } = {}
-						for i = 1, #ROAM_SPOTS do
-							if i ~= currentSpotIdx then
-								local c = ROAM_SPOTS[i]
-								if type(c) ~= "table" then
-									table.insert(cands, i) -- หายตัวไปเลย ("vanish")
-								else
-									local p = Vector3.new(c[1], groundAt(c[1], c[2]), c[2])
-									if not scarecrowBoxSeen(p) then
-										table.insert(cands, i)
-									end
-								end
-							end
-						end
-						if #cands > 0 then
-							local pickIdx = cands[math.random(#cands)]
-							-- เช็กซ้ำอีกรอบก่อนย้ายจริงว่าไม่มีใครหันมามองจุดเดิมหรือจุดใหม่ในเสี้ยววินาทีสุดท้าย
-							local dst = ROAM_SPOTS[pickIdx]
-							local dstSeen = if type(dst) == "table" then scarecrowBoxSeen(Vector3.new(dst[1], groundAt(dst[1], dst[2]), dst[2])) else false
-							if (realHidden or not scarecrowBoxSeen(currentRealGroundPos())) and not dstSeen then
-								placeRealAtSpot(pickIdx)
-								movesThisNight += 1
-							end
-						end
-					end
-				end
-			end
-		end
-	end)
+	-- ลูปย้ายจุดเมื่อละสายตา: ย้ายไป server/ScarecrowRoam แล้ว (ผู้ใช้ 2026-11-22: ให้ทุกคนเห็นจุดเดียวกัน)
+	--   กติกาเดิม (ครึ่งหลังของคืน ไม่มีใครมอง คืนละ 2 ครั้ง) อยู่ที่ server · เครื่องนี้แค่โชว์/ซ่อนหุ่นตาม SpotCFrame
 
 	-- ปุ่มทดสอบจาก AdminPanel หรือเรียกผ่าน attribute ScarecrowTest ("close" / "move" / "vanish" / "home")
 	player:GetAttributeChangedSignal("ScarecrowTest"):Connect(function()

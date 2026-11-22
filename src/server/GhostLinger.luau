@@ -19,7 +19,26 @@ GhostLinger.Config = {
 	-- น้ำหนักสุ่มพฤติกรรม (vanish = หายไปทันทีแบบเดิม)
 	Weights = { vanish = 3.5, knock = 2.5, circle = 2, roof = 2 },
 	RunSpeed = 13, -- วิ่งรอบร้าน (studs/วินาที)
+	-- ผู้ใช้ 2026-11-22 "ผีเคาะแผงอย่าให้เจอซ้ำของเดิม 1 เกมเจอได้มากสุดแค่ 3 ครั้ง"
+	KnockMax = 3, -- ปอบเคาะแผงต่อคืน
+	NoRepeat = true, -- ผีวนแบบเดียวกันห้ามออกติดกัน 2 ครั้ง (ไม่นับหายวับ vanish)
 }
+
+-- นับต่อคืน (รีเซ็ตเมื่อเปิดร้านคืนใหม่: Remotes ShopOpen false -> true)
+local lastShown: string? = nil
+local knockCount = 0
+task.spawn(function()
+	local remotesF = ReplicatedStorage:WaitForChild("Remotes")
+	local was = remotesF:GetAttribute("ShopOpen") == true
+	remotesF:GetAttributeChangedSignal("ShopOpen"):Connect(function()
+		local open = remotesF:GetAttribute("ShopOpen") == true
+		if open and not was then
+			lastShown = nil
+			knockCount = 0
+		end
+		was = open
+	end)
+end)
 
 local interactive = Workspace:WaitForChild("InteractiveProps")
 local shack = Workspace:WaitForChild("MapEnvironment"):WaitForChild("ShackStructure") :: Model
@@ -86,7 +105,10 @@ local function pickBehavior(mustStay: boolean?): string
 	local closed = shutterClosed()
 	local w = {}
 	for k, v in pairs(GhostLinger.Config.Weights) do
-		if not ((k == "vanish" and mustStay) or (k == "knock" and not closed)) then
+		local blocked = (k == "vanish" and mustStay) or (k == "knock" and not closed)
+			or (k == "knock" and knockCount >= GhostLinger.Config.KnockMax)
+			or (GhostLinger.Config.NoRepeat and k ~= "vanish" and k == lastShown)
+		if not blocked then
 			w[k] = v
 		end
 	end
@@ -153,8 +175,17 @@ function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
 		GhostLinger.Stop()
 	end
 	local behavior = picked or pickBehavior(mustStay)
+	-- ที่เลือกไว้ล่วงหน้า (CoreLoop.Pick) แต่เกินโควตา/ซ้ำแล้ว: สุ่มใหม่
+	if behavior == "knock" and knockCount >= GhostLinger.Config.KnockMax
+		or (GhostLinger.Config.NoRepeat and behavior ~= "vanish" and behavior == lastShown) then
+		behavior = pickBehavior(mustStay)
+	end
 	if behavior == "vanish" then
 		return false
+	end
+	lastShown = behavior
+	if behavior == "knock" then
+		knockCount += 1
 	end
 	local d = door()
 	if not d then

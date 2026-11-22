@@ -1,46 +1,37 @@
--- DevCommand.luau — Swap ScarecrowV2 into AnomalyProps.Scarecrow (2026-11-20)
+-- DevCommand.luau — scarecrow roaming moved to the server (ScarecrowRoam), back-scare once a night, knock ghost limits:
+-- confirm the scripts reached Studio and compile (2026-11-22)
 return {
-	id = "swap_scarecrow_v2_20261120_5",
+	id = "check_scarecrow_server_knock_20261122_1",
 	placeId = 114125276809667,
 	run = function()
-		local RS = game:GetService("ReplicatedStorage")
-		local ws = game:GetService("Workspace")
-		local okM, MapBuilder = pcall(function()
-			return require(RS.Shared.MapBuilder:Clone())
-		end)
-		print("DEVCMD|REQUIRE_MAPBUILDER", okM, if okM then "OK" else tostring(MapBuilder))
-		if not okM then
-			return
-		end
-		local res = MapBuilder.SwapScarecrowV2(nil, Vector3.new(12.16, 0, -45.64))
-		print("DEVCMD|SWAP_SCARECROW_V2", res)
-
-		local ap = ws:FindFirstChild("AnomalyProps")
-		local sc = ap and ap:FindFirstChild("Scarecrow")
-		if sc and sc:IsA("Model") then
-			local cf, sz = sc:GetBoundingBox()
-			local piv = sc:GetPivot()
-			print(("DEVCMD|SCARECROW_NOW bbox=(%.2f,%.2f,%.2f) sz=(%.2f,%.2f,%.2f) piv=(%.2f,%.2f,%.2f) look=(%.2f,%.2f,%.2f) ver=%s"):format(
-				cf.Position.X, cf.Position.Y, cf.Position.Z,
-				sz.X, sz.Y, sz.Z,
-				piv.Position.X, piv.Position.Y, piv.Position.Z,
-				piv.LookVector.X, piv.LookVector.Y, piv.LookVector.Z,
-				tostring(sc:GetAttribute("ScarecrowVersion"))
-			))
-			for _, d in ipairs(sc:GetDescendants()) do
-				if d:IsA("MeshPart") then
-					local sa = d:FindFirstChildOfClass("SurfaceAppearance")
-					print(("DEVCMD|   MESH %s meshId=%s texId=%s sz=(%.2f,%.2f,%.2f) meshSz=(%.2f,%.2f,%.2f) sa=%s"):format(
-						d.Name, tostring(d.MeshId), tostring(d.TextureID),
-						d.Size.X, d.Size.Y, d.Size.Z,
-						d.MeshSize.X, d.MeshSize.Y, d.MeshSize.Z,
-						if sa then sa.ColorMap else "none"
-					))
-				end
+		local want = {
+			ScarecrowRoam = "local MAX_MOVES = 2",
+			SceneryGhosts = "closeScaresThisNight < MAX_CLOSE_SCARES",
+			AdminPanel = "scarecrow:move",
+			GhostLinger = "KnockMax = 3",
+		}
+		local seen = {}
+		for _, d in ipairs(game:GetDescendants()) do
+			local ok, isSrc = pcall(function()
+				return d:IsA("LuaSourceContainer")
+			end)
+			if ok and isSrc and want[d.Name] then
+				local src = (d :: any).Source :: string
+				local m = Instance.new("ModuleScript")
+				m.Source = "local __skip = (game ~= nil)\nif __skip then return {} end\n" .. src
+				m.Parent = workspace
+				local okc, err = pcall(require, m)
+				m:Destroy()
+				print("DEVCMD|SRC", d:GetFullName(), d.ClassName, #src, "has", string.find(src, want[d.Name], 1, true) ~= nil, "compile", okc, if okc then "" else tostring(err))
+				seen[d.Name] = true
 			end
 		end
-		pcall(function()
-			game:GetService("ChangeHistoryService"):SetWaypoint("SwapScarecrowV2")
-		end)
+		for n in pairs(want) do
+			if not seen[n] then
+				print("DEVCMD|MISSING", n)
+			end
+		end
+		local sc = workspace.AnomalyProps:FindFirstChild("Scarecrow")
+		print("DEVCMD|scarecrow", sc and sc:GetFullName(), sc and tostring(sc:GetPivot().Position))
 	end,
 }

@@ -963,7 +963,10 @@ local function runScare(key: string?, source: Instance?, reason: string?, plan: 
 		end
 		local laughSource = source
 		showScare(key, source, opts)
-		task.delay(0.15, laughAfterScare, key, laughSource)
+		-- ไม่มีเสียงหัวเราะตามหลังผีหลอกแล้วทุกแบบ (ผู้ใช้ 2026-11-22: ผีฉากก่อน แล้ว "ตัดทั้งหมด")
+		-- laughAfterScare เก็บไว้เผื่อเปิดกลับ: task.delay(0.15, laughAfterScare, key, laughSource)
+		local _ = laughAfterScare
+		local _ = laughSource
 	end)
 	if not ok then
 		warn("[Jumpscare] " .. tostring(err))

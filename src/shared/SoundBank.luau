@@ -757,6 +757,9 @@ SoundBank.Presets = {
 	Ghost_Tani = { id = "rbxassetid://2643071410", customKey = "Passenger_Whisper", volume = 0.6, speed = 1.0, low = 5, mid = 2, high = -22 },
 	Ghost_Tani_Laugh = { id = "rbxassetid://126775500193812", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },   -- (ghost_thani_luagh)
 	Ghost_MaeNak = { id = "rbxassetid://94253655567417", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },        -- (ghost_maenak)
+	-- กระสือผีใหญ่ร้องเพลงวนตลอดตั้งแต่โผล่จนบินพ้นแมพ (server/BigEvents plan.song, ผู้ใช้อัปโหลด "Krasue" 2026-11-21)
+	-- volume 0.75 ดังไป -> 0.55 (ผู้ใช้ 2026-11-22)
+	Ghost_Krasue_Song = { id = "rbxassetid://72341782473672", volume = 0.55, speed = 1.0, looped = true, low = 3, mid = 1, high = -12 },
 	Ghost_MaeNak_Laugh = { id = "rbxassetid://97648829291844", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },  -- (ghost_maenak_luagh)
 	Ghost_Kuman = { id = "rbxassetid://131044226335748", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },        -- (ghost_guman) กุมารทอง
 	Ghost_Kuman_Laugh = { id = "rbxassetid://138950273308352", volume = 0.6, speed = 1.0, low = 3, mid = 1, high = -14 },  -- (ghost_guman_luagh)

@@ -297,6 +297,7 @@ end
 -- ระบบเปิด/ปิดและสลับสถานีวิทยุลูกทุ่ง 5 คลื่น (เริ่มเกมมาปิดวิทยุให้เงียบ ถ้าผู้เล่นอยากฟังค่อยเดินไปกดเปิดเอง)
 local currentStationIdx = 0
 local radioUserOn = false
+local radioOmenOn = false -- ลางผีใหญ่กำลังเล่นทางวิทยุ (ดูด้านล่าง): ห้ามเพลงลูกทุ่งดังทับ
 local tunePrompt: ProximityPrompt? = nil
 
 local function updateRadioPromptText()
@@ -329,6 +330,11 @@ local function tuneLukThungStation(idx: number?)
 		return
 	end
 	radioUserOn = true
+	if radioOmenOn then
+		-- ลางผีใหญ่อยู่: จำไว้ว่าเปิด แล้วเพลงค่อยดังหลังลางจบ
+		updateRadioPromptText()
+		return
+	end
 	if radioChant and radioChant.IsPlaying then
 		radioChant:Stop()
 	end
@@ -413,6 +419,121 @@ local function radioNormal()
 			radioMusic:Stop()
 		end
 	end
+end
+
+-- ลางผีใหญ่ทางวิทยุ (ผู้ใช้ 2026-11-22): จิ้งหรีดเงียบ (Remotes "BigOmen") -> วิทยุในเพิงซ่าขึ้นมาเอง
+--   แล้วกลายเป็นเสียงสวดนะโมแว่วๆ ช้าๆ อู้อี้ (เปิดเองแม้ผู้เล่นปิดวิทยุไว้ ทุกคนได้ยิน ไม่ใช่ veil แบบผีวิทยุ)
+--   ผีใหญ่มาถึง (Remotes "BigEvent") หรือลางยกเลิก = ซ่าแว่บแล้วเงียบ เพลงเดิมกลับมาถ้าผู้เล่นเปิดวิทยุไว้
+--   ใช้ Sound แยก OmenChant / OmenStatic: ไม่ยุ่งกับ radioChant ของผีวิทยุ (Anomaly_MonkRadio)
+do
+	local omenChant = radioSound("OmenChant", SOUNDS.MonkChant, 0, true)
+	local omenStatic = radioSound("OmenStatic", SOUNDS.RadioStatic, 0, true)
+	local CHANT_VOL = RADIO_VOLUME.chant * 1.1
+	local STATIC_VOL = RADIO_VOLUME.static * 1.2
+	if omenChant then
+		omenChant.PlaybackSpeed = 0.86 -- ช้าลง เสียงต่ำ หลอนกว่าเสียงสวดตอนพนมมือ
+		local eq = Instance.new("EqualizerSoundEffect") -- ลำโพงวิทยุเก่า: ตัดทุ้มกับแหลม
+		eq.LowGain = -14
+		eq.MidGain = 4
+		eq.HighGain = -24
+		eq.Parent = omenChant
+		local dist = Instance.new("DistortionSoundEffect")
+		dist.Level = 0.3
+		dist.Parent = omenChant
+		local echo = Instance.new("EchoSoundEffect") -- แว่วเหมือนดังมาจากที่ไกล
+		echo.Delay = 0.35
+		echo.Feedback = 0.25
+		echo.WetLevel = -8
+		echo.Parent = omenChant
+	end
+	if omenStatic then
+		local eq = Instance.new("EqualizerSoundEffect")
+		eq.LowGain = -10
+		eq.MidGain = 0
+		eq.HighGain = -20
+		eq.Parent = omenStatic
+	end
+	local token = 0
+	local pausedMusic = false
+	local function fadeTo(s: Sound?, vol: number, t: number)
+		if s then
+			game:GetService("TweenService"):Create(s, TweenInfo.new(t), { Volume = vol }):Play()
+		end
+	end
+	local function start()
+		if radioOmenOn or not (omenChant and omenStatic) then
+			return
+		end
+		radioOmenOn = true
+		token += 1
+		local my = token
+		pausedMusic = false
+		if radioMusic and radioMusic.IsPlaying then
+			radioMusic:Pause()
+			pausedMusic = true
+		end
+		-- ซ่าดังขึ้นมาเอง 1.6 วิ แล้วจางลงเหลือเสียงฟู่ใต้เสียงสวดที่ค่อยๆ ดังขึ้น
+		omenStatic.Volume = STATIC_VOL
+		omenStatic.TimePosition = 0
+		omenStatic:Play()
+		task.delay(1.6, function()
+			if token ~= my then
+				return
+			end
+			fadeTo(omenStatic, STATIC_VOL * 0.18, 2.5)
+			omenChant.Volume = 0
+			local len = omenChant.TimeLength
+			omenChant.TimePosition = if len > 0 then math.random() * len * 0.6 else 0
+			omenChant:Play()
+			fadeTo(omenChant, CHANT_VOL, 3.5)
+		end)
+	end
+	local function stop()
+		if not radioOmenOn then
+			return
+		end
+		token += 1
+		local my = token
+		-- ซ่าแว่บ แล้วเงียบ
+		if omenStatic then
+			omenStatic.Volume = STATIC_VOL
+		end
+		fadeTo(omenChant, 0, 0.5)
+		task.delay(0.6, function()
+			if token ~= my then
+				return
+			end
+			if omenChant then
+				omenChant:Stop()
+			end
+			if omenStatic then
+				omenStatic:Stop()
+			end
+			radioOmenOn = false
+			if radioUserOn and radioMusic then
+				if pausedMusic then
+					radioMusic:Resume()
+				elseif currentStationIdx == 0 then
+					tuneLukThungStation(1)
+				elseif not radioMusic.IsPlaying then
+					radioMusic:Play()
+				end
+			end
+			pausedMusic = false
+		end)
+	end
+	local remotesF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+	local function update()
+		local omen = remotesF:GetAttribute("BigOmen") == true
+		local event = remotesF:GetAttribute("BigEvent") ~= nil
+		if omen and not event then
+			start()
+		else
+			stop()
+		end
+	end
+	remotesF:GetAttributeChangedSignal("BigOmen"):Connect(update)
+	remotesF:GetAttributeChangedSignal("BigEvent"):Connect(update)
 end
 
 -- ---------------------------------------------------------------- รายชื่อผี
@@ -1477,7 +1598,7 @@ function AnomalyManager.StartAmbience()
 	task.spawn(function()
 		while true do
 			task.wait(math.random(70, 130))
-			if radioUserOn and radioChant and not radioChant.IsPlaying then
+			if radioUserOn and not radioOmenOn and radioChant and not radioChant.IsPlaying then
 				tuneLukThungStation()
 			end
 		end

@@ -19,7 +19,7 @@ local SIGHT_ID = "rbxassetid://105012119508747" -- เสียงตกใจ�
 local SIGHT_VOLUME = 2
 local MAX_DIST = 140 -- ไกลกว่านี้ไม่นับว่าเห็น
 local CENTER = 0.22 -- ผีอยู่ห่างกลางจอไม่เกินสัดส่วนนี้ (ของครึ่งจอ) = กำลังจ้องอยู่
-local STARE = 2.5 -- จ้องต่อเนื่องกี่วินาทีถึงโดนพุ่งใส่หน้า
+local STARE = 1.5 -- (2.5 -> 1.5 ผู้ใช้ 2026-11-22) จ้องต่อเนื่องกี่วินาทีถึงโดนพุ่งใส่หน้า
 local GRACE = 0.4 -- ละสายตาสั้นๆ ไม่เกินนี้ ยังนับจ้องต่อ
 
 type Watch = { stung: boolean, stare: number, away: number, scared: boolean }

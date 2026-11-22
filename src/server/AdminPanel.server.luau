@@ -71,6 +71,15 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 		return -- กันกดรัว
 	end
 	last[p] = os.clock()
+	-- หุ่นไล่กาย้ายจุด / กลับเสา: server/ScarecrowRoam ตัดสินที่เดียว ทุกคนเห็นเหมือนกัน (2026-11-22)
+	if cmd == "scarecrow:move" or cmd == "scarecrow:home" then
+		local ev = game:GetService("ServerStorage"):FindFirstChild("ScarecrowRoamCmd") :: BindableEvent?
+		if ev then
+			ev:Fire(string.sub(cmd, 11))
+		end
+		print(string.format("🛠️ [Admin %s] %s", p.Name, cmd))
+		return
+	end
 	-- คัทซีนแบบกำหนดจำนวนคน (Studio): "intro@3" / "win@5" = ผู้เล่นจริง + หุ่นทดสอบเติมให้ครบ (Cutscene.luau อ่าน attribute ครั้งเดียวแล้วล้าง)
 	local cutKind, cutN = string.match(cmd, "^(%a+)@(%d)$")
 	if (cutKind == "intro" or cutKind == "win") and RunService:IsStudio() then

@@ -26,20 +26,21 @@ local CONFIG = {
 	-- ครบยอดแล้ว: ฟ้าค่อยๆ สางนานเท่านี้ (วินาที) ระหว่างยังเล่นอยู่ แล้วจอดำ BlackFade วิ ค่อยเข้าคัทซีนเช้า (ผู้ใช้ 2026-11-06)
 	DawnSeconds = 14,
 	DawnBlackFade = 1.8,
-	TargetMoney = 1000, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที = ~19-37 นาทีต่อคืน (1200 -> 1000 ผู้ใช้ 2026-11-13; 800 -> 1200 เมื่อ 2026-11-08)
+	TargetMoney = 1200, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที (1000 -> 1200 ผู้ใช้ 2026-11-22 หลังดีเซลเหลือ 100; 1200 -> 1000 เมื่อ 2026-11-13; 800 -> 1200 เมื่อ 2026-11-08)
 	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ) [น้ำมันหลอด]
 	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
 	-- บริการแต่ละแบบ: ตู้ไหน / ราคาให้เลือก / คำถามราคา (เติมผิดตู้ ลูกค้าท้วง)
 	Services = {
 		petrol = { choice = "fuel", prices = { 80, 100, 120 }, normal = 100, ask = "AskPrice" },
-		diesel = { choice = "diesel", prices = { 120, 150, 180 }, normal = 150, ask = "AskPriceDiesel" },
+		-- ดีเซล (รถยนต์) จ่ายเท่าน้ำมันหลอด (มอไซค์) ผู้ใช้ 2026-11-22 (เดิม 120 / 150 / 180, ปกติ 150)
+		diesel = { choice = "diesel", prices = { 80, 100, 120 }, normal = 100, ask = "AskPriceDiesel" },
 		air = { choice = "air", prices = { 10, 20, 30 }, normal = 20, ask = "AskPriceAir" },
 	},
 	MaxWrongService = 2, -- เติมผิดตู้เกินนี้ ลูกค้าเลิกรอ
 	-- สัดส่วนลูกค้าที่ขับมา (คนเดินแยกอีกทีด้วย WalkerChance)
 	CustomerMix = {
 		{ kind = "vehicle", weight = 5 }, -- มอไซค์ / ซาเล้ง (น้ำมันหลอด)
-		{ kind = "car", weight = 2 }, -- กระบะ / เก๋ง (ดีเซลที่ตู้ 2)
+		{ kind = "car", weight = 4 }, -- กระบะ / เก๋ง (ดีเซลที่ตู้ 2) · 2 -> 4 = 25% ของลูกค้าทั้งหมด (ฝนตก ~17%) ผู้ใช้ 2026-11-22: รถยนต์แทบไม่เกิด
 		{ kind = "tuktuk", weight = 1.5 }, -- ตุ๊กตุ๊ก (น้ำมันหลอด)
 		{ kind = "bicycle", weight = 1.5 }, -- จักรยานยางแบน เข็นมาเติมลม
 	},
@@ -110,7 +111,7 @@ local CONFIG = {
 	PraySummonGhostNext = 0.5, -- โอกาสที่ลูกค้าคนถัดไป "ตามมา" เป็นผีแน่นอน
 	PraySummonKeys = { "Anomaly_MonkRadio" },
 	-- ผีฉาก (โผล่ให้เห็นเป็นช่วงๆ) อยู่ฝั่ง client แล้ว: client/SceneryGhosts (แต่ละคนเห็นคนละตัว คนละเวลา)
-	-- ผีใหญ่บุกประชิด (server/BigEvents): ดับไฟที่สะพานไฟ + นั่งยองนิ่งๆ ให้ผีผ่านไป
+	-- ผีใหญ่บุกประชิด (server/BigEvents): ปิดแผงร้าน + ดับไฟที่สะพานไฟ ให้ผีผ่านไป
 	BigEvery = { 480, 780 }, -- เกิดทุกๆ กี่วินาที (สุ่ม) ตอนร้านเปิดและร้านว่าง (เดิม 360-600)
 	BigMax = 2, -- คืนละไม่เกินเท่านี้
 	-- จังหวะความกลัวทั้งคืน (ผู้ใช้ 2026-11-08 "ทำได้เลย"): ไต่ระดับตามเงินที่หาได้ (money / TargetMoney)
@@ -122,6 +123,7 @@ local CONFIG = {
 	BigFromProgress = 0.4, -- ผีใหญ่มาได้หลังเงินถึงเท่านี้
 	BigOmenTime = 14, -- วินาที: ก่อนผีใหญ่มา จิ้งหรีดเงียบกริบ + หมาหอนแว่วจากหลังเขา (ร้านล็อกไม่ปล่อยลูกค้าระหว่างนี้)
 	CalmAfterScare = 75, -- วินาที: หลังผีใหญ่ / ไฟกลับมา เว้นเงียบ ไม่มีไฟดับ ผีใหญ่ ผีฉาก
+	BigCustomerPause = 20, -- วินาที: หลังผีใหญ่ไปแล้ว รอเท่านี้ก่อนปล่อยลูกค้าคันต่อไป (ผู้ใช้ 2026-11-22: ผีไปปุ๊บลูกค้ามาปั๊บ)
 	BigReward = 0, -- รอดได้ทั้งทีม (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
 
 	-- น้ำมันในตู้ (2026-11-03): เติม 1 ครั้งใช้เท่านี้ของหลอด หมดแล้วต้องเอาแกลลอนในร้านไปตักจากถังหลังร้านมาเท
@@ -589,7 +591,8 @@ local Weather = require(script.Parent:WaitForChild("Weather"))
 local Power = require(script.Parent:WaitForChild("Power"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
 -- ผีใหญ่ (server/BigEvents) เก็บในตารางเดียว: ไฟล์นี้ใช้ local ระดับบนสุดเต็มขีดจำกัด 200 ตัวของ Luau แล้ว
-CoreLoop.Big = { mod = require(script.Parent:WaitForChild("BigEvents")), running = false, count = 0 } :: any
+-- quietUntil = os.clock() ที่ปล่อยลูกค้าได้อีกครั้งหลังผีใหญ่จบ (CONFIG.BigCustomerPause)
+CoreLoop.Big = { mod = require(script.Parent:WaitForChild("BigEvents")), running = false, count = 0, quietUntil = 0 } :: any
 CoreLoop.Linger = require(script.Parent:WaitForChild("GhostLinger")) :: any
 -- คืนนี้: ใครเจอศพห่อผ้าตอนไฟดับไปแล้ว (นับ 1 อีเวนต์ต่อคืน)
 CoreLoop.Night = { sawSwarm = {}, roadKinds = {} } :: any -- roadKinds = ขาจรที่ออกไปแล้วคืนนี้ (ล้างตอนเริ่มคืน)
@@ -2816,7 +2819,7 @@ local function spawnerLoop()
 		-- (คัทซีนกำลังเล่น: ห้ามปล่อยลูกค้า/ผี/ขาจรออกมาเด็ดขาด ผู้ใช้ 2026-11-05)
 		waitWhile(function()
 			-- โหมดทดสอบ (แผง admin): ไม่ปล่อยลูกค้า/ขาจรเอง มีแต่ที่กดเรียก
-			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or CoreLoop.Linger.Active() or ReplicatedStorage:GetAttribute("CutsceneRunning") == true or ReplicatedStorage:GetAttribute("TestMode") == true
+			return #queue > 0 or #shelters > 0 or roadEventRunning or CoreLoop.Big.running or os.clock() < CoreLoop.Big.quietUntil or CoreLoop.Linger.Active() or ReplicatedStorage:GetAttribute("CutsceneRunning") == true or ReplicatedStorage:GetAttribute("TestMode") == true
 		end)
 		if gameOver then
 			return
@@ -3489,6 +3492,7 @@ function CoreLoop.Big.run(kind: string?)
 		print("👻 ผีใหญ่จับได้ (" .. tostring(r.team or "player") .. ") ธูปเหลือ " .. incense)
 	end
 	CoreLoop.Big.running = false
+	CoreLoop.Big.quietUntil = os.clock() + CONFIG.BigCustomerPause -- ร้านเงียบสักพักก่อนลูกค้าคันต่อไป (spawnerLoop รอ)
 	remotes:SetAttribute("BigEvent", nil)
 	remotes:SetAttribute("BigOmen", nil)
 	CoreLoop.Calm(CONFIG.CalmAfterScare) -- พักหายใจ: ไม่มีไฟดับ / ผีฉากตามมาติดๆ

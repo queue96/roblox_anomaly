@@ -5397,7 +5397,7 @@ function MapBuilder.AddMoneyChalkboard(): string
 	end
 	label("Title", 0.08, 0.04, 0.84, 0.24, "ยอดวันนี้", 0.3, -3)
 	label("Amount", 0.08, 0.26, 0.84, 0.44, "0", 0.22, -4)
-	label("Target", 0.3, 0.68, 0.6, 0.26, "/ 1,000", 0.38, -3)
+	label("Target", 0.3, 0.68, 0.6, 0.26, "/ 1,200", 0.38, -3)
 	sg.Parent = board
 	m.PrimaryPart = board
 	m.Parent = shack

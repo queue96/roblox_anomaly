@@ -136,6 +136,8 @@ type State = {
 	lookYaw: number,
 	lookPitch: number,
 	lookAt: number,
+	stillKey: string?, -- attribute StillBones ที่แปลงไว้แล้ว
+	still: { [string]: boolean },
 }
 
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
@@ -180,6 +182,8 @@ local function stateOf(m: Model): State
 		lookYaw = 0,
 		lookPitch = 0,
 		lookAt = 0,
+		stillKey = nil,
+		still = {},
 	}
 	states[m] = st
 	return st
@@ -362,7 +366,21 @@ local function stepGhost(m: Model, now: number)
 	end
 
 	local tracks = c.tracks
+	-- กระดูกที่ล็อกท่าพัก (attribute StillBones "hips,thigh.L,..." ผู้ใช้ 2026-11-22 ตานี v2: ยืนนิ่ง ขาในผ้าซิ่นไม่บิด)
+	local stillAttr = m:GetAttribute("StillBones") :: string?
+	if stillAttr ~= st.stillKey then
+		st.stillKey = stillAttr
+		st.still = {}
+		for n in string.gmatch(stillAttr or "", "[^,%s]+") do
+			st.still[n] = true
+		end
+	end
+	local still = st.still
 	for bname, b in pairs(st.bones) do
+		if still[bname] then
+			b.Transform = CFrame.identity
+			continue
+		end
 		local tr = tracks[bname]
 		local pScale = if bname == "hips" or bname == "root" then st.hipScale else 1
 		local cf = if tr then sampleAt(tr, i0, i1, a, pScale) else CFrame.identity
@@ -374,6 +392,25 @@ local function stepGhost(m: Model, now: number)
 		b.Transform = cf
 	end
 	-- (ร่างโคลนในจอจั๊มสแกร์อยู่ใน ViewportFrame ไม่ใช่ Workspace: ไม่หันตามกล้องโลกจริง)
+	-- แขนห้อยข้างตัว (attribute ArmsDown = 0..1 สัดส่วนที่หมุนแขนบนจากท่าพักลงหาแนวดิ่ง) ใช้กับผีที่ล็อกแขนเป็นท่าพัก
+	-- (StillBones) แต่ท่าพักเป็นท่ากางแขนตอนปั้น เช่น ตานี v2 ยืนเฉยๆ (ผู้ใช้ 2026-11-22 "ทำไมต้องยืนทำมือแบบนี้")
+	local armsDown = m:GetAttribute("ArmsDown") :: number?
+	if armsDown and armsDown > 0 then
+		for _, side in ipairs({ "L", "R" }) do
+			local up, fore = st.bones["upper_arm." .. side], st.bones["forearm." .. side]
+			if up and fore then
+				local dir = fore.TransformedWorldCFrame.Position - up.TransformedWorldCFrame.Position
+				if dir.Magnitude > 1e-4 then
+					dir = dir.Unit
+					local axis = dir:Cross(Vector3.new(0, -1, 0))
+					if axis.Magnitude > 1e-4 then
+						local ang = math.acos(math.clamp(-dir.Y, -1, 1)) * math.clamp(armsDown, 0, 1)
+						addWorldRotation(up, CFrame.fromAxisAngle(axis.Unit, ang))
+					end
+				end
+			end
+		end
+	end
 	if m:GetAttribute("LookAtCamera") == true and m:IsDescendantOf(Workspace) then
 		lookAtCamera(m, st, now)
 	end

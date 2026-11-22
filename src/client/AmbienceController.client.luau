@@ -858,6 +858,101 @@ task.spawn(function()
 	update()
 end)
 
+-- ลางผีใหญ่ทางตา (ผู้ใช้ 2026-11-22): ไฟร้านกะพริบ หรี่ วูบดับแว่บๆ ตั้งแต่จิ้งหรีดเงียบจนผีใหญ่ไป (หรือจนผู้เล่นสับสะพานไฟดับเอง)
+--   ใบ้วิธีรอด "ไฟ" ในตัว · ช่วงลาง (BigOmen) เบาๆ นานๆ วูบที / ผีมาแล้ว (BigEvent) ถี่และแรงขึ้น
+--   ทำเฉพาะเครื่องนี้ ไม่ชนกับ server/Power: แตะแค่ Light.Brightness (Power สลับแค่ Enabled) และ
+--   LocalTransparencyModifier ของหลอด (Power เปลี่ยน Color/Material) แล้วคืนค่าเดิมเมื่อจบ
+task.spawn(function()
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	-- ชื่อหลอดเดียวกับ server/Power LIGHT_PARTS
+	local LIGHT_PARTS = { NeonLightPart = true, ShackLight_Neon = true, ShackLightBulb = true, Bulb = true, Filament = true, StormLantern_Neon = true }
+	local running = false
+
+	local function lightsOn(): boolean
+		return ReplicatedStorage:GetAttribute("PowerOn") ~= false and ReplicatedStorage:GetAttribute("BreakerOn") ~= false
+	end
+	local function omenState(): string?
+		if remotes:GetAttribute("BigEvent") ~= nil then
+			return "event"
+		elseif remotes:GetAttribute("BigOmen") == true then
+			return "omen"
+		end
+		return nil
+	end
+
+	local function run()
+		if running then
+			return
+		end
+		running = true
+		local parts: { BasePart } = {}
+		local lights: { { l: Light, b: number } } = {}
+		local env = Workspace:FindFirstChild("MapEnvironment")
+		for _, d in ipairs(env and env:GetDescendants() or {}) do
+			if d:IsA("BasePart") and LIGHT_PARTS[d.Name] then
+				table.insert(parts, d)
+				for _, l in ipairs(d:GetDescendants()) do
+					if l:IsA("Light") then
+						table.insert(lights, { l = l, b = l.Brightness })
+					end
+				end
+			end
+		end
+		local seed = math.random() * 100
+		local blinkUntil, nextBlink = 0, os.clock() + 1.5 + math.random() * 2
+		local t0 = os.clock()
+		while omenState() ~= nil and lightsOn() do
+			local now = os.clock()
+			local strong = omenState() == "event"
+			-- หรี่ลงเรื่อยๆ ไม่สม่ำเสมอ (ไฟตก) + วูบดับแว่บ 0.06-0.2 วิเป็นพักๆ
+			local sag = math.clamp((now - t0) / 6, 0, 1) * (if strong then 0.45 else 0.28)
+			local f = 1 - sag + math.noise(now * 3.1, seed, 0.5) * 0.35
+			if now >= nextBlink then
+				blinkUntil = now + 0.06 + math.random() * 0.14
+				-- ช่วงลาง: วูบทุก 1.5-4 วิ / ผีมาแล้ว: ถี่ขึ้น บางทีวูบติดกัน 2 ที
+				nextBlink = if strong then now + (if math.random() < 0.35 then 0.25 else 0.6 + math.random() * 1.6) else now + 1.5 + math.random() * 2.5
+			end
+			if now < blinkUntil then
+				f = 0.05 + math.random() * 0.1
+			end
+			f = math.clamp(f, 0, 1)
+			for _, e in ipairs(lights) do
+				if e.l.Parent then
+					e.l.Brightness = e.b * f
+				end
+			end
+			for _, p in ipairs(parts) do
+				if p.Parent then
+					(p :: any).LocalTransparencyModifier = (1 - f) * 0.75
+				end
+			end
+			RunService.RenderStepped:Wait()
+		end
+		for _, e in ipairs(lights) do
+			if e.l.Parent then
+				e.l.Brightness = e.b
+			end
+		end
+		for _, p in ipairs(parts) do
+			if p.Parent then
+				(p :: any).LocalTransparencyModifier = 0
+			end
+		end
+		running = false
+	end
+
+	local function check()
+		if omenState() ~= nil and lightsOn() then
+			task.spawn(run)
+		end
+	end
+	remotes:GetAttributeChangedSignal("BigOmen"):Connect(check)
+	remotes:GetAttributeChangedSignal("BigEvent"):Connect(check)
+	ReplicatedStorage:GetAttributeChangedSignal("PowerOn"):Connect(check)
+	ReplicatedStorage:GetAttributeChangedSignal("BreakerOn"):Connect(check)
+	check()
+end)
+
 ---------------------------------------------------------------------
 -- 4. เสียงหลอกผู้เล่นแบบ 3D เฉพาะตัว (Personal Haunt / Prank Audio)
 --    ไม่แสบหู (Warm Low-Pass EQ จาก SoundBank):
