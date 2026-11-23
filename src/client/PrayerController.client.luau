@@ -714,7 +714,12 @@ local function styleTouchButton(action: string, pos: UDim2)
 		end
 	end)
 end
-ContextActionService:SetTitle("Pray", "สวด")
+ContextActionService:SetTitle("Pray", ui("PrayButton"))
+localPlayer:GetAttributeChangedSignal("Lang"):Connect(function()
+	pcall(function()
+		ContextActionService:SetTitle("Pray", ui("PrayButton"))
+	end)
+end)
 -- จัดรอบปุ่มกระโดด (มุมขวาล่าง): สวดอยู่เหนือปุ่มกระโดด / นั่งยองอยู่ซ้ายปุ่มกระโดด (Animate.client)
 styleTouchButton("Pray", UDim2.new(1, -125, 1, -215))
 

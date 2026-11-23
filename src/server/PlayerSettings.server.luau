@@ -1,11 +1,10 @@
 -- PlayerSettings.server.luau
 -- การตั้งค่าของผู้เล่น (จำไว้ใน DataStore ครั้งหน้าเข้ามาใช้ค่าเดิม) อยู่เป็น Attribute บนตัว Player:
---   Lang        "th" | "en"   เข้าครั้งแรก: มาจากประเทศไทย (หรือเครื่องตั้งภาษาไทย) = "th" นอกนั้น = "en"
---   MusicVolume 0..1          เสียงเพลง (วิทยุ / สวด)
---   SfxVolume   0..1          เสียงเอฟเฟกต์ (หมาหอน จิ้งหรีด ฯลฯ)
+--   Lang        "th"|"en"|"id"|"pt"|"es"  เข้าครั้งแรก: ตามประเทศ (LanguageModule.FromCountry) ไม่ก็ภาษาเครื่อง นอกนั้น "en"
 --   ShowHUD     boolean       แสดงเงิน / ธูป / ป้ายปุ่มคีย์ (คำพูดลูกค้าและแถบประกาศแสดงเสมอ)
 --   ShowLabels  boolean       แสดงป้ายชื่อตามวัตถุในฉาก (ZoneLabel)
 --   ShowTutorial boolean      แสดงการ์ดสอนเล่น (ปิดได้ในหน้าตั้งค่า)
+--   ShowTaskGlow boolean      ของที่ต้องทำเรืองแสง + ป้ายลอยบนของ ตลอดเวลาที่งานค้าง (TaskGlow)
 --   FlashHand   "R" | "L"     มือที่ถือไฟฉาย (ค่าเริ่มต้นขวา) แกลลอน/ขนมอยู่มืออีกข้าง (shared/HeadTurn.Sides)
 --   LangChosen  boolean       ผู้เล่นยืนยันภาษาเองแล้ว (หน้าเลือกภาษาครั้งแรกก่อนฉากเปิด Lobby)
 --   TutSeen     string        เรื่องที่สอนเล่นไปแล้ว (คั่นด้วย ,) สอนแล้วไม่สอนซ้ำ (TutorialController)
@@ -15,6 +14,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local LocalizationService = game:GetService("LocalizationService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
 
 local STORE_NAME = "PlayerSettings_v1"
 local okStore, store = pcall(function()
@@ -33,12 +33,6 @@ setSetting.Name = "SetSetting"
 setSetting.Parent = remotes
 
 -- ค่าเริ่มต้น + ตัวตรวจค่า (คืนค่าที่ถูกต้อง หรือ nil ถ้าใช้ไม่ได้)
-local function volume(v: any): number?
-	if type(v) == "number" and v == v then
-		return math.clamp(v, 0, 1)
-	end
-	return nil
-end
 local function bool(v: any): boolean?
 	if type(v) == "boolean" then
 		return v
@@ -49,14 +43,15 @@ local SETTINGS: { [string]: { default: any, check: (any) -> any } } = {
 	Lang = {
 		default = "en",
 		check = function(v)
-			return if v == "th" or v == "en" then v else nil
+			-- ภาษาที่รองรับ (LanguageModule.Langs: th en id pt es)
+			return if type(v) == "string" and table.find(LanguageModule.Langs, v) then v else nil
 		end,
 	},
-	MusicVolume = { default = 0.7, check = volume },
-	SfxVolume = { default = 0.8, check = volume },
+	-- (MusicVolume / SfxVolume ตัดออกแล้ว ผู้ใช้ 2026-11-23 "ไม่ให้ผู้เล่นปรับเสียงเอง": ความดังตายตัวใน SettingsController)
 	ShowHUD = { default = true, check = bool },
 	ShowLabels = { default = true, check = bool },
 	ShowTutorial = { default = true, check = bool }, -- ปิด = ไม่ขึ้นการ์ดสอนเล่นเลย (TutorialController)
+	ShowTaskGlow = { default = true, check = bool }, -- ปิด = ของที่ต้องทำไม่เรืองแสง ไม่มีป้ายลอย (TaskGlow)
 	FlashHand = {
 		default = "R",
 		check = function(v)
@@ -83,13 +78,12 @@ local function detectLanguage(player: Player): string
 	local ok, region = pcall(function()
 		return LocalizationService:GetCountryRegionForPlayerAsync(player)
 	end)
-	if ok and region == "TH" then
-		return "th"
+	-- ประเทศก่อน (ไทย / อินโดนีเซีย / บราซิล-โปรตุเกส / ประเทศที่พูดสเปน) แล้วค่อยภาษาเครื่อง ไม่ตรงอะไรเลย = อังกฤษ
+	local fromCountry = if ok then LanguageModule.FromCountry(region) else nil
+	if fromCountry then
+		return fromCountry
 	end
-	if string.sub(string.lower(player.LocaleId), 1, 2) == "th" then
-		return "th"
-	end
-	return "en"
+	return LanguageModule.Normalize(player.LocaleId)
 end
 
 local function load(player: Player): { [string]: any }?

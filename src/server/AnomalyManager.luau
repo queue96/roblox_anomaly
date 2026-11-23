@@ -618,6 +618,14 @@ AnomalyManager.Anomalies = {
 					local entry = if type(nameKey) == "string" then names[nameKey] else nil
 					local nameTH = if entry then entry.th else "ไม่ทราบชื่อ"
 					local nameEN = if entry then entry.en else "Name unknown"
+					-- ภาษาอื่น: ชื่อ + คำว่า "มรณะ" ตามคำแปลใน LanguageModule (ยังไม่แปล = อังกฤษ)
+					local nameMore, diedMore = {}, {}
+					for _, l in ipairs(LanguageModule.Langs) do
+						if l ~= "th" and l ~= "en" then
+							nameMore[l] = if entry then LanguageModule.Pick(entry, l) else LanguageModule.GetUI("TombNoName", l)
+							diedMore[l] = LanguageModule.GetUI("TombDied", l)
+						end
+					end
 					-- วันนี้ตามเวลาไทย (UTC+7) ปี พ.ศ.
 					local d = os.date("!*t", os.time() + 7 * 3600)
 					local dateTH = string.format("%d %s %d", d.day, TH_MONTHS[d.month], d.year + 543)
@@ -630,10 +638,14 @@ AnomalyManager.Anomalies = {
 							t.TextColor3 = ink
 							if t.Position.Y.Scale > 0.3 then
 								t.Font = Enum.Font.SourceSans
-								Bilingual.Text(t, "มรณะ " .. dateTH, "DIED " .. dateEN)
+								local more = {}
+								for l, w in pairs(diedMore) do
+									more[l] = w .. " " .. dateEN
+								end
+								Bilingual.Text(t, "มรณะ " .. dateTH, "DIED " .. dateEN, more)
 							else
 								t.Font = Enum.Font.SourceSansBold
-								Bilingual.Text(t, nameTH, nameEN)
+								Bilingual.Text(t, nameTH, nameEN, nameMore)
 							end
 						elseif t:IsA("Frame") then
 							t.Visible = false -- แถบเลือดหยดของป้ายเดิม

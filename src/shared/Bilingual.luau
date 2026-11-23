@@ -1,7 +1,10 @@
 --!strict
 -- Bilingual.luau (ReplicatedStorage.Shared) — ข้อความที่ Server สร้าง (ป้าย 3D / ปุ่มกด) แต่ต้องแสดงตามภาษาของแต่ละคน
---   Server:  Bilingual.Text(label, "ไทย", "English")                 ตั้งทั้งสองภาษาไว้ใน attribute (Text ตั้งเป็นไทยไว้ก่อน)
---            Bilingual.Prompt(prompt, "ทำ", "Do", "ของ", "Thing")    ActionText / ObjectText ของ ProximityPrompt
+--   Server:  Bilingual.Text(label, "ไทย", "English", more?)               ตั้งทุกภาษาไว้ใน attribute (Text ตั้งเป็นไทยไว้ก่อน)
+--            Bilingual.Prompt(prompt, "ทำ", "Do", "ของ", "Thing", more?)  ActionText / ObjectText ของ ProximityPrompt
+--   more = ภาษาอื่น (ผู้ใช้ 2026-11-23 รองรับหลายภาษา): Text { id = "...", pt = "...", es = "..." }
+--          Prompt { id = { "ทำ", "ของ" }, pt = {...}, es = {...} } · ภาษาที่ไม่ได้ใส่ = ใช้อังกฤษ
+--   attribute ชื่อ Text<รหัสภาษาตัวใหญ่> เช่น TextTH TextEN TextID TextPT TextES (Action / Object เหมือนกัน)
 --   Client:  Bilingual.Run()  ติดครั้งเดียวต่อเครื่อง: ทุกชิ้นที่ติด tag เปลี่ยนเป็นภาษาของผู้เล่น (attribute Lang) และเปลี่ยนตามทันที
 -- (Server ตั้ง Text ทีเดียวทุกคนเห็นเหมือนกัน -> ต้องให้ Client เขียนทับเฉพาะเครื่องตัวเอง)
 local CollectionService = game:GetService("CollectionService")
@@ -13,14 +16,19 @@ local TAG = "Bilingual"
 
 local Bilingual = {}
 
-function Bilingual.Text(inst: Instance, th: string, en: string)
+function Bilingual.Text(inst: Instance, th: string, en: string, more: { [string]: string }?)
 	(inst :: any).Text = th
 	inst:SetAttribute("TextTH", th)
 	inst:SetAttribute("TextEN", en)
+	if more then
+		for lang, s in pairs(more) do
+			inst:SetAttribute("Text" .. string.upper(lang), s)
+		end
+	end
 	CollectionService:AddTag(inst, TAG)
 end
 
-function Bilingual.Prompt(p: ProximityPrompt, actionTH: string, actionEN: string, objectTH: string?, objectEN: string?)
+function Bilingual.Prompt(p: ProximityPrompt, actionTH: string, actionEN: string, objectTH: string?, objectEN: string?, more: { [string]: { string } }?)
 	p.ActionText = actionTH
 	if objectTH then
 		p.ObjectText = objectTH
@@ -30,6 +38,14 @@ function Bilingual.Prompt(p: ProximityPrompt, actionTH: string, actionEN: string
 	if objectTH then
 		p:SetAttribute("ObjectTH", objectTH)
 		p:SetAttribute("ObjectEN", objectEN or objectTH)
+	end
+	if more then
+		for lang, pair in pairs(more) do
+			p:SetAttribute("Action" .. string.upper(lang), pair[1])
+			if pair[2] then
+				p:SetAttribute("Object" .. string.upper(lang), pair[2])
+			end
+		end
 	end
 	CollectionService:AddTag(p, TAG)
 end
@@ -42,24 +58,29 @@ function Bilingual.Run()
 	running = true
 	local player = Players.LocalPlayer
 	local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
-	local function th(): boolean
-		return LanguageModule.Normalize((player:GetAttribute("Lang") :: string?) or player.LocaleId) == "th"
+	-- ค่าของภาษาผู้เล่น (attribute <ชนิด><ภาษา>) ไม่มี = อังกฤษ
+	local function pick(inst: Instance, kind: string): any
+		local lang = string.upper(LanguageModule.Normalize((player:GetAttribute("Lang") :: string?) or player.LocaleId))
+		local v = inst:GetAttribute(kind .. lang)
+		if type(v) ~= "string" then
+			v = inst:GetAttribute(kind .. "EN")
+		end
+		return v
 	end
 	local function apply(inst: Instance)
-		local isTH = th()
 		if inst:IsA("ProximityPrompt") then
 			inst.AutoLocalize = false
-			local a = inst:GetAttribute(if isTH then "ActionTH" else "ActionEN")
+			local a = pick(inst, "Action")
 			if type(a) == "string" then
 				inst.ActionText = a
 			end
-			local o = inst:GetAttribute(if isTH then "ObjectTH" else "ObjectEN")
+			local o = pick(inst, "Object")
 			if type(o) == "string" then
 				inst.ObjectText = o
 			end
 		elseif inst:IsA("TextLabel") or inst:IsA("TextButton") then
 			inst.AutoLocalize = false
-			local t = inst:GetAttribute(if isTH then "TextTH" else "TextEN")
+			local t = pick(inst, "Text")
 			if type(t) == "string" then
 				inst.Text = t
 			end

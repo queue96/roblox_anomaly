@@ -476,11 +476,23 @@ local function refresh(pad: BasePart)
 	if room then
 		-- ไม่มีให้เลือกความยากแล้ว (ใช้ค่าเริ่มต้นเสมอ) ป้ายจึงไม่แสดงความยาก
 		if room.launching then
-			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers), ("Room %d · %s\n%d/%d players\nStarting the game..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers))
+			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers), ("Room %d · %s\n%d/%d players\nStarting the game..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers), {
+				id = ("Room %d · %s\n%d/%d pemain\nMemulai game..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers),
+				pt = ("Sala %d · %s\n%d/%d jogadores\nIniciando o jogo..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers),
+				es = ("Sala %d · %s\n%d/%d jugadores\nIniciando el juego..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers),
+			})
 		elseif room.fullCountdown then
-			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), ("Room %d · %s\n%d/%d players\nFull · starting in %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown))
+			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), ("Room %d · %s\n%d/%d players\nFull · starting in %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), {
+				id = ("Room %d · %s\n%d/%d pemain\nPenuh · mulai dalam %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
+				pt = ("Sala %d · %s\n%d/%d jogadores\nLotada · começa em %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
+				es = ("Sala %d · %s\n%d/%d jugadores\nLlena · empieza en %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
+			})
 		else
-			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), ("Room %d · %s\n%d/%d players\nWaiting · starts in %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown))
+			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), ("Room %d · %s\n%d/%d players\nWaiting · starts in %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), {
+				id = ("Room %d · %s\n%d/%d pemain\nMenunggu · mulai dalam %d dtk"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
+				pt = ("Sala %d · %s\n%d/%d jogadores\nEsperando · começa em %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
+				es = ("Sala %d · %s\n%d/%d jugadores\nEsperando · empieza en %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
+			})
 		end
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 		for _, p in ipairs(room.members) do
@@ -497,10 +509,18 @@ local function refresh(pad: BasePart)
 			})
 		end
 	elseif pendingHost[pad] then
-		Bilingual.Text(label, ("ห้อง %d\n%s กำลังตั้งห้อง...\nปิดชั่วคราว รอสักครู่"):format(i, pendingHost[pad].DisplayName), ("Room %d\n%s is setting up...\nLocked, please wait"):format(i, pendingHost[pad].DisplayName))
+		Bilingual.Text(label, ("ห้อง %d\n%s กำลังตั้งห้อง...\nปิดชั่วคราว รอสักครู่"):format(i, pendingHost[pad].DisplayName), ("Room %d\n%s is setting up...\nLocked, please wait"):format(i, pendingHost[pad].DisplayName), {
+			id = ("Room %d\n%s sedang menyiapkan...\nDikunci, mohon tunggu"):format(i, pendingHost[pad].DisplayName),
+			pt = ("Sala %d\n%s está montando...\nTrancada, aguarde"):format(i, pendingHost[pad].DisplayName),
+			es = ("Sala %d\n%s la está armando...\nCerrada, espera"):format(i, pendingHost[pad].DisplayName),
+		})
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	else
-		Bilingual.Text(label, ("ห้อง %d · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง"):format(i), ("Room %d · empty\nWalk in to host"):format(i))
+		Bilingual.Text(label, ("ห้อง %d · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง"):format(i), ("Room %d · empty\nWalk in to host"):format(i), {
+			id = ("Room %d · kosong\nMasuk untuk membuat room"):format(i),
+			pt = ("Sala %d · vazia\nEntre para criar"):format(i),
+			es = ("Sala %d · vacía\nEntra para crear"):format(i),
+		})
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	end
 end

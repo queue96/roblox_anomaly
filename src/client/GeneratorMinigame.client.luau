@@ -15,7 +15,11 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Generator") :: RemoteEvent
 -- มือถือ (จอสัมผัส): ปุ่มกลางวงเขียน "Tap" แทน "Space" / แตะตรงไหนก็ได้บนจอ = ดึง
-local IS_TOUCH = (require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any).TouchMode == true
+local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
+local IS_TOUCH = LanguageModule.TouchMode == true
+local function ui(key: string): string
+	return LanguageModule.GetUI(key, LanguageModule.Normalize(player:GetAttribute("Lang") :: string?))
+end
 
 -- สีชุดเดียวกับ HUDController
 local C = {
@@ -125,10 +129,10 @@ local function finishCheck(r: string)
 	nextCheck = os.clock() + gap[1] + math.random() * (gap[2] - gap[1])
 	fillTime = if r == "great" then 0.25 else 0.6
 	if r == "great" then
-		say("Great!", C.BloodLit)
+		say(ui("GenGreat"), C.BloodLit)
 		remote:FireServer("great")
 	elseif r == "good" then
-		say("Good", Color3.new(1, 1, 1))
+		say(ui("GenGood"), Color3.new(1, 1, 1))
 		remote:FireServer("good")
 	else
 		-- ไฟช็อต: เซิร์ฟเวอร์ปิดมินิเกมแล้วส่ง "shock" กลับมา (จอแวบ สั่น กระเด็น) / ไม่มีรอบใหม่ระหว่างรอ
@@ -188,7 +192,7 @@ RunService.RenderStepped:Connect(function()
 		zoneAt = 110 + math.random() * (300 - 110 - ZONE)
 		drawZone(zoneAt)
 		needle.Rotation = 0
-		key.Text = if IS_TOUCH then "Tap" else "Space"
+		key.Text = if IS_TOUCH then ui("GenKeyTap") else "Space"
 		ring.Visible = true
 	end
 end)
@@ -229,7 +233,7 @@ local function onShock(from: Vector3?)
 	flash.BackgroundTransparency = 0.15
 	TweenService:Create(flash, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
 	shakeUntil = os.clock() + 0.5
-	shockText.Text = "Shocked! Go back and press the generator to keep going"
+	shockText.Text = ui("GenShocked")
 	shockText.TextColor3 = C.Cream
 	task.delay(2.6, function()
 		if shockText.Text ~= "" then
@@ -272,7 +276,7 @@ end
 
 remote.OnClientEvent:Connect(function(what: string, value: any)
 	if what == "open" then
-		title.Text = "Generator - starting..."
+		title.Text = ui("GenStarting")
 		setOpen(true)
 		barFill.Size = UDim2.new(if type(value) == "number" then value else 0, 0, 1, 0)
 	elseif what == "progress" then
@@ -282,7 +286,7 @@ remote.OnClientEvent:Connect(function(what: string, value: any)
 			stopRounds()
 		end
 	elseif what == "done" then
-		title.Text = "Generator running - lights are back"
+		title.Text = ui("GenRunning")
 		fillTo(1)
 		stopRounds()
 		task.delay(1.4, function()

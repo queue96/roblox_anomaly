@@ -35,6 +35,10 @@ rig = bpy.data.objects["HumanRig"]
 pbs = rig.pose.bones
 for pb in pbs:
     pb.rotation_mode = "QUATERNION"
+    # the rig's LIMIT_ROTATION etc. kept the elbow straight in the previews only (the export reads matrix_basis,
+    # so the game got the real bend): mute them so the previews show what Roblox plays
+    for c in pb.constraints:
+        c.mute = True
 
 
 def V(x, y, z):
@@ -89,13 +93,73 @@ def pose(swing_deg):
     aim("forearm.L", V(0.06, -0.06, -1.0))
     # (ผู้ใช้ 2026-11-22 "แขนมันบิด": บังคับทิศฝ่ามือทำให้ข้อมือบิด 120° -> ไม่บิดมือแล้ว ให้หันตามแขนเอง)
     aim("hand.L", V(0.04, -0.04, -1.0))
-    # right arm (her right = -X): upper arm out to the side, a little forward and up, elbow at shoulder height
-    aim("upper_arm.R", V(-0.85, -0.30, 0.25))
-    up = V(-0.10, -0.20, 0.97)
+    # right arm (her right = -X): upper arm out to the side and a little forward, elbow just below the shoulder
+    # (ผู้ใช้ 2026-11-22 รอบ 2 "ตานีแขนบิด": มือพับเลยแขนท่อนล่าง 1.35 เท่า + หลังมือหันมาหาผู้เล่น
+    #  -> มือตรงแนวแขน ฝ่ามือหันหาผู้เล่นด้วยการหมุนแขนท่อนล่างทั้งท่อน ไม่บิดที่ข้อมือ)
+    # (รอบ 3 "แขนยังแอบบิดอยู่หน่อยๆ": หมุนแขนท่อนล่าง 91° เนื้อตรงศอกบิดเป็นเกลียว -> หมุนที่ไหล่แทน (แบบแขนคนจริง)
+    #  ลองหมุนต้นแขนรอบแกนตัวเองทุก 3° เลือกมุมที่ศอกเป็นการพับล้วนๆ (แขนท่อนล่างแทบไม่บิด) และฝ่ามือหันหาผู้เล่น
+    #  ที่ยังขาดอยู่ค่อยหมุนแขนท่อนล่างเพิ่มได้ไม่เกิน 25°)
+    # (รอบ 4 "แขนเหมือนหักพับ": ต้นแขนชี้มาหาผู้เล่น 32% ดูสั้นจากด้านหน้า + ศอก 90° พอดี = ดูเหมือนพับหัก
+    #  -> ต้นแขนกางออกข้าง ยกขึ้น ~20° เหนือไหล่ ชี้หน้าน้อยลง แขนท่อนล่างเอียงออกนอกนิดๆ ศอกกว้างกว่า 90°)
+    # (รอบ 5 "แขนดูบิดเบี้ยวผิดมนุษย์": กระดูกไหล่ shoulder.R ไม่เคยขยับ แขนยกสูงแต่ไหล่ค้าง = ต้นแขนงอกจากข้างตัว เนื้อรักแร้ยืด
+    #  -> ยกไหล่ขึ้น 18° (คนจริงยกแขนแล้วไหล่ยกตาม) + ลดต้นแขนลงเหลือ ~9° เหนือแนวไหล่ เนื้อไม่ถูกดึงมาก)
+    sh = pbs["shoulder.R"]
+    sd = (sh.tail - sh.head).normalized()
+    hz = math.hypot(sd.x, sd.y)
+    lift = math.radians(18)
+    ang = math.atan2(sd.z, hz) + lift
+    aim("shoulder.R", Vector((sd.x / hz * math.cos(ang), sd.y / hz * math.cos(ang), math.sin(ang))))
+    ua_dir = V(-0.95, -0.12, 0.16)
+    up = V(-0.24, -0.14, 0.96)
     fore = Quaternion(FWD, math.radians(swing_deg)) @ up
+    best = None
+    for deg in range(0, 360, 3):
+        reset_arm_r()
+        aim("upper_arm.R", ua_dir)
+        roll("upper_arm.R", ua_dir, math.radians(deg))
+        aim("forearm.R", fore)
+        aim("hand.R", fore)
+        tf = twist_deg("forearm.R")
+        pd = (pbs["hand.R"].matrix.to_3x3() @ PALM["R"]).normalized().dot(FWD)
+        score = abs(tf) + max(0.0, 0.9 - pd) * 200
+        if best is None or score < best[0]:
+            best = (score, deg, tf, pd)
+    _, deg, tf, pd = best
+    reset_arm_r()
+    aim("upper_arm.R", ua_dir)
+    roll("upper_arm.R", ua_dir, math.radians(deg))
     aim("forearm.R", fore)
-    hand = Quaternion(FWD, math.radians(swing_deg * 1.35)) @ V(-0.05, -0.12, 0.99)   # the hand flops a bit further
-    aim("hand.R", hand)
+    aim("hand.R", fore)
+    # small leftover roll on the forearm so the palm faces the player (-Y), capped
+    palm = pbs["hand.R"].matrix.to_3x3() @ PALM["R"]
+    ax = fore.normalized()
+    cur = (palm - ax * palm.dot(ax)).normalized()
+    want = (FWD - ax * FWD.dot(ax)).normalized()
+    tw = max(-math.radians(25), min(math.radians(25), math.atan2(cur.cross(want).dot(ax), cur.dot(want))))
+    roll("forearm.R", ax, tw)
+    aim("hand.R", fore)
+    if swing_deg == 0:
+        log(f"  shoulder roll {deg} deg, forearm twist {tf:.0f} -> {twist_deg('forearm.R'):.0f} deg, palm.fwd {pd:.2f}, extra roll {math.degrees(tw):.0f}")
+
+
+def reset_arm_r():
+    # aim() turns from the bone's current rotation, so every try must start from rest
+    for n in ("upper_arm.R", "forearm.R", "hand.R"):
+        pbs[n].matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+def roll(name, axis, angle):
+    pb = pbs[name]
+    m = pb.matrix.copy()
+    pb.matrix = Matrix.Translation(m.to_translation()) @ (Quaternion(axis.normalized(), angle).to_matrix() @ m.to_3x3()).to_4x4()
+    bpy.context.view_layer.update()
+
+
+def twist_deg(name):
+    """twist of a bone's local rotation about its own axis (Y), from a swing-twist split"""
+    q = pbs[name].matrix_basis.to_quaternion()
+    return math.degrees(2 * math.atan2(q.y, q.w)) if abs(q.w) + abs(q.y) > 1e-6 else 180.0
 
 
 act = bpy.data.actions.get(CLIP)

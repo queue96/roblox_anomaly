@@ -269,8 +269,9 @@ end
 -- ออกจากเกม: Teleport กลับ Lobby (ใน Studio Teleport ไม่ได้ / Teleport พลาด -> Kick พร้อมข้อความลาแทน)
 local leaving: { [Player]: boolean } = {}
 local function kickGoodbye(player: Player)
-	local th = player:GetAttribute("Lang") == "th"
-	player:Kick(if th then "ขอบคุณที่มาเฝ้าปั๊มหลอดท้ายทุ่ง... แล้วพบกันใหม่คืนหน้า" else "Thanks for minding the roadside pump... see you next night.")
+	-- ข้อความตามภาษาผู้เล่น (require ในฟังก์ชัน: CoreLoop ชนเพดาน 200 local ห้ามเพิ่มตัวแปรระดับไฟล์)
+	local LM = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
+	player:Kick(LM.GetUI("KickGoodbye", player:GetAttribute("Lang")))
 end
 function backToLobby(player: Player)
 	if leaving[player] then
@@ -1557,6 +1558,14 @@ devDecision.Event:Connect(function(choice: string)
 	elseif string.sub(choice, 1, 4) == "big:" then
 		-- ทดสอบผีใหญ่: "big:Krasue" / "big:Pret" / "big:Funeral" / "big:Pop"
 		task.spawn(CoreLoop.Big.run, string.sub(choice, 5))
+	elseif choice == "linger:knock" or choice == "linger:circle" or choice == "linger:roof" then
+		-- admin ทดสอบผีวนหลังปิดแผง (ปอบเคาะแผง / กุมารวิ่งรอบร้าน / ผีบนหลังคา): ปิดแผงก่อน แล้วเริ่มทันที ไม่นับโควตาคืนนั้น
+		task.spawn(function()
+			if isShutterOpen then
+				closeShutter()
+			end
+			CoreLoop.Linger.Start(false, string.sub(choice, 8), true)
+		end)
 	elseif choice == "rain" or choice == "clear" then
 		Weather.Set(choice == "rain")
 	elseif choice == "powercut" then

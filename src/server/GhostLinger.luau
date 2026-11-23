@@ -170,22 +170,25 @@ end
 -- สุ่มพฤติกรรมไว้ก่อน (CoreLoop ใช้ตัดสินว่าลูกค้าผีต้องพูดก่อนไหม: เคาะแผง = ไม่พูด เคาะเลย) แล้วส่งให้ Start
 GhostLinger.Pick = pickBehavior
 
-function GhostLinger.Start(mustStay: boolean?, picked: string?): boolean
+-- force = เรียกจากแผง admin (ทดสอบ): ใช้ picked ตรงๆ ไม่สุ่มใหม่ ไม่นับโควตา/ห้ามซ้ำของคืนนั้น
+function GhostLinger.Start(mustStay: boolean?, picked: string?, force: boolean?): boolean
 	if current then
 		GhostLinger.Stop()
 	end
 	local behavior = picked or pickBehavior(mustStay)
 	-- ที่เลือกไว้ล่วงหน้า (CoreLoop.Pick) แต่เกินโควตา/ซ้ำแล้ว: สุ่มใหม่
-	if behavior == "knock" and knockCount >= GhostLinger.Config.KnockMax
-		or (GhostLinger.Config.NoRepeat and behavior ~= "vanish" and behavior == lastShown) then
+	if not force and (behavior == "knock" and knockCount >= GhostLinger.Config.KnockMax
+		or (GhostLinger.Config.NoRepeat and behavior ~= "vanish" and behavior == lastShown)) then
 		behavior = pickBehavior(mustStay)
 	end
 	if behavior == "vanish" then
 		return false
 	end
-	lastShown = behavior
-	if behavior == "knock" then
-		knockCount += 1
+	if not force then
+		lastShown = behavior
+		if behavior == "knock" then
+			knockCount += 1
+		end
 	end
 	local d = door()
 	if not d then

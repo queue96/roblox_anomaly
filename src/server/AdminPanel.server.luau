@@ -28,6 +28,7 @@ local ALLOWED = {
 	hungry = true, offer = true, dessert = true, -- ศาลหมดเวลาคุ้มครอง / ถวายแล้ว / แจกขนม
 	["curse:shake"] = true, ["curse:slow"] = true, ["curse:stumble"] = true,
 	intro = true, win = true, -- คัทซีนเปิดคืน / ชนะทันที (คัทซีนเช้า + สรุปผล)
+	["linger:knock"] = true, ["linger:circle"] = true, ["linger:roof"] = true, -- ผีวนหลังปิดแผง (GhostLinger)
 	["scenery:Tani"] = true, ["scenery:Scarecrow"] = true, ["scenery:Shadow"] = true, ["scenery:hide"] = true, -- ผีฉาก
 }
 

@@ -63,7 +63,8 @@ local function sendAway(p: Player)
 		TeleportService:TeleportAsync(LOBBY_PLACE_ID, { p })
 	end)
 	if not ok then
-		p:Kick(if p.LocaleId:sub(1, 2) == "th" then "เข้าเกมได้จากวัด (Lobby) เท่านั้น" else "Please join from the temple Lobby.")
+		local LM = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
+		p:Kick(LM.GetUI("JoinFromLobby", (p:GetAttribute("Lang") :: string?) or p.LocaleId))
 	end
 end
 

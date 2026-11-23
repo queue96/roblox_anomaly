@@ -10,9 +10,9 @@ local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitFo
 local Bilingual = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual")) -- ป้ายแสดงตามภาษาของแต่ละคน
 
 local BOARDS = {
-	{ model = "LeaderboardDonations", category = "donations", title = "ผู้ร่วมทำบุญสูงสุด", titleEN = "Top Donors", suffix = "฿", suffixEN = "฿", color = Color3.fromRGB(232, 190, 92) },
-	{ model = "LeaderboardCompletions", category = "completions", title = "จบเกมมากที่สุด", titleEN = "Most Nights Survived", suffix = "ครั้ง", suffixEN = "times", color = Color3.fromRGB(126, 190, 152) },
-	{ model = "LeaderboardAnomalies", category = "anomalies", title = "สะสมสิ่งผิดปกติมากที่สุด", titleEN = "Most Anomalies Found", suffix = "ชนิด", suffixEN = "kinds", color = Color3.fromRGB(190, 122, 164) },
+	{ model = "LeaderboardDonations", category = "donations", title = "ผู้ร่วมทำบุญสูงสุด", titleEN = "Top Donors", titleID = "Donatur Teratas", titlePT = "Maiores Doadores", titleES = "Mayores Donantes", suffix = "฿", suffixEN = "฿", suffixID = "฿", suffixPT = "฿", suffixES = "฿", color = Color3.fromRGB(232, 190, 92) },
+	{ model = "LeaderboardCompletions", category = "completions", title = "จบเกมมากที่สุด", titleEN = "Most Nights Survived", titleID = "Malam Selamat Terbanyak", titlePT = "Mais Noites Sobrevividas", titleES = "Más Noches Sobrevividas", suffix = "ครั้ง", suffixEN = "times", suffixID = "kali", suffixPT = "vezes", suffixES = "veces", color = Color3.fromRGB(126, 190, 152) },
+	{ model = "LeaderboardAnomalies", category = "anomalies", title = "สะสมสิ่งผิดปกติมากที่สุด", titleEN = "Most Anomalies Found", titleID = "Kejanggalan Terbanyak", titlePT = "Mais Anomalias Encontradas", titleES = "Más Anomalías Encontradas", suffix = "ชนิด", suffixEN = "kinds", suffixID = "jenis", suffixPT = "tipos", suffixES = "tipos", color = Color3.fromRGB(190, 122, 164) },
 }
 
 local names: { [number]: string } = {}
@@ -112,7 +112,7 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 		TextColor3 = spec.color,
 		TextSize = 42,
 	})
-	Bilingual.Text(titleLbl, spec.title, spec.titleEN or spec.title)
+	Bilingual.Text(titleLbl, spec.title, spec.titleEN or spec.title, { id = spec.titleID, pt = spec.titlePT, es = spec.titleES })
 	-- เส้นใต้หัวป้าย (สีของป้าย)
 	local head = Instance.new("Frame")
 	head.Position = UDim2.new(0, 0, 0, TITLE_H - 8)
@@ -130,7 +130,7 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 	body.Parent = root
 	if #rows == 0 then
 		local empty = text(body, { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.fromScale(0, 0.2), Text = "ยังไม่มีข้อมูล", TextColor3 = DIM, TextSize = 34 })
-		Bilingual.Text(empty, "ยังไม่มีข้อมูล", "No records yet")
+		Bilingual.Text(empty, "ยังไม่มีข้อมูล", "No records yet", { id = "Belum ada data", pt = "Ainda sem registros", es = "Aún no hay registros" })
 		return
 	end
 	local rowH = 1 / ROWS
@@ -180,7 +180,11 @@ local function drawBoard(root: Frame, spec: { [string]: any }, rows: { { userId:
 			TextColor3 = spec.color,
 			TextXAlignment = Enum.TextXAlignment.Right,
 		})
-		Bilingual.Text(statLbl, ("%d %s"):format(row.value, spec.suffix), ("%d %s"):format(row.value, spec.suffixEN or spec.suffix))
+		Bilingual.Text(statLbl, ("%d %s"):format(row.value, spec.suffix), ("%d %s"):format(row.value, spec.suffixEN or spec.suffix), {
+			id = ("%d %s"):format(row.value, spec.suffixID or spec.suffixEN or spec.suffix),
+			pt = ("%d %s"):format(row.value, spec.suffixPT or spec.suffixEN or spec.suffix),
+			es = ("%d %s"):format(row.value, spec.suffixES or spec.suffixEN or spec.suffix),
+		})
 		-- เส้นคั่นแถว (ไม่ใส่ใต้แถวสุดท้าย)
 		if rank < #rows then
 			local line = Instance.new("Frame")

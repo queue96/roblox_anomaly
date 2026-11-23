@@ -195,6 +195,10 @@ local STEPS: { Step } = {
 			return type(left) == "number" and left > total - 10
 		end,
 		targets = function()
+			-- ทีละขั้นเหมือนน้ำมัน (ผู้ใช้ 2026-11-23): ยังไม่มีขนม = ถาดขนมบนเคาน์เตอร์ · ถือขนมแล้ว = ศาล
+			if not findTool("ThaiDessert") then
+				return { interactive("DessertTray") }
+			end
 			return { Workspace:FindFirstChild("SpiritHouse") }
 		end,
 		icon = function()
@@ -458,8 +462,14 @@ local function clearHighlights()
 	end
 	table.clear(highlights)
 end
-local function highlight(targets: { Instance? })
+-- เครื่องปั่นไฟ / น้ำมัน / ถวายขนม: กรอบเรืองแสงในฉากมาจาก client/TaskGlow ที่เดียว (ผู้ใช้ 2026-11-23 "ทำแล้วไม่ต้องไฮไลต์")
+--   เดิมแผงนี้วาดกรอบเองด้วย แต่ขั้นถวายขนมข้อความไม่เปลี่ยน กรอบเลยค้างที่ถาดขนมหลังหยิบไปแล้ว
+local TASKGLOW_STEPS = { gen = true, fuel = true, offer = true }
+local function highlight(targets: { Instance? }, stepId: string?)
 	clearHighlights()
+	if stepId and TASKGLOW_STEPS[stepId] then
+		return
+	end
 	for _, t in ipairs(targets) do
 		if t then
 			local h = Instance.new("Highlight")
@@ -640,7 +650,7 @@ local function teach(i: number, s: Step): boolean
 	iconShown = nil
 	local lastKey = nil
 	draw()
-	highlight(s.targets())
+	highlight(s.targets(), s.id)
 	local t0 = os.clock()
 	while true do
 		-- เรื่องที่มีขั้นย่อย (เติมน้ำมัน): ข้อความ/กรอบเรืองแสง/รูปเปลี่ยนตามขั้น
@@ -649,7 +659,7 @@ local function teach(i: number, s: Step): boolean
 			lastKey = k
 			iconShown = nil
 			draw()
-			highlight(s.targets())
+			highlight(s.targets(), s.id)
 		end
 		refresh()
 		if s.hold and os.clock() - t0 >= s.hold then

@@ -262,11 +262,9 @@ local Notice = remotes:WaitForChild("Notice") :: RemoteEvent
 
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
 -- ภาษาเดียวกับหน้าตั้งค่า (Attribute "Lang" จาก PlayerSettings) ถ้ายังไม่มีใช้ภาษาเครื่อง
-local function isTH(): boolean
-	return LanguageModule.Normalize((player:GetAttribute("Lang") :: string?) or player.LocaleId) == "th"
-end
-local function tr(th: string, en: string): string
-	return if isTH() then th else en
+-- more = ภาษาอื่น { id = "...", pt = "...", es = "..." } ไม่ใส่ = อังกฤษ (รองรับหลายภาษา 2026-11-23)
+local function tr(th: string, en: string, more: { [string]: string }?): string
+	return LanguageModule.Tr((player:GetAttribute("Lang") :: string?) or player.LocaleId, th, en, more)
 end
 local refreshers: { () -> () } = {}
 player:GetAttributeChangedSignal("Lang"):Connect(function()
@@ -486,9 +484,9 @@ local confirm = button(confirmRow, {
 new("UICorner", { CornerRadius = UDim.new(0, 3) }, confirm)
 
 local function drawSetup()
-	setupHead.Text = tr(("ตั้งห้องที่ %d"):format(setupPad), ("Set up room %d"):format(setupPad))
-	countLabel.Text = tr("จำนวนผู้เล่น", "Players")
-	confirm.Text = tr("สร้างห้อง", "Create room")
+	setupHead.Text = tr(("ตั้งห้องที่ %d"):format(setupPad), ("Set up room %d"):format(setupPad), { id = ("Siapkan room %d"):format(setupPad), pt = ("Montar a sala %d"):format(setupPad), es = ("Armar la sala %d"):format(setupPad) })
+	countLabel.Text = tr("จำนวนผู้เล่น", "Players", { id = "Pemain", pt = "Jogadores", es = "Jugadores" })
+	confirm.Text = tr("สร้างห้อง", "Create room", { id = "Buat room", pt = "Criar sala", es = "Crear sala" })
 	for i, b in ipairs(countButtons) do
 		b.BackgroundColor3 = if i == chosenPlayers then C.Blood else C.Ink
 	end
@@ -577,26 +575,26 @@ local function drawStatus()
 		return
 	end
 	status.Visible = true
-	statusHead.Text = tr("ห้องของ ", "Room of ") .. s.hostName
-	playersL.Text = tr("ผู้เล่น", "Players")
+	statusHead.Text = tr("ห้องของ ", "Room of ", { id = "Room milik ", pt = "Sala de ", es = "Sala de " }) .. s.hostName
+	playersL.Text = tr("ผู้เล่น", "Players", { id = "Pemain", pt = "Jogadores", es = "Jugadores" })
 	playersV.Text = ("%d / %d"):format(s.count, s.maxPlayers)
 	if s.launching then
-		timeL.Text = tr("สถานะ", "Status")
-		timeV.Text = tr("กำลังไปที่ปั๊ม...", "Heading to the pump...")
+		timeL.Text = tr("สถานะ", "Status", { id = "Status", pt = "Status", es = "Estado" })
+		timeV.Text = tr("กำลังไปที่ปั๊ม...", "Heading to the pump...", { id = "Menuju pom bensin...", pt = "Indo para o posto...", es = "Rumbo a la gasolinera..." })
 	elseif s.fullCountdown then
-		timeL.Text = tr("เต็มแล้ว · ไปเกมใน", "Full · teleporting in")
+		timeL.Text = tr("เต็มแล้ว · ไปเกมใน", "Full · teleporting in", { id = "Penuh · pindah dalam", pt = "Lotada · indo em", es = "Llena · nos vamos en" })
 		timeV.Text = tr(("%d"):format(s.fullCountdown), ("%d"):format(s.fullCountdown))
 		timeV.TextColor3 = C.BloodLit
 	else
-		timeL.Text = tr("เริ่มเกมอัตโนมัติใน", "Auto-start in")
-		timeV.Text = tr(("%d วิ"):format(s.countdown), ("%ds"):format(s.countdown))
+		timeL.Text = tr("เริ่มเกมอัตโนมัติใน", "Auto-start in", { id = "Mulai otomatis dalam", pt = "Começa sozinho em", es = "Empieza solo en" })
+		timeV.Text = tr(("%d วิ"):format(s.countdown), ("%ds"):format(s.countdown), { id = ("%d dtk"):format(s.countdown), pt = ("%ds"):format(s.countdown), es = ("%ds"):format(s.countdown) })
 		timeV.TextColor3 = if s.countdown <= 10 then C.BloodLit else C.Cream
 	end
 	leaveHint.Text = if s.isHost
-		then tr("กดเริ่มได้ทุกเมื่อ · ออกจากห้องด้วยปุ่มด้านล่าง", "Start anytime · use the button below to leave")
-		else tr("รอเจ้าของห้องเริ่ม · ออกจากห้องด้วยปุ่มด้านล่าง", "Waiting for the host · use the button below to leave")
-	startBtn.Text = tr("เริ่มเกม", "Start")
-	leaveBtn.Text = tr("ออกจากห้อง", "Leave")
+		then tr("กดเริ่มได้ทุกเมื่อ · ออกจากห้องด้วยปุ่มด้านล่าง", "Start anytime · use the button below to leave", { id = "Mulai kapan saja · pakai tombol di bawah untuk keluar", pt = "Comece quando quiser · use o botão abaixo para sair", es = "Empieza cuando quieras · usa el botón de abajo para salir" })
+		else tr("รอเจ้าของห้องเริ่ม · ออกจากห้องด้วยปุ่มด้านล่าง", "Waiting for the host · use the button below to leave", { id = "Menunggu pemilik room · pakai tombol di bawah untuk keluar", pt = "Esperando o dono da sala · use o botão abaixo para sair", es = "Esperando al dueño de la sala · usa el botón de abajo para salir" })
+	startBtn.Text = tr("เริ่มเกม", "Start", { id = "Mulai", pt = "Começar", es = "Empezar" })
+	leaveBtn.Text = tr("ออกจากห้อง", "Leave", { id = "Keluar", pt = "Sair", es = "Salir" })
 	actionRow.Visible = not s.launching
 	startBtn.Visible = s.isHost and not s.launching
 	leaveBtn.Visible = not s.launching
@@ -621,7 +619,7 @@ task.spawn(function()
 		task.wait(0.25)
 		if setup.Visible then
 			local left = math.max(0, math.ceil(setupDeadline - os.clock()))
-			setupTimer.Text = tr(("ปิดใน %d วิ"):format(left), ("Closes in %ds"):format(left))
+			setupTimer.Text = tr(("ปิดใน %d วิ"):format(left), ("Closes in %ds"):format(left), { id = ("Tutup dalam %d dtk"):format(left), pt = ("Fecha em %ds"):format(left), es = ("Se cierra en %ds"):format(left) })
 			setupTimer.TextColor3 = if left <= 10 then C.BloodLit else C.Dim
 		end
 	end
@@ -647,10 +645,25 @@ if IS_TOUCH then
 end
 new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.2 }, toast)
 local toastId = 0
+-- ข้อความแจ้งเตือนจาก server มาเป็น (ไทย, อังกฤษ): ภาษาอื่นแปลจากข้อความอังกฤษตรงนี้ (ไม่มีในตาราง = อังกฤษ)
+local NOTICE_MORE: { [string]: { [string]: string } } = {
+	["Someone is setting up this room, please wait"] = { id = "Ada yang sedang menyiapkan room ini, mohon tunggu", pt = "Alguém está montando esta sala, aguarde", es = "Alguien está armando esta sala, espera un momento" },
+	["This room is full"] = { id = "Room ini sudah penuh", pt = "Esta sala está lotada", es = "Esta sala está llena" },
+	["Room setup timed out"] = { id = "Waktu menyiapkan room habis", pt = "O tempo para montar a sala acabou", es = "Se acabó el tiempo para armar la sala" },
+	["Couldn't rejoin (the game may have ended)"] = { id = "Tidak bisa kembali (game mungkin sudah selesai)", pt = "Não deu para voltar (a partida pode ter acabado)", es = "No se pudo volver (la partida quizá ya terminó)" },
+	["The host left, the room is closed"] = { id = "Pemilik room keluar, room ditutup", pt = "O dono saiu, a sala foi fechada", es = "El dueño se fue, la sala se cerró" },
+	["Waiting time expired, the room is closed"] = { id = "Waktu tunggu habis, room ditutup", pt = "O tempo de espera acabou, a sala foi fechada", es = "Se acabó el tiempo de espera, la sala se cerró" },
+	-- ข้อความจากวัด (TempleMerit.server)
+	["You have prayed today. Please return tomorrow."] = { id = "Kamu sudah berdoa hari ini. Kembali lagi besok.", pt = "Você já rezou hoje. Volte amanhã.", es = "Ya rezaste hoy. Vuelve mañana." },
+	["Prayer complete. You received ฿10 mock credit."] = { id = "Doa selesai. Kamu dapat ฿10 kredit uji coba.", pt = "Oração concluída. Você recebeu ฿10 de crédito de teste.", es = "Oración completa. Recibiste ฿10 de crédito de prueba." },
+	["Not enough credit. Pray at the Buddha statue first."] = { id = "Kredit tidak cukup. Berdoa dulu di patung Buddha.", pt = "Crédito insuficiente. Reze primeiro diante do Buda.", es = "No tienes suficiente crédito. Primero reza ante el Buda." },
+	["Donated ฿10. Mockup only; no Robux charged."] = { id = "Berdonasi ฿10. Hanya uji coba; tidak ada Robux yang terpotong.", pt = "Doou ฿10. Só um teste; nenhum Robux foi cobrado.", es = "Donaste ฿10. Solo es una prueba; no se cobró ningún Robux." },
+	["Teleport failed, please try again"] = { id = "Gagal pindah ke game, coba lagi", pt = "Falha ao entrar no jogo, tente de novo", es = "No se pudo entrar al juego, inténtalo otra vez" },
+}
 Notice.OnClientEvent:Connect(function(th: string, en: string)
 	toastId += 1
 	local my = toastId
-	toast.Text = tr(th, en)
+	toast.Text = tr(th, en, NOTICE_MORE[en])
 	task.delay(4, function()
 		if toastId == my then
 			toast.Text = ""
@@ -683,10 +696,10 @@ if RejoinOffer then
 	local yes = button(rRow, { Size = UDim2.new(0.49, 0, 1, 0), BackgroundColor3 = C.Blood, TextSize = 18, Modal = true })
 	local no = button(rRow, { Size = UDim2.new(0.49, 0, 1, 0), AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), TextSize = 18 })
 	local function texts()
-		rHead.Text = tr("เกมที่ค้างอยู่", "Unfinished game")
-		rText.Text = tr("คุณหลุดออกจากเกมที่เพื่อนยังเล่นอยู่ จะกลับเข้าไปเล่นต่อไหม?", "You dropped out of a game your friends are still playing. Go back in?")
-		yes.Text = tr("กลับเข้าเกม", "Rejoin")
-		no.Text = tr("อยู่ที่วัด", "Stay here")
+		rHead.Text = tr("เกมที่ค้างอยู่", "Unfinished game", { id = "Game yang belum selesai", pt = "Partida não terminada", es = "Partida sin terminar" })
+		rText.Text = tr("คุณหลุดออกจากเกมที่เพื่อนยังเล่นอยู่ จะกลับเข้าไปเล่นต่อไหม?", "You dropped out of a game your friends are still playing. Go back in?", { id = "Kamu keluar dari game yang masih dimainkan temanmu. Mau kembali?", pt = "Você caiu de uma partida que seus amigos ainda estão jogando. Quer voltar?", es = "Te saliste de una partida que tus amigos siguen jugando. ¿Quieres volver?" })
+		yes.Text = tr("กลับเข้าเกม", "Rejoin", { id = "Kembali main", pt = "Voltar ao jogo", es = "Volver a jugar" })
+		no.Text = tr("อยู่ที่วัด", "Stay here", { id = "Tetap di sini", pt = "Ficar aqui", es = "Quedarme aquí" })
 	end
 	texts()
 	table.insert(refreshers, texts)

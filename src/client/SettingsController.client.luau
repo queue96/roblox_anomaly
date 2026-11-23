@@ -1,13 +1,13 @@
 -- SettingsController.client.luau
 -- ปุ่ม ⚙ มุมขวาบน เปิดหน้าตั้งค่า (สไตล์เดียวกับ HUD: แถบดำ หัวข้อเทาหม่น ตัวหนังสือครีม)
---   ภาษา ไทย/English · เสียงเพลง · เสียงเอฟเฟกต์ · แสดงเงิน/ธูป/ปุ่ม (HUD) · แสดงป้ายชื่อวัตถุ (ZoneLabel)
+--   ภาษา ไทย/English · แสดงเงิน/ธูป/ปุ่ม (HUD) · มือถือไฟฉาย · สอนเล่น · ไฮไลต์งาน · ปุ่มควบคุม · ยอมแพ้
+--   (ไม่มีปรับเสียงแล้ว ผู้ใช้ 2026-11-23: ความดังเพลง/เอฟเฟกต์ตายตัว MUSIC_LEVEL / SFX_LEVEL)
 -- ค่าเก็บเป็น Attribute บน Player (Server จำลง DataStore ใน PlayerSettings.server.luau)
--- เสียง: แบ่งทุก Sound เข้า SoundGroup "Music" (วิทยุ/สวด) กับ "SFX" (ที่เหลือ) แล้วปรับ Volume ฝั่ง Client
+-- เสียง: แบ่งทุก Sound เข้า SoundGroup "Music" (วิทยุ/สวด) กับ "SFX" (ที่เหลือ) ความดังตายตัว (ผู้เล่นปรับเองไม่ได้)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local localPlayer = Players.LocalPlayer
@@ -54,24 +54,25 @@ for _, root in ipairs({ Workspace, SoundService, ReplicatedStorage, localPlayer 
 	root.DescendantAdded:Connect(classify)
 end
 
--- 100% ในหน้าตั้งค่า = ดัง 50% ของเสียงจริง (ไม่ให้ดังแสบหู โดยเฉพาะตอนผีหลอก)
+-- ความดังตายตัว = ค่าเริ่มต้นเดิมของแถบเลื่อน (เพลง 70% / เอฟเฟกต์ 80%) คูณ MASTER_SCALE 0.5 (ไม่ให้ดังแสบหู โดยเฉพาะตอนผีหลอก)
+--   ค่าที่ผู้เล่นเคยเลื่อนไว้ (บันทึกใน DataStore) ไม่ใช้แล้ว
 --   มือถือ: คูณเพิ่ม (ลำโพงมือถือเบากว่าคอมมาก) Shared.DeviceInfo.VolumeBoost / อุปกรณ์อื่นเท่าคอม
 -- ไม่มีโมดูล (เช่น place ที่ยังไม่ sync) = ไม่ค้าง ใช้ความดังเท่าคอม
 local deviceModule = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DeviceInfo", 5)
 local DeviceInfo = if deviceModule then require(deviceModule) :: any else nil
 local MASTER_SCALE = 0.5
+local MUSIC_LEVEL = 0.7
+local SFX_LEVEL = 0.8
 local function applyVolumes()
 	local boost = if DeviceInfo then DeviceInfo.VolumeBoost() else 1
-	musicGroup.Volume = ((localPlayer:GetAttribute("MusicVolume") or 0.7) :: number) * MASTER_SCALE * boost
-	sfxGroup.Volume = ((localPlayer:GetAttribute("SfxVolume") or 0.8) :: number) * MASTER_SCALE * boost
+	musicGroup.Volume = MUSIC_LEVEL * MASTER_SCALE * boost
+	sfxGroup.Volume = SFX_LEVEL * MASTER_SCALE * boost
 end
 applyVolumes()
 -- ขนาดจอจริงมาทีหลังได้ (มือถือ/แท็บเล็ตตัดสินจากขนาดจอ): คิดใหม่เมื่อจอเปลี่ยน
 if Workspace.CurrentCamera then
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(applyVolumes)
 end
-localPlayer:GetAttributeChangedSignal("MusicVolume"):Connect(applyVolumes)
-localPlayer:GetAttributeChangedSignal("SfxVolume"):Connect(applyVolumes)
 
 -- ป้ายชื่อวัตถุ (ShowLabels) จัดการใน ObjectLabels.client.luau
 
@@ -144,7 +145,7 @@ local panel = new("Frame", {
 	Name = "Panel",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.new(0, 460, 0, 0),
+	Size = UDim2.new(0, 560, 0, 0), -- (460 -> 560: ปุ่มภาษา 5 ปุ่ม 2026-11-23)
 	AutomaticSize = Enum.AutomaticSize.Y,
 	BackgroundColor3 = C.Ink,
 	BackgroundTransparency = 0.05,
@@ -208,100 +209,34 @@ local function button(parent: Instance, props: { [string]: any }): TextButton
 	return b
 end
 
--- ภาษา: [ไทย] [English]
+-- ภาษา: ปุ่มละภาษา [ไทย] [English] [Indonesia] [Português] [Español] (LanguageModule.Langs ชื่อในภาษานั้นเอง)
 do
 	local r = row(1, "Language")
-	local thBtn = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -96, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
-	local enBtn = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
-	thBtn.Activated:Connect(function()
-		set("Lang", "th")
-	end)
-	enBtn.Activated:Connect(function()
-		set("Lang", "en")
-	end)
+	local langs = LanguageModule.Langs
+	local BTN_W, GAP = 78, 6
+	local btns: { [string]: TextButton } = {}
+	for i, code in ipairs(langs) do
+		local b = button(r, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -(#langs - i) * (BTN_W + GAP), 0.5, 0),
+			Size = UDim2.new(0, BTN_W, 0, 30),
+			Text = LanguageModule.LangNames[code],
+			TextSize = 14,
+		})
+		b.Activated:Connect(function()
+			set("Lang", code)
+		end)
+		btns[code] = b
+	end
 	table.insert(refreshers, function()
-		thBtn.Text = ui("LangThai")
-		enBtn.Text = ui("LangEnglish")
-		local th = lang() == "th"
-		thBtn.BackgroundColor3 = if th then C.Blood else C.Ink
-		enBtn.BackgroundColor3 = if th then C.Ink else C.Blood
+		local cur = lang()
+		for code, b in pairs(btns) do
+			b.BackgroundColor3 = if code == cur then C.Blood else C.Ink
+		end
 	end)
 end
 
--- แถบเลื่อนเสียง 0-100
-local function slider(order: number, name: string, labelKey: string)
-	local r = row(order, labelKey)
-	local bar = new("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -48, 0.5, 0),
-		Size = UDim2.new(0, 150, 0, 8),
-		BackgroundColor3 = Color3.fromRGB(40, 36, 30),
-		BorderSizePixel = 0,
-		Active = true,
-	}, r)
-	new("UIStroke", { Color = C.Line, Thickness = 1 }, bar)
-	local fill = new("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = C.Blood, BorderSizePixel = 0 }, bar)
-	local knob = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.new(0, 14, 0, 20),
-		BackgroundColor3 = C.Cream,
-		BorderSizePixel = 0,
-	}, bar)
-	new("UICorner", { CornerRadius = UDim.new(0, 2) }, knob)
-	local pct = new("TextLabel", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.new(0, 40, 1, 0),
-		BackgroundTransparency = 1,
-		FontFace = FONT_BODY,
-		TextColor3 = C.Dim,
-		TextSize = 16,
-		TextXAlignment = Enum.TextXAlignment.Right,
-	}, r)
-
-	local function draw(v: number)
-		fill.Size = UDim2.fromScale(v, 1)
-		knob.Position = UDim2.fromScale(v, 0.5)
-		pct.Text = tostring(math.round(v * 100))
-	end
-	local dragging = false
-	local lastSent = 0
-	local function fromInput(x: number)
-		local v = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-		v = math.round(v * 20) / 20 -- ทีละ 5%
-		localPlayer:SetAttribute(name, v)
-		if os.clock() - lastSent > 0.25 then
-			lastSent = os.clock()
-			SetSetting:FireServer(name, v)
-		end
-	end
-	bar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			fromInput(input.Position.X)
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			fromInput(input.Position.X)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-			dragging = false
-			SetSetting:FireServer(name, localPlayer:GetAttribute(name)) -- ส่งค่าสุดท้ายให้แน่นอน
-		end
-	end)
-	table.insert(refreshers, function()
-		draw((localPlayer:GetAttribute(name) or 0.7) :: number)
-	end)
-	localPlayer:GetAttributeChangedSignal(name):Connect(function()
-		draw((localPlayer:GetAttribute(name) or 0.7) :: number)
-	end)
-end
-slider(2, "MusicVolume", "MusicVolume")
-slider(3, "SfxVolume", "SfxVolume")
+-- (แถบเลื่อนเสียงเพลง / เสียงเอฟเฟกต์ ตัดออกแล้ว ผู้ใช้ 2026-11-23 "ไม่ให้ผู้เล่นปรับเสียงเอง": ความดังตายตัวที่ applyVolumes)
 
 -- สวิตช์ เปิด/ปิด
 local function toggle(order: number, name: string, labelKey: string)
@@ -320,6 +255,7 @@ toggle(4, "ShowHUD", "ShowHUD")
 -- สอนเล่น เปิด/ปิด (เฉพาะในเกม: Lobby ไม่มีการ์ดสอน)
 if workspace:FindFirstChild("TempleLobby") == nil then
 	toggle(6, "ShowTutorial", "ShowTutorial")
+	toggle(7, "ShowTaskGlow", "ShowTaskGlow") -- ของที่ต้องทำเรืองแสง (TaskGlow)
 end
 
 -- มือถือไฟฉาย: [ซ้าย] [ขวา] (ค่าเริ่มต้นขวา) แกลลอน/ขนมย้ายไปมืออีกข้างเอง
@@ -348,50 +284,50 @@ end
 -- GeneratorMinigame, TutorialController, CutsceneController)
 local IS_TOUCH = LanguageModule.TouchMode
 local IN_LOBBY = workspace:FindFirstChild("TempleLobby") ~= nil
-type Control = { key: { th: string, en: string } | string, th: string, en: string }
+type Control = { key: { [string]: string } | string, [string]: string } -- th / en / id / pt / es (ภาษาที่ไม่มี = อังกฤษ)
 local CONTROLS: { Control }
 if IN_LOBBY and IS_TOUCH then
 	CONTROLS = {
-		{ key = { th = "จอยซ้าย", en = "Left stick" }, th = "เดิน", en = "Move" },
-		{ key = { th = "ลากจอ", en = "Drag screen" }, th = "หมุนกล้อง", en = "Turn the camera" },
-		{ key = { th = "ปุ่มกระโดด", en = "Jump button" }, th = "กระโดด", en = "Jump" },
-		{ key = { th = "วงแดง", en = "Red ring" }, th = "เดินเข้าวง สร้าง / ร่วมห้อง", en = "Walk in to host / join a room" },
-		{ key = { th = "สมุดผี", en = "Ghost Book" }, th = "ดูผีที่เคยรอดมาแล้ว", en = "See the ghosts you've survived" },
+		{ key = { th = "จอยซ้าย", en = "Left stick", id = "Joystick kiri", pt = "Joystick esquerdo", es = "Joystick izquierdo" }, th = "เดิน", en = "Move", id = "Berjalan", pt = "Andar", es = "Caminar" },
+		{ key = { th = "ลากจอ", en = "Drag screen", id = "Geser layar", pt = "Arrastar a tela", es = "Arrastrar la pantalla" }, th = "หมุนกล้อง", en = "Turn the camera", id = "Putar kamera", pt = "Girar a câmera", es = "Girar la cámara" },
+		{ key = { th = "ปุ่มกระโดด", en = "Jump button", id = "Tombol lompat", pt = "Botão de pulo", es = "Botón de salto" }, th = "กระโดด", en = "Jump", id = "Lompat", pt = "Pular", es = "Saltar" },
+		{ key = { th = "วงแดง", en = "Red ring", id = "Lingkaran merah", pt = "Círculo vermelho", es = "Círculo rojo" }, th = "เดินเข้าวง สร้าง / ร่วมห้อง", en = "Walk in to host / join a room", id = "Masuk untuk membuat / bergabung ke room", pt = "Entre para criar / entrar numa sala", es = "Entra para crear / unirte a una sala" },
+		{ key = { th = "สมุดผี", en = "Ghost Book", id = "Buku Hantu", pt = "Livro de Fantasmas", es = "Libro de Fantasmas" }, th = "ดูผีที่เคยรอดมาแล้ว", en = "See the ghosts you've survived", id = "Lihat hantu yang sudah kamu lewati", pt = "Veja os fantasmas que você sobreviveu", es = "Mira los fantasmas que sobreviviste" },
 	}
 elseif IN_LOBBY then
 	CONTROLS = {
-		{ key = "WASD", th = "เดิน", en = "Move" },
-		{ key = { th = "คลิกขวาค้าง + ลาก", en = "Hold right-click + drag" }, th = "หมุนกล้อง", en = "Turn the camera" },
-		{ key = "Space", th = "กระโดด", en = "Jump" },
-		{ key = { th = "วงแดง", en = "Red ring" }, th = "เดินเข้าวง สร้าง / ร่วมห้อง", en = "Walk in to host / join a room" },
-		{ key = { th = "สมุดผี", en = "Ghost Book" }, th = "ดูผีที่เคยรอดมาแล้ว", en = "See the ghosts you've survived" },
+		{ key = "WASD", th = "เดิน", en = "Move", id = "Berjalan", pt = "Andar", es = "Caminar" },
+		{ key = { th = "คลิกขวาค้าง + ลาก", en = "Hold right-click + drag", id = "Tahan klik kanan + geser", pt = "Segure o botão direito + arraste", es = "Mantén clic derecho + arrastra" }, th = "หมุนกล้อง", en = "Turn the camera", id = "Putar kamera", pt = "Girar a câmera", es = "Girar la cámara" },
+		{ key = "Space", th = "กระโดด", en = "Jump", id = "Lompat", pt = "Pular", es = "Saltar" },
+		{ key = { th = "วงแดง", en = "Red ring", id = "Lingkaran merah", pt = "Círculo vermelho", es = "Círculo rojo" }, th = "เดินเข้าวง สร้าง / ร่วมห้อง", en = "Walk in to host / join a room", id = "Masuk untuk membuat / bergabung ke room", pt = "Entre para criar / entrar numa sala", es = "Entra para crear / unirte a una sala" },
+		{ key = { th = "สมุดผี", en = "Ghost Book", id = "Buku Hantu", pt = "Livro de Fantasmas", es = "Libro de Fantasmas" }, th = "ดูผีที่เคยรอดมาแล้ว", en = "See the ghosts you've survived", id = "Lihat hantu yang sudah kamu lewati", pt = "Veja os fantasmas que você sobreviveu", es = "Mira los fantasmas que sobreviviste" },
 	}
 elseif IS_TOUCH then
 	CONTROLS = {
-		{ key = { th = "จอยซ้าย", en = "Left stick" }, th = "เดิน", en = "Move" },
-		{ key = { th = "ลากจอ", en = "Drag screen" }, th = "มองรอบตัว", en = "Look around" },
-		{ key = { th = "ปุ่มที่ขึ้นมา", en = "Pop-up button" }, th = "แตะ / แตะค้าง ใช้ของ เติมน้ำมัน ดึงเชือก ถวาย", en = "Tap / hold to use, refuel, pull the rope, offer" },
-		{ key = { th = "สวด", en = "Pray" }, th = "พนมมือเปิดตาทิพย์ ดูผี", en = "Pray to see ghosts" },
-		{ key = { th = "นั่งยอง", en = "Crouch" }, th = "นั่งยอง", en = "Crouch" },
-		{ key = { th = "ช่องด้านล่าง", en = "Bottom slots" }, th = "ไฟฉาย · ขนมไทย · แกลลอน", en = "Flashlight · Thai sweets · Jerry can" },
-		{ key = { th = "แตะตรงไหนก็ได้", en = "Tap anywhere" }, th = "มินิเกม สูบ / อัดลม / สตาร์ทเครื่อง", en = "Minigames: pump / air / start the generator" },
-		{ key = "✕", th = "ปิดมินิเกม", en = "Close a minigame" },
-		{ key = { th = "แตะกล่องคำแนะนำ", en = "Tap the tips box" }, th = "ซ่อน / แสดงคำแนะนำ", en = "Hide / show tips" },
-		{ key = { th = "ปุ่ม ข้าม", en = "Skip button" }, th = "โหวตข้ามคัทซีน (ทุกคนต้องโหวต)", en = "Vote to skip a cutscene (everyone must vote)" },
+		{ key = { th = "จอยซ้าย", en = "Left stick", id = "Joystick kiri", pt = "Joystick esquerdo", es = "Joystick izquierdo" }, th = "เดิน", en = "Move", id = "Berjalan", pt = "Andar", es = "Caminar" },
+		{ key = { th = "ลากจอ", en = "Drag screen", id = "Geser layar", pt = "Arrastar a tela", es = "Arrastrar la pantalla" }, th = "มองรอบตัว", en = "Look around", id = "Melihat sekeliling", pt = "Olhar em volta", es = "Mirar alrededor" },
+		{ key = { th = "ปุ่มที่ขึ้นมา", en = "Pop-up button", id = "Tombol yang muncul", pt = "Botão que aparece", es = "Botón que aparece" }, th = "แตะ / แตะค้าง ใช้ของ เติมน้ำมัน ดึงเชือก ถวาย", en = "Tap / hold to use, refuel, pull the rope, offer", id = "Sentuh / tahan untuk memakai, isi bensin, tarik tali, persembahkan", pt = "Toque / segure para usar, abastecer, puxar a corda, oferecer", es = "Toca / mantén para usar, cargar gasolina, jalar la cuerda, ofrecer" },
+		{ key = { th = "สวด", en = "Pray", id = "Berdoa", pt = "Rezar", es = "Rezar" }, th = "พนมมือเปิดตาทิพย์ ดูผี", en = "Pray to see ghosts", id = "Berdoa untuk melihat hantu", pt = "Reze para ver fantasmas", es = "Reza para ver fantasmas" },
+		{ key = { th = "นั่งยอง", en = "Crouch", id = "Jongkok", pt = "Agachar", es = "Agacharse" }, th = "นั่งยอง", en = "Crouch", id = "Jongkok", pt = "Agachar", es = "Agacharse" },
+		{ key = { th = "ช่องด้านล่าง", en = "Bottom slots", id = "Slot bawah", pt = "Slots de baixo", es = "Espacios de abajo" }, th = "ไฟฉาย · ขนมไทย · แกลลอน", en = "Flashlight · Thai sweets · Jerry can", id = "Senter · Kue Thailand · Jeriken", pt = "Lanterna · Doces tailandeses · Galão", es = "Linterna · Dulces tailandeses · Bidón" },
+		{ key = { th = "แตะตรงไหนก็ได้", en = "Tap anywhere", id = "Sentuh di mana saja", pt = "Toque em qualquer lugar", es = "Toca en cualquier lugar" }, th = "มินิเกม สูบ / อัดลม / สตาร์ทเครื่อง", en = "Minigames: pump / air / start the generator", id = "Minigame: pompa / angin / nyalakan genset", pt = "Minijogos: bombear / ar / ligar o gerador", es = "Minijuegos: bombear / aire / arrancar el generador" },
+		{ key = "✕", th = "ปิดมินิเกม", en = "Close a minigame", id = "Tutup minigame", pt = "Fechar um minijogo", es = "Cerrar un minijuego" },
+		{ key = { th = "แตะกล่องคำแนะนำ", en = "Tap the tips box", id = "Sentuh kotak tips", pt = "Toque na caixa de dicas", es = "Toca el cuadro de consejos" }, th = "ซ่อน / แสดงคำแนะนำ", en = "Hide / show tips", id = "Sembunyikan / tampilkan tips", pt = "Ocultar / mostrar dicas", es = "Ocultar / mostrar consejos" },
+		{ key = { th = "ปุ่ม ข้าม", en = "Skip button", id = "Tombol Lewati", pt = "Botão Pular", es = "Botón Saltar" }, th = "โหวตข้ามคัทซีน (ทุกคนต้องโหวต)", en = "Vote to skip a cutscene (everyone must vote)", id = "Pilih lewati cutscene (semua harus memilih)", pt = "Votar para pular a cena (todos precisam votar)", es = "Votar para saltar la escena (todos deben votar)" },
 	}
 else
 	CONTROLS = {
-		{ key = "WASD", th = "เดิน", en = "Move" },
-		{ key = { th = "เมาส์", en = "Mouse" }, th = "มองรอบตัว", en = "Look around" },
-		{ key = "V / Alt", th = "ปลดล็อกเมาส์", en = "Free the mouse" },
-		{ key = { th = "E (กดค้าง)", en = "E (hold)" }, th = "ใช้ของ เติมน้ำมัน ดึงเชือก ถวาย", en = "Use, refuel, pull the rope, offer" },
-		{ key = "G", th = "พนมมือเปิดตาทิพย์ ดูผี", en = "Pray to see ghosts" },
-		{ key = "C", th = "นั่งยอง", en = "Crouch" },
-		{ key = "1 · 2 · 3", th = "ไฟฉาย · ขนมไทย · แกลลอน", en = "Flashlight · Thai sweets · Jerry can" },
-		{ key = { th = "Space / คลิก", en = "Space / Click" }, th = "มินิเกม สูบ / อัดลม / สตาร์ทเครื่อง", en = "Minigames: pump / air / start the generator" },
-		{ key = "X", th = "ปิดมินิเกม", en = "Close a minigame" },
-		{ key = "H", th = "ซ่อน / แสดงคำแนะนำ", en = "Hide / show tips" },
-		{ key = "Enter", th = "โหวตข้ามคัทซีน (ทุกคนต้องโหวต)", en = "Vote to skip a cutscene (everyone must vote)" },
+		{ key = "WASD", th = "เดิน", en = "Move", id = "Berjalan", pt = "Andar", es = "Caminar" },
+		{ key = { th = "เมาส์", en = "Mouse", id = "Mouse", pt = "Mouse", es = "Mouse" }, th = "มองรอบตัว", en = "Look around", id = "Melihat sekeliling", pt = "Olhar em volta", es = "Mirar alrededor" },
+		{ key = "V / Alt", th = "ปลดล็อกเมาส์", en = "Free the mouse", id = "Lepas mouse", pt = "Soltar o mouse", es = "Liberar el mouse" },
+		{ key = { th = "E (กดค้าง)", en = "E (hold)", id = "E (tahan)", pt = "E (segurar)", es = "E (mantener)" }, th = "ใช้ของ เติมน้ำมัน ดึงเชือก ถวาย", en = "Use, refuel, pull the rope, offer", id = "Pakai, isi bensin, tarik tali, persembahkan", pt = "Usar, abastecer, puxar a corda, oferecer", es = "Usar, cargar gasolina, jalar la cuerda, ofrecer" },
+		{ key = "G", th = "พนมมือเปิดตาทิพย์ ดูผี", en = "Pray to see ghosts", id = "Berdoa untuk melihat hantu", pt = "Reze para ver fantasmas", es = "Reza para ver fantasmas" },
+		{ key = "C", th = "นั่งยอง", en = "Crouch", id = "Jongkok", pt = "Agachar", es = "Agacharse" },
+		{ key = "1 · 2 · 3", th = "ไฟฉาย · ขนมไทย · แกลลอน", en = "Flashlight · Thai sweets · Jerry can", id = "Senter · Kue Thailand · Jeriken", pt = "Lanterna · Doces tailandeses · Galão", es = "Linterna · Dulces tailandeses · Bidón" },
+		{ key = { th = "Space / คลิก", en = "Space / Click", id = "Space / Klik", pt = "Space / Clique", es = "Space / Clic" }, th = "มินิเกม สูบ / อัดลม / สตาร์ทเครื่อง", en = "Minigames: pump / air / start the generator", id = "Minigame: pompa / angin / nyalakan genset", pt = "Minijogos: bombear / ar / ligar o gerador", es = "Minijuegos: bombear / aire / arrancar el generador" },
+		{ key = "X", th = "ปิดมินิเกม", en = "Close a minigame", id = "Tutup minigame", pt = "Fechar um minijogo", es = "Cerrar un minijuego" },
+		{ key = "H", th = "ซ่อน / แสดงคำแนะนำ", en = "Hide / show tips", id = "Sembunyikan / tampilkan tips", pt = "Ocultar / mostrar dicas", es = "Ocultar / mostrar consejos" },
+		{ key = "Enter", th = "โหวตข้ามคัทซีน (ทุกคนต้องโหวต)", en = "Vote to skip a cutscene (everyone must vote)", id = "Pilih lewati cutscene (semua harus memilih)", pt = "Votar para pular a cena (todos precisam votar)", es = "Votar para saltar la escena (todos deben votar)" },
 	}
 end
 
@@ -454,10 +390,9 @@ for i, c in ipairs(CONTROLS) do
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, r)
 	table.insert(refreshers, function()
-		local th = lang() == "th"
 		local k = c.key
-		keyLabel.Text = if type(k) == "string" then k elseif th then k.th else k.en
-		desc.Text = if th then c.th else c.en
+		keyLabel.Text = if type(k) == "string" then k else LanguageModule.Pick(k, lang())
+		desc.Text = LanguageModule.Pick(c, lang())
 	end)
 end
 local controlsBack = button(controlsPage, {
@@ -467,7 +402,7 @@ local controlsBack = button(controlsPage, {
 })
 -- แถวในหน้าตั้งค่า: "ปุ่มควบคุม  [ดู ▸]"
 do
-	local r = row(7, "Controls")
+	local r = row(8, "Controls")
 	local open = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 86, 0, 30) })
 	open.Activated:Connect(function()
 		panel.Visible = false
@@ -487,7 +422,7 @@ end
 -- ยอมแพ้ระหว่างเล่น (เฉพาะในเกม): กลับ Lobby คนเดียว เพื่อนในร้านเล่นต่อได้
 --   แตะครั้งแรก = ถามยืนยัน (4 วิ) แตะอีกครั้ง = ส่ง "quit" (server/CoreLoop: DeathChoice -> backToLobby)
 if not IN_LOBBY then
-	local r = row(8, "GiveUp")
+	local r = row(9, "GiveUp")
 	local quitBtn = button(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(0, 150, 0, 30) })
 	local armed = false
 	local sent = false

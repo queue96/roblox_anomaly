@@ -45,9 +45,9 @@ local C = {
 }
 local FONT = Font.fromEnum(Enum.Font.SpecialElite)
 
-local function isThai(): boolean
-	local lang = (player:GetAttribute("Lang") :: string?) or player.LocaleId
-	return string.sub(string.lower(lang), 1, 2) == "th"
+local LanguageModule = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("LanguageModule")) :: any
+local function langCode(): string
+	return LanguageModule.Normalize((player:GetAttribute("Lang") :: string?) or player.LocaleId)
 end
 
 -- ---------------------------------------------------------------- จุดยืน + มุมกล้อง
@@ -216,11 +216,8 @@ do
 end
 
 local function applyText()
-	local th = isThai()
 	local touch = UserInputService.TouchEnabled and (not UserInputService.KeyboardEnabled or camera.ViewportSize.Y < 500)
-	prompt.Text = if touch
-		then (if th then "แตะหน้าจอเพื่อเริ่ม" else "Tap to continue")
-		else (if th then "คลิกหรือกดปุ่มใดก็ได้เพื่อเริ่ม" else "Click or press any key to continue")
+	prompt.Text = LanguageModule.GetUI(if touch then "IntroTap" else "IntroClick", langCode())
 end
 applyText()
 player:GetAttributeChangedSignal("Lang"):Connect(applyText)
@@ -346,7 +343,7 @@ do
 		local panel = Instance.new("Frame")
 		panel.AnchorPoint = Vector2.new(0.5, 0.5)
 		panel.Position = UDim2.fromScale(0.5, 0.5)
-		panel.Size = UDim2.fromOffset(440, 250)
+		panel.Size = UDim2.fromOffset(440, 316) -- (250 -> 316: ภาษาแถวที่ 2 2026-11-23)
 		panel.BackgroundColor3 = PANEL
 		panel.BackgroundTransparency = 0.05
 		panel.BorderSizePixel = 0
@@ -403,33 +400,37 @@ do
 			st.Parent = b
 			return b
 		end
-		local thBtn = button("ไทย", 30, 180, 92, 64, 26)
-		local enBtn = button("English", 230, 180, 92, 64, 24)
-		local okBtn = button("ยืนยัน", 30, 380, 178, 48, 22)
+		-- แถวบน: ไทย / English (ปุ่มใหญ่) · แถวล่าง: Indonesia / Português / Español (รองรับหลายภาษา 2026-11-23)
+		local langBtns: { { TextButton | string } } = {
+			{ button("ไทย", 30, 180, 92, 56, 26), "th" },
+			{ button("English", 230, 180, 92, 56, 24), "en" },
+			{ button(LanguageModule.LangNames.id, 30, 116, 156, 48, 19), "id" },
+			{ button(LanguageModule.LangNames.pt, 162, 116, 156, 48, 19), "pt" },
+			{ button(LanguageModule.LangNames.es, 294, 116, 156, 48, 19), "es" },
+		}
+		local okBtn = button("", 30, 380, 240, 48, 22)
 		okBtn.BackgroundColor3 = BLOOD
 
-		local choice = if isThai() then "th" else "en"
+		local choice = langCode()
 		local function draw()
-			for _, pair in ipairs({ { thBtn, "th" }, { enBtn, "en" } }) do
-				local b, code = pair[1], pair[2]
+			for _, pair in ipairs(langBtns) do
+				local b, code = pair[1] :: TextButton, pair[2] :: string
 				local on = choice == code
 				b.BackgroundColor3 = if on then Color3.fromRGB(48, 22, 20) else INK
 				b.TextColor3 = if on then C.Cream else C.Dim
 				;(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Color = if on then C.Ember else LINE
 			end
-			okBtn.Text = if choice == "th" then "ยืนยัน" else "Confirm"
+			okBtn.Text = LanguageModule.GetUI("LangConfirm", choice)
 		end
 		draw()
-		thBtn.Activated:Connect(function()
-			choice = "th"
-			set("Lang", "th")
-			draw()
-		end)
-		enBtn.Activated:Connect(function()
-			choice = "en"
-			set("Lang", "en")
-			draw()
-		end)
+		for _, pair in ipairs(langBtns) do
+			local b, code = pair[1] :: TextButton, pair[2] :: string
+			b.Activated:Connect(function()
+				choice = code
+				set("Lang", code)
+				draw()
+			end)
+		end
 		local confirmed = Instance.new("BindableEvent")
 		okBtn.Activated:Connect(function()
 			confirmed:Fire()

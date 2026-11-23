@@ -79,7 +79,11 @@ local function prayerPrompt(): ProximityPrompt?
 	end
 	local prompt = plaques:FindFirstChild("DailyPrayerPrompt") or Instance.new("ProximityPrompt")
 	prompt.Name = "DailyPrayerPrompt"
-	Bilingual.Prompt(prompt, "สวดมนต์ · รับ 10 บาท/วัน", "Pray · get ฿10 a day", "พระประธาน", "Principal Buddha")
+	Bilingual.Prompt(prompt, "สวดมนต์ · รับ 10 บาท/วัน", "Pray · get ฿10 a day", "พระประธาน", "Principal Buddha", {
+		id = { "Berdoa · dapat ฿10 per hari", "Patung Buddha Utama" },
+		pt = { "Rezar · ganhe ฿10 por dia", "Buda Principal" },
+		es = { "Rezar · gana ฿10 al día", "Buda Principal" },
+	})
 	prompt.HoldDuration = 2
 	prompt.MaxActivationDistance = 12
 	prompt.RequiresLineOfSight = false
@@ -95,7 +99,11 @@ local function donationPrompt(): ProximityPrompt?
 	end
 	local prompt = box:FindFirstChild("MockDonationPrompt") or Instance.new("ProximityPrompt")
 	prompt.Name = "MockDonationPrompt"
-	Bilingual.Prompt(prompt, "ร่วมทำบุญ 10 บาท", "Donate ฿10", "ตู้ร่วมทำบุญ", "Donation box")
+	Bilingual.Prompt(prompt, "ร่วมทำบุญ 10 บาท", "Donate ฿10", "ตู้ร่วมทำบุญ", "Donation box", {
+		id = { "Berdonasi ฿10", "Kotak donasi" },
+		pt = { "Doar ฿10", "Caixa de doações" },
+		es = { "Donar ฿10", "Caja de donaciones" },
+	})
 	prompt.HoldDuration = 1
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false

@@ -207,7 +207,7 @@ restartBtn.Modal = true -- ปลดล็อกเมาส์
 local quitBtn = button(2)
 
 local function drawTexts()
-	title.Text = if lang() == "th" then "คืนนี้... คุณไม่รอด" else "YOU DID NOT SURVIVE"
+	title.Text = ui("DeathTitle")
 	message.Text = ui("Lose")
 	ask.Text = ui("AskRestart")
 	restartBtn.Text = ui("Restart")

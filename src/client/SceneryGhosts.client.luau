@@ -98,6 +98,7 @@ type Kind = {
 	roadRun: boolean?, -- วิ่งไปตามถนนผ่านหน้าร้าน ทางเดียวกับรถลูกค้า (roadRunPath)
 	noGlow: boolean?, -- ไม่มีแสงเรืองรอบตัว (addGlow) ปอบวิ่งถนน: ผู้ใช้ 2026-11-15 ให้เอาแสงหน้าปอบออก
 	screech: boolean?, -- เสียงกรีดแหลมดังติดตัวตลอดทาง (screechOn)
+	music: { id: string, speed: number, volume: number }?, -- ดนตรีวนดังจากตัวผี (เสียง 3D) ตอนยืนอยู่ เงียบลงตอนพุ่งเข้าหา (musicOn)
 	fadeIn: number?, -- วินาทีที่ค่อยๆ ปรากฏ (ไม่ใส่ = 2)
 	faint: number?, -- ตัวจางๆ: โปร่งค้างเท่านี้ตอนมองเห็น (attribute "Faint" ใช้ใน fade) ผู้ใช้ 2026-11-16
 }
@@ -112,7 +113,11 @@ local KINDS: { [string]: Kind } = {
 	--   ขา/สะโพกล็อกท่าพัก (StillBones: ผ้าซิ่นกับเท้าไม่บิด) · จางน้อยลง 0.45 -> 0.15 · จ้องค้างยังลอยพุ่ง (ขาอยู่ในผ้าซิ่น)
 	-- (รอบ 4 "ขยับไปหลังๆ นิดนึง ตรงนี้สว่างและโจ่งแจ้งไป": ถอยเข้าดงกล้วย 3 studs จาก (21.4, 3.1) ตามทางเดินเดิม)
 	-- (รอบ 5: ย้ายไปจุดที่ผู้ใช้วงไว้ริมดงกล้วยฝั่งนอก (39.5, 0.5) แสงไฟร้านจางถึงตรงนั้น ~36 studs + ปลูกกล้วยเพิ่ม 3 ต้น TaniCover)
-	Tani = { model = "ghost_tani", from = { 39.5, 0.5 }, to = { 39.5, 0.5 }, clip = "tani_wave", speed = 0.8, lookOnly = true,
+	-- (รอบ 8 ผู้ใช้ 2026-11-22 "ขยับไปยืนหลังๆ หน่อย ตรงที่มืดกว่านี้": จากริมทาง (39.5, 0.5) ถอยลึกเข้าดงกล้วย ~8 studs
+	--  ไปหลังแนวกล้วย TaniCover (42, 8.5) ตรวจแล้วไม่ชนต้นกล้วย และยังมองเห็นจากหน้าร้านผ่านช่องระหว่างต้น)
+	-- (รอบ 9 ผู้ใช้วงจุดในรูป "ให้ยืนประมาณตรงนี้": ที่มืดซ้ายสุดของดงกล้วยเมื่อมองจากถนน (52.5, 1.5)
+	--  หาจากการตั้งกล้องใน Play ให้ตรงรูปแล้ว raycast จุดที่วง · อยู่นอก InvisibleWall_Left (x 45.3) ผีฉากเห็นเครื่องเดียว ไม่ชนกำแพง)
+	Tani = { model = "ghost_tani", from = { 52.5, 1.5 }, to = { 52.5, 1.5 }, clip = "tani_wave", speed = 0.8, lookOnly = true,
 		-- (ผู้ใช้ 2026-11-22 รอบ 2 "ให้ยืนตัวตรงเลยไม่ได้หรอ": ghost_idle โน้มตัว/ก้มคอ -> ล็อกลำตัว คอ หัว ด้วย
 		--  เหลือแขนห้อยตามท่า ส่วนคอ/หัวหมุนจากท่าตรงไปมองผู้เล่นด้วย LookAtCamera)
 		-- (รอบ 3 "ทำไมต้องยืนทำมือแบบนี้": ghost_idle เป็นท่าผียื่นแขน -> ล็อกแขนด้วยแล้วให้ห้อยข้างตัว armsDown)
@@ -130,6 +135,9 @@ local KINDS: { [string]: Kind } = {
 		to = { -33, 6 },
 		clip = "dancer_dance",
 		clipSpeed = 1.5, -- ท่ารำไทย 18 วิ -> 12 วิต่อรอบ (ผู้ใช้: "รำเร็วกว่านี้หน่อย")
+		-- ดนตรีไทยหลอนๆ ดังจากตัวนางรำ (ผู้ใช้ 2026-11-22 "เอาดนตรีนี้ทำให้ช้าลงและเปิดตรงตัวนางรำ": Thai_Horror_Sound ที่เจ้าของเกมอัปโหลด)
+		--   PlaybackSpeed 0.8 = ช้าลง 20% และเสียงทุ้มต่ำลงด้วย (Roblox ปรับความเร็วแล้วระดับเสียงเปลี่ยนตาม)
+		music = { id = "rbxassetid://77169532597023", speed = 0.8, volume = 0.5 }, -- (1.2 -> 0.6 -> 0.5 ผู้ใช้ 2026-11-22 "ทำให้เสียงเบาลง" / "ให้เหลือซัก 0.5")
 		speed = 0.7,
 		-- (ผู้ใช้ 2026-11-16: เกิดใต้ต้นไทรที่เดียว เลิกจุดหน้าร้าน front {-16,-20} {-4,-21} {8,-20} {12,-2} และ pickByView)
 		--   ยังรอให้จุดใต้ต้นไทรพ้นสายตาก่อนโผล่ (show) เหมือนผีฉากตัวอื่น
@@ -220,7 +228,17 @@ end
 --   ลองผมจางเท่าตัวแล้ว: Roblox วาดหัว/ตัวที่โปร่งทับผมที่โปร่ง = ตานีหัวล้าน มองไม่เห็นผม (รูปผู้ใช้) แก้ในเกมไม่ได้
 --   ส่วน "ผมหลุด" ตอนผมทึบรอบก่อน มาจากท่าแอบมอง tani_peek (ชะโงก + ชี้แขน) ซึ่งเปลี่ยนเป็นยืนเฉยๆ แล้ว
 local SOLID_HAIR = true
+-- ตาเงาดำ (ghost_shadow ชิ้น "Eyes": เงาใต้ต้นไทร + เงากระท่อมปลายนา) ทึบเสมอตอนมองเห็น ไม่จางตามตัว
+--   (ผู้ใช้ 2026-11-22 "ทำให้ตาสว่างขึ้นหน่อย จะได้เห็นง่ายขึ้น": เดิมตาจางเท่าตัว 0.45 / 0.72)
+local function isShadowEyes(p: BasePart): boolean
+	local m = p.Parent
+	return p.Name == "Eyes" and m ~= nil and m:GetAttribute("GhostName") == "ghost_shadow"
+end
+
 local function partGoal(p: BasePart, goal: number): number
+	if goal < 1 and isShadowEyes(p) then
+		return 0
+	end
 	return if SOLID_HAIR and goal < 1 and isHair(p) then 0 else goal
 end
 
@@ -340,6 +358,13 @@ local function spawnRigged(name: string): Model?
 	local sc = animIds.SCALE and animIds.SCALE[name]
 	if sc and sc ~= 1 then
 		m:ScaleTo(sc)
+	end
+	local eyes = if name == "ghost_shadow" then m:FindFirstChild("Eyes") :: BasePart? else nil
+	if eyes then
+		-- ตาเงาดำโตขึ้น 1.5 เท่า (1.35 -> 1.5 ผู้ใช้ 2026-11-22 "ใต้ต้นไทรยังตาหาย ลองซัก 1.5 เท่า") + ขาวสว่างขึ้น (Neon ทึบ ไม่จางตามตัว: partGoal)
+		eyes.Size *= 1.5
+		eyes.Color = Color3.fromRGB(255, 252, 232)
+		-- (ลองจุดตาเรืองแสง BillboardGui แล้ว ผู้ใช้ 2026-11-22 ไม่เอาทั้ง 2 ตัว: "ไม่เอาแบบนี้ เอาแบบเดิม ตาโต 1.35 เท่า")
 	end
 	for _, d in ipairs(m:GetDescendants()) do
 		if d:IsA("BasePart") then
@@ -495,8 +520,6 @@ end
 --   ยืนตรงจุดของเงาเดิม (AnomalyProps.BanyanShadowAnomaly ที่ MapBuilder.HideBanyanShadowBehindTree ย้ายไปหลังลำต้น)
 --   หันหาร้าน ยืนคอเอียงตัวห่อ (shadow_stand: Zombie Idle ลงร่างเงาเอง ผู้ใช้ 2026-11-15 ท่า tani_peek ที่ยืมมาแขนบิดไปข้างหลัง) ค่อยๆ ทึบขึ้น · จ้องค้าง = พุ่งใส่
 --   ยังไม่มีแม่แบบ ghost_shadow ใน GhostModels = ใช้เงาเดิม (กล่อง + ลูกบอล) แบบเก่า
-local SHADOW_CLIP = "shadow_stand"
-local SHADOW_CLING_CLIP = "shadow_cling"
 local function showShadow(): Model?
 	local ap = Workspace:FindFirstChild("AnomalyProps")
 	local src = ap and ap:FindFirstChild("BanyanShadowAnomaly") :: Model?
@@ -513,15 +536,10 @@ local function showShadow(): Model?
 			local look = Vector3.new(f.X - feet.X, 0, f.Z - feet.Z)
 			look = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, -1)
 			rm:PivotTo(CFrame.lookAt(feet, feet + look))
-			-- ท่าเกาะต้นไม้ (ผู้ใช้ 2026-11-16): MapBuilder.HideBanyanShadowBehindTree วัดผิวลำต้นแล้วเก็บจุดยืน + ทิศไว้ที่ ClingCFrame
-			-- ยืนนิ่งหลังขอบลำต้น มือขวาทาบต้นไม้ หัวโผล่มองร้าน (shadow_cling = ท่านิ่ง ไม่ขยับ) · ไม่มี attribute = ยืนแบบเดิม
-			local cling = src:GetAttribute("ClingCFrame")
-			local clip = SHADOW_CLIP
-			if typeof(cling) == "CFrame" then
-				rm:PivotTo(cling)
-				clip = SHADOW_CLING_CLIP
-				rm:SetAttribute("LookAtCamera", true) -- คอ/หัวหันตามผู้เล่น ตัวนิ่ง (client/GhostAnimRunner.lookAtCamera)
-			end
+			-- (ผู้ใช้ 2026-11-23 "เงาใต้ต้นไทรเปลี่ยนเป็นให้ยืนเหมือนกระท่อมปลายนา": เลิกท่าเกาะต้นไม้ ClingCFrame / shadow_cling
+			--  ที่หัวโผล่จากขอบลำต้นแล้วตาหายเข้าเปลือกไม้ -> ยืนตรงท่า ghost_idle หันหน้ามองตามผู้เล่น เหมือนเงากระท่อม
+			--  จุดยืน = ShadowTorso (-43, 19) มุมมืดข้างต้นไทร ตรวจแล้วไม่ชนลำต้น/รากไทร)
+			local clip = "ghost_idle"
 			rm:SetAttribute("FocusBone", "head")
 			rm:SetAttribute("Faint", KINDS.Shadow.faint) -- ตัวจางๆ
 			rm.Name = "ShadowLocal"
@@ -789,6 +807,14 @@ local function attachShadowRush(m: Model)
 			return
 		end
 		if not rushing then
+			-- หันหน้ามองตามผู้เล่นตลอดเวลาที่ยืนอยู่ใต้ต้นไทร (ผู้ใช้ 2026-11-23: ไม่หันตามผู้เล่นแล้วมองไม่เห็นตา)
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if root then
+				local toPlayer = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+				if toPlayer.Magnitude > 0.1 then
+					m:PivotTo(CFrame.lookAt(pos, pos + toPlayer.Unit))
+				end
+			end
 			if stared(stareSpots(m, head), dt) then
 				rushing = true
 				rushGo = os.clock() + CONFIG.RushWindup
@@ -962,6 +988,27 @@ end
 --   (ถ้าเอา id ออก = ใช้เสียงปอบ SoundBank Ghost_Pop เร่งให้แหลม + ดันเสียงแหลม ตัดทุ้ม แทน)
 local SCREECH_ID: string? = "rbxassetid://92000290721684"
 local SCREECH_VOL = 2.5
+
+-- ดนตรีติดตัวผี (Kind.music): วนเล่นที่ RootPart ค่อยๆ ดังขึ้นพร้อมตัวที่จางเข้ามา · hide() หรี่เสียงทุกอันในโมเดลให้เอง
+local function musicOn(m: Model, music: { id: string, speed: number, volume: number }): Sound?
+	local root = m:FindFirstChild("RootPart") or m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
+	if not root then
+		return nil
+	end
+	local s = Instance.new("Sound")
+	s.Name = "GhostMusic"
+	s.SoundId = music.id
+	s.PlaybackSpeed = music.speed
+	s.Looped = true
+	s.Volume = 0
+	s.RollOffMode = Enum.RollOffMode.InverseTapered
+	s.RollOffMinDistance = 12 -- ได้ยินชัดเมื่อเข้าใกล้ต้นไทร เบาลงเรื่อยๆ จนเงียบที่ระยะ 110
+	s.RollOffMaxDistance = 110
+	s.Parent = root
+	s:Play()
+	TweenService:Create(s, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Volume = music.volume }):Play()
+	return s
+end
 local function screechOn(m: Model): Sound?
 	local root = m:FindFirstChild("RootPart") or m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
 	if not root then
@@ -1085,6 +1132,7 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 	if def.screech then
 		screechSound = screechOn(m)
 	end
+	local musicSound: Sound? = if def.music then musicOn(m, def.music) else nil
 	-- ผีลอย: เร็วขึ้นตามความดุของรอบ (shared/GhostFloat)
 	local floatMult = if def.float then GhostFloat.SpeedMult() else 1
 	local speed = (def.speed or 1) * floatMult
@@ -1137,6 +1185,10 @@ local function showRigged(kind: string, def: Kind, frontSpot: { number }?, cross
 			m:SetAttribute("GlideT0", os.clock()) -- ลอยไล่แทนเดิน (นางรำ v2: ขาอยู่ในผ้านุ่ง)
 		end
 		-- (ไม่มีเสียงจั้มสแกร์ตอนเริ่มไล่: ให้หลอกครั้งเดียวตอนถึงตัว)
+		-- ดนตรีของนางรำเงียบลงตอนพุ่งเข้าหา (พุ่งเงียบ หลอกทีเดียวตอนถึงหน้า)
+		if musicSound then
+			TweenService:Create(musicSound, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Volume = 0 }):Play()
+		end
 		-- ผีลอยมาหา: หัวเราะคิกคักล้อเลียนก่อนโฉบเข้ามา
 		local root = m:FindFirstChild("RootPart")
 		local set = SoundBank.GhostSounds[kind]

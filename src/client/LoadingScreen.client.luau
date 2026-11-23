@@ -44,12 +44,20 @@ local C = {
 	Blood = Color3.fromRGB(168, 36, 28),
 }
 
-local function isTH(): boolean
-	return (player:GetAttribute("Lang") or "th") == "th"
+-- ภาษาผู้เล่น (หน้าโหลดขึ้นก่อน Shared.LanguageModule จะโหลด: เลือกภาษาเองตรงนี้ ชุดเดียวกับ LanguageModule.Langs)
+local LANGS = { th = true, en = true, id = true, pt = true, es = true }
+local function langCode(): string
+	local l = string.sub(string.lower(tostring(player:GetAttribute("Lang") or "th")), 1, 2)
+	return if LANGS[l] then l else "en"
 end
 
-local function tr(th: string, en: string): string
-	return if isTH() then th else en
+-- more = ภาษาอื่น { id = "...", pt = "...", es = "..." } ไม่ใส่ = อังกฤษ
+local function tr(th: string, en: string, more: { [string]: string }?): string
+	local l = langCode()
+	if l == "th" then
+		return th
+	end
+	return if more and more[l] then more[l] else en
 end
 
 local function isLobbyPlace(): boolean
@@ -68,58 +76,73 @@ local TIPS = {
 	{
 		th = "คำแนะนำ: กด G เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
 		en = "Tip: Press G to put your hands together in prayer and reveal hidden anomalies.",
+		id = "Tips: Tekan G untuk merapatkan tangan dan berdoa, memperlihatkan kejanggalan yang tersembunyi.", pt = "Dica: Aperte G para juntar as mãos e rezar, revelando anomalias escondidas.", es = "Consejo: Presiona G para juntar las manos y rezar, revelando anomalías ocultas.",
 		thTouch = "คำแนะนำ: แตะปุ่ม สวด เพื่อพนมมือเปิดตาทิพย์ ส่องดูความผิดปกติที่ตาเปล่ามองไม่เห็น",
 		enTouch = "Tip: Tap the Pray button to put your hands together and reveal hidden anomalies.",
+		idTouch = "Tips: Sentuh tombol Berdoa untuk merapatkan tangan dan memperlihatkan kejanggalan yang tersembunyi.", ptTouch = "Dica: Toque no botão Rezar para juntar as mãos e revelar anomalias escondidas.", esTouch = "Consejo: Toca el botón Rezar para juntar las manos y revelar anomalías ocultas.",
 	},
 	{
 		th = "คำแนะนำ: หากพบความผิดปกติ ห้ามเติมน้ำมันเด็ดขาด ให้รีบไปดึงเชือกปิดแผงสังกะสีหน้าร้าน",
 		en = "Tip: If you spot an anomaly, NEVER refuel them — pull the rope to close the tin shutter.",
+		id = "Tips: Kalau melihat kejanggalan, JANGAN isi bensinnya — tarik tali untuk menutup pintu seng.", pt = "Dica: Se notar uma anomalia, NUNCA abasteça — puxe a corda para fechar o portão de zinco.", es = "Consejo: Si ves una anomalía, NUNCA le cargues gasolina — jala la cuerda para bajar la cortina de lámina.",
 	},
 	{
 		th = "คำแนะนำ: ธูป 3 ดอกที่ศาลพระภูมิคือชีวิตของทีม เผลอเติมน้ำมันให้ผีเมื่อไร ธูปจะดับทีละดอก",
 		en = "Tip: The 3 incense sticks at the spirit house are your team's lives. Serve a ghost and one goes out.",
+		id = "Tips: 3 batang dupa di rumah arwah adalah nyawa timmu. Layani hantu, satu batang padam.", pt = "Dica: Os 3 incensos da casa dos espíritos são as vidas do seu time. Atenda um fantasma e um apaga.", es = "Consejo: Los 3 inciensos de la casa de los espíritus son las vidas de tu equipo. Atiende a un fantasma y uno se apaga.",
 	},
 	{
 		th = "คำแนะนำ: สังเกตป้ายทะเบียน เสียงวิทยุ เงาในดงกล้วย และสีน้ำมันในหลอดแก้วให้ดี",
 		en = "Tip: Check license plates, the radio, the banana grove and the fuel in the glass cylinder carefully.",
+		id = "Tips: Perhatikan baik-baik plat nomor, radio, kebun pisang, dan bensin di tabung kaca.", pt = "Dica: Repare bem nas placas, no rádio, no bananal e na gasolina do cilindro de vidro.", es = "Consejo: Fíjate bien en las placas, la radio, el platanal y la gasolina del cilindro de vidrio.",
 	},
 	{
 		th = "คำแนะนำ: เก็บเงินให้ครบ 1,200 บาทก่อนธูปทั้ง 3 ดอกจะดับ เพื่อเอาชีวิตรอดผ่านคืนนี้",
 		en = "Tip: Earn 1,200 Baht before all 3 incense sticks go out to survive the night.",
+		id = "Tips: Kumpulkan 1.200 Baht sebelum ketiga batang dupa padam untuk selamat malam ini.", pt = "Dica: Junte 1.200 Baht antes que os 3 incensos apaguem para sobreviver à noite.", es = "Consejo: Junta 1,200 Baht antes de que se apaguen los 3 inciensos para sobrevivir a la noche.",
 	},
 	{
 		th = "คำแนะนำ: เริ่มคืนมาไฟดับ กด 1 เปิดไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",
 		en = "Tip: The night starts in a blackout — press 1 for your flashlight, open the shutter, then start the generator.",
+		id = "Tips: Malam dimulai saat listrik padam — tekan 1 untuk senter, buka pintu seng, lalu nyalakan genset.", pt = "Dica: A noite começa sem luz — aperte 1 para a lanterna, abra o portão e ligue o gerador.", es = "Consejo: La noche empieza sin luz — presiona 1 para la linterna, sube la cortina y arranca el generador.",
 		thTouch = "คำแนะนำ: เริ่มคืนมาไฟดับ แตะช่องไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",
 		enTouch = "Tip: The night starts in a blackout — tap the flashlight slot, open the shutter, then start the generator.",
+		idTouch = "Tips: Malam dimulai saat listrik padam — sentuh slot senter, buka pintu seng, lalu nyalakan genset.", ptTouch = "Dica: A noite começa sem luz — toque no slot da lanterna, abra o portão e ligue o gerador.", esTouch = "Consejo: La noche empieza sin luz — toca el espacio de la linterna, sube la cortina y arranca el generador.",
 	},
 	{
 		th = "คำแนะนำ: เอาขนมไทย (ช่อง 2) ไปถวายศาลพระภูมิเป็นระยะ ไม่งั้นจะโดนหลอกไม่หยุด",
 		en = "Tip: Keep offering Thai sweets (slot 2) at the spirit house, or the haunting won't stop.",
+		id = "Tips: Terus persembahkan kue Thailand (slot 2) di rumah arwah, kalau tidak gangguan hantu tak akan berhenti.", pt = "Dica: Continue oferecendo doces tailandeses (slot 2) na casa dos espíritos, ou as assombrações não vão parar.", es = "Consejo: Sigue ofreciendo dulces tailandeses (espacio 2) en la casa de los espíritus, o los sustos no van a parar.",
 		thTouch = "คำแนะนำ: แตะช่องขนมไทย แล้วไปถวายศาลพระภูมิเป็นระยะ ไม่งั้นจะโดนหลอกไม่หยุด",
 		enTouch = "Tip: Tap the Thai sweets slot and keep offering them at the spirit house, or the haunting won't stop.",
+		idTouch = "Tips: Sentuh slot kue Thailand dan terus persembahkan di rumah arwah, kalau tidak gangguan hantu tak akan berhenti.", ptTouch = "Dica: Toque no slot dos doces tailandeses e continue oferecendo na casa dos espíritos, ou as assombrações não vão parar.", esTouch = "Consejo: Toca el espacio de los dulces tailandeses y sigue ofreciéndolos en la casa de los espíritus, o los sustos no van a parar.",
 	},
 	{
 		th = "คำแนะนำ: น้ำมันในตู้หมดได้ หยิบแกลลอน (ช่อง 3) ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้",
 		en = "Tip: Pumps run dry — grab the jerry can (slot 3), fill it at the drum behind the shop, and pour it in.",
+		id = "Tips: Pompa bisa kosong — ambil jeriken (slot 3), isi di drum belakang toko, lalu tuang ke pompa.", pt = "Dica: As bombas secam — pegue o galão (slot 3), encha no tambor atrás da loja e despeje na bomba.", es = "Consejo: Las bombas se vacían — toma el bidón (espacio 3), llénalo en el barril detrás de la tienda y viértelo en la bomba.",
 		thTouch = "คำแนะนำ: น้ำมันในตู้หมดได้ แตะช่องแกลลอน ไปตักจากถังหลังร้าน แล้วมาเทใส่ตู้",
 		enTouch = "Tip: Pumps run dry — tap the jerry can slot, fill it at the drum behind the shop, and pour it in.",
+		idTouch = "Tips: Pompa bisa kosong — sentuh slot jeriken, isi di drum belakang toko, lalu tuang ke pompa.", ptTouch = "Dica: As bombas secam — toque no slot do galão, encha no tambor atrás da loja e despeje na bomba.", esTouch = "Consejo: Las bombas se vacían — toca el espacio del bidón, llénalo en el barril detrás de la tienda y viértelo en la bomba.",
 	},
 	-- ---- Lobby
 	{
 		lobby = true,
 		th = "คำแนะนำ: เดินเข้าวงแดงเพื่อสร้างห้อง เพื่อนเดินเข้าวงเดียวกันเพื่อร่วมทีมได้จนกว่าห้องจะเต็ม",
 		en = "Tip: Walk into a red ring to host a room. Friends walk into the same ring to join until it's full.",
+		id = "Tips: Masuk ke lingkaran merah untuk membuat room. Teman masuk ke lingkaran yang sama untuk bergabung sampai penuh.", pt = "Dica: Entre num círculo vermelho para criar uma sala. Os amigos entram no mesmo círculo até lotar.", es = "Consejo: Entra a un círculo rojo para crear una sala. Tus amigos entran al mismo círculo hasta que se llene.",
 	},
 	{
 		lobby = true,
 		th = "คำแนะนำ: เปิดสมุดผีมุมขวาบน ดูผีที่เคยรอดมาแล้ว และวิธีสังเกตของแต่ละตัว",
 		en = "Tip: Open the Ghost Book (top right) to see the ghosts you've survived and how to spot them.",
+		id = "Tips: Buka Buku Hantu (kanan atas) untuk melihat hantu yang sudah kamu lewati dan cara mengenalinya.", pt = "Dica: Abra o Livro de Fantasmas (canto superior direito) para ver os fantasmas que você sobreviveu e como reconhecê-los.", es = "Consejo: Abre el Libro de Fantasmas (arriba a la derecha) para ver los fantasmas que sobreviviste y cómo reconocerlos.",
 	},
 	{
 		lobby = true,
 		th = "คำแนะนำ: ป้ายอันดับในวัดบอกคนที่ทำบุญมากที่สุด จบเกมมากที่สุด และสะสมผีได้มากที่สุด",
 		en = "Tip: The boards in the temple rank top donors, most nights survived and most ghosts collected.",
+		id = "Tips: Papan di kuil memeringkat donatur terbanyak, malam selamat terbanyak, dan hantu terkumpul terbanyak.", pt = "Dica: Os quadros do templo mostram quem mais doou, quem mais sobreviveu e quem mais coletou fantasmas.", es = "Consejo: Los tableros del templo muestran a quién más donó, quién más noches sobrevivió y quién más fantasmas reunió.",
 	},
 }
 
@@ -327,7 +350,7 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	skipBtn.FontFace = FONT_BOLD
 	skipBtn.TextColor3 = C.Cream
 	skipBtn.TextSize = 17
-	skipBtn.Text = tr("ข้าม", "Skip")
+	skipBtn.Text = tr("ข้าม", "Skip", { id = "Lewati", pt = "Pular", es = "Saltar" })
 	skipBtn.Parent = bottomPanel
 
 	local skipStroke = Instance.new("UIStroke")
@@ -446,11 +469,10 @@ local currentTipIdx = math.random(1, #TIPS)
 local function updateTipText()
 	local tip = TIPS[currentTipIdx]
 	local touch = isTouchDevice()
-	if isTH() then
-		ui.tipLabel.Text = if touch and tip.thTouch then tip.thTouch else tip.th
-	else
-		ui.tipLabel.Text = if touch and tip.enTouch then tip.enTouch else tip.en
-	end
+	-- tip.<ภาษา> / tip.<ภาษา>Touch (มือถือ) · ภาษาที่ยังไม่แปล = อังกฤษ
+	local l = langCode()
+	local t = (touch and tip[l .. "Touch"]) or tip[l] or (touch and tip.enTouch) or tip.en
+	ui.tipLabel.Text = t
 end
 updateTipText()
 
@@ -579,16 +601,16 @@ task.spawn(function()
 		end)
 		fade:Play()
 	end
-	ui.title.Text = tr("ปั๊มหลอดท้ายทุ่ง", "MIDNIGHT RURAL GAS & TIRE")
+	ui.title.Text = tr("ปั๊มหลอดท้ายทุ่ง", "MIDNIGHT RURAL GAS & TIRE", { id = "POM BENSIN TENGAH SAWAH", pt = "POSTO NO MEIO DO ARROZAL", es = "GASOLINERA EN MEDIO DEL ARROZAL" })
 	ui.badge.Text = if inLobby
-		then tr("  วัดท้ายทุ่ง  ", "  TEMPLE LOBBY  ")
-		else tr("  กะดึกท้ายทุ่ง  ", "  NIGHT SHIFT  ")
+		then tr("  วัดท้ายทุ่ง  ", "  TEMPLE LOBBY  ", { id = "  LOBBY KUIL  ", pt = "  LOBBY DO TEMPLO  ", es = "  LOBBY DEL TEMPLO  " })
+		else tr("  กะดึกท้ายทุ่ง  ", "  NIGHT SHIFT  ", { id = "  SHIFT MALAM  ", pt = "  TURNO DA NOITE  ", es = "  TURNO DE NOCHE  " })
 	ui.subtitle.Text = if inLobby
-		then tr("จุดรวมตัวก่อนออกกะดึก · เดินเข้าวงแดงเพื่อสร้างหรือร่วมห้อง", "Gather before the night shift · walk into a red ring to host or join")
-		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost")
+		then tr("จุดรวมตัวก่อนออกกะดึก · เดินเข้าวงแดงเพื่อสร้างหรือร่วมห้อง", "Gather before the night shift · walk into a red ring to host or join", { id = "Berkumpul sebelum shift malam · masuk ke lingkaran merah untuk membuat atau bergabung ke room", pt = "Reúna-se antes do turno da noite · entre num círculo vermelho para criar ou entrar numa sala", es = "Reúnanse antes del turno de noche · entra a un círculo rojo para crear o unirte a una sala" })
+		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost", { id = "Temukan kejanggalan · Jangan pernah isi bensin untuk hantu", pt = "Encontre as anomalias · Nunca abasteça um fantasma", es = "Encuentra las anomalías · Nunca le cargues gasolina a un fantasma" })
 
 	-- ก่อนโหลดภาพพื้นหลัง (รอได้หลายวินาที) อย่าให้เห็นข้อความตั้งต้น "Label" / ปุ่มข้ามในแมพเล่นเกม
-	ui.statusLabel.Text = tr("กำลังโหลด...", "Loading...")
+	ui.statusLabel.Text = tr("กำลังโหลด...", "Loading...", { id = "Memuat...", pt = "Carregando...", es = "Cargando..." })
 	setProgressMode(true)
 	setProgress(0.02)
 	ui.skipBtn.Visible = false
@@ -639,7 +661,7 @@ task.spawn(function()
 			end)
 			setProgress(
 				p0 + (batchEnd / total) * (p1 - p0),
-				tr(("กำลังโหลดทรัพยากร... (%d / %d)"):format(batchEnd, total), ("Loading resources... (%d / %d)"):format(batchEnd, total))
+				tr(("กำลังโหลดทรัพยากร... (%d / %d)"):format(batchEnd, total), ("Loading resources... (%d / %d)"):format(batchEnd, total), { id = ("Memuat aset... (%d / %d)"):format(batchEnd, total), pt = ("Carregando recursos... (%d / %d)"):format(batchEnd, total), es = ("Cargando recursos... (%d / %d)"):format(batchEnd, total) })
 			)
 			task.wait(0.01)
 		end
@@ -658,28 +680,28 @@ task.spawn(function()
 		local lobbyStart = os.clock()
 		setProgressMode(true)
 		ui.skipBtn.Visible = false
-		setProgress(0.05, tr("กำลังเตรียมฉาก...", "Preparing scene..."))
+		setProgress(0.05, tr("กำลังเตรียมฉาก...", "Preparing scene...", { id = "Menyiapkan adegan...", pt = "Preparando a cena...", es = "Preparando la escena..." }))
 		waitFor(function()
 			return game:IsLoaded()
 		end, 120)
-		setProgress(0.12, tr("กำลังซิงค์ฉากจากเซิร์ฟเวอร์...", "Syncing world from server..."))
+		setProgress(0.12, tr("กำลังซิงค์ฉากจากเซิร์ฟเวอร์...", "Syncing world from server...", { id = "Menyinkronkan dunia dari server...", pt = "Sincronizando o mundo com o servidor...", es = "Sincronizando el mundo con el servidor..." }))
 		waitFor(function()
 			return ReplicatedStorage:GetAttribute("SceneReady") == true
 		end, 120)
 		preloadWorld(0.15, 0.92)
-		setProgress(0.93, tr("กำลังเตรียมตัวละคร...", "Preparing your character..."))
+		setProgress(0.93, tr("กำลังเตรียมตัวละคร...", "Preparing your character...", { id = "Menyiapkan karaktermu...", pt = "Preparando seu personagem...", es = "Preparando tu personaje..." }))
 		waitFor(function()
 			local c = player.Character
 			return c ~= nil and c:FindFirstChild("HumanoidRootPart") ~= nil
 		end, 30)
 		-- ฉากเปิด Lobby (LobbyIntro.client): ค้างหน้าโหลดไว้จนฉากเปิดพร้อมจริง (วางตัว/หมอก/โหลดประตูกับป้ายเสร็จ)
 		--   ปิดหน้าโหลดแล้วตัดเข้าม่านหมอกทันที ไม่มีจอดำคั่น (ฉากเปิดไม่มา/ไม่พร้อมใน 25 วิ ก็ปิดตามปกติ)
-		setProgress(0.97, tr("กำลังเตรียมฉากเปิด...", "Preparing the opening scene..."))
+		setProgress(0.97, tr("กำลังเตรียมฉากเปิด...", "Preparing the opening scene...", { id = "Menyiapkan adegan pembuka...", pt = "Preparando a cena de abertura...", es = "Preparando la escena de apertura..." }))
 		waitFor(function()
 			return player:GetAttribute("IntroReady") == true
 				or (player:GetAttribute("IntroPending") ~= true and os.clock() - lobbyStart > 3)
 		end, 25)
-		setProgress(1, tr("พร้อมแล้ว", "Ready"))
+		setProgress(1, tr("พร้อมแล้ว", "Ready", { id = "Siap", pt = "Pronto", es = "Listo" }))
 		task.wait(0.3)
 	else
 		-- แมพเล่นเกม: ปิดหน้าโหลดเมื่อฉากพร้อมจริงเท่านั้น (เคยเข้าไปทั้งที่ไฟร้านยังไม่ติด / โมเดลยังไม่ขึ้น)
@@ -688,21 +710,21 @@ task.spawn(function()
 		setProgressMode(true)
 		ui.skipBtn.Visible = false
 		local startTime = os.clock()
-		setProgress(0.04, tr("กำลังเข้าสู่กะดึกที่ปั๊มหลอดท้ายทุ่ง...", "Entering the midnight shift at the gas shack..."))
+		setProgress(0.04, tr("กำลังเข้าสู่กะดึกที่ปั๊มหลอดท้ายทุ่ง...", "Entering the midnight shift at the gas shack...", { id = "Memasuki shift tengah malam di pom bensin...", pt = "Entrando no turno da meia-noite no posto...", es = "Entrando al turno de medianoche en la gasolinera..." }))
 		waitFor(function()
 			return game:IsLoaded()
 		end, 120)
-		setProgress(0.12, tr("กำลังเตรียมฉาก...", "Preparing the scene..."))
+		setProgress(0.12, tr("กำลังเตรียมฉาก...", "Preparing the scene...", { id = "Menyiapkan adegan...", pt = "Preparando a cena...", es = "Preparando la escena..." }))
 		waitFor(function()
 			return ReplicatedStorage:GetAttribute("SceneReady") == true
 		end, 120)
 		preloadWorld(0.15, 0.85)
-		setProgress(0.88, tr("กำลังเตรียมตัวละคร...", "Preparing your character..."))
+		setProgress(0.88, tr("กำลังเตรียมตัวละคร...", "Preparing your character...", { id = "Menyiapkan karaktermu...", pt = "Preparando seu personagem...", es = "Preparando tu personaje..." }))
 		waitFor(function()
 			local c = player.Character
 			return c ~= nil and c:FindFirstChild("HumanoidRootPart") ~= nil
 		end, 30)
-		setProgress(0.94, tr("พี่ชายกำลังขี่รถพาไปส่งที่ร้าน...", "Your brother is riding you to the shop..."))
+		setProgress(0.94, tr("พี่ชายกำลังขี่รถพาไปส่งที่ร้าน...", "Your brother is riding you to the shop...", { id = "Abangmu sedang membonceng kamu ke toko...", pt = "Seu irmão está te levando de moto até a loja...", es = "Tu hermano te lleva en moto a la tienda..." }))
 		waitFor(function()
 			local env = Workspace:FindFirstChild("MapEnvironment")
 			local road = env and env:FindFirstChild("DirtRoad")
@@ -711,7 +733,7 @@ task.spawn(function()
 			-- ไฟดับตั้งใจ (เริ่มคืนเครื่องปั่นไฟยังไม่ติด) = ถือว่าพร้อม ไม่ต้องรอไฟ
 			return (light ~= nil and light.Enabled) or ReplicatedStorage:GetAttribute("PowerOn") == false
 		end, 20)
-		setProgress(1, tr("พร้อมแล้ว", "Ready"))
+		setProgress(1, tr("พร้อมแล้ว", "Ready", { id = "Siap", pt = "Pronto", es = "Listo" }))
 		local elapsed = os.clock() - startTime
 		if elapsed < GAME_SPLASH_MIN_SECONDS then
 			task.wait(GAME_SPLASH_MIN_SECONDS - elapsed)
@@ -726,7 +748,7 @@ task.spawn(function()
 			end
 			local n = ReplicatedStorage:GetAttribute("ReadyCount") or 0
 			local total = ReplicatedStorage:GetAttribute("ReadyTotal") or 0
-			setProgress(1, tr(("กำลังรอผู้เล่นคนอื่นโหลด... (%d / %d)"):format(n, total), ("Waiting for other players... (%d / %d)"):format(n, total)))
+			setProgress(1, tr(("กำลังรอผู้เล่นคนอื่นโหลด... (%d / %d)"):format(n, total), ("Waiting for other players... (%d / %d)"):format(n, total), { id = ("Menunggu pemain lain... (%d / %d)"):format(n, total), pt = ("Esperando outros jogadores... (%d / %d)"):format(n, total), es = ("Esperando a otros jugadores... (%d / %d)"):format(n, total) }))
 			return false
 		end, 90)
 	end
@@ -756,21 +778,31 @@ local function showTeleportScreen(opts: { destination: string?, subtitleTH: stri
 	local dest = (opts and opts.destination) or (if isLobbyPlace() then "game" else "lobby")
 
 	if dest == "game" then
-		ui.badge.Text = tr("  กำลังเดินทางเข้าสู่กะดึก  ", "  HEADING TO NIGHT SHIFT  ")
-		ui.title.Text = tr("กำลังเดินทางไปปั๊มหลอดท้ายทุ่ง...", "TRAVELING TO THE GAS SHACK...")
+		ui.badge.Text = tr("  กำลังเดินทางเข้าสู่กะดึก  ", "  HEADING TO NIGHT SHIFT  ", { id = "  MENUJU SHIFT MALAM  ", pt = "  INDO PARA O TURNO DA NOITE  ", es = "  RUMBO AL TURNO DE NOCHE  " })
+		ui.title.Text = tr("กำลังเดินทางไปปั๊มหลอดท้ายทุ่ง...", "TRAVELING TO THE GAS SHACK...", { id = "MENUJU POM BENSIN...", pt = "INDO PARA O POSTO...", es = "RUMBO A LA GASOLINERA..." })
 		ui.subtitle.Text = tr(
 			opts and opts.subtitleTH or "กำลังเตรียมเซิร์ฟเวอร์และส่งสมาชิกในห้องเข้าสู่คืนอาถรรพ์",
-			opts and opts.subtitleEN or "Reserving server and transporting your crew into the night"
+			opts and opts.subtitleEN or "Reserving server and transporting your crew into the night",
+			{
+				id = opts and (opts.subtitleID or opts.subtitleEN) or "Menyiapkan server dan membawa timmu ke malam yang angker",
+				pt = opts and (opts.subtitlePT or opts.subtitleEN) or "Reservando o servidor e levando seu time para a noite assombrada",
+				es = opts and (opts.subtitleES or opts.subtitleEN) or "Reservando el servidor y llevando a tu equipo a la noche embrujada",
+			}
 		)
 	else
-		ui.badge.Text = tr("  กำลังเดินทางกลับวัด  ", "  RETURNING TO TEMPLE LOBBY  ")
-		ui.title.Text = tr("กำลังเดินทางกลับวัดท้ายทุ่ง (Lobby)...", "RETURNING TO TEMPLE LOBBY...")
+		ui.badge.Text = tr("  กำลังเดินทางกลับวัด  ", "  RETURNING TO TEMPLE LOBBY  ", { id = "  KEMBALI KE LOBBY KUIL  ", pt = "  VOLTANDO AO LOBBY DO TEMPLO  ", es = "  VOLVIENDO AL LOBBY DEL TEMPLO  " })
+		ui.title.Text = tr("กำลังเดินทางกลับวัดท้ายทุ่ง (Lobby)...", "RETURNING TO TEMPLE LOBBY...", { id = "KEMBALI KE LOBBY KUIL...", pt = "VOLTANDO AO LOBBY DO TEMPLO...", es = "VOLVIENDO AL LOBBY DEL TEMPLO..." })
 		ui.subtitle.Text = tr(
 			opts and opts.subtitleTH or "กำลังเชื่อมต่อกลับไปยังลานวัดท้ายทุ่ง",
-			opts and opts.subtitleEN or "Reconnecting to the Temple Lobby plaza"
+			opts and opts.subtitleEN or "Reconnecting to the Temple Lobby plaza",
+			{
+				id = opts and (opts.subtitleID or opts.subtitleEN) or "Menghubungkan kembali ke halaman Lobby kuil",
+				pt = opts and (opts.subtitlePT or opts.subtitleEN) or "Reconectando ao pátio do Lobby do templo",
+				es = opts and (opts.subtitleES or opts.subtitleEN) or "Reconectando a la plaza del Lobby del templo",
+			}
 		)
 	end
-	ui.statusLabel.Text = tr("กำลังเชื่อมต่อเซิร์ฟเวอร์ปลายทาง กรุณารอสักครู่...", "Connecting to destination server, please wait...")
+	ui.statusLabel.Text = tr("กำลังเชื่อมต่อเซิร์ฟเวอร์ปลายทาง กรุณารอสักครู่...", "Connecting to destination server, please wait...", { id = "Menghubungkan ke server tujuan, mohon tunggu...", pt = "Conectando ao servidor de destino, aguarde...", es = "Conectando al servidor de destino, espera un momento..." })
 
 	-- ส่ง ScreenGui ชุดนี้ให้ TeleportService คงไว้บนจอระหว่างสลับเซิร์ฟเวอร์
 	pcall(function()
