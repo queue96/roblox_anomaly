@@ -44,6 +44,9 @@
         "RobuxShop": {
           "$path": "src/shared/RobuxShop.luau"
         },
+        "GfxGuard": {
+          "$path": "src/shared/GfxGuard.luau"
+        },
         "LeavingScreen": {
           "$path": "src/shared/LeavingScreen.luau"
         }

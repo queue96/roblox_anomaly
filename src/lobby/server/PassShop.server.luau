@@ -221,7 +221,7 @@ local ITEMS: { Item } = {
 	{ attr = "WingSandals", passId = IDS.SandalsPassId, sign = "SandalsSign", name = "SandalsName", build = sandals },
 	{ attr = "GhostBook", passId = IDS.GhostBookPassId, sign = "GhostBookSign", name = "GhostBookName", buy = "BuyGhostBook", build = ghostBook },
 }
-local GOT = { ElephantLight = "Shop_ElephantGot", FastPrayer = "Shop_FastPrayGot", WingSandals = "Shop_SandalsGot", GhostBook = "Shop_GhostBookGot" }
+local GOT = { ElephantLight = "Shop_ElephantGot", FastPrayer = "Shop_FastPrayGot", WingSandals = "Shop_SandalsGot", GhostBook = "Shop_GhostBookGot", BigRoom = "Shop_BigRoomGot" }
 
 -- ป้ายทอง "📖 หมอผี" ใน Lobby เป็นแถวบนสุดของป้ายชื่อ (lobby/server/LobbyNameplates)
 local prompts: { [ProximityPrompt]: Item } = {}
@@ -268,9 +268,10 @@ local function onPlayer(player: Player)
 		char:WaitForChild("Humanoid", 10)
 		applySandals(player)
 	end)
-	for _, item in ipairs(ITEMS) do
-		if item.passId ~= 0 then
-			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, item.passId)
+	-- ทุก Game Pass (รวมห้องใหญ่ที่ไม่ได้วางบนแผง: ขายตรงหน้าตั้งห้อง)
+	for _, item in ipairs(IDS.PASSES) do
+		if item.id ~= 0 then
+			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, item.id)
 			if ok and owns then
 				player:SetAttribute(item.attr, true)
 			end
@@ -300,8 +301,8 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Playe
 	if not purchased then
 		return
 	end
-	for _, item in ipairs(ITEMS) do
-		if item.passId == passId then
+	for _, item in ipairs(IDS.PASSES) do
+		if item.id == passId then
 			player:SetAttribute(item.attr, true)
 			notice(player, GOT[item.attr])
 		end

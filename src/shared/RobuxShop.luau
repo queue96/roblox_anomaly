@@ -8,6 +8,7 @@ local M = {
 	ElephantPassId = 2092614961, -- ไฟฉายตราช้าง: ส่องไกล สว่าง ถ่านไม่หมด
 	FastPrayPassId = 2092410992, -- สวดมนต์ไว: พนมมือเปิดตาทิพย์ 1.5 -> 0.9 วิ
 	SandalsPassId = 2092603080, -- รองเท้าแตะติดปีก: เดินเร็วขึ้น 15%
+	BigRoomPassId = 2096527027, -- ห้องใหญ่ 99: คนสร้างห้องเลือกได้ถึง 6 คน (ฟรี FREE_ROOM_SIZE) เพื่อนที่เข้าไม่ต้องมี
 	GhostBookPassId = 2092681074, -- สมุดหมอผี 499: เรียกผีได้เอง (client/GhostBook + server/GhostBook)
 	-- Developer Product 19 Robux (แมพปั๊มเท่านั้น)
 	PrankProductId = 3735073122, -- ป้ายผีหลอกทุกคนในห้อง (ยกเว้นคนซื้อ)
@@ -17,6 +18,7 @@ local M = {
 
 	FAST_SIGHT_DELAY = 0.9, -- วินาที (ปกติ 1.5 ใน client/PrayerController)
 	SANDALS_SPEED = 1.15, -- คูณความเร็วเดินปกติ
+	FREE_ROOM_SIZE = 4, -- ห้องปกติ (ไม่มี Pass ห้องใหญ่) เล่นได้สูงสุดกี่คน · สูงสุดจริง = shared/Difficulty.MaxPlayers
 	BOOK_COOLDOWN = 60, -- วินาทีระหว่างการเรียกผีจากสมุดหมอผี (ต่อคน)
 }
 
@@ -26,6 +28,7 @@ M.PASSES = {
 	{ id = M.FastPrayPassId, attr = "FastPrayer", name = "FastPrayName" },
 	{ id = M.SandalsPassId, attr = "WingSandals", name = "SandalsName" },
 	{ id = M.GhostBookPassId, attr = "GhostBook", name = "GhostBookName" },
+	{ id = M.BigRoomPassId, attr = "BigRoom", name = "BigRoomName" },
 }
 
 -- สมุดหมอผี: ผีที่เรียกได้ (ลูกค้าผีอ่านจาก LanguageModule.BookOrder ที่ขึ้นต้น "Anomaly_")

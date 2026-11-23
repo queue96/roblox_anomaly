@@ -98,17 +98,30 @@ dof.Parent = Lighting
 
 local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?) or Instance.new("BlurEffect")
 softBlur.Name = "SoftFilmBlur"
+-- client/GraphicsGuard: เฟรมตกต่อเนื่อง = Lighting attribute "GfxTrim" ขึ้น (1 = ปิดเบลอทั้งจอ + DOF, 2 = ปิด Bloom ด้วย)
+--   ลดของที่ไม่สำคัญก่อน เครื่องจะไม่ร้อนจน Roblox (กราฟิก Auto) ตัดเงาไฟทิ้ง
+local function gfxTrim(): number
+	return tonumber(Lighting:GetAttribute("GfxTrim")) or 0
+end
 softBlur:GetPropertyChangedSignal("Size"):Connect(function()
-	softBlur.Enabled = softBlur.Size > 0.01 -- เบลอ Size 0 ยังกินแรงเรนเดอร์ทั้งจอ
+	softBlur.Enabled = softBlur.Size > 0.01 and gfxTrim() < 1 -- เบลอ Size 0 ยังกินแรงเรนเดอร์ทั้งจอ
 end)
 softBlur.Size = SOFT_BLUR
-softBlur.Enabled = SOFT_BLUR > 0.01
+softBlur.Enabled = SOFT_BLUR > 0.01 and gfxTrim() < 1
 softBlur.Parent = Lighting
 -- Bloom เดิมในไฟล์ place (ชื่อ "Bloom" Intensity 0) ไม่ได้ทำให้ภาพต่างแต่ยังเป็นอีกหนึ่งรอบเรนเดอร์ ปิดไว้ (เหลือ NightBloom ตัวเดียว)
 local legacyBloom = Lighting:FindFirstChild("Bloom")
 if legacyBloom and legacyBloom:IsA("BloomEffect") and legacyBloom.Intensity <= 0.001 then
 	legacyBloom.Enabled = false
 end
+
+Lighting:GetAttributeChangedSignal("GfxTrim"):Connect(function()
+	local t = gfxTrim()
+	softBlur.Enabled = softBlur.Size > 0.01 and t < 1
+	-- คืนระดับ: DOF กลับเป็นค่าปกติ (ตอนพนมมืออยู่ updatePrayerOptics ตั้งใหม่รอบหน้าเอง)
+	dof.Enabled = t < 1 and DOF_BASE.on
+	bloom.Enabled = t < 2
+end)
 
 -- Dynamic Focus + เอฟเฟกต์ฟุ้งพิเศษตอนพนมมือเปิดตาทิพย์ (PrayerSight)
 local focusParams = RaycastParams.new()
@@ -601,7 +614,7 @@ local function updatePrayerOptics(active: boolean)
 	TweenService:Create(softBlur, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
 		Size = if active then math.min(SOFT_BLUR, 0.9) else SOFT_BLUR,
 	}):Play()
-	dof.Enabled = active or DOF_BASE.on
+	dof.Enabled = (active or DOF_BASE.on) and gfxTrim() < 1
 	TweenService:Create(dof, TweenInfo.new(0.6, Enum.EasingStyle.Sine), {
 		FarIntensity = if active then 0.15 else DOF_BASE.far,
 		InFocusRadius = if active then 40 else DOF_BASE.radius,

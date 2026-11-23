@@ -18,12 +18,25 @@ local function templates(): Instance?
 end
 
 -- ผีฉากเกิดฝั่ง client (client/SceneryGhosts: แต่ละคนเห็นคนละตัว คนละเวลา) -> สำเนาแม่แบบไว้ใน ReplicatedStorage.GhostModels
+--   ทุกเครื่องโหลด mesh/ผิวของทุกตัวในนี้ (client/AnimPreload) -> ไม่ส่งตัวที่ไม่มีที่ไหนในเกมใช้แล้ว (ประหยัดแรมมือถือ)
+--   ตัวที่ server เสกเอง (ลูกค้าผี ผีใหญ่ ผีวน ร่างผีชาวบ้าน) ต้องอยู่: โหลดไว้ก่อน ตอนโผล่จะไม่เป็นก้อนเทาแวบหนึ่ง
+local CLIENT_SKIP = { ghost_mae_nak = true } -- แม่นาค: ผีฉากที่ตัดแล้ว (ปุ่ม admin "ไม่ใช้แล้ว" เรียกไม่ขึ้น)
 do
 	local src = templates()
-	if src and not ReplicatedStorage:FindFirstChild("GhostModels") then
+	local existing = ReplicatedStorage:FindFirstChild("GhostModels")
+	if src and not existing then
 		local copy = src:Clone()
 		copy.Name = "GhostModels"
 		copy.Parent = ReplicatedStorage
+		existing = copy
+	end
+	if existing then
+		for name in pairs(CLIENT_SKIP) do
+			local m = existing:FindFirstChild(name)
+			if m then
+				m:Destroy()
+			end
+		end
 	end
 end
 

@@ -450,6 +450,10 @@ for i = 1, Difficulty.MaxPlayers do
 	new("UICorner", { CornerRadius = UDim.new(0, 3) }, countButtons[i])
 end
 
+-- วงห้องใหญ่ (วงทองกลางลาน, Game Pass ห้องใหญ่): เลือก 5–6 คน · วงปกติเลือก 1–FREE_ROOM_SIZE คน
+local ROOM_SHOP = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("RobuxShop")) :: any
+local setupBig = false
+
 local function valueLabel(parent: Instance): TextLabel
 	return new("TextLabel", {
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -484,10 +488,20 @@ local confirm = button(confirmRow, {
 new("UICorner", { CornerRadius = UDim.new(0, 3) }, confirm)
 
 local function drawSetup()
-	setupHead.Text = tr(("ตั้งห้องที่ %d"):format(setupPad), ("Set up room %d"):format(setupPad), { id = ("Siapkan room %d"):format(setupPad), pt = ("Montar a sala %d"):format(setupPad), es = ("Armar la sala %d"):format(setupPad) })
+	if setupBig then
+		setupHead.Text = tr("ตั้งห้องใหญ่", "Set up the Big Room", { id = "Siapkan Room Besar", pt = "Montar a Sala Grande", es = "Armar la Sala Grande" })
+	else
+		setupHead.Text = tr(("ตั้งห้องที่ %d"):format(setupPad), ("Set up room %d"):format(setupPad), { id = ("Siapkan room %d"):format(setupPad), pt = ("Montar a sala %d"):format(setupPad), es = ("Armar la sala %d"):format(setupPad) })
+	end
 	countLabel.Text = tr("จำนวนผู้เล่น", "Players", { id = "Pemain", pt = "Jogadores", es = "Jugadores" })
 	confirm.Text = tr("สร้างห้อง", "Create room", { id = "Buat room", pt = "Criar sala", es = "Crear sala" })
+	-- วงปกติ: ปุ่ม 1–4 · วงห้องใหญ่: ปุ่ม 5–6 (ชิดขวาเสมอ)
+	local lo = if setupBig then ROOM_SHOP.FREE_ROOM_SIZE + 1 else 1
+	local hi = if setupBig then Difficulty.MaxPlayers else ROOM_SHOP.FREE_ROOM_SIZE
+	chosenPlayers = math.clamp(chosenPlayers, lo, hi)
 	for i, b in ipairs(countButtons) do
+		b.Visible = i >= lo and i <= hi
+		b.Position = UDim2.new(1, -(hi - i) * (NUM_BTN + NUM_GAP), 0.5, 0)
 		b.BackgroundColor3 = if i == chosenPlayers then C.Blood else C.Ink
 	end
 end
@@ -502,10 +516,12 @@ confirm.Activated:Connect(function()
 	setup.Visible = false
 	ConfirmRoom:FireServer(chosenPlayers, ROOM_DIFFICULTY)
 end)
-OpenSetup.OnClientEvent:Connect(function(padIndex: number?, seconds: number?)
+OpenSetup.OnClientEvent:Connect(function(padIndex: number?, seconds: number?, big: boolean?)
 	if padIndex then
 		setupPad = padIndex
 		setupDeadline = os.clock() + (seconds or 30)
+		setupBig = big == true
+		chosenPlayers = if setupBig then Difficulty.MaxPlayers else ROOM_SHOP.FREE_ROOM_SIZE
 		drawSetup()
 		setup.Visible = true
 	else

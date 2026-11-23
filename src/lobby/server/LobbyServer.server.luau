@@ -106,7 +106,7 @@ local dof = (Lighting:FindFirstChild("NightDepthOfField") :: DepthOfFieldEffect?
 	or (Lighting:FindFirstChild("LobbyDepthOfField") :: DepthOfFieldEffect?)
 	or Instance.new("DepthOfFieldEffect")
 dof.Name = "LobbyDepthOfField"
-dof.Enabled = true
+dof.Enabled = false -- ผู้ใช้ 2026-11-23: Lobby ไม่ต้องสวยสุด ปิด DOF / เบลอทั้งจอ ประหยัดเครื่อง (lobby/client/GraphicsGuard)
 dof.FocusDistance = 24
 dof.InFocusRadius = 32
 dof.NearIntensity = 0.08
@@ -117,7 +117,7 @@ local softBlur = (Lighting:FindFirstChild("SoftFilmBlur") :: BlurEffect?)
 	or (Lighting:FindFirstChild("LobbySoftBlur") :: BlurEffect?)
 	or Instance.new("BlurEffect")
 softBlur.Name = "LobbySoftBlur"
-softBlur.Enabled = true
+softBlur.Enabled = false
 softBlur.Size = 1.3
 softBlur.Parent = Lighting
 
@@ -181,6 +181,30 @@ type Room = {
 }
 
 local pads: { BasePart } = {}
+local ROOM_SHOP = require(Shared:WaitForChild("RobuxShop")) :: any
+local FREE_ROOM_SIZE = ROOM_SHOP.FREE_ROOM_SIZE
+local BIG_ROOM_PASS = ROOM_SHOP.BigRoomPassId
+
+-- วงห้องใหญ่ (ผู้ใช้ 2026-11-23): วงที่ 6 (ขวาหน้าอุโบสถ) เป็นวงห้องใหญ่สีทอง 5–6 คน
+--   ติด attribute BigRoom ตอนเปิดเซิร์ฟเวอร์ (ไฟล์ place ไม่ต้องแก้) · ย้ายไปวงอื่นแค่เปลี่ยน BIG_RING_INDEX
+local BIG_RING_INDEX = 6
+local BIG_RING_GOLD = Color3.fromRGB(235, 185, 70)
+do
+	local lobby = workspace:FindFirstChild("TempleLobby")
+	local folder = lobby and lobby:FindFirstChild("RoomPads")
+	local pad = folder and folder:FindFirstChild("RoomPad_" .. BIG_RING_INDEX)
+	if pad and pad:IsA("BasePart") then
+		pad:SetAttribute("BigRoom", true)
+		local ring = (folder :: Instance):FindFirstChild("RoomPadRing_" .. BIG_RING_INDEX)
+		if ring then
+			for _, d in ipairs(ring:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Color = BIG_RING_GOLD
+				end
+			end
+		end
+	end
+end
 local rooms: { [BasePart]: Room } = {}
 local pendingHost: { [BasePart]: Player } = {}
 local pendingSince: { [BasePart]: number } = {}
@@ -260,7 +284,7 @@ local function prepareWall(pad: BasePart)
 				beam.Width1 = w.Size.Z
 				beam.FaceCamera = false
 				beam.Segments = 1
-				beam.Color = ColorSequence.new(LIGHT_COLOR)
+				beam.Color = ColorSequence.new(if pad:GetAttribute("BigRoom") == true then BIG_RING_GOLD else LIGHT_COLOR)
 				beam.LightEmission = 1
 				beam.LightInfluence = 0
 				beam.Brightness = 4
@@ -472,26 +496,33 @@ end
 local function refresh(pad: BasePart)
 	local label = ensureSign(pad)
 	local i = pad:GetAttribute("PadIndex") or 0
+	-- ชื่อวง: วงทอง (BigRoom) = "ห้องใหญ่" · วงอื่น = "ห้อง n"
+	local big = pad:GetAttribute("BigRoom") == true
+	local nTH = if big then "ห้องใหญ่" else ("ห้อง %d"):format(i)
+	local nEN = if big then "Big Room" else ("Room %d"):format(i)
+	local nID = if big then "Room Besar" else ("Room %d"):format(i)
+	local nPT = if big then "Sala Grande" else ("Sala %d"):format(i)
+	local nES = if big then "Sala Grande" else ("Sala %d"):format(i)
 	local room = rooms[pad]
 	if room then
 		-- ไม่มีให้เลือกความยากแล้ว (ใช้ค่าเริ่มต้นเสมอ) ป้ายจึงไม่แสดงความยาก
 		if room.launching then
-			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers), ("Room %d · %s\n%d/%d players\nStarting the game..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers), {
-				id = ("Room %d · %s\n%d/%d pemain\nMemulai game..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers),
-				pt = ("Sala %d · %s\n%d/%d jogadores\nIniciando o jogo..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers),
-				es = ("Sala %d · %s\n%d/%d jugadores\nIniciando el juego..."):format(i, room.host.DisplayName, #room.members, room.maxPlayers),
+			Bilingual.Text(label, ("%s · %s\n%d/%d คน\nกำลังส่งไปเกม..."):format(nTH, room.host.DisplayName, #room.members, room.maxPlayers), ("%s · %s\n%d/%d players\nStarting the game..."):format(nEN, room.host.DisplayName, #room.members, room.maxPlayers), {
+				id = ("%s · %s\n%d/%d pemain\nMemulai game..."):format(nID, room.host.DisplayName, #room.members, room.maxPlayers),
+				pt = ("%s · %s\n%d/%d jogadores\nIniciando o jogo..."):format(nPT, room.host.DisplayName, #room.members, room.maxPlayers),
+				es = ("%s · %s\n%d/%d jugadores\nIniciando el juego..."):format(nES, room.host.DisplayName, #room.members, room.maxPlayers),
 			})
 		elseif room.fullCountdown then
-			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), ("Room %d · %s\n%d/%d players\nFull · starting in %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), {
-				id = ("Room %d · %s\n%d/%d pemain\nPenuh · mulai dalam %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
-				pt = ("Sala %d · %s\n%d/%d jogadores\nLotada · começa em %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
-				es = ("Sala %d · %s\n%d/%d jugadores\nLlena · empieza en %d"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
+			Bilingual.Text(label, ("%s · %s\n%d/%d คน\nเต็มแล้ว · ไปเกมใน %d"):format(nTH, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), ("%s · %s\n%d/%d players\nFull · starting in %d"):format(nEN, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown), {
+				id = ("%s · %s\n%d/%d pemain\nPenuh · mulai dalam %d"):format(nID, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
+				pt = ("%s · %s\n%d/%d jogadores\nLotada · começa em %d"):format(nPT, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
+				es = ("%s · %s\n%d/%d jugadores\nLlena · empieza en %d"):format(nES, room.host.DisplayName, #room.members, room.maxPlayers, room.fullCountdown),
 			})
 		else
-			Bilingual.Text(label, ("ห้อง %d · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), ("Room %d · %s\n%d/%d players\nWaiting · starts in %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), {
-				id = ("Room %d · %s\n%d/%d pemain\nMenunggu · mulai dalam %d dtk"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
-				pt = ("Sala %d · %s\n%d/%d jogadores\nEsperando · começa em %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
-				es = ("Sala %d · %s\n%d/%d jugadores\nEsperando · empieza en %ds"):format(i, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
+			Bilingual.Text(label, ("%s · %s\n%d/%d คน\nรอผู้เล่น · เริ่มใน %d วิ"):format(nTH, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), ("%s · %s\n%d/%d players\nWaiting · starts in %ds"):format(nEN, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown), {
+				id = ("%s · %s\n%d/%d pemain\nMenunggu · mulai dalam %d dtk"):format(nID, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
+				pt = ("%s · %s\n%d/%d jogadores\nEsperando · começa em %ds"):format(nPT, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
+				es = ("%s · %s\n%d/%d jugadores\nEsperando · empieza en %ds"):format(nES, room.host.DisplayName, #room.members, room.maxPlayers, room.countdown),
 			})
 		end
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
@@ -509,18 +540,26 @@ local function refresh(pad: BasePart)
 			})
 		end
 	elseif pendingHost[pad] then
-		Bilingual.Text(label, ("ห้อง %d\n%s กำลังตั้งห้อง...\nปิดชั่วคราว รอสักครู่"):format(i, pendingHost[pad].DisplayName), ("Room %d\n%s is setting up...\nLocked, please wait"):format(i, pendingHost[pad].DisplayName), {
-			id = ("Room %d\n%s sedang menyiapkan...\nDikunci, mohon tunggu"):format(i, pendingHost[pad].DisplayName),
-			pt = ("Sala %d\n%s está montando...\nTrancada, aguarde"):format(i, pendingHost[pad].DisplayName),
-			es = ("Sala %d\n%s la está armando...\nCerrada, espera"):format(i, pendingHost[pad].DisplayName),
+		Bilingual.Text(label, ("%s\n%s กำลังตั้งห้อง...\nปิดชั่วคราว รอสักครู่"):format(nTH, pendingHost[pad].DisplayName), ("%s\n%s is setting up...\nLocked, please wait"):format(nEN, pendingHost[pad].DisplayName), {
+			id = ("%s\n%s sedang menyiapkan...\nDikunci, mohon tunggu"):format(nID, pendingHost[pad].DisplayName),
+			pt = ("%s\n%s está montando...\nTrancada, aguarde"):format(nPT, pendingHost[pad].DisplayName),
+			es = ("%s\n%s la está armando...\nCerrada, espera"):format(nES, pendingHost[pad].DisplayName),
 		})
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	else
-		Bilingual.Text(label, ("ห้อง %d · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง"):format(i), ("Room %d · empty\nWalk in to host"):format(i), {
-			id = ("Room %d · kosong\nMasuk untuk membuat room"):format(i),
-			pt = ("Sala %d · vazia\nEntre para criar"):format(i),
-			es = ("Sala %d · vacía\nEntra para crear"):format(i),
-		})
+		if big then
+			Bilingual.Text(label, "ห้องใหญ่ 5–6 คน · ว่าง\nต้องมี Game Pass ห้องใหญ่", "Big Room 5–6 · empty\nNeeds the Big Room pass", {
+				id = "Room Besar 5–6 · kosong\nPerlu pass Room Besar",
+				pt = "Sala Grande 5–6 · vazia\nPrecisa do passe Sala Grande",
+				es = "Sala Grande 5–6 · vacía\nRequiere el pase Sala Grande",
+			})
+		else
+			Bilingual.Text(label, ("%s · ว่าง\nเดินเข้าวงเพื่อสร้างห้อง"):format(nTH), ("%s · empty\nWalk in to host"):format(nEN), {
+				id = ("%s · kosong\nMasuk untuk membuat room"):format(nID),
+				pt = ("%s · vazia\nEntre para criar"):format(nPT),
+				es = ("%s · vacía\nEntra para crear"):format(nES),
+			})
+		end
 		label.TextColor3 = Color3.fromRGB(235, 220, 200)
 	end
 end
@@ -604,8 +643,20 @@ local function enterPad(player: Player, pad: BasePart)
 		startFullCountdown(room)
 		refresh(pad)
 	elseif not pendingHost[pad] then
+		-- วงห้องใหญ่: คนสร้างห้องต้องมี Game Pass ห้องใหญ่ (ไม่มี = เปิดหน้าซื้อ แล้วดันออกนอกวง)
+		local big = pad:GetAttribute("BigRoom") == true
+		if big and player:GetAttribute("BigRoom") ~= true then
+			onPad[player] = nil
+			cooldownUntil[player] = os.clock() + 3
+			pushOutside(player, pad)
+			Notice:FireClient(player, "วงนี้ต้องมี Game Pass ห้องใหญ่ ถึงจะสร้างห้องได้ (เพื่อนเข้าร่วมฟรี)", "You need the Big Room pass to host here (friends join free)")
+			if BIG_ROOM_PASS ~= 0 then
+				game:GetService("MarketplaceService"):PromptGamePassPurchase(player, BIG_ROOM_PASS)
+			end
+			return
+		end
 		setPending(pad, player)
-		OpenSetup:FireClient(player, pad:GetAttribute("PadIndex"), SETUP_COUNTDOWN)
+		OpenSetup:FireClient(player, pad:GetAttribute("PadIndex"), SETUP_COUNTDOWN, big)
 		refresh(pad)
 	elseif pendingHost[pad] ~= player then
 		-- วงถูกล็อกระหว่างเจ้าของห้องเลือกจำนวนผู้เล่น: ห้ามเข้า ดันออกไปนอกวง
@@ -703,7 +754,10 @@ ConfirmRoom.OnServerEvent:Connect(function(player: Player, maxPlayers: any, _dif
 		pad = pad,
 		host = player,
 		members = { player },
-		maxPlayers = math.clamp(math.floor(maxPlayers), 1, Difficulty.MaxPlayers),
+		-- วงทอง (BigRoom) 5–6 คน ต้องมี Game Pass ห้องใหญ่ · วงอื่น 1–4 คน (lobby/server/PassShop ตั้ง attribute BigRoom)
+		maxPlayers = if pad:GetAttribute("BigRoom") == true and player:GetAttribute("BigRoom") == true
+			then math.clamp(math.floor(maxPlayers), FREE_ROOM_SIZE + 1, Difficulty.MaxPlayers)
+			else math.clamp(math.floor(maxPlayers), 1, FREE_ROOM_SIZE),
 		difficulty = Difficulty.Default, -- ไม่มีให้เลือกความยากใน Lobby แล้ว: ใช้ค่าเริ่มต้นเสมอ
 		countdown = WAITING_COUNTDOWN,
 		fullCountdown = nil,

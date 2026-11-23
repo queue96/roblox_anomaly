@@ -309,7 +309,7 @@ end)
 
 -- ---------------------------------------------------------------- Game Pass
 -- ทุก Game Pass (shared/RobuxShop.PASSES) ซื้อที่ Lobby หรือที่นี่ก็ได้: เข้าแมพมาแล้วเช็กให้ทุกอัน
-local GOT_NOTICE = { ElephantLight = "Shop_ElephantGot", FastPrayer = "Shop_FastPrayGot", WingSandals = "Shop_SandalsGot", GhostBook = "Shop_GhostBookGot" }
+local GOT_NOTICE = { ElephantLight = "Shop_ElephantGot", FastPrayer = "Shop_FastPrayGot", WingSandals = "Shop_SandalsGot", GhostBook = "Shop_GhostBookGot", BigRoom = "Shop_BigRoomGot" }
 local function checkPasses(player: Player)
 	for _, pass in ipairs(IDS.PASSES) do
 		if pass.id ~= 0 then
