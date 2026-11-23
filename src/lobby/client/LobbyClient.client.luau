@@ -663,7 +663,17 @@ local NOTICE_MORE: { [string]: { [string]: string } } = {
 Notice.OnClientEvent:Connect(function(th: string, en: string)
 	toastId += 1
 	local my = toastId
-	toast.Text = tr(th, en, NOTICE_MORE[en])
+	-- ข้อความที่ไม่มีในตาราง (แผงขาย Game Pass ฯลฯ): หาภาษาอื่นจาก LanguageModule.UI ด้วยข้อความอังกฤษ
+	local more = NOTICE_MORE[en]
+	if not more then
+		for _, e in pairs(LanguageModule.UI) do
+			if e.en == en then
+				more = e
+				break
+			end
+		end
+	end
+	toast.Text = tr(th, en, more)
 	task.delay(4, function()
 		if toastId == my then
 			toast.Text = ""

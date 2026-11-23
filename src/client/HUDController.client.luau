@@ -570,6 +570,18 @@ camSpotLight.Shadows = true
 camSpotLight.Enabled = false
 camSpotLight.Parent = camLightPart
 camLightPart.Parent = workspace
+-- ไฟฉายตราช้าง (server/RobuxShop, Game Pass): ลำแสงไกลขึ้น สว่างขึ้น กว้างขึ้นนิดหน่อย + ชื่อช่องไฟฉาย
+do
+	local function applyElephantBeam()
+		local on = localPlayer:GetAttribute("ElephantLight") == true
+		camSpotLight.Brightness = if on then 2.3 else 1.4
+		camSpotLight.Range = if on then 60 else 46
+		camSpotLight.Angle = if on then 70 else 60
+		slotLabel.Text = ui(if on then "ElephantName" else "FlashlightSlot")
+	end
+	localPlayer:GetAttributeChangedSignal("ElephantLight"):Connect(applyElephantBeam)
+	applyElephantBeam()
+end
 
 -- แสงอ่อนๆ ปลายลำแสงระยะใกล้เพื่อให้ตอนก้มมองเท้าตัวเองไม่มืดสนิทจากระยะ Voxel ของ Roblox
 local camClosePart = Instance.new("Part")
@@ -1641,21 +1653,34 @@ end)
 -- ข้อความบรรยาย (เนื้อเรื่อง / คำแนะนำ) ใช้กล่องล่างจอเดียวกับคำพูด แต่ไม่มีหัวชื่อคนพูด
 -- (ไม่ขึ้นกลางจอ เผื่อเปลี่ยนเป็นมุมมองบุคคลที่หนึ่งในอนาคต)
 local narrationKey: string? = nil
+local narrationVars: { [string]: any }? = nil -- {name} ฯลฯ ในข้อความบรรยาย (Notice จาก server/RobuxShop)
 local narrationToken = 0
 local function setHeader(show: boolean)
 	dialogHeader.Visible = show
 	line.Position = if show then UDim2.new(0, 16, 0, 19) else UDim2.new(0, 16, 0, 6)
 	line.Size = if show then UDim2.new(1, -32, 1, -22) else UDim2.new(1, -32, 1, -12)
 end
-local function showNarration(key: string, seconds: number?)
+local function narrationText(key: string): string
+	local s = ui(key)
+	local vars = narrationVars
+	if vars then
+		s = string.gsub(s, "{(%w+)}", function(k)
+			local v = vars[k]
+			return if v ~= nil then tostring(v) else nil
+		end)
+	end
+	return s
+end
+local function showNarration(key: string, seconds: number?, vars: { [string]: any }?)
 	bubbleKey = nil
 	narrationKey = key
+	narrationVars = vars
 	narrationToken += 1
 	local token = narrationToken
 	setHeader(false)
 	dialog.BackgroundTransparency = DIALOG_BG_TRANSPARENCY
 	dialog.Visible = true
-	typeLine(ui(key))
+	typeLine(narrationText(key))
 	if seconds then
 		task.delay(seconds, function()
 			if narrationToken == token and narrationKey == key then
@@ -1669,8 +1694,8 @@ end
 
 -- ข้อความบรรยายสั้นๆ จาก Server (น้ำมันหมด / ศาลหิว ฯลฯ)
 local NoticeRemote = remotes:WaitForChild("Notice") :: RemoteEvent
-NoticeRemote.OnClientEvent:Connect(function(key: string, seconds: number?)
-	showNarration(key, seconds or 4)
+NoticeRemote.OnClientEvent:Connect(function(key: string, seconds: number?, vars: { [string]: any }?)
+	showNarration(key, seconds or 4, if type(vars) == "table" then vars else nil)
 end)
 
 CustomerSpeech.OnClientEvent:Connect(function(key: string?, head: BasePart?, who: { [string]: any }?, vars: { [string]: any }?)
@@ -1759,6 +1784,10 @@ local PROMPTS = {
 	TuneRadioPrompt = { "RadioOn", "RadioName", "RadioOff" },
 	-- สะพานไฟ: attribute "LightsOff" (server/Power) -> ปุ่มเปิดไฟกลับ
 	BreakerPrompt = { "BreakerOff", "BreakerName", "BreakerOn", "LightsOff" },
+	-- ร้านค้า Robux (server/RobuxShop)
+	BuyElephantPrompt = { "BuyElephant", "ElephantName" },
+	BuyPrankPrompt = { "BuyPrank", "GhostPosterName" },
+	BuyIncensePrompt = { "BuyIncense", "IncensePotName" },
 }
 local trackedPrompts: { [ProximityPrompt]: boolean } = {}
 local function localizePrompt(p: Instance)
@@ -1807,7 +1836,7 @@ local function refreshLanguage()
 	moneyTitle.Text = ui("Money")
 	moneyBoard.draw()
 	updateMouseHint()
-	slotLabel.Text = ui("FlashlightSlot")
+	slotLabel.Text = ui(if localPlayer:GetAttribute("ElephantLight") == true then "ElephantName" else "FlashlightSlot")
 	drawSpeaker()
 	drawReplies()
 	if lobbyBtn.Visible and lobbyBtn.Active then
@@ -1818,7 +1847,7 @@ local function refreshLanguage()
 	end
 	if narrationKey and dialog.Visible then
 		typeToken += 1
-		line.Text = ui(narrationKey)
+		line.Text = narrationText(narrationKey)
 		line.MaxVisibleGraphemes = -1
 	elseif bubbleKey and dialog.Visible then
 		typeToken += 1

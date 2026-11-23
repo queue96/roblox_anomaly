@@ -58,6 +58,8 @@ local FX = {
 	-- ผีใหญ่บุกประชิด (server/BigEvents): source = กลุ่มผีที่กำลังเดินอยู่
 	Big_Krasue = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0) },
 	Big_Pret = { focus = "rigged", tint = Color3.fromRGB(50, 40, 30) },
+	-- ป้ายผี (server/RobuxShop): มีคนซื้อแกล้ง กระสือโผล่หลอกทุกคนในห้อง (source = แม่แบบ GhostModels.Krasue)
+	Prank_Poster = { focus = "rigged", tint = Color3.fromRGB(170, 20, 0) },
 	Big_Funeral = { focus = "rigged", tint = Color3.fromRGB(200, 200, 190), extra = "grey" },
 	Big_Pop = { focus = "rigged", tint = Color3.fromRGB(90, 0, 10) },
 	-- ผีเดินมาซื้อทั้งร่าง (source = ตัวผี) / เปิดแผงตอนผียังวนอยู่หน้าร้าน (source = กลุ่มผี GhostLinger)

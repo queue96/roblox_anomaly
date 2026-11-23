@@ -1,12 +1,13 @@
--- DevCommand.luau — Lobby: temple notice translations synced + compile (2026-11-23)
+-- DevCommand.luau — Pump Lot: ghost book synced + compile synced + compile (2026-11-23)
 return {
-	id = "check_lobby_temple_notice_20261123_1",
-	placeId = 70980777393906,
+	id = "check_shaman_pump_20261123_1",
+	placeId = 114125276809667,
 	run = function()
 		local SES = game:GetService("ScriptEditorService")
 		local want = {
-			LobbyClient = 'es = "Ya rezaste hoy. Vuelve mañana."',
-			LanguageModule = 'GenKeyTap = {',
+			GhostBook = "WatchShamanTags(1.6)",
+			RobuxShop = "WatchShamanTags",
+			LanguageModule = "ShamanTitle",
 		}
 		local seen = {}
 		for _, d in ipairs(game:GetDescendants()) do
@@ -35,20 +36,6 @@ return {
 			if not seen[n] then
 				print("DEVCMD|MISSING", n)
 			end
-		end
-		local lmSrc = game:GetService("ReplicatedStorage"):FindFirstChild("Shared")
-		local lmMod = lmSrc and lmSrc:FindFirstChild("LanguageModule")
-		if lmMod then
-			local c = lmMod:Clone()
-			local okR, LM = pcall(require, c)
-			if okR then
-				for _, k in ipairs({ "GenStarting", "GenShocked", "GenKeyTap", "PrayButton" }) do
-					print("DEVCMD|UI", k, LM.GetUI(k, "th"), "|", LM.GetUI(k, "es"), "|", LM.GetUI(k, "id"))
-				end
-			else
-				print("DEVCMD|LMERR", LM)
-			end
-			c:Destroy()
 		end
 	end,
 }

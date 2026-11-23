@@ -17,7 +17,9 @@ StarterPlayer.CharacterJumpHeight = 0
 local function applyCharacterMovement(char: Model)
 	local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5) :: Humanoid?
 	if hum then
-		hum.WalkSpeed = WALK_SPEED
+		-- รองเท้าแตะติดปีก (Game Pass): เร็วขึ้น 15% (shared/RobuxShop.WalkSpeed)
+		local owner = Players:GetPlayerFromCharacter(char)
+		hum.WalkSpeed = if owner and owner:GetAttribute("WingSandals") == true then WALK_SPEED * 1.15 else WALK_SPEED
 		hum.JumpPower = 0
 		hum.JumpHeight = 0
 		hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)

@@ -253,7 +253,7 @@ local function standUp(player: Player)
 	root.CFrame = CFrame.lookAt(p + Vector3.new(0, 2.6, 0), p + Vector3.new(0, 2.6, 0) + Vector3.new(look.X, 0, look.Z))
 	root.Anchored = false
 	local sp = game:GetService("StarterPlayer")
-	hum.WalkSpeed = sp.CharacterWalkSpeed
+	hum.WalkSpeed = require(ReplicatedStorage.Shared.RobuxShop).WalkSpeed(Players:GetPlayerFromCharacter(hum.Parent))
 	hum.JumpPower = sp.CharacterJumpPower
 	hum.JumpHeight = sp.CharacterJumpHeight
 	hum.AutoRotate = true
@@ -581,6 +581,17 @@ local function refreshIncense()
 			end
 		end
 	end
+end
+
+-- ร้านค้า Robux (server/RobuxShop): ต่อธูป n ดอก ไม่เกินจำนวนเริ่ม / ไม่ช่วยตอนเกมจบแล้ว (ธูปหมด = แพ้ไปแล้ว)
+function CoreLoop.AddIncense(n: number): boolean
+	if gameOver or incense <= 0 or incense >= CONFIG.StartIncense then
+		return false
+	end
+	incense = math.min(CONFIG.StartIncense, incense + n)
+	refreshIncense()
+	broadcastHUD()
+	return true
 end
 
 -- ---------------------------------------------------------------- ผี (Phase 4: อยู่ใน AnomalyManager.luau)
@@ -1458,7 +1469,7 @@ local function curseOne(p: Player, symptom: string?)
 				local h = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
 				local r = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 				if h and r and not r.Anchored and h.WalkSpeed == CONFIG.CurseSlowSpeed then
-					h.WalkSpeed = game:GetService("StarterPlayer").CharacterWalkSpeed
+					h.WalkSpeed = require(ReplicatedStorage.Shared.RobuxShop).WalkSpeed(p)
 				end
 			end
 		end)
@@ -1790,6 +1801,7 @@ type Customer = {
 	queuedSince: number?, -- เริ่มรอคิว (มาถึงช่องรอแล้วแต่ยังไม่ถึงตู้)
 	atPump: boolean,
 	serving: boolean,
+	fromBook: boolean?, -- เรียกจากสมุดหมอผี (server/GhostBook): ไม่ได้เงิน ไม่ปลดล็อกสมุดผี ไม่นับกระดานอันดับ
 }
 local queue: { Customer } = {}
 local forceGhostNext = false -- สวดตอนร้านว่างแล้วเรียกของมา: ลูกค้าคนถัดไปเป็นผี
@@ -2081,6 +2093,8 @@ local function spawnCustomer(kind: string?)
 	local walking = k == "walker" or k == "bicycle"
 	local forced = devDecision:GetAttribute("ForceAnomaly")
 	devDecision:SetAttribute("ForceAnomaly", nil)
+	local fromBook = forced ~= nil and devDecision:GetAttribute("ForceFromBook") == true
+	devDecision:SetAttribute("ForceFromBook", nil)
 	local ghost
 	if forced == "Normal" then
 		ghost = false
@@ -2180,6 +2194,7 @@ local function spawnCustomer(kind: string?)
 		deferredWorld = deferred,
 		who = who,
 		useAnomalyLine = useAnomalyLine,
+		fromBook = fromBook,
 		spawnedAt = os.clock(),
 		queuedSince = nil,
 		atPump = false,
@@ -3158,15 +3173,18 @@ local function serveCustomer(c: Customer)
 			closeShutter()
 		end
 		if ghost then
-			money += CONFIG.RejectGhostReward
 			stats.caught += 1
 			CoreLoop.LogGhost(c.anomaly, "caught")
-			local s = pstat(decisionBy)
-			if s then
-				s.ghosts += 1
-			end
-			if c.anomaly then
-				AnomalyBook.Survived(c.anomaly) -- รอดจากผีตัวนี้ -> ปลดล็อกในสมุดของทุกคน
+			-- ผีที่เรียกจากสมุดหมอผี: ไม่ได้เงิน ไม่นับ MVP / สมุดผี / กระดานอันดับ (กันเรียกผีมาปั๊มเงินจนชนะ)
+			if not c.fromBook then
+				money += CONFIG.RejectGhostReward
+				local s = pstat(decisionBy)
+				if s then
+					s.ghosts += 1
+				end
+				if c.anomaly then
+					AnomalyBook.Survived(c.anomaly) -- รอดจากผีตัวนี้ -> ปลดล็อกในสมุดของทุกคน
+				end
 			end
 			-- ผีรู้ว่าเรารู้แล้ว: ใครยังอยู่นอกร้าน (ยังไม่ได้เข้าหลังแผง) โดนผีหลอกทันที แล้วผีหายวับไปตรงนั้น
 			local outside = CoreLoop.Rampage.victims()
@@ -3432,12 +3450,17 @@ end)
 
 -- ผีใหญ่บุกประชิด (server/BigEvents): ผิดกติกา = ธูปดับ 1 ดอก + ผีหลอกคนที่ทำผิด / รอด = ได้เงิน + ปลดสมุด
 function CoreLoop.Big.run(kind: string?)
+	-- เรียกจากสมุดหมอผี (server/GhostBook ตั้งไว้ก่อนเรียก): ไม่นับโควตาคืนนั้น / รอดแล้วไม่ได้เงิน ไม่นับสถิติ
+	local fromBook = CoreLoop.Big.fromBook == true
+	CoreLoop.Big.fromBook = nil
 	if CoreLoop.Big.running or gameOver or (not kind and CoreLoop.Big.count >= CONFIG.BigMax) then
 		return
 	end
 	local k = kind or CoreLoop.Big.mod.Kinds[math.random(#CoreLoop.Big.mod.Kinds)]
 	CoreLoop.Big.running = true
-	CoreLoop.Big.count += 1
+	if not fromBook then
+		CoreLoop.Big.count += 1
+	end
 	-- ลางก่อนผีใหญ่มา (ผู้ใช้ 2026-11-08): จิ้งหรีดเงียบกริบ (client/AmbienceController) + หมาหอนแว่วจากหลังเขา
 	--   ร้านไม่ปล่อยลูกค้าระหว่างนี้ (Big.running) ผู้เล่นจะค่อยๆ จำได้เองว่า "เงียบ = มีอะไรมา"
 	remotes:SetAttribute("BigOmen", true)
@@ -3476,9 +3499,11 @@ function CoreLoop.Big.run(kind: string?)
 		return
 	end
 	if r.ok then
-		money += CONFIG.BigReward
+		if not fromBook then
+			money += CONFIG.BigReward
+			AnomalyBook.Survived("Big_" .. k)
+		end
 		broadcastHUD()
-		AnomalyBook.Survived("Big_" .. k)
 		print("✅ รอดจากผีใหญ่")
 	else
 		for p, why in pairs(r.faults :: { [Player]: string }) do

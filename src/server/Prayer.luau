@@ -127,7 +127,7 @@ function Prayer.Stop(player: Player)
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	-- ถ้าโดนผีหลอกล้มอยู่ (root ยึดไว้) ไม่คืนความเร็วเดิน ให้ระบบล้มคืนเอง
 	if hum and root and not root.Anchored and hum.Health > 0 then
-		hum.WalkSpeed = StarterPlayer.CharacterWalkSpeed
+		hum.WalkSpeed = require(game:GetService("ReplicatedStorage").Shared.RobuxShop).WalkSpeed(player)
 		hum.JumpPower = StarterPlayer.CharacterJumpPower
 		hum.JumpHeight = StarterPlayer.CharacterJumpHeight
 	end

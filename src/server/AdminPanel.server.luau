@@ -116,6 +116,12 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 		-- โหมดทดสอบ: เกมไม่สุ่มอะไรเอง (ลูกค้า ขาจร ฝน ไฟดับ ผีใหญ่ ผีฉาก สวดเรียกผี ศาลหลอก) มีแต่ที่กดจากแผงนี้
 		-- อ่านจาก ReplicatedStorage attribute "TestMode" (CoreLoop / Weather / client SceneryGhosts / HauntEffects)
 		ReplicatedStorage:SetAttribute("TestMode", cmd == "testmode:on")
+	elseif cmd == "shop:elephant" or cmd == "shop:fastpray" or cmd == "shop:sandals" or cmd == "shop:ghostbook" or cmd == "shop:prank" or cmd == "shop:prankself" or cmd == "shop:incense" then
+		-- ร้านค้า Robux แบบไม่หักเงิน (server/RobuxShop): elephant = ให้/เอาไฟฉายตราช้างคืน
+		local ev = game:GetService("ServerStorage"):FindFirstChild("RobuxShopTest")
+		if ev and ev:IsA("BindableEvent") then
+			ev:Fire(p, string.sub(cmd, 6))
+		end
 	elseif BIG[cmd] then
 		devDecision():Fire(cmd) -- ผีใหญ่บุกประชิด (CoreLoop รับ "big:<ชื่อ>")
 	elseif ALLOWED[cmd] then

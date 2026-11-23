@@ -2,10 +2,15 @@
 -- ป้ายชื่อเหนือหัวผู้เล่นใน Lobby (ทุกคนเห็นตรงกัน)
 --   แถวบน (เล็ก): 🏆 จำนวนรอบที่เล่นจบ · TOP n ถ้าติดป้าย "จบเกมมากที่สุด"
 --   แถวล่าง: DisplayName
+--   แถวบนสุด (มีสมุดหมอผี Game Pass): "📖 หมอผี" สีทอง (attribute GhostBook จาก lobby/server/PassShop)
 -- ข้อมูลมาจาก attribute Completions / CompletionsRank ที่ LobbyLeaderboards.server ตั้งไว้บน Player
 -- ซ่อนป้ายชื่อเดิมของ Roblox (Humanoid.DisplayDistanceType = None)
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local LanguageModule = require(Shared:WaitForChild("LanguageModule")) :: any
+local Bilingual = require(Shared:WaitForChild("Bilingual")) :: any
 
 -- ธีมเดียวกับ HUD
 local CREAM = Color3.fromRGB(236, 228, 208)
@@ -43,14 +48,21 @@ local function build(player: Player, char: Model)
 	end
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "LobbyNameplate"
-	gui.Size = UDim2.fromOffset(200, 40)
+	gui.Size = UDim2.fromOffset(200, 60)
 	gui.StudsOffset = Vector3.new(0, 2.4, 0)
 	gui.MaxDistance = 70
 	gui.LightInfluence = 0
 	gui.Adornee = head
 
-	local stats = label("Stats", gui, 0, 16, DIM, 13)
-	local name = label("Name", gui, 16, 22, CREAM, 18)
+	local shaman = label("Shaman", gui, 0, 20, Color3.fromRGB(245, 200, 90), 16)
+	shaman.TextStrokeColor3 = Color3.fromRGB(60, 10, 6)
+	shaman.TextStrokeTransparency = 0.2
+	do
+		local e = LanguageModule.UI.ShamanTitle
+		Bilingual.Text(shaman, "📖 " .. e.th, "📖 " .. e.en, { id = "📖 " .. e.id, pt = "📖 " .. e.pt, es = "📖 " .. e.es })
+	end
+	local stats = label("Stats", gui, 20, 16, DIM, 13)
+	local name = label("Name", gui, 36, 22, CREAM, 18)
 	name.Text = player.DisplayName
 
 	local function update()
@@ -67,13 +79,16 @@ local function build(player: Player, char: Model)
 		stats.Visible = #parts > 0
 		-- ติดอันดับ: แถวบนเป็นสีทอง
 		stats.TextColor3 = if type(rank) == "number" then GOLD else DIM
+		shaman.Visible = player:GetAttribute("GhostBook") == true
 	end
 	update()
 	local c1 = player:GetAttributeChangedSignal("Completions"):Connect(update)
 	local c2 = player:GetAttributeChangedSignal("CompletionsRank"):Connect(update)
+	local c4 = player:GetAttributeChangedSignal("GhostBook"):Connect(update)
 	gui.Destroying:Connect(function()
 		c1:Disconnect()
 		c2:Disconnect()
+		c4:Disconnect()
 	end)
 	-- อยู่ใต้ตัว Model ไม่ใช่ใต้ Head: ตอนรูปลักษณ์อวตารโหลดเสร็จ Roblox เปลี่ยน Head ใหม่ (ป้ายบน Head เก่าหายไปด้วย)
 	local c3 = char.ChildAdded:Connect(function(c)

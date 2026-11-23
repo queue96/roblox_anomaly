@@ -175,7 +175,10 @@ RunService.Heartbeat:Connect(function(dt)
 		if good and pos then
 			good = canSee(camCf.Position, p, pos, char)
 		end
-		if good then
+		if good and p:GetAttribute("OwnKey") == true then
+			-- ปุ่มที่ใช้ปุ่มคีย์ของตัวเอง (ไม่ใช่ E เช่นต่อธูป R ของ server/RobuxShop): ขึ้นเสมอเมื่อกดได้ ไม่แย่งกับปุ่ม E
+			ok[p] = true
+		elseif good then
 			ok[p] = true
 			-- ใกล้สุดก่อน ถ้าพอๆ กันเลือกอันที่มองตรงกว่า
 			local score = dist + (1 - dot) * 3
@@ -198,7 +201,7 @@ RunService.Heartbeat:Connect(function(dt)
 	for p, info in pairs(prompts) do
 		local attr = p:GetAttribute("Range")
 		local range = if type(attr) == "number" then attr else info.base
-		local on = ok[p] == true and p.Parent == bestParent and (not toolFirst or p:GetAttribute("NeedsTool") ~= nil)
+		local on = ok[p] == true and (p:GetAttribute("OwnKey") == true or (p.Parent == bestParent and (not toolFirst or p:GetAttribute("NeedsTool") ~= nil)))
 		setRange(p, info, if on then range else 0)
 	end
 end)

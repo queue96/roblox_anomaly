@@ -77,6 +77,21 @@ local function gripVillager(tool: Tool, char: Model?)
 	w.Parent = handle
 end
 
+-- ไฟฉายตราช้าง (server/RobuxShop): ไฟบนตัวไฟฉายที่คนอื่นเห็นส่องไกลขึ้น สว่างขึ้น
+local function applyElephant(tool: Tool, owner: Player?)
+	local on = owner ~= nil and owner:GetAttribute("ElephantLight") == true
+	for _, l in ipairs(lightsOf(tool)) do
+		if l:GetAttribute("BaseRange") == nil then
+			l:SetAttribute("BaseRange", (l :: any).Range)
+			l:SetAttribute("BaseBrightness", l.Brightness)
+		end
+		local range = l:GetAttribute("BaseRange") :: number
+		local bright = l:GetAttribute("BaseBrightness") :: number
+		(l :: any).Range = if on then math.min(60, range * 1.7) else range
+		l.Brightness = if on then bright * 1.6 else bright
+	end
+end
+
 local function hook(tool: Instance)
 	if not tool:IsA("Tool") or tool.Name ~= TOOL_NAME or hooked[tool] then
 		return
@@ -97,6 +112,7 @@ local function hook(tool: Instance)
 		local inHand = char ~= nil and char:IsA("Model") and char:FindFirstChildOfClass("Humanoid") ~= nil
 		local p = if inHand then Players:GetPlayerFromCharacter(char) else nil
 		setOn(tool, inHand and (not p or (p:GetAttribute("Battery") or 1) > 0))
+		applyElephant(tool, p)
 		gripVillager(tool, if inHand then char :: Model else nil)
 	end
 	update()
@@ -116,6 +132,13 @@ local function watch(container: Instance)
 end
 
 local function onPlayer(player: Player)
+	player:GetAttributeChangedSignal("ElephantLight"):Connect(function()
+		local char = player.Character
+		local tool = char and char:FindFirstChild(TOOL_NAME)
+		if tool and tool:IsA("Tool") then
+			applyElephant(tool, player)
+		end
+	end)
 	local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack", 10)
 	if backpack then
 		watch(backpack)
@@ -152,7 +175,12 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 		local char = p.Character
 		local tool = char and char:FindFirstChild(TOOL_NAME)
-		if tool and tool:IsA("Tool") and tool:GetAttribute("On") then
+		if p:GetAttribute("ElephantLight") == true then
+			b = 1 -- ไฟฉายตราช้าง (server/RobuxShop): ถ่านไม่มีวันหมด
+			if tool and tool:IsA("Tool") and not tool:GetAttribute("On") then
+				setOn(tool, true)
+			end
+		elseif tool and tool:IsA("Tool") and tool:GetAttribute("On") then
 			b = math.max(0, b - step / DRAIN_TIME)
 			if b <= 0 then
 				setOn(tool, false) -- ถ่านหมด

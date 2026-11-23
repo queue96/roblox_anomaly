@@ -586,10 +586,12 @@ local function onPrayingChanged()
 		fill.Size = UDim2.fromScale(0, 1)
 		-- เริ่มสวดด้วยโหมดปกติที่ตัวผู้เล่นเอง (ถ้าตาทิพย์เปิดแล้วเจอผี จะสลับเป็นสวดเร็วอัตโนมัติ)
 		playOrUpdateMyChant(false, true)
-		TweenService:Create(fill, TweenInfo.new(SIGHT_DELAY, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1) }):Play()
-		TweenService:Create(Lighting, TweenInfo.new(SIGHT_DELAY, Enum.EasingStyle.Sine), { ExposureCompensation = PRAY_EXPOSURE }):Play()
-		setMuffle(true, SIGHT_DELAY)
-		task.delay(SIGHT_DELAY, function()
+		-- Game Pass สวดมนต์ไว (shared/RobuxShop): เปิดตาทิพย์เร็วขึ้น
+		local delay = if localPlayer:GetAttribute("FastPrayer") == true then 0.9 else SIGHT_DELAY
+		TweenService:Create(fill, TweenInfo.new(delay, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1) }):Play()
+		TweenService:Create(Lighting, TweenInfo.new(delay, Enum.EasingStyle.Sine), { ExposureCompensation = PRAY_EXPOSURE }):Play()
+		setMuffle(true, delay)
+		task.delay(delay, function()
 			if prayToken == token then
 				setSight(true)
 			end

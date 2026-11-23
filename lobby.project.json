@@ -41,6 +41,9 @@
         "Bilingual": {
           "$path": "src/shared/Bilingual.luau"
         },
+        "RobuxShop": {
+          "$path": "src/shared/RobuxShop.luau"
+        },
         "LeavingScreen": {
           "$path": "src/shared/LeavingScreen.luau"
         }
