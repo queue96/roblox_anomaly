@@ -6,7 +6,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local LeaderboardStats = {}
 
 local STORES = {
-	donations = "TempleDonationLeaderboard_v1",
+	donations = "TempleDonationLeaderboard_v2", -- v2 = หน่วย Robux จริง (v1 = ยอดทดสอบ Mockup บาท ไม่ใช้แล้ว 2026-11-23)
 	completions = "GameCompletionLeaderboard_v1",
 	anomalies = "AnomalyCollectionLeaderboard_v1",
 }

@@ -573,13 +573,14 @@ camLightPart.Parent = workspace
 -- ไฟฉายตราช้าง (server/RobuxShop, Game Pass): ลำแสงไกลขึ้น สว่างขึ้น กว้างขึ้นนิดหน่อย + ชื่อช่องไฟฉาย
 do
 	local function applyElephantBeam()
-		local on = localPlayer:GetAttribute("ElephantLight") == true
+		local on = localPlayer:GetAttribute("ElephantLight") == true and localPlayer:GetAttribute("ElephantInUse") == true
 		camSpotLight.Brightness = if on then 2.3 else 1.4
 		camSpotLight.Range = if on then 60 else 46
 		camSpotLight.Angle = if on then 70 else 60
 		slotLabel.Text = ui(if on then "ElephantName" else "FlashlightSlot")
 	end
 	localPlayer:GetAttributeChangedSignal("ElephantLight"):Connect(applyElephantBeam)
+	localPlayer:GetAttributeChangedSignal("ElephantInUse"):Connect(applyElephantBeam)
 	applyElephantBeam()
 end
 
@@ -650,6 +651,7 @@ camViewFolder.Name = "CameraFlashlightViewmodel"
 camViewFolder.Parent = workspace
 local camViewParts: { { part: BasePart, relCF: CFrame } } = {}
 local camViewSourceTool: Tool? = nil
+local camViewSkin: any = nil -- tool attribute Skin (ไฟฉายตราช้าง server/Flashlight): เปลี่ยน = สร้างไฟฉายมุมมองบุคคลที่หนึ่งใหม่
 local camViewVisibleState: boolean? = nil
 
 local mutedHandLights: { [Light]: boolean } = setmetatable({}, { __mode = "k" }) :: any
@@ -673,12 +675,13 @@ local function hideHandToolInstance(d: Instance)
 end
 
 local function rebuildCameraFlashlightView(tool: Tool)
-	if camViewSourceTool == tool and #camViewParts > 0 then
+	if camViewSourceTool == tool and camViewSkin == tool:GetAttribute("Skin") and #camViewParts > 0 then
 		return
 	end
 	camViewFolder:ClearAllChildren()
 	table.clear(camViewParts)
 	camViewSourceTool = tool
+	camViewSkin = tool:GetAttribute("Skin")
 	camViewVisibleState = nil
 
 	local handle = tool:FindFirstChild("Handle")
@@ -1785,7 +1788,6 @@ local PROMPTS = {
 	-- สะพานไฟ: attribute "LightsOff" (server/Power) -> ปุ่มเปิดไฟกลับ
 	BreakerPrompt = { "BreakerOff", "BreakerName", "BreakerOn", "LightsOff" },
 	-- ร้านค้า Robux (server/RobuxShop)
-	BuyElephantPrompt = { "BuyElephant", "ElephantName" },
 	BuyPrankPrompt = { "BuyPrank", "GhostPosterName" },
 	BuyIncensePrompt = { "BuyIncense", "IncensePotName" },
 }
@@ -1836,7 +1838,7 @@ local function refreshLanguage()
 	moneyTitle.Text = ui("Money")
 	moneyBoard.draw()
 	updateMouseHint()
-	slotLabel.Text = ui(if localPlayer:GetAttribute("ElephantLight") == true then "ElephantName" else "FlashlightSlot")
+	slotLabel.Text = ui(if localPlayer:GetAttribute("ElephantLight") == true and localPlayer:GetAttribute("ElephantInUse") == true then "ElephantName" else "FlashlightSlot")
 	drawSpeaker()
 	drawReplies()
 	if lobbyBtn.Visible and lobbyBtn.Active then

@@ -146,11 +146,21 @@ local TIPS = {
 	},
 }
 
+-- หน้าโหลดแบบใหม่ (ผู้ใช้ 2026-11-23): จอดำ + ฉากเส้นขาวของแมพเรา ไม่ต้องอัปโหลดรูป (ประกอบจาก Frame ทั้งหมด)
+--   ชาวบ้านหิ้วแกลลอนวิ่งไปตู้ปั๊มหลอด (ยิ่งโหลดยิ่งเข้าใกล้ตู้) · น้ำมันในหลอดแก้ว = แถบโหลด
+--   ตาผีแอบมองจากดงกล้วย · ศาลพระภูมิธูป 3 ดอก · หลอดไฟห้อยแกว่ง
+--   ฉากวาดในพิกัด 320 x 180 (อัตราส่วน 16:9) แล้วย่อ/ขยายตามจอ
+local SCENE_W, SCENE_H = 320, 180
+local WHITE = Color3.fromRGB(255, 255, 255)
+local AMBER = Color3.fromRGB(224, 164, 58)
+local EMBER = Color3.fromRGB(255, 122, 46)
+local BULB = Color3.fromRGB(255, 244, 204)
+
 local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	local sg = Instance.new("ScreenGui")
 	sg.Name = name
 	sg.IgnoreGuiInset = true
-	sg.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ (มือถือมีติ่ง/ขอบโค้ง: ค่าเริ่มต้นถูกบีบไว้ใน safe area เหลือแถบเกินขอบ)
+	sg.ScreenInsets = Enum.ScreenInsets.None -- เต็มจอจริงถึงขอบ
 	sg.ResetOnSpawn = false
 	sg.DisplayOrder = 999
 	sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -158,258 +168,268 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 	local root = Instance.new("Frame")
 	root.Name = "Root"
 	root.Size = UDim2.fromScale(1, 1)
-	root.BackgroundColor3 = C.Ink
+	root.BackgroundColor3 = Color3.new(0, 0, 0)
 	root.BorderSizePixel = 0
 	root.Parent = sg
 
-	-- ภาพพื้นหลัง Key Art
+	-- ภาพ Key Art เดิม: ไม่ใช้บนหน้าโหลดแบบใหม่แล้ว (เก็บ object ไว้ให้โค้ดเก่าที่อ้างถึงไม่พัง)
 	local bgImage = Instance.new("ImageLabel")
 	bgImage.Name = "KeyArt"
-	bgImage.AnchorPoint = Vector2.new(0.5, 0.5)
-	bgImage.Position = UDim2.fromScale(0.5, 0.5)
-	bgImage.Size = UDim2.fromScale(1.04, 1.04)
-	bgImage.BackgroundColor3 = Color3.fromRGB(12, 16, 22)
-	bgImage.BorderSizePixel = 0
-	bgImage.Image = KEY_ART_ID
-	bgImage.ScaleType = Enum.ScaleType.Crop
-	bgImage.ImageColor3 = Color3.fromRGB(220, 225, 235)
+	bgImage.Visible = false
+	bgImage.BackgroundTransparency = 1
 	bgImage.Parent = root
 
-	-- เงามืดทับขอบบน-ล่างให้อ่านตัวหนังสือชัดเจน
-	local darkOverlay = Instance.new("Frame")
-	darkOverlay.Name = "DarkOverlay"
-	darkOverlay.Size = UDim2.fromScale(1, 1)
-	darkOverlay.BackgroundColor3 = Color3.fromRGB(6, 7, 10)
-	darkOverlay.BackgroundTransparency = 0.32
-	darkOverlay.BorderSizePixel = 0
-	darkOverlay.Parent = root
+	-- ---------------------------------------------------------------- ฉาก
+	local scene = Instance.new("Frame")
+	scene.Name = "Scene"
+	scene.AnchorPoint = Vector2.new(0.5, 0.5)
+	scene.Position = UDim2.fromScale(0.5, 0.4)
+	scene.Size = UDim2.fromScale(0.92, 0.62)
+	scene.BackgroundTransparency = 1
+	scene.Parent = root
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.AspectRatio = SCENE_W / SCENE_H
+	aspect.Parent = scene
 
-	local gradOverlay = Instance.new("Frame")
-	gradOverlay.Name = "Vignette"
-	gradOverlay.Size = UDim2.fromScale(1, 1)
-	gradOverlay.BackgroundColor3 = Color3.fromRGB(4, 4, 6)
-	gradOverlay.BorderSizePixel = 0
-	gradOverlay.Parent = root
+	-- ชิ้นในฉาก: x, y = จุดกึ่งกลาง (หน่วยฉาก) · w, h = ขนาด · rot = องศา
+	local function piece(nm: string, x: number, y: number, w: number, h: number, color: Color3, opts: { [string]: any }?): Frame
+		local f = Instance.new("Frame")
+		f.Name = nm
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(x / SCENE_W, y / SCENE_H)
+		f.Size = UDim2.fromScale(w / SCENE_W, h / SCENE_H)
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.BackgroundTransparency = (opts and opts.transparency) or 0
+		f.Rotation = (opts and opts.rot) or 0
+		if opts and opts.round then
+			local c = Instance.new("UICorner")
+			c.CornerRadius = if opts.round == true then UDim.new(0.5, 0) else UDim.new(opts.round, 0)
+			c.Parent = f
+		end
+		if opts and opts.outline then
+			f.BackgroundTransparency = 1
+			local s = Instance.new("UIStroke")
+			s.Color = color
+			s.Thickness = opts.outline
+			s.Transparency = (opts and opts.strokeTransparency) or 0
+			s.Parent = f
+		end
+		f.ZIndex = (opts and opts.z) or 2
+		f.Parent = scene
+		return f
+	end
+	-- เส้นตรงจากจุด a ไป b (หน่วยฉาก): แท่งบางหมุนตามมุม (ฉากล็อก 16:9 จึงคำนวณในหน่วยฉากได้ตรง)
+	local function line(nm: string, ax: number, ay: number, bx: number, by: number, thick: number, transparency: number?): Frame
+		local dx, dy = bx - ax, by - ay
+		local len = math.sqrt(dx * dx + dy * dy)
+		return piece(nm, (ax + bx) / 2, (ay + by) / 2, len, thick, WHITE, { rot = math.deg(math.atan2(dy, dx)), round = true, transparency = transparency })
+	end
 
-	local uig = Instance.new("UIGradient")
-	uig.Rotation = 90
-	uig.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.15),
-		NumberSequenceKeypoint.new(0.28, 0.65),
-		NumberSequenceKeypoint.new(0.68, 0.55),
-		NumberSequenceKeypoint.new(1, 0.05),
-	})
-	uig.Parent = gradOverlay
+	-- ดงกล้วยซ้าย: ลำต้น 2 ท่อน + ใบ 4 ใบ (วงรีเส้นขอบ)
+	line("BananaTrunk1", 38, 124, 44, 98, 1.3, 0.5)
+	line("BananaTrunk2", 44, 98, 52, 74, 1.3, 0.5)
+	piece("Leaf1", 37, 77, 34, 7, WHITE, { rot = 20, round = true, outline = 1, strokeTransparency = 0.5 })
+	piece("Leaf2", 67, 67, 32, 7, WHITE, { rot = -12, round = true, outline = 1, strokeTransparency = 0.5 })
+	piece("Leaf3", 37, 97, 26, 6, WHITE, { rot = -55, round = true, outline = 1, strokeTransparency = 0.5 })
+	piece("Leaf4", 60, 84, 22, 6, WHITE, { rot = 35, round = true, outline = 1, strokeTransparency = 0.6 })
+	local eyeL = piece("GhostEyeL", 60, 92, 4, 2.4, WHITE, { round = true, z = 3 })
+	local eyeR = piece("GhostEyeR", 66, 92, 4, 2.4, WHITE, { round = true, z = 3 })
 
-	-- ส่วนหัวด้านบนซ้าย (ชื่อเกม + สถานที่)
-	local headerBox = Instance.new("Frame")
-	headerBox.Name = "HeaderBox"
-	-- ใต้แถบปุ่มของ Roblox มุมซ้ายบน (โลโก้ เมนู แชต ไมค์ ~58px): จอนี้ IgnoreGuiInset เต็มจอ หัวข้อเดิมที่ y 42 โดนปุ่มบัง
-	local topInset = math.max(GuiService:GetGuiInset().Y, 58)
-	headerBox.Position = UDim2.new(0, 48, 0, topInset + 22)
-	headerBox.Size = UDim2.new(1, -96, 0, 110)
-	headerBox.BackgroundTransparency = 1
-	headerBox.Parent = root
+	-- หลอดไฟห้อย (แกว่ง: Heartbeat ด้านล่าง)
+	local bulbCord = line("BulbCord", 150, 0, 150, 22, 0.8, 0.5)
+	local bulb = piece("Bulb", 150, 25, 6, 6, BULB, { round = true })
 
-	local badge = Instance.new("TextLabel")
-	badge.Name = "PlaceBadge"
-	badge.Size = UDim2.new(0, 260, 0, 26)
-	badge.BackgroundColor3 = C.Blood
-	badge.BackgroundTransparency = 0.15
-	badge.BorderSizePixel = 0
-	badge.FontFace = FONT_BOLD
-	badge.TextColor3 = C.Cream
-	badge.TextSize = 15
-	badge.Text = "  MIDNIGHT RURAL HORROR  "
-	badge.TextXAlignment = Enum.TextXAlignment.Center
-	badge.Parent = headerBox
-	local badgeStroke = Instance.new("UIStroke")
-	badgeStroke.Color = C.Gold
-	badgeStroke.Transparency = 0.4
-	badgeStroke.Thickness = 1
-	badgeStroke.Parent = badge
+	-- พื้น: ขีดประเลื่อนไปทางซ้าย
+	local dashes: { Frame } = {}
+	for i = 0, 9 do
+		table.insert(dashes, piece("GroundDash" .. i, 50 + i * 26, 124, 6 + (i % 3) * 3, 1.2, WHITE, { transparency = 0.7 }))
+	end
 
-	local title = Instance.new("TextLabel")
-	title.Name = "GameTitle"
-	title.Position = UDim2.new(0, 0, 0, 32)
-	title.Size = UDim2.new(1, 0, 0, 46)
-	title.BackgroundTransparency = 1
-	title.FontFace = FONT_TITLE
-	title.TextColor3 = C.Cream
-	title.TextStrokeColor3 = C.Ink
-	title.TextStrokeTransparency = 0.15
-	title.TextSize = 42
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "ปั๊มหลอดท้ายทุ่ง"
-	title.Parent = headerBox
+	-- ตู้ปั๊มหลอดแก้ว: น้ำมันในหลอด = แถบโหลด (barTrack / barFill ชื่อเดิม)
+	piece("PumpCap", 199, 73, 18, 6, WHITE, { round = 0.25 })
+	local tube = piece("PumpTube", 199, 98, 14, 44, WHITE, { outline = 1.2, round = 0.12, z = 3 })
+	tube.ClipsDescendants = true
+	local fuel = Instance.new("Frame")
+	fuel.Name = "Fuel"
+	fuel.AnchorPoint = Vector2.new(0, 1)
+	fuel.Position = UDim2.fromScale(0, 1)
+	fuel.Size = UDim2.fromScale(1, 0.05)
+	fuel.BackgroundColor3 = AMBER
+	fuel.BorderSizePixel = 0
+	fuel.ZIndex = 2
+	fuel.Parent = tube
+	piece("PumpBase", 199, 122.5, 20, 5, WHITE, { round = 0.2 })
+	line("Hose1", 206, 84, 213, 88, 1.2)
+	line("Hose2", 213, 88, 212, 99, 1.2)
+	piece("Nozzle", 212, 100.5, 4, 3, WHITE)
 
-	local subtitle = Instance.new("TextLabel")
-	subtitle.Name = "Subtitle"
-	subtitle.Position = UDim2.new(0, 0, 0, 80)
-	subtitle.Size = UDim2.new(1, 0, 0, 26)
-	subtitle.BackgroundTransparency = 1
-	subtitle.FontFace = FONT_BODY
-	subtitle.TextColor3 = C.Gold
-	subtitle.TextStrokeTransparency = 0.35
-	subtitle.TextSize = 20
-	subtitle.TextXAlignment = Enum.TextXAlignment.Left
-	subtitle.Text = ""
-	subtitle.Parent = headerBox
+	-- ศาลพระภูมิขวา: เสา + หลังคา + ตัวศาล + ชั้นวาง + ธูป 3 ดอก
+	piece("ShrinePost", 263, 110, 2.2, 28, WHITE, { transparency = 0.2 })
+	line("RoofL", 250, 96, 263, 84, 1.6)
+	line("RoofR", 263, 84, 276, 96, 1.6)
+	piece("ShrineBox", 263, 101, 20, 10, WHITE, { outline = 1.2 })
+	piece("ShrineShelf", 263, 110, 10, 2, WHITE)
+	line("Incense1", 260, 109, 259, 102, 0.8)
+	line("Incense2", 263, 109, 263, 101, 0.8)
+	line("Incense3", 266, 109, 267, 102, 0.8)
+	local embers = {
+		piece("Ember1", 259, 101.5, 2.4, 2.4, EMBER, { round = true, z = 3 }),
+		piece("Ember2", 263, 100.5, 2.4, 2.4, EMBER, { round = true, z = 3 }),
+		piece("Ember3", 267, 101.5, 2.4, 2.4, EMBER, { round = true, z = 3 }),
+	}
 
-	-- แผงด้านล่าง (คำแนะนำ + สถานะการโหลด + Progress Bar + ปุ่มข้าม)
+	-- ชาวบ้านหิ้วแกลลอน (ขยับทุกเฟรมด้านล่าง)
+	local runner = {
+		head = piece("RunnerHead", 120, 88, 13, 13, WHITE, { round = true, z = 4 }),
+		eye = piece("RunnerEye", 123, 87, 2.2, 2.2, Color3.new(0, 0, 0), { round = true, z = 5 }),
+		body = piece("RunnerBody", 120, 102.5, 9, 15, WHITE, { round = 0.45, z = 4 }),
+		legA = piece("RunnerLegA", 118, 116, 3, 13, WHITE, { round = true, z = 3 }),
+		legB = piece("RunnerLegB", 122, 116, 3, 13, WHITE, { round = true, z = 3 }),
+		arm = piece("RunnerArm", 125, 103, 2.6, 9, WHITE, { round = true, z = 5 }),
+		can = piece("JerryCan", 128, 112, 9, 10, WHITE, { round = 0.15, z = 5 }),
+		spout = piece("JerryCanSpout", 131, 106, 2, 3, WHITE, { z = 5 }),
+	}
+
+	-- ---------------------------------------------------------------- ข้อความใต้ฉาก
 	local bottomPanel = Instance.new("Frame")
 	bottomPanel.Name = "BottomPanel"
-	bottomPanel.AnchorPoint = Vector2.new(0.5, 1)
-	bottomPanel.Position = UDim2.new(0.5, 0, 1, -36)
-	bottomPanel.Size = UDim2.new(1, -96, 0, 118)
-	bottomPanel.BackgroundColor3 = C.Panel
-	bottomPanel.BackgroundTransparency = 0.18
-	bottomPanel.BorderSizePixel = 0
+	bottomPanel.AnchorPoint = Vector2.new(0.5, 0)
+	bottomPanel.Position = UDim2.fromScale(0.5, 0.72)
+	bottomPanel.Size = UDim2.fromScale(0.86, 0.2)
+	bottomPanel.BackgroundTransparency = 1
 	bottomPanel.Parent = root
+	local list = Instance.new("UIListLayout")
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 6)
+	list.Parent = bottomPanel
 
-	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Color = C.Line
-	panelStroke.Thickness = 1
-	panelStroke.Parent = bottomPanel
-
-	local tipLabel = Instance.new("TextLabel")
-	tipLabel.Name = "TipLabel"
-	tipLabel.Position = UDim2.new(0, 24, 0, 14)
-	tipLabel.Size = UDim2.new(1, -48, 0, 24)
-	tipLabel.BackgroundTransparency = 1
-	tipLabel.FontFace = FONT_BODY
-	tipLabel.TextColor3 = C.Dim
-	tipLabel.TextSize = 17
-	tipLabel.TextXAlignment = Enum.TextXAlignment.Left
-	tipLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	tipLabel.Parent = bottomPanel
-
+	local function textLine(nm: string, order: number, font: Font, color: Color3, size: number, transparency: number?): TextLabel
+		local t = Instance.new("TextLabel")
+		t.Name = nm
+		t.LayoutOrder = order
+		t.BackgroundTransparency = 1
+		t.Size = UDim2.new(1, 0, 0, 0)
+		t.AutomaticSize = Enum.AutomaticSize.Y
+		t.FontFace = font
+		t.TextColor3 = color
+		t.TextTransparency = transparency or 0
+		t.TextSize = size
+		t.TextWrapped = true
+		t.TextXAlignment = Enum.TextXAlignment.Center
+		t.Text = ""
+		t.Parent = bottomPanel
+		return t
+	end
+	local title = textLine("GameTitle", 1, FONT_BOLD, WHITE, 22)
+	local subtitle = textLine("Subtitle", 2, FONT_BODY, WHITE, 15, 0.45)
+	-- สถานะ + เปอร์เซ็นต์อยู่บรรทัดเดียวกัน
+	local statusRow = Instance.new("Frame")
+	statusRow.Name = "StatusRow"
+	statusRow.LayoutOrder = 3
+	statusRow.BackgroundTransparency = 1
+	statusRow.Size = UDim2.new(1, 0, 0, 22)
+	statusRow.Parent = bottomPanel
+	local rowList = Instance.new("UIListLayout")
+	rowList.FillDirection = Enum.FillDirection.Horizontal
+	rowList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	rowList.VerticalAlignment = Enum.VerticalAlignment.Center
+	rowList.Padding = UDim.new(0, 10)
+	rowList.Parent = statusRow
 	local statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "StatusLabel"
-	statusLabel.Position = UDim2.new(0, 24, 0, 44)
-	statusLabel.Size = UDim2.new(0.65, 0, 0, 26)
 	statusLabel.BackgroundTransparency = 1
-	statusLabel.FontFace = FONT_BOLD
-	statusLabel.TextColor3 = C.Cream
-	statusLabel.TextSize = 19
-	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-	statusLabel.Parent = bottomPanel
-
+	statusLabel.Size = UDim2.new(0, 0, 1, 0)
+	statusLabel.AutomaticSize = Enum.AutomaticSize.X
+	statusLabel.FontFace = FONT_BODY
+	statusLabel.TextColor3 = WHITE
+	statusLabel.TextTransparency = 0.2
+	statusLabel.TextSize = 15
+	statusLabel.Text = ""
+	statusLabel.Parent = statusRow
 	local percentLabel = Instance.new("TextLabel")
 	percentLabel.Name = "PercentLabel"
-	percentLabel.AnchorPoint = Vector2.new(1, 0)
-	percentLabel.Position = UDim2.new(1, -172, 0, 44)
-	percentLabel.Size = UDim2.new(0, 120, 0, 26)
 	percentLabel.BackgroundTransparency = 1
+	percentLabel.Size = UDim2.new(0, 0, 1, 0)
+	percentLabel.AutomaticSize = Enum.AutomaticSize.X
 	percentLabel.FontFace = FONT_BOLD
-	percentLabel.TextColor3 = C.Gold
-	percentLabel.TextSize = 20
-	percentLabel.TextXAlignment = Enum.TextXAlignment.Right
+	percentLabel.TextColor3 = AMBER
+	percentLabel.TextSize = 16
 	percentLabel.Text = "0%"
-	percentLabel.Parent = bottomPanel
+	percentLabel.Parent = statusRow
+	local tipLabel = textLine("TipLabel", 4, FONT_BODY, WHITE, 14, 0.5)
 
-	-- แถบ Progress Bar (แสดงเฉพาะตอนเข้าแมพ Lobby ครั้งแรก)
-	local barTrack = Instance.new("Frame")
-	barTrack.Name = "BarTrack"
-	barTrack.Position = UDim2.new(0, 24, 0, 78)
-	barTrack.Size = UDim2.new(1, -196, 0, 18)
-	barTrack.BackgroundColor3 = C.BarBg
-	barTrack.BorderSizePixel = 0
-	barTrack.ClipsDescendants = true
-	barTrack.Parent = bottomPanel
+	-- มุมล่าง: ชื่อด้านซ้าย (badge เดิม) + ปุ่มข้ามด้านขวา
+	local badge = Instance.new("TextLabel")
+	badge.Name = "PlaceBadge"
+	badge.AnchorPoint = Vector2.new(0, 1)
+	badge.Position = UDim2.new(0, 28, 1, -22)
+	badge.Size = UDim2.new(0.5, 0, 0, 18)
+	badge.BackgroundTransparency = 1
+	badge.FontFace = FONT_BODY
+	badge.TextColor3 = WHITE
+	badge.TextTransparency = 0.65
+	badge.TextSize = 13
+	badge.TextXAlignment = Enum.TextXAlignment.Left
+	badge.Text = ""
+	badge.Parent = root
 
-	local barTrackStroke = Instance.new("UIStroke")
-	barTrackStroke.Color = C.Line
-	barTrackStroke.Thickness = 1
-	barTrackStroke.Parent = barTrack
-
-	local barFill = Instance.new("Frame")
-	barFill.Name = "BarFill"
-	barFill.Size = UDim2.fromScale(0, 1)
-	barFill.BackgroundColor3 = C.Blood
-	barFill.BorderSizePixel = 0
-	barFill.Parent = barTrack
-
-	local fillGrad = Instance.new("UIGradient")
-	fillGrad.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(130, 24, 20)),
-		ColorSequenceKeypoint.new(0.75, Color3.fromRGB(195, 48, 36)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 160, 85)),
-	})
-	fillGrad.Parent = barFill
-
-	-- ปุ่มข้าม (Skip)
 	local skipBtn = Instance.new("TextButton")
 	skipBtn.Name = "SkipButton"
-	skipBtn.AnchorPoint = Vector2.new(1, 0.5)
-	skipBtn.Position = UDim2.new(1, -24, 0, 74)
-	skipBtn.Size = UDim2.new(0, 136, 0, 36)
-	skipBtn.BackgroundColor3 = C.BarBg
-	skipBtn.BorderSizePixel = 0
+	skipBtn.AnchorPoint = Vector2.new(1, 1)
+	skipBtn.Position = UDim2.new(1, -28, 1, -16)
+	skipBtn.Size = UDim2.new(0, 110, 0, 32)
+	skipBtn.BackgroundTransparency = 1
 	skipBtn.AutoButtonColor = false
-	skipBtn.FontFace = FONT_BOLD
-	skipBtn.TextColor3 = C.Cream
-	skipBtn.TextSize = 17
-	skipBtn.Text = tr("ข้าม", "Skip", { id = "Lewati", pt = "Pular", es = "Saltar" })
-	skipBtn.Parent = bottomPanel
-
-	local skipStroke = Instance.new("UIStroke")
-	skipStroke.Color = C.Gold
-	skipStroke.Transparency = 0.25
-	skipStroke.Thickness = 1
-	skipStroke.Parent = skipBtn
-
+	skipBtn.FontFace = FONT_BODY
+	skipBtn.TextColor3 = WHITE
+	skipBtn.TextTransparency = 0.45
+	skipBtn.TextSize = 15
+	skipBtn.TextXAlignment = Enum.TextXAlignment.Right
+	skipBtn.Text = tr("ข้าม ›", "Skip ›", { id = "Lewati ›", pt = "Pular ›", es = "Saltar ›" })
+	skipBtn.Parent = root
 	skipBtn.MouseEnter:Connect(function()
-		skipBtn.BackgroundColor3 = C.Blood
+		skipBtn.TextTransparency = 0
 	end)
 	skipBtn.MouseLeave:Connect(function()
-		skipBtn.BackgroundColor3 = C.BarBg
+		skipBtn.TextTransparency = 0.45
 	end)
 
-	-- พื้นหลังเต็มจอถึงขอบ (ScreenInsets = None) แต่หัวข้อ + แผงโหลดอยู่ใน safe area ของจอ ไม่โดนติ่งจอ/ขอบโค้งบัง
-	--   วัด safe area จาก ScreenGui ตัววัด (ค่าเริ่มต้น CoreUISafeInsets) ชื่อมีคำว่า Loading: ฉากเปิด Lobby ไม่ซ่อน
-	local safe = Instance.new("Frame")
-	safe.Name = "SafeArea"
-	safe.Size = UDim2.fromScale(1, 1)
-	safe.BackgroundTransparency = 1
-	safe.Parent = root
-	headerBox.Parent = safe
-	bottomPanel.Parent = safe
-	task.spawn(function()
-		local probe = Instance.new("ScreenGui")
-		probe.Name = "LoadingSafeAreaProbe"
-		probe.IgnoreGuiInset = true
-		probe.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
-		probe.ResetOnSpawn = false
-		local area = Instance.new("Frame")
-		area.Size = UDim2.fromScale(1, 1)
-		area.BackgroundTransparency = 1
-		area.Parent = probe
-		probe.Parent = player:WaitForChild("PlayerGui")
-		local function fit()
-			local fullPos, full = root.AbsolutePosition, root.AbsoluteSize
-			if full.X <= 0 or area.AbsoluteSize.X <= 0 then
-				return
-			end
-			local left = math.max(0, area.AbsolutePosition.X - fullPos.X)
-			local right = math.max(0, (fullPos.X + full.X) - (area.AbsolutePosition.X + area.AbsoluteSize.X))
-			local bottom = math.max(0, (fullPos.Y + full.Y) - (area.AbsolutePosition.Y + area.AbsoluteSize.Y))
-			-- ด้านบน: หัวข้อเว้นแถบปุ่ม Roblox ไว้แล้ว (topInset)
-			safe.Position = UDim2.fromOffset(left, 0)
-			safe.Size = UDim2.new(1, -(left + right), 1, -bottom)
+	-- จอเตี้ย (มือถือแนวนอน): ตัวหนังสือเล็กลงตามความสูงจอ
+	local function fitText()
+		local h = root.AbsoluteSize.Y
+		if h <= 0 then
+			return
 		end
-		area:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
-		area:GetPropertyChangedSignal("AbsolutePosition"):Connect(fit)
-		root:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
-		fit()
-	end)
+		local k = math.clamp(h / 720, 0.72, 1.25)
+		title.TextSize = math.floor(22 * k)
+		subtitle.TextSize = math.floor(15 * k)
+		statusLabel.TextSize = math.floor(15 * k)
+		percentLabel.TextSize = math.floor(16 * k)
+		tipLabel.TextSize = math.floor(14 * k)
+		statusRow.Size = UDim2.new(1, 0, 0, math.floor(22 * k))
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitText)
+	task.defer(fitText)
+
+	-- ความโปร่งตั้งต้นของทุกชิ้น: ใช้คืนค่าหลังจางหาย (resetGuiOpacity)
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("GuiObject") then
+			d:SetAttribute("BaseBG", d.BackgroundTransparency)
+			if d:IsA("TextLabel") or d:IsA("TextButton") then
+				d:SetAttribute("BaseText", d.TextTransparency)
+			end
+		elseif d:IsA("UIStroke") then
+			d:SetAttribute("BaseStroke", d.Transparency)
+		end
+	end
 
 	return sg, {
 		root = root,
 		bgImage = bgImage,
-		darkOverlay = darkOverlay,
-		gradOverlay = gradOverlay,
-		headerBox = headerBox,
+		scene = scene,
+		headerBox = bottomPanel,
 		badge = badge,
 		title = title,
 		subtitle = subtitle,
@@ -417,36 +437,87 @@ local function makeLoadingGui(name: string): (ScreenGui, { [string]: any })
 		tipLabel = tipLabel,
 		statusLabel = statusLabel,
 		percentLabel = percentLabel,
-		barTrack = barTrack,
-		barFill = barFill,
+		barTrack = tube,
+		barFill = fuel,
 		skipBtn = skipBtn,
+		runner = runner,
+		dashes = dashes,
+		eyes = { eyeL, eyeR },
+		bulb = bulb,
+		bulbCord = bulbCord,
+		embers = embers,
 	}
 end
 
 local gui, ui = makeLoadingGui("RuralLoadingScreen")
 gui.Parent = playerGui
 
--- อนิเมชันซูมภาพพื้นหลังช้าๆ (Ken Burns effect)
-task.spawn(function()
-	while gui.Parent do
-		if gui.Enabled then
-			local t1 = TweenService:Create(ui.bgImage, TweenInfo.new(9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-				Size = UDim2.fromScale(1.09, 1.09),
-			})
-			t1:Play()
-			task.wait(9)
-			if gui.Enabled then
-				local t2 = TweenService:Create(ui.bgImage, TweenInfo.new(9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-					Size = UDim2.fromScale(1.02, 1.02),
-				})
-				t2:Play()
-				task.wait(9)
-			end
-		else
-			task.wait(1)
-		end
+-- ความคืบหน้าล่าสุด (0-1): ชาวบ้านวิ่งเข้าใกล้ตู้ปั๊มตามนี้
+local progressNow = 0
+
+-- ---------------------------------------------------------------- อนิเมชันฉาก (เฉพาะตอนหน้าโหลดเปิดอยู่)
+do
+	local RunService = game:GetService("RunService")
+	local R = ui.runner
+	local function at(f: GuiObject, x: number, y: number)
+		f.Position = UDim2.fromScale(x / SCENE_W, y / SCENE_H)
 	end
-end)
+	-- แท่งยาว len ที่ปลายบนติดจุด (px, py) แกว่งทำมุม deg จากแนวดิ่ง
+	local function swing(f: GuiObject, px: number, py: number, len: number, deg: number)
+		local a = math.rad(deg)
+		at(f, px - math.sin(a) * len / 2, py + math.cos(a) * len / 2)
+		f.Rotation = deg
+	end
+	local runX = 100
+	RunService.RenderStepped:Connect(function(dt)
+		if not gui.Enabled then
+			return
+		end
+		local t = os.clock()
+		-- วิ่ง: ก้าวละ 0.36 วิ ตัวเด้ง · เข้าใกล้ตู้ปั๊มตามความคืบหน้า (100% = ถึงหน้าตู้)
+		local target = 96 + progressNow * 78
+		runX += (target - runX) * math.min(1, dt * 3)
+		local ph = t * (2 * math.pi / 0.36)
+		local bob = -math.abs(math.sin(ph)) * 3
+		local leg = math.sin(ph) * 30
+		local x = runX
+		at(R.head, x, 88 + bob)
+		at(R.eye, x + 3, 87 + bob)
+		at(R.body, x, 102.5 + bob)
+		swing(R.legA, x - 2, 109 + bob, 13, leg)
+		swing(R.legB, x + 2, 109 + bob, 13, -leg)
+		-- แขนถือแกลลอน: แกว่งน้อยๆ ตามจังหวะวิ่ง
+		local armDeg = -10 + math.sin(ph) * 8
+		swing(R.arm, x + 4.5, 99 + bob, 9, armDeg)
+		local ha = math.rad(armDeg)
+		local hx, hy = x + 4.5 - math.sin(ha) * 9, 99 + bob + math.cos(ha) * 9
+		at(R.can, hx + 3, hy + 5)
+		R.can.Rotation = armDeg * 0.6
+		at(R.spout, hx + 6, hy - 0.5)
+		-- พื้นเลื่อนไปทางซ้าย (วนเมื่อพ้นขอบ)
+		for i, d in ipairs(ui.dashes) do
+			local base = 50 + (i - 1) * 26
+			local xx = 40 + ((base - 40 - t * 80) % 260)
+			at(d, xx, 124)
+		end
+		-- ตาผีในดงกล้วย: ขยับซ้ายขวาเบาๆ + กะพริบทุก ~3 วิ
+		local peek = math.sin(t * 2.6) * 1.5
+		local blink = (t % 3.2) < 0.12
+		for i, e in ipairs(ui.eyes) do
+			at(e, (if i == 1 then 60 else 66) + peek, 92)
+			e.Visible = not blink
+		end
+		-- หลอดไฟแกว่ง
+		local sw = math.sin(t * 2.1) * 6
+		swing(ui.bulbCord, 150, 0, 22, sw)
+		local ba = math.rad(sw)
+		at(ui.bulb, 150 - math.sin(ba) * 25, math.cos(ba) * 25)
+		-- ธูป 3 ดอก: แสงไฟเต้นสลับกัน
+		for i, e in ipairs(ui.embers) do
+			e.BackgroundTransparency = 0.25 + 0.25 * math.sin(t * 4.5 + i * 1.3)
+		end
+	end)
+end
 
 -- สลับคำแนะนำทุก 4.5 วินาที: ใน Lobby แสดงทุกข้อ (รวมข้อของ Lobby) / ในเกมแสดงเฉพาะข้อของเกม
 --   มือถือ (จอสัมผัส ไม่มีคีย์บอร์ด หรือจอเตี้ย) ใช้ข้อความแบบแตะปุ่ม
@@ -487,19 +558,18 @@ task.spawn(function()
 end)
 
 local function setProgressMode(showBar: boolean)
-	ui.barTrack.Visible = showBar
 	ui.percentLabel.Visible = showBar
 	ui.skipBtn.Visible = showBar
-	ui.bottomPanel.Size = if showBar then UDim2.new(1, -96, 0, 118) else UDim2.new(1, -96, 0, 82)
-	ui.statusLabel.Size = if showBar then UDim2.new(0.65, 0, 0, 26) else UDim2.new(1, -48, 0, 26)
 end
 
+-- ความคืบหน้า = น้ำมันในหลอดแก้ว + ชาวบ้านวิ่งเข้าใกล้ตู้ (progressNow)
 local function setProgress(fraction: number, statusText: string?)
 	local clamped = math.clamp(fraction, 0, 1)
+	progressNow = clamped
 	local pct = math.floor(clamped * 100 + 0.5)
 	ui.percentLabel.Text = ("%d%%"):format(pct)
-	TweenService:Create(ui.barFill, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = UDim2.fromScale(clamped, 1),
+	TweenService:Create(ui.barFill, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.fromScale(1, math.max(0.05, clamped)),
 	}):Play()
 	if statusText then
 		ui.statusLabel.Text = statusText
@@ -525,27 +595,21 @@ local function fadeOutGui(duration: number?)
 	gui.Enabled = false
 end
 
+-- คืนความโปร่งตั้งต้นของทุกชิ้น (จำไว้ใน attribute ตอนสร้าง: BaseBG / BaseText / BaseStroke)
 local function resetGuiOpacity()
 	ui.root.BackgroundTransparency = 0
-	ui.bgImage.ImageTransparency = 0
-	ui.bgImage.BackgroundTransparency = 0
-	ui.darkOverlay.BackgroundTransparency = 0.32
-	ui.gradOverlay.BackgroundTransparency = 0
-	ui.badge.BackgroundTransparency = 0.15
-	ui.badge.TextTransparency = 0
-	ui.title.TextTransparency = 0
-	ui.subtitle.TextTransparency = 0
-	ui.bottomPanel.BackgroundTransparency = 0.18
-	ui.tipLabel.TextTransparency = 0
-	ui.statusLabel.TextTransparency = 0
-	ui.percentLabel.TextTransparency = 0
-	ui.barTrack.BackgroundTransparency = 0
-	ui.barFill.BackgroundTransparency = 0
-	ui.skipBtn.BackgroundTransparency = 0
-	ui.skipBtn.TextTransparency = 0
-	for _, desc in ipairs(ui.root:GetDescendants()) do
-		if desc:IsA("UIStroke") then
-			desc.Transparency = 0.25
+	for _, d in ipairs(ui.root:GetDescendants()) do
+		local bg = d:GetAttribute("BaseBG")
+		if type(bg) == "number" then
+			(d :: any).BackgroundTransparency = bg
+		end
+		local tx = d:GetAttribute("BaseText")
+		if type(tx) == "number" then
+			(d :: any).TextTransparency = tx
+		end
+		local st = d:GetAttribute("BaseStroke")
+		if type(st) == "number" then
+			(d :: any).Transparency = st
 		end
 	end
 end
@@ -609,14 +673,15 @@ task.spawn(function()
 		then tr("จุดรวมตัวก่อนออกกะดึก · เดินเข้าวงแดงเพื่อสร้างหรือร่วมห้อง", "Gather before the night shift · walk into a red ring to host or join", { id = "Berkumpul sebelum shift malam · masuk ke lingkaran merah untuk membuat atau bergabung ke room", pt = "Reúna-se antes do turno da noite · entre num círculo vermelho para criar ou entrar numa sala", es = "Reúnanse antes del turno de noche · entra a un círculo rojo para crear o unirte a una sala" })
 		else tr("สังเกตความผิดปกติ · ห้ามเติมน้ำมันให้ผีเด็ดขาด", "Spot the anomalies · Never refuel a ghost", { id = "Temukan kejanggalan · Jangan pernah isi bensin untuk hantu", pt = "Encontre as anomalias · Nunca abasteça um fantasma", es = "Encuentra las anomalías · Nunca le cargues gasolina a un fantasma" })
 
-	-- ก่อนโหลดภาพพื้นหลัง (รอได้หลายวินาที) อย่าให้เห็นข้อความตั้งต้น "Label" / ปุ่มข้ามในแมพเล่นเกม
+	-- หน้าโหลดแบบใหม่: ชื่อเกมอยู่มุมซ้ายล่าง กลางจอมีแค่สถานะ + เปอร์เซ็นต์ + คำแนะนำ
+	ui.badge.Text = ui.title.Text
+	ui.title.Visible = false
+	ui.subtitle.Visible = false
+	-- อย่าให้เห็นข้อความตั้งต้น "Label" / ปุ่มข้ามในแมพเล่นเกม
 	ui.statusLabel.Text = tr("กำลังโหลด...", "Loading...", { id = "Memuat...", pt = "Carregando...", es = "Cargando..." })
 	setProgressMode(true)
 	setProgress(0.02)
 	ui.skipBtn.Visible = false
-	pcall(function()
-		ContentProvider:PreloadAsync({ ui.bgImage })
-	end)
 
 	-- โหลดเสียง / mesh / texture / ท่าทาง ทั้งหมดที่อยู่ในฉาก (แถบวิ่งจาก p0 ถึง p1)
 	local function preloadWorld(p0: number, p1: number)
@@ -802,6 +867,8 @@ local function showTeleportScreen(opts: { destination: string?, subtitleTH: stri
 			}
 		)
 	end
+	ui.title.Visible = true
+	ui.subtitle.Visible = true
 	ui.statusLabel.Text = tr("กำลังเชื่อมต่อเซิร์ฟเวอร์ปลายทาง กรุณารอสักครู่...", "Connecting to destination server, please wait...", { id = "Menghubungkan ke server tujuan, mohon tunggu...", pt = "Conectando ao servidor de destino, aguarde...", es = "Conectando al servidor de destino, espera un momento..." })
 
 	-- ส่ง ScreenGui ชุดนี้ให้ TeleportService คงไว้บนจอระหว่างสลับเซิร์ฟเวอร์

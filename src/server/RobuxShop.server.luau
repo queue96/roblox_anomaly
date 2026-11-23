@@ -1,6 +1,6 @@
 --!strict
 -- RobuxShop.server.luau — ร้านค้า Robux ในแมพปั๊ม (ผู้ใช้ 2026-11-23)
---   1) ไฟฉายตราช้าง (Game Pass 49): ขาตั้งโชว์มุมซ้ายในร้าน / เจ้าของได้ player attribute "ElephantLight"
+--   1) ไฟฉายตราช้าง (Game Pass 49): วางบนเคาน์เตอร์ / เจ้าของ = player attribute ElephantLight · กดหยิบมาใช้ = ElephantInUse
 --      Flashlight.server: ถ่านไม่ลด + ไฟบนตัวไฟฉายแรงขึ้น · HUDController: ลำแสงของตัวเองไกลขึ้น สว่างขึ้น
 --   2) ป้ายผี (Product 19): แปะผนังซ้ายในร้าน ซื้อแล้วกระสือโผล่หลอกทุกคนในห้อง ยกเว้นคนซื้อ
 --   3) ต่อธูป (Product 19): ปุ่ม R ที่กระถางธูปศาลพระภูมิ ขึ้นเฉพาะตอนมีดอกดับ (CoreLoop.AddIncense)
@@ -49,15 +49,15 @@ local function part(props: { [string]: any }, parent: Instance): BasePart
 	return p
 end
 
-local function makePrompt(name: string, parent: Instance): ProximityPrompt
+local function makePrompt(name: string, parent: Instance, range: number?): ProximityPrompt
 	local pr = Instance.new("ProximityPrompt")
 	pr.Name = name
 	pr.HoldDuration = 0
-	pr.MaxActivationDistance = PROMPT_RANGE
+	pr.MaxActivationDistance = range or PROMPT_RANGE
 	pr.RequiresLineOfSight = false
 	pr.AutoLocalize = false
 	pr:SetAttribute("NeedsFacing", true)
-	pr:SetAttribute("Range", PROMPT_RANGE)
+	pr:SetAttribute("Range", range or PROMPT_RANGE)
 	pr.Parent = parent
 	return pr
 end
@@ -67,90 +67,77 @@ folder.Name = "RobuxShop"
 folder:ClearAllChildren()
 folder.Parent = workspace
 
--- ---------------------------------------------------------------- 1) ไฟฉายตราช้าง: ขาตั้งโชว์
--- พื้นในร้านซ้ายมือ (พื้น PorchDeck สูง 2.5) หันหน้าออกไปทางหน้าร้าน (-Z)
-local STAND_AT = CFrame.new(-12.5, 2.5, 12.8)
+-- ของที่วางไว้ในไฟล์ place (ผู้ใช้ 2026-11-23: อยากเห็นและลากย้ายเองในโหมด edit): Workspace.RobuxShopProps
+--   ElephantFlashlightDisplay (Model: ElephantFlashlight / ElephantLens / ElephantSidePanel) + GhostPoster (Part)
+--   มี = ใช้ตำแหน่งที่วางไว้ (ลากย้ายใน Studio แล้ว Save ได้เลย) · ไม่มี = สร้างที่ตำแหน่งตั้งต้นด้านล่าง
+local placed = workspace:FindFirstChild("RobuxShopProps")
+
+-- ---------------------------------------------------------------- 1) ไฟฉายตราช้าง: วางบนเคาน์เตอร์ข้างตะเกียง (ผู้ใช้ 2026-11-23)
+--   ไม่เปิดไฟ ไม่มีป้าย · ไม่มี Pass: กดแล้วซื้อ · มี Pass: ทุกคนเริ่มด้วยไฟฉายกบ กดที่นี่เพื่อหยิบไฟฉายตราช้างมาใช้ (กดอีกครั้ง = กลับไปใช้ไฟฉายกบ)
+--   ใช้อยู่ = player attribute ElephantInUse (server/Flashlight: หน้าตา + ถ่านไม่หมด + ไฟแรง · client/HUDController: ลำแสงไกล)
+--   ข้อความปุ่มต่างกันแต่ละคน: client/RobuxShop ตั้งเอง
+local COUNTER_AT = CFrame.new(6.2, 5.84, 14.3) * CFrame.Angles(0, math.rad(-90), 0) -- ขอบเคาน์เตอร์ด้านในร้าน (หลังตะเกียง) หัวไฟชี้ +X
 local elephantModel = Instance.new("Model")
 elephantModel.Name = "ElephantFlashlightDisplay"
 elephantModel.Parent = folder
-local WOOD = Color3.fromRGB(92, 64, 42)
-local stand = part({ Name = "Stand", Size = Vector3.new(2.6, 2.3, 1.5), CFrame = STAND_AT * CFrame.new(0, 1.15, 0), Color = WOOD, Material = Enum.Material.Wood, CanCollide = true }, elephantModel)
-part({ Name = "StandTop", Size = Vector3.new(2.8, 0.12, 1.7), CFrame = STAND_AT * CFrame.new(0, 2.36, 0), Color = Color3.fromRGB(70, 46, 30), Material = Enum.Material.Wood }, elephantModel)
--- ตัวไฟฉายนอนตามแนวแกน X (หัวไฟหันขวา) บนแท่นรองไม้สองอัน
-local TOP = STAND_AT * CFrame.new(0, 2.42, 0)
-local BODY_RED = Color3.fromRGB(168, 28, 24)
-local GOLD = Color3.fromRGB(214, 170, 60)
-part({ Name = "Cradle1", Size = Vector3.new(0.25, 0.3, 0.9), CFrame = TOP * CFrame.new(-0.6, 0.15, 0), Color = WOOD, Material = Enum.Material.Wood }, elephantModel)
-part({ Name = "Cradle2", Size = Vector3.new(0.25, 0.3, 0.9), CFrame = TOP * CFrame.new(0.55, 0.15, 0), Color = WOOD, Material = Enum.Material.Wood }, elephantModel)
-local AXIS = TOP * CFrame.new(0, 0.62, 0) -- แกนกลางตัวไฟฉาย (Cylinder ยาวตามแกน X อยู่แล้ว)
-part({ Name = "Body", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.9, 0.62, 0.62), CFrame = AXIS * CFrame.new(-0.25, 0, 0), Color = BODY_RED, Material = Enum.Material.SmoothPlastic }, elephantModel)
-part({ Name = "Band1", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 0.66, 0.66), CFrame = AXIS * CFrame.new(-0.95, 0, 0), Color = GOLD, Material = Enum.Material.Metal }, elephantModel)
-part({ Name = "Band2", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 0.66, 0.66), CFrame = AXIS * CFrame.new(0.35, 0, 0), Color = GOLD, Material = Enum.Material.Metal }, elephantModel)
-part({ Name = "Neck", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 0.8, 0.8), CFrame = AXIS * CFrame.new(0.85, 0, 0), Color = BODY_RED, Material = Enum.Material.SmoothPlastic }, elephantModel)
-part({ Name = "Head", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 1.05, 1.05), CFrame = AXIS * CFrame.new(1.2, 0, 0), Color = Color3.fromRGB(190, 190, 185), Material = Enum.Material.Metal }, elephantModel)
-local lens = part({ Name = "Lens", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.06, 0.9, 0.9), CFrame = AXIS * CFrame.new(1.47, 0, 0), Color = Color3.fromRGB(255, 236, 170), Material = Enum.Material.Neon }, elephantModel)
-part({ Name = "Cap", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.14, 0.5, 0.5), CFrame = AXIS * CFrame.new(-1.27, 0, 0), Color = Color3.fromRGB(40, 36, 34), Material = Enum.Material.Metal }, elephantModel)
-part({ Name = "Switch", Size = Vector3.new(0.3, 0.12, 0.18), CFrame = AXIS * CFrame.new(0.05, 0.33, 0), Color = Color3.fromRGB(30, 30, 30), Material = Enum.Material.SmoothPlastic }, elephantModel)
--- เรืองแสงนิดๆ ให้เห็นในร้านมืด
-local glow = Instance.new("PointLight")
-glow.Color = Color3.fromRGB(255, 226, 150)
-glow.Brightness = 0.8
-glow.Range = 7
-glow.Shadows = false
-glow.Parent = lens
-local beam = Instance.new("SpotLight")
-beam.Face = Enum.NormalId.Right
-beam.Color = Color3.fromRGB(255, 240, 200)
-beam.Brightness = 2
-beam.Range = 14
-beam.Angle = 40
-beam.Shadows = false
-beam.Parent = lens
-
--- ป้ายราคาเอียงหน้าแท่น (ฝั่ง -Z)
-local signPart = part({ Name = "PriceSign", Size = Vector3.new(2.4, 1.35, 0.06), CFrame = STAND_AT * CFrame.new(0, 1.4, -0.78) * CFrame.Angles(math.rad(-12), math.rad(180), 0), Color = Color3.fromRGB(236, 224, 196), Material = Enum.Material.SmoothPlastic }, elephantModel)
-do
-	local sg = Instance.new("SurfaceGui")
-	sg.Face = Enum.NormalId.Back
-	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	sg.PixelsPerStud = 120
-	sg.LightInfluence = 0.4
-	sg.Brightness = 1.4
-	sg.Parent = signPart
-	local bg = Instance.new("Frame")
-	bg.Size = UDim2.fromScale(1, 1)
-	bg.BackgroundColor3 = Color3.fromRGB(240, 228, 200)
-	bg.BorderSizePixel = 0
-	bg.Parent = sg
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = BODY_RED
-	stroke.Thickness = 6
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = bg
-	local icon = Instance.new("TextLabel")
-	icon.BackgroundTransparency = 1
-	icon.Size = UDim2.new(0.22, 0, 1, 0)
-	icon.Text = "🐘"
-	icon.TextScaled = true
-	icon.Parent = bg
-	local t = Instance.new("TextLabel")
-	t.BackgroundTransparency = 1
-	t.Position = UDim2.new(0.22, 0, 0.06, 0)
-	t.Size = UDim2.new(0.76, 0, 0.88, 0)
-	t.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold)
-	t.TextColor3 = Color3.fromRGB(60, 22, 16)
-	t.TextScaled = true
-	t.TextWrapped = true
-	t.TextXAlignment = Enum.TextXAlignment.Left
-	t.Parent = bg
-	bil(t, "ElephantSign")
+local promptHost: BasePart
+local placedDisplay = placed and placed:FindFirstChild("ElephantFlashlightDisplay")
+local placedMain = placedDisplay and placedDisplay:FindFirstChild("ElephantFlashlight", true)
+if placedMain and placedMain:IsA("BasePart") then
+	-- วางไว้ในแมพแล้ว: ใช้ตัวนั้น (ไม่เปิดไฟ)
+	elephantModel:Destroy()
+	elephantModel = placedDisplay :: Model
+	for _, d in ipairs(elephantModel:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			if d.Name == "ElephantLens" then
+				d.Material = Enum.Material.Glass
+				d.Transparency = 0.35
+			elseif d.Name == "ElephantSidePanel" then
+				d.Material = Enum.Material.SmoothPlastic
+				d.Color = Color3.fromRGB(150, 152, 158)
+			end
+		elseif d:IsA("ProximityPrompt") or d:IsA("Light") then
+			d:Destroy()
+		end
+	end
+	promptHost = placedMain
+else
+	local showParts = IDS.PlaceElephant(COUNTER_AT * CFrame.new(0, IDS.ELEPHANT_HALF_HEIGHT, 0), 1, elephantModel)
+	if showParts and showParts.ElephantFlashlight then
+		for _, sp in pairs(showParts) do
+			sp.Anchored = true
+		end
+		local panel = showParts.ElephantSidePanel
+		if panel then
+			panel.Material = Enum.Material.SmoothPlastic
+			panel.Color = Color3.fromRGB(150, 152, 158)
+		end
+		promptHost = showParts.ElephantFlashlight
+	else
+		-- ยังไม่ได้ Import โมเดล (ServerStorage.ElephantFlashlight): จุดกดล่องหนไว้ก่อน
+		promptHost = part({ Name = "ElephantSpot", Size = Vector3.new(1, 1, 1), CFrame = COUNTER_AT * CFrame.new(0, 0.5, 0), Transparency = 1 }, elephantModel)
+	end
 end
-local elephantPrompt = makePrompt("BuyElephantPrompt", stand)
-elephantModel.PrimaryPart = stand
+-- ระยะกดสั้น (ผู้ใช้ 2026-11-23: ปุ่มร้าน Robux ขึ้นจากไกลเกินไป บังปุ่มงานบนเคาน์เตอร์)
+local elephantPrompt = makePrompt("BuyElephantPrompt", promptHost, 4.5)
 
--- ---------------------------------------------------------------- 2) ป้ายผี: ผนังไม้ซ้ายในร้าน หันเข้าร้าน (+X)
-local POSTER_POS = Vector3.new(-15.95, 7.3, 14.6)
-local poster = part({ Name = "GhostPoster", Size = Vector3.new(2.7, 3.6, 0.05), CFrame = CFrame.lookAt(POSTER_POS, POSTER_POS + Vector3.xAxis), Color = Color3.fromRGB(20, 12, 12), Material = Enum.Material.SmoothPlastic }, folder)
+-- ---------------------------------------------------------------- 2) ป้ายผี: ผนังสังกะสีฝั่งตะวันตกในร้าน (ข้างประตูไม้) หันเข้าร้าน (+X)
+local POSTER_POS = Vector3.new(-16.25, 8.0, 21.0)
+local placedPoster = placed and placed:FindFirstChild("GhostPoster")
+local poster: BasePart = if placedPoster and placedPoster:IsA("BasePart")
+	then placedPoster
+	else part({ Name = "GhostPoster", Size = Vector3.new(2.7, 3.6, 0.05), CFrame = CFrame.lookAt(POSTER_POS, POSTER_POS + Vector3.xAxis), Color = Color3.fromRGB(20, 12, 12), Material = Enum.Material.SmoothPlastic }, folder)
+-- รูปกระดาษขาดมีขอบโปร่งใส: ตัวแผ่นต้องล่องหน ไม่งั้นเห็นสี่เหลี่ยมทึบหลังรอยขาด (SurfaceGui ยังแสดงบนแผ่นล่องหนได้)
+poster.Transparency = if IDS.PosterImage ~= "" then 1 else 0
+poster.Anchored = true
+poster.CanCollide = false
+for _, old in ipairs(poster:GetChildren()) do
+	if old:IsA("SurfaceGui") or old:IsA("ProximityPrompt") then
+		old:Destroy() -- รูปตัวอย่างที่วางไว้ในโหมด edit: สร้างใหม่ให้มีข้อความตามภาษา
+	end
+end
 do
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
@@ -162,13 +149,15 @@ do
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
 	bg.BackgroundColor3 = Color3.fromRGB(14, 6, 6)
+	-- รูปกระดาษเก่า (tools/blender/ghost_poster_aged.py) เต็มป้าย ขอบขาดโปร่งใส: พื้นหลังไม่ต้องทึบ (ยังไม่มีรูป = พื้นดำเดิม)
+	bg.BackgroundTransparency = if IDS.PosterImage ~= "" then 1 else 0
 	bg.BorderSizePixel = 0
 	bg.Parent = sg
 	local img = Instance.new("ImageLabel")
 	img.Name = "Ghost"
 	img.BackgroundTransparency = 1
-	img.Position = UDim2.fromScale(0.04, 0.12)
-	img.Size = UDim2.fromScale(0.92, 0.7)
+	img.Position = if IDS.PosterImage ~= "" then UDim2.fromScale(0, 0) else UDim2.fromScale(0.04, 0.12)
+	img.Size = if IDS.PosterImage ~= "" then UDim2.fromScale(1, 1) else UDim2.fromScale(0.92, 0.7)
 	img.ScaleType = Enum.ScaleType.Crop
 	img.Image = IDS.PosterImage
 	img.Parent = bg
@@ -187,6 +176,9 @@ do
 	top.Size = UDim2.fromScale(0.92, 0.1)
 	top.FontFace = Font.fromEnum(Enum.Font.Creepster)
 	top.TextColor3 = Color3.fromRGB(235, 40, 30)
+	top.TextStrokeColor3 = Color3.fromRGB(20, 6, 4)
+	top.TextStrokeTransparency = 0.3
+	top.ZIndex = 3
 	top.TextScaled = true
 	top.Parent = bg
 	bil(top, "PosterTop")
@@ -196,16 +188,19 @@ do
 	bottom.Size = UDim2.fromScale(0.92, 0.14)
 	bottom.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold)
 	bottom.TextColor3 = Color3.fromRGB(236, 228, 208)
+	bottom.TextStrokeColor3 = Color3.fromRGB(20, 6, 4)
+	bottom.TextStrokeTransparency = 0.3
+	bottom.ZIndex = 3
 	bottom.TextScaled = true
 	bottom.TextWrapped = true
 	bottom.Parent = bg
 	bil(bottom, "PosterBottom")
-	-- กระดาษเทปมุมบน ให้ดูเป็นป้ายแปะ
-	for _, x in ipairs({ -1.15, 1.15 }) do
+	-- กระดาษเทปมุมบน ให้ดูเป็นป้ายแปะ (เฉพาะป้ายแบบไม่มีรูป: รูปกระดาษขาดมีขอบของตัวเองแล้ว)
+	for _, x in ipairs(if IDS.PosterImage ~= "" then {} else { -1.15, 1.15 }) do
 		part({ Name = "Tape", Size = Vector3.new(0.5, 0.18, 0.06), CFrame = poster.CFrame * CFrame.new(x, 1.72, -0.02) * CFrame.Angles(0, 0, math.rad(x > 0 and -30 or 30)), Color = Color3.fromRGB(220, 210, 170), Material = Enum.Material.SmoothPlastic, Transparency = 0.15 }, folder)
 	end
 end
-local prankPrompt = makePrompt("BuyPrankPrompt", poster)
+local prankPrompt = makePrompt("BuyPrankPrompt", poster, 5)
 
 -- ---------------------------------------------------------------- 3) ต่อธูป: ปุ่ม R ที่กระถางธูป
 local spirit = workspace:WaitForChild("SpiritHouse", 30)
@@ -223,7 +218,7 @@ if MAX_INCENSE == 0 then
 end
 local incensePrompt: ProximityPrompt? = nil
 if pot then
-	local pr = makePrompt("BuyIncensePrompt", pot)
+	local pr = makePrompt("BuyIncensePrompt", pot, 6)
 	-- ปุ่มถวายขนมใช้ E ที่ศาลเดียวกัน: แยกเป็น R และขึ้นพร้อมกันได้
 	pr.KeyboardKeyCode = Enum.KeyCode.R
 	pr.GamepadKeyCode = Enum.KeyCode.ButtonX
@@ -332,6 +327,9 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Playe
 		if pass.id == passId then
 			player:SetAttribute(pass.attr, true)
 			notice(player, GOT_NOTICE[pass.attr])
+			if pass.attr == "ElephantLight" then
+				player:SetAttribute("ElephantInUse", true) -- เพิ่งซื้อที่เคาน์เตอร์: ใช้เลย
+			end
 		end
 	end
 end)
@@ -388,7 +386,10 @@ end
 
 elephantPrompt.Triggered:Connect(function(player: Player)
 	if player:GetAttribute("ElephantLight") == true then
-		notice(player, "Shop_ElephantGot")
+		-- มี Pass: หยิบมาใช้ / วางคืน (กลับไปใช้ไฟฉายกบ)
+		local use = player:GetAttribute("ElephantInUse") ~= true
+		player:SetAttribute("ElephantInUse", use)
+		notice(player, if use then "Shop_ElephantPicked" else "Shop_ElephantReturned")
 		return
 	end
 	if IDS.ElephantPassId == 0 then
@@ -431,7 +432,11 @@ if not test then
 end
 (test :: BindableEvent).Event:Connect(function(player: Player, what: string)
 	if what == "elephant" then
-		player:SetAttribute("ElephantLight", player:GetAttribute("ElephantLight") ~= true)
+		local own = player:GetAttribute("ElephantLight") ~= true
+		player:SetAttribute("ElephantLight", own)
+		if not own then
+			player:SetAttribute("ElephantInUse", false)
+		end
 	elseif what == "fastpray" then
 		player:SetAttribute("FastPrayer", player:GetAttribute("FastPrayer") ~= true)
 	elseif what == "ghostbook" then

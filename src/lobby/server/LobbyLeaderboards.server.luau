@@ -10,7 +10,7 @@ local LeaderboardStats = require(ReplicatedStorage:WaitForChild("Shared"):WaitFo
 local Bilingual = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Bilingual")) -- ป้ายแสดงตามภาษาของแต่ละคน
 
 local BOARDS = {
-	{ model = "LeaderboardDonations", category = "donations", title = "ผู้ร่วมทำบุญสูงสุด", titleEN = "Top Donors", titleID = "Donatur Teratas", titlePT = "Maiores Doadores", titleES = "Mayores Donantes", suffix = "฿", suffixEN = "฿", suffixID = "฿", suffixPT = "฿", suffixES = "฿", color = Color3.fromRGB(232, 190, 92) },
+	{ model = "LeaderboardDonations", category = "donations", title = "ผู้ร่วมทำบุญสูงสุด", titleEN = "Top Donors", titleID = "Donatur Teratas", titlePT = "Maiores Doadores", titleES = "Mayores Donantes", suffix = "\u{E002}", suffixEN = "\u{E002}", suffixID = "\u{E002}", suffixPT = "\u{E002}", suffixES = "\u{E002}", color = Color3.fromRGB(232, 190, 92) },
 	{ model = "LeaderboardCompletions", category = "completions", title = "จบเกมมากที่สุด", titleEN = "Most Nights Survived", titleID = "Malam Selamat Terbanyak", titlePT = "Mais Noites Sobrevividas", titleES = "Más Noches Sobrevividas", suffix = "ครั้ง", suffixEN = "times", suffixID = "kali", suffixPT = "vezes", suffixES = "veces", color = Color3.fromRGB(126, 190, 152) },
 	{ model = "LeaderboardAnomalies", category = "anomalies", title = "สะสมสิ่งผิดปกติมากที่สุด", titleEN = "Most Anomalies Found", titleID = "Kejanggalan Terbanyak", titlePT = "Mais Anomalias Encontradas", titleES = "Más Anomalías Encontradas", suffix = "ชนิด", suffixEN = "kinds", suffixID = "jenis", suffixPT = "tipos", suffixES = "tipos", color = Color3.fromRGB(190, 122, 164) },
 }

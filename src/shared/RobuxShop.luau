@@ -14,7 +14,7 @@ local M = {
 	PrankProductId = 3735073122, -- ป้ายผีหลอกทุกคนในห้อง (ยกเว้นคนซื้อ)
 	IncenseProductId = 3735073225, -- ต่อธูป 1 ดอก (ไม่เกินจำนวนเริ่ม)
 	-- รูปบนป้ายผี (Decal / Image ที่อัปโหลดแล้ว)
-	PosterImage = "",
+	PosterImage = "rbxassetid://100252335354240", -- ป้ายผีหน้าหลอนผมยาว ไม่มีเลือด/อวัยวะ (ตัวเก่า 114833548723474 โดน Roblox ลบเพราะมีไส้ 2026-11-23)
 
 	FAST_SIGHT_DELAY = 0.9, -- วินาที (ปกติ 1.5 ใน client/PrayerController)
 	SANDALS_SPEED = 1.15, -- คูณความเร็วเดินปกติ
@@ -31,10 +31,92 @@ M.PASSES = {
 	{ id = M.BigRoomPassId, attr = "BigRoom", name = "BigRoomName" },
 }
 
+-- เมนู SHOP ซ้ายจอใน Lobby (lobby/client/ShopMenu): ลำดับ / ไอคอน / คำอธิบาย / ราคาสำรอง (ราคาจริงอ่านจาก Roblox)
+M.SHOP_PASSES = {
+	{ id = M.GhostBookPassId, attr = "GhostBook", name = "GhostBookName", desc = "GhostBookDesc", icon = "📖", price = 499 },
+	{ id = M.ElephantPassId, attr = "ElephantLight", name = "ElephantName", desc = "ElephantDesc", icon = "🔦", price = 49 },
+	{ id = M.BigRoomPassId, attr = "BigRoom", name = "BigRoomName", desc = "BigRoomDesc", icon = "👥", price = 99 },
+	{ id = M.FastPrayPassId, attr = "FastPrayer", name = "FastPrayName", desc = "FastPrayDesc", icon = "📿", price = 49 },
+	{ id = M.SandalsPassId, attr = "WingSandals", name = "SandalsName", desc = "SandalsDesc", icon = "👡", price = 49 }, -- 🩴 (Unicode 13) ไม่มีในฟอนต์ Roblox ขึ้นเป็นกล่อง
+}
+
+-- ร่วมทำบุญ (Developer Product ซื้อซ้ำได้) ที่ตู้ร่วมทำบุญ + แท็บทำบุญในเมนู SHOP · ยอดขึ้นป้ายผู้ร่วมทำบุญสูงสุด (หน่วย Robux)
+--   lobby/server/TempleMerit = ProcessReceipt ของ Lobby (ที่เดียวในแมพ Lobby)
+M.DONATE_PRODUCTS = {
+	{ amount = 10, id = 3735265659 }, -- Temple Donation 10 (ปิดราคาตามภูมิภาค: ยอดเท่ากันทุกประเทศ)
+	{ amount = 50, id = 3735265772 },
+	{ amount = 100, id = 3735265893 },
+	{ amount = 500, id = 3735266050 },
+}
+
 -- สมุดหมอผี: ผีที่เรียกได้ (ลูกค้าผีอ่านจาก LanguageModule.BookOrder ที่ขึ้นต้น "Anomaly_")
 M.BOOK_BIG = { "Krasue", "Pret" }
 M.BOOK_LINGER = { "knock", "circle", "roof" }
 M.BOOK_SCENERY = { "Tani", "Scarecrow", "Shadow", "HutShadow", "Dancer", "ShadowRun", "Kuman" }
+
+-- ---------------------------------------------------------------- โมเดลไฟฉายตราช้าง (Blender: tools/blender/elephant_flashlight.py)
+-- แม่แบบ = Model "ElephantFlashlight" ใน ServerStorage (Import 3D จาก assets/models/ElephantFlashlight/upload/ElephantFlashlight.fbx)
+--   ไม่มีแม่แบบ = ใช้ไฟฉายกบ / ไฟฉายประกอบจาก Part เดิมไปก่อน
+-- ขนาด / ตำแหน่ง (studs, Roblox) จาก log ของสคริปต์ Blender: เทียบกับกึ่งกลางชิ้นหลัก · ลำแสงชี้ -Z · หูหิ้วด้านบน +Y
+--   ตั้ง Size เองทุกชิ้น: Import 3D ย่อขยายมาเท่าไหร่ก็ได้ขนาดตรง
+M.ELEPHANT_PARTS = {
+	ElephantFlashlight = { size = Vector3.new(0.662, 0.988, 1.0), rel = Vector3.new(0, 0, 0) },
+	ElephantLens = { size = Vector3.new(0.55, 0.55, 0.006), rel = Vector3.new(0, -0.171, -0.497) },
+	ElephantSidePanel = { size = Vector3.new(0.006, 0.16, 0.36), rel = Vector3.new(-0.247, -0.171, 0.13) },
+}
+M.ELEPHANT_GRIP = Vector3.new(0, 0.429, 0.15) -- กลางคานหูหิ้ว (จุดที่มือกำ) เทียบกึ่งกลางชิ้นหลัก
+M.ELEPHANT_HALF_HEIGHT = 0.494 -- กึ่งกลางชิ้นหลักสูงจากก้นไฟฉายเท่านี้
+
+function M.ElephantTemplate(): Instance?
+	local ok, ss = pcall(function()
+		return game:GetService("ServerStorage")
+	end)
+	local t = ok and ss and ss:FindFirstChild("ElephantFlashlight")
+	if t and t:FindFirstChild("ElephantFlashlight", true) then
+		return t
+	end
+	return nil
+end
+
+-- วางโมเดลไฟฉายตราช้าง: mainCF = กึ่งกลางชิ้นหลัก (ทิศ = ทิศไฟฉาย) · scale = ขนาด (1 = ถือในมือ)
+--   คืนรายการชิ้น (ไม่มีแม่แบบ = nil) · ชิ้นไม่ชน ไม่มีน้ำหนัก (ผู้เรียกตั้ง Anchored / เชื่อม Weld เอง)
+function M.PlaceElephant(mainCF: CFrame, scale: number, parent: Instance): { [string]: BasePart }?
+	local tpl = M.ElephantTemplate()
+	if not tpl then
+		return nil
+	end
+	local out: { [string]: BasePart } = {}
+	for name, info in pairs(M.ELEPHANT_PARTS) do
+		local src = tpl:FindFirstChild(name, true)
+		if src and src:IsA("BasePart") then
+			local p = src:Clone()
+			for _, ch in ipairs(p:GetChildren()) do
+				if ch:IsA("JointInstance") or ch:IsA("WeldConstraint") then
+					ch:Destroy()
+				end
+			end
+			p.Name = name
+			p.Size = info.size * scale
+			p.CFrame = mainCF * CFrame.new(info.rel * scale)
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.Massless = true
+			p.CastShadow = false
+			if name == "ElephantLens" then
+				p.Material = Enum.Material.Glass
+				p.Color = Color3.fromRGB(255, 240, 200)
+				p.Transparency = 0.35
+			elseif name == "ElephantSidePanel" then
+				p.Material = Enum.Material.Neon
+				p.Color = Color3.fromRGB(235, 240, 255)
+			end
+			p.Parent = parent
+			out[name] = p
+		end
+	end
+	return out
+end
 
 -- ความเร็วเดินปกติของผู้เล่นคนนี้ (มีรองเท้าแตะติดปีก = เร็วขึ้น) ใช้แทน StarterPlayer.CharacterWalkSpeed ตอนคืนความเร็ว
 function M.WalkSpeed(player: Player?): number

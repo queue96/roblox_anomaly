@@ -38,7 +38,105 @@ local function setOn(tool: Tool, on: boolean)
 		end
 		lens.Material = if on then Enum.Material[lens:GetAttribute("OnMaterial")] else Enum.Material.SmoothPlastic
 	end
+	-- ไฟฉายตราช้าง: กระจกหน้าเรืองแสงตอนเปิด / แผงข้างเรืองแสงตอนเปิด
+	local eLens = tool:FindFirstChild("ElephantLens", true)
+	if eLens and eLens:IsA("BasePart") then
+		eLens.Material = if on then Enum.Material.Neon else Enum.Material.Glass
+		eLens.Transparency = if on then 0 else 0.35
+	end
+	local ePanel = tool:FindFirstChild("ElephantSidePanel", true)
+	if ePanel and ePanel:IsA("BasePart") then
+		ePanel.Material = if on then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		ePanel.Color = if on then Color3.fromRGB(235, 240, 255) else Color3.fromRGB(150, 152, 158)
+	end
 	tool:SetAttribute("On", on)
+end
+
+-- ---------------------------------------------------------------- หน้าตาไฟฉายตราช้าง (Game Pass)
+-- เจ้าของที่หยิบมาใช้แล้ว (player attribute ElephantInUse จากเคาน์เตอร์ server/RobuxShop) ถือโมเดลไฟฉายตราช้างแทนไฟฉายกบ: ซ่อนชิ้นกบ แล้วเชื่อมโมเดลใหม่กับ Handle
+--   มือกำกลางคานหูหิ้ว (ไฟฉายกบ: มือกำที่ Handle + 0.3 ตามแกน ดู HUDController.FLASHLIGHT_GRIP_BACK) ตัวไฟฉายห้อยใต้มือ
+--   ไฟ (BeamLight) ย้ายไปติดกระจกหน้า · ยังไม่ได้ Import โมเดล (ไม่มีแม่แบบใน ServerStorage) = ไฟฉายกบเหมือนเดิม
+--   tool attribute Skin = "Elephant": client/HUDController สร้างไฟฉายมุมมองบุคคลที่หนึ่งใหม่เมื่อค่านี้เปลี่ยน
+local RobuxShop = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("RobuxShop")) :: any
+local GRIP_BACK = 0.3
+local FROG_PARTS = { "FlashlightModel", "FlashlightLens" }
+local function ownerOf(tool: Tool): Player?
+	local par = tool.Parent
+	if not par then
+		return nil
+	end
+	if par:IsA("Backpack") then
+		local p = par.Parent
+		return if p and p:IsA("Player") then p else nil
+	end
+	return Players:GetPlayerFromCharacter(par)
+end
+local function applySkin(tool: Tool)
+	local owner = ownerOf(tool)
+	if not owner then
+		return
+	end
+	local handle = tool:FindFirstChild("Handle") :: BasePart?
+	if not handle then
+		return
+	end
+	local want = owner:GetAttribute("ElephantLight") == true and owner:GetAttribute("ElephantInUse") == true and RobuxShop.ElephantTemplate() ~= nil
+	local has = tool:GetAttribute("Skin") == "Elephant"
+	if want == has then
+		return
+	end
+	if want then
+		local folder = Instance.new("Folder")
+		folder.Name = "ElephantSkin"
+		folder.Parent = handle
+		local mainCF = handle.CFrame * CFrame.new(0, 0, GRIP_BACK) * CFrame.new(-RobuxShop.ELEPHANT_GRIP)
+		local parts = RobuxShop.PlaceElephant(mainCF, 1, folder)
+		if not parts then
+			folder:Destroy()
+			return
+		end
+		for _, p in pairs(parts) do
+			p.Anchored = false
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = handle
+			w.Part1 = p
+			w.Parent = p
+		end
+		for _, n in ipairs(FROG_PARTS) do
+			local fp = handle:FindFirstChild(n)
+			if fp and fp:IsA("BasePart") then
+				fp:SetAttribute("SkinBaseTransparency", fp.Transparency)
+				fp.Transparency = 1
+			end
+		end
+		local lens = parts.ElephantLens
+		if lens then
+			for _, l in ipairs(handle:GetChildren()) do
+				if l:IsA("Light") then
+					l.Parent = lens
+				end
+			end
+		end
+		tool:SetAttribute("Skin", "Elephant")
+	else
+		local folder = handle:FindFirstChild("ElephantSkin")
+		if folder then
+			for _, l in ipairs(folder:GetDescendants()) do
+				if l:IsA("Light") then
+					l.Parent = handle
+				end
+			end
+			folder:Destroy()
+		end
+		for _, n in ipairs(FROG_PARTS) do
+			local fp = handle:FindFirstChild(n)
+			if fp and fp:IsA("BasePart") then
+				fp.Transparency = (fp:GetAttribute("SkinBaseTransparency") :: number?) or 0
+			end
+		end
+		tool:SetAttribute("Skin", nil)
+	end
+	setOn(tool, tool:GetAttribute("On") == true)
 end
 
 -- ตัวชาวบ้าน (มี RootPart, ไม่มีแขน RightHand): Roblox ไม่เชื่อม Handle ให้ -> ไฟฉายร่วงลงพื้น
@@ -79,7 +177,7 @@ end
 
 -- ไฟฉายตราช้าง (server/RobuxShop): ไฟบนตัวไฟฉายที่คนอื่นเห็นส่องไกลขึ้น สว่างขึ้น
 local function applyElephant(tool: Tool, owner: Player?)
-	local on = owner ~= nil and owner:GetAttribute("ElephantLight") == true
+	local on = owner ~= nil and owner:GetAttribute("ElephantLight") == true and owner:GetAttribute("ElephantInUse") == true
 	for _, l in ipairs(lightsOf(tool)) do
 		if l:GetAttribute("BaseRange") == nil then
 			l:SetAttribute("BaseRange", (l :: any).Range)
@@ -111,6 +209,7 @@ local function hook(tool: Instance)
 		local char = tool.Parent
 		local inHand = char ~= nil and char:IsA("Model") and char:FindFirstChildOfClass("Humanoid") ~= nil
 		local p = if inHand then Players:GetPlayerFromCharacter(char) else nil
+		applySkin(tool)
 		setOn(tool, inHand and (not p or (p:GetAttribute("Battery") or 1) > 0))
 		applyElephant(tool, p)
 		gripVillager(tool, if inHand then char :: Model else nil)
@@ -132,13 +231,30 @@ local function watch(container: Instance)
 end
 
 local function onPlayer(player: Player)
-	player:GetAttributeChangedSignal("ElephantLight"):Connect(function()
+	local function onElephantChanged()
 		local char = player.Character
 		local tool = char and char:FindFirstChild(TOOL_NAME)
 		if tool and tool:IsA("Tool") then
 			applyElephant(tool, player)
 		end
-	end)
+		-- หน้าตา: ไฟฉายในมือหรือในกระเป๋า
+		local holders: { Instance } = {}
+		if player.Character then
+			table.insert(holders, player.Character)
+		end
+		local bp = player:FindFirstChildOfClass("Backpack")
+		if bp then
+			table.insert(holders, bp)
+		end
+		for _, holder in ipairs(holders) do
+			local t = holder:FindFirstChild(TOOL_NAME)
+			if t and t:IsA("Tool") then
+				applySkin(t)
+			end
+		end
+	end
+	player:GetAttributeChangedSignal("ElephantLight"):Connect(onElephantChanged)
+	player:GetAttributeChangedSignal("ElephantInUse"):Connect(onElephantChanged)
 	local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack", 10)
 	if backpack then
 		watch(backpack)
@@ -175,7 +291,7 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 		local char = p.Character
 		local tool = char and char:FindFirstChild(TOOL_NAME)
-		if p:GetAttribute("ElephantLight") == true then
+		if p:GetAttribute("ElephantLight") == true and p:GetAttribute("ElephantInUse") == true then
 			b = 1 -- ไฟฉายตราช้าง (server/RobuxShop): ถ่านไม่มีวันหมด
 			if tool and tool:IsA("Tool") and not tool:GetAttribute("On") then
 				setOn(tool, true)

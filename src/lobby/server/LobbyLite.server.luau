@@ -17,6 +17,22 @@ if not lobby then
 	return
 end
 
+-- กำแพงล่องหนรอบแมพ (TempleLobby.InvisibleWalls): ในไฟล์ place เป็นสีฟ้าใสให้ผู้พัฒนาเห็นและลากย้าย/ยืดได้ในโหมด edit
+--   (ผู้ใช้ 2026-11-23) ตอนเล่นซ่อนทั้งหมด ชนเหมือนเดิม
+do
+	local walls = lobby:FindFirstChild("InvisibleWalls")
+	if walls then
+		for _, w in ipairs(walls:GetDescendants()) do
+			if w:IsA("BasePart") then
+				w.Transparency = 1
+				w.CastShadow = false
+				w.CanCollide = true
+				w.Anchored = true
+			end
+		end
+	end
+end
+
 local t0 = os.clock()
 local removedTrees, removedParts, removedDecals = 0, 0, 0
 local function countGone(inst: Instance)

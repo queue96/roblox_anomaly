@@ -13,3 +13,6 @@ assets/models/villager/upload/*.png
 
 # Blender auto-backups
 *.blend1
+
+# รูปที่ Roblox ลบเพราะผิดกฎ (มีอวัยวะ/เลือด): เก็บไว้ในเครื่องเท่านั้น ห้ามขึ้น git / ห้ามอัปโหลด (CLAUDE.md)
+*_REMOVED_BY_ROBLOX_*

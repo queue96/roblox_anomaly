@@ -1,43 +1,20 @@
--- DevCommand.luau — Lobby: big ring compile + obstacle check at (0, 4) (2026-11-23)
+-- DevCommand.luau — Lobby: move the Anomalies leaderboard in front of the wooden pole (pole hides behind the taller board) (2026-11-24)
 return {
-	id = "check_bigring_20261123_2",
+	id = "lobby_lb_front_of_pole_20261124_1",
 	placeId = 70980777393906,
 	run = function()
-		local SES = game:GetService("ScriptEditorService")
-		local want = { LobbyClient = "setupBig", LobbyServer = "BIG_RING_INDEX", LanguageModule = "BigRoomNeedPass", RobuxShop = "FREE_ROOM_SIZE" }
-		for _, d in ipairs(game:GetDescendants()) do
-			local ok, isSrc = pcall(function()
-				return d:IsA("LuaSourceContainer")
-			end)
-			if ok and isSrc and want[d.Name] and not d:IsDescendantOf(game:GetService("ServerStorage")) then
-				local src = (d :: any).Source :: string
-				local m = Instance.new("ModuleScript")
-				m.Parent = game:GetService("ServerStorage")
-				local okSet, err = pcall(function()
-					SES:UpdateSourceAsync(m, function()
-						return "local __skip = (game ~= nil)" .. string.char(10) .. "if __skip then return {} end" .. string.char(10) .. src
-					end)
-				end)
-				local okc = false
-				if okSet then
-					okc, err = pcall(require, m)
-				end
-				m:Destroy()
-				print("DEVCMD|SRC", d:GetFullName(), #src, "has", string.find(src, want[d.Name], 1, true) ~= nil, "compile", okc, if okc then "" else tostring(err))
-			end
-		end
-		-- ของที่อยู่ในรัศมีวงใหม่ (0, 4) r = 12
-		local hits = {}
-		local params = OverlapParams.new()
-		for _, p in ipairs(workspace:GetPartBoundsInBox(CFrame.new(0, 4, 4), Vector3.new(24, 7, 24), params)) do
-			local top = p
-			while top.Parent and top.Parent ~= workspace and top.Parent.Name ~= "TempleLobby" do
-				top = top.Parent
-			end
-			hits[top:GetFullName()] = (hits[top:GetFullName()] or 0) + 1
-		end
-		for k, v in pairs(hits) do
-			print("DEVCMD|NEAR", k, v)
-		end
+		local lb = workspace.TempleLobby.LeaderboardAnomalies :: Model
+		local cf = lb:GetBoundingBox()
+		lb:PivotTo(lb:GetPivot() + Vector3.new(55.5 - cf.X, 0, 0))
+		local nc, size = lb:GetBoundingBox()
+		local pole = workspace.TempleLobby.SpookyDecor:FindFirstChild("WoodenPole", true) :: BasePart
+		-- ระยะจากหน้าเสา (ฝั่งลาน) ถึงหลังป้าย: เสา MeshPart วัดจากจุดยอดจริงไม่ได้ ใช้ raycast จากลานเข้าหาเสาที่ความสูงกลางเสา
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { pole }
+		local hit = workspace:Raycast(Vector3.new(40, pole.Position.Y, pole.Position.Z), Vector3.new(30, 0, 0), params)
+		print("DEVCMD|LB", tostring(nc.Position), "boardBackX", nc.X + 1, "poleFrontX", hit and hit.Position.X or "nohit", "boardTop", nc.Y + size.Y / 2, "poleTop", pole.Position.Y + pole.Size.Y / 2)
+		local cam = workspace.CurrentCamera
+		cam.CFrame = CFrame.lookAt(Vector3.new(20, 8, 32.5), nc.Position)
 	end,
 }
