@@ -317,6 +317,12 @@ LanguageModule.UI = {
 	Reply_GreetBoth = { th = "สวัสดีทั้งสองคน", en = "Evening, you two", es = "Buenas noches a los dos", pt = "Boa noite, vocês dois", id = "Malam, kalian berdua" },
 	-- เปิดร้านก่อนเริ่มคืน
 	OpenShop = { th = "เปิดร้าน", en = "Open Shop", es = "Abrir Tienda", pt = "Abrir Loja", id = "Buka Toko" },
+	-- คำแนะนำตั้งกราฟิก (lobby/client/GraphicsTip)
+	GfxTipTitle = { th = "อยากเห็นแสงเงาเต็มๆ ไหม", en = "Want the full lights and shadows?", es = "¿Quieres ver todas las luces y sombras?", pt = "Quer ver todas as luzes e sombras?", id = "Mau lihat cahaya dan bayangan penuh?" },
+	GfxTipBody = { th = "เกมนี้หลอนด้วยแสงและเงา แต่กราฟิกแบบ Automatic อาจปิดเงาเอง", en = "This game is scary because of its light and shadow, but Automatic graphics may turn shadows off.", es = "Este juego asusta con su luz y sus sombras, pero los gráficos en Automático pueden desactivar las sombras.", pt = "Este jogo assusta com luz e sombra, mas os gráficos em Automático podem desligar as sombras.", id = "Game ini seram karena cahaya dan bayangannya, tapi grafis Automatic bisa mematikan bayangan." },
+	GfxTipSteps = { th = "กด Esc > Settings > Graphics Mode: Manual แล้วเลื่อน Graphics Quality ไปทางขวา", en = "Press Esc > Settings > Graphics Mode: Manual, then move Graphics Quality to the right", es = "Pulsa Esc > Configuración > Modo de gráficos: Manual y mueve la calidad de gráficos a la derecha", pt = "Aperte Esc > Configurações > Modo gráfico: Manual e mova a qualidade gráfica para a direita", id = "Tekan Esc > Settings > Graphics Mode: Manual, lalu geser Graphics Quality ke kanan" },
+	GfxTipNote = { th = "ถ้าเกมกระตุก ค่อยเลื่อนกลับมาทางซ้าย", en = "If the game stutters, move it back to the left.", es = "Si el juego va lento, muévela otra vez a la izquierda.", pt = "Se o jogo travar, mova de volta para a esquerda.", id = "Kalau game tersendat, geser lagi ke kiri." },
+	GfxTipOk = { th = "เข้าใจแล้ว", en = "Got it", es = "Entendido", pt = "Entendi", id = "Mengerti" },
 	-- สมุดบันทึกผี
 	BookButton = { th = "สมุดผี", en = "Ghost Book", es = "Libro de Fantasmas", pt = "Livro de Fantasmas", id = "Buku Hantu" },
 	BookTitle = { th = "สมุดบันทึกผีไทย", en = "Thai Ghost Journal", es = "Diario de Fantasmas Tailandeses", pt = "Diário de Fantasmas Tailandeses", id = "Catatan Hantu Thailand" },

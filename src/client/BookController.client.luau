@@ -1,5 +1,5 @@
 -- BookController.client.luau
--- สมุดบันทึกผีไทย (Phase 5 ข้อ 2): ปุ่ม "สมุดผี" ข้างปุ่มตั้งค่า มุมขวาบน -> หน้าต่างรายชื่อผี
+-- สมุดบันทึกผีไทย (Phase 5 ข้อ 2): ปุ่ม "สมุดผี" ซ้ายจอใต้ปุ่ม SHOP (เฉพาะ lobby) -> หน้าต่างรายชื่อผี
 --   การ์ดละ 1 ผี: รูปจากโมเดล (Shared.BookPortrait ใช้ ReplicatedStorage.BookPortraits) + ชื่อ + ปุ่ม "ลักษณะ"
 --   ปุ่มลักษณะ -> หน้าลักษณะ: รูปใหญ่ (กล้องส่ายช้าๆ) + ชื่อ + จำนวนครั้งที่รอด + วิธีสังเกต
 --   ยังไม่เคยเจอ = รูปเป็น "?" เห็นแค่ชื่อ ปุ่มลักษณะกดไม่ได้
@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local localPlayer = Players.LocalPlayer
 local LanguageModule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LanguageModule"))
@@ -79,44 +80,53 @@ local function isLobby(): boolean
 	end
 	return game.PlaceId == 0 and workspace:FindFirstChild("TempleLobby") ~= nil
 end
+-- ปุ่มอยู่ซ้ายจอ ใต้ปุ่ม SHOP (lobby/client/ShopMenu) หน้าตาและขนาดเดียวกัน (ผู้ใช้ 2026-11-24)
+-- ScreenGui แยก DisplayOrder ต่ำกว่า: หน้าต่างร้านค้า / หน้าต่างสมุดบังปุ่มได้
+local btnGui = new("ScreenGui", {
+	Name = "BookButtonGui",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	AutoLocalize = false,
+	DisplayOrder = 5,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Enabled = isLobby(),
+}, localPlayer:WaitForChild("PlayerGui"))
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(btnGui)
+local BTN_IDLE = Color3.fromRGB(14, 12, 12)
+local BTN_HOT = Color3.fromRGB(48, 22, 20)
+local BTN = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then 70 else 78 -- เท่าปุ่ม SHOP
 local bookBtn = new("TextButton", {
 	Name = "BookButton",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -150, 0, 14),
-	Size = UDim2.new(0, 0, 0, 24),
-	AutomaticSize = Enum.AutomaticSize.X,
-	BackgroundColor3 = Color3.fromRGB(16, 14, 12), -- เหมือนปุ่มตั้งค่า (SettingsController)
-	BackgroundTransparency = 0.25,
+	AnchorPoint = Vector2.new(0, 0),
+	Position = UDim2.new(0, 14, 0.42, 6), -- ปุ่ม SHOP อยู่เหนือเส้น 0.42 ห่างกัน 12
+	Size = UDim2.fromOffset(BTN, BTN),
+	BackgroundColor3 = BTN_IDLE,
+	BackgroundTransparency = 0.12,
 	BorderSizePixel = 0,
-	FontFace = FONT_BODY,
-	TextSize = 13,
-	TextColor3 = C.Dim,
+	Text = "",
 	AutoButtonColor = false,
-	Visible = isLobby(),
-}, gui)
-new("UICorner", { CornerRadius = UDim.new(0, 2) }, bookBtn)
-new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, bookBtn)
-new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.25, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bookBtn)
-
--- วางให้อยู่ซ้ายปุ่มตั้งค่าเสมอ (ปุ่มตั้งค่ากว้างไม่เท่ากันตามภาษา)
-task.spawn(function()
-	local sg = localPlayer.PlayerGui:WaitForChild("SettingsGui", 20)
-	local sb = sg and sg:WaitForChild("SettingsButton", 20) :: GuiObject?
-	if not sb then
-		return
-	end
-	local function place()
-		-- ScreenGui นี้มี UIScale (UiFit): offset ถูกคูณ scale -> หารกลับ
-		local us = gui:FindFirstChildOfClass("UIScale")
-		local k = if us and us.Scale > 0 then us.Scale else 1
-		local right = (gui.AbsoluteSize.X - sb.AbsolutePosition.X) / k + 10
-		bookBtn.Position = UDim2.new(1, -right, 0, 14)
-	end
-	place()
-	sb:GetPropertyChangedSignal("AbsolutePosition"):Connect(place)
-	sb:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-end)
+}, btnGui)
+new("UICorner", { CornerRadius = UDim.new(0, 12) }, bookBtn)
+new("UIStroke", { Color = Color3.fromRGB(150, 146, 140), Thickness = 2.5, Transparency = 0.1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bookBtn)
+new("TextLabel", {
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, 0, 0.54, 0),
+	Position = UDim2.fromScale(0, 0.06),
+	Text = "📖",
+	TextScaled = true,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+}, bookBtn)
+local bookBtnText = new("TextLabel", { -- ภาษาอื่นชื่อยาว (Libro de Fantasmas) = ขึ้น 2 บรรทัด
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, -8, 0.34, 0),
+	Position = UDim2.new(0, 4, 0.62, 0),
+	TextScaled = true,
+	TextWrapped = true,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+}, bookBtn)
+new("UITextSizeConstraint", { MaxTextSize = 20 }, bookBtnText)
 
 -- หน้าต่างสมุด (ย่อตามจอ: มือถือแนวนอนก็ไม่ล้น)
 local BookPortrait = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BookPortrait"))
@@ -584,7 +594,7 @@ local function refresh()
 	local countText = (string.gsub(ui("BookCount"), "{n}", tostring(found)))
 	countLabel.Text = (string.gsub(countText, "{total}", tostring(total)))
 	header.Text = ui("BookTitle")
-	bookBtn.Text = ui("BookButton")
+	bookBtnText.Text = ui("BookButton")
 	fillDetail()
 end
 refresh()
@@ -607,8 +617,7 @@ local function setOpen(open: boolean)
 		hasNew = false
 		refresh()
 	end
-	bookBtn.BackgroundColor3 = if open then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
-	bookBtn.TextColor3 = if open then C.Cream else C.Dim
+	bookBtn.BackgroundColor3 = if open then BTN_HOT else BTN_IDLE
 end
 bookBtn.Activated:Connect(function()
 	setOpen(not panel.Visible)
@@ -617,12 +626,10 @@ closeBtn.Activated:Connect(function()
 	setOpen(false)
 end)
 bookBtn.MouseEnter:Connect(function()
-	bookBtn.BackgroundColor3 = Color3.fromRGB(48, 22, 20)
-	bookBtn.TextColor3 = C.Cream
+	bookBtn.BackgroundColor3 = BTN_HOT
 end)
 bookBtn.MouseLeave:Connect(function()
-	bookBtn.BackgroundColor3 = if panel.Visible then Color3.fromRGB(48, 22, 20) else Color3.fromRGB(16, 14, 12)
-	bookBtn.TextColor3 = if panel.Visible then C.Cream else C.Dim
+	bookBtn.BackgroundColor3 = if panel.Visible then BTN_HOT else BTN_IDLE
 end)
 
 -- ---------------------------------------------------------------- แจ้งเตือนปลดล็อกใหม่
@@ -679,7 +686,7 @@ BookUnlocked.OnClientEvent:Connect(function(key: string)
 			if not hasNew or panel.Visible then
 				break
 			end
-			bookBtn.BackgroundColor3 = Color3.fromRGB(16, 14, 12)
+			bookBtn.BackgroundColor3 = BTN_IDLE
 			task.wait(0.6)
 		end
 	end)

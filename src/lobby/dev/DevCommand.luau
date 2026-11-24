@@ -1,44 +1,31 @@
--- DevCommand.luau — remove the customer Krasue book portrait + compile check (2026-11-24)
+-- DevCommand.luau — read-only: is today's scene work still in the place (2026-11-24)
 return {
-	id = "lobby_drop_krasue_20261124_1",
-	placeId = 70980777393906,
+	id = "state_20261124_1",
 	run = function()
-		task.wait(3)
-		local CHS = game:GetService("ChangeHistoryService")
-		local SES = game:GetService("ScriptEditorService")
-		CHS:SetWaypoint("Before remove customer Krasue portrait")
-		for _, root in ipairs({ game:GetService("ReplicatedStorage"), game:GetService("ServerStorage") }) do
-			local bp = root:FindFirstChild("BookPortraits")
-			local m = bp and bp:FindFirstChild("Anomaly_Krasue")
-			if m then
-				print("DEVCMD|REMOVE", m:GetFullName())
-				m.Parent = nil
-			end
-			if bp then
-				print("DEVCMD|LEFT", bp:GetFullName(), bp:FindFirstChild("Anomaly_Krasue") == nil, "big", bp:FindFirstChild("Big_Krasue") ~= nil, #bp:GetChildren())
+		local dd, far, mango, metal = 0, 0, 0, {}
+		for _, d in ipairs(workspace:GetDescendants()) do
+			if d:IsA("MeshPart") then
+				if d:GetAttribute("VegDedupe") then dd += 1 end
+				if d:GetAttribute("FarVeg") then far += 1 end
+				if d.Name == "MangoFar" then mango += 1 end
+			elseif d:IsA("SurfaceAppearance") and d.MetalnessMap ~= "" then
+				metal[d.MetalnessMap] = true
 			end
 		end
-		CHS:SetWaypoint("Remove customer Krasue portrait")
-		local names = { AnomalyManager = true, CoreLoop = true, AnomalyBook = true, LanguageModule = true, AdminPanel = true, JumpscareController = true, PrayerController = true, RiderMotion = true, RobuxShop = true }
-		for _, root in ipairs({ game:GetService("ServerScriptService"), game:GetService("ReplicatedStorage"), game:GetService("StarterPlayer") }) do
-			for _, d in ipairs(root:GetDescendants()) do
-				if d:IsA("LuaSourceContainer") and names[d.Name] then
-					local src = (d :: any).Source
-					local t = Instance.new("ModuleScript")
-					t.Parent = game:GetService("ServerStorage")
-					local ok, err = pcall(function()
-						SES:UpdateSourceAsync(t, function()
-							return "local __skip = (game ~= nil)" .. string.char(10) .. "if __skip then return {} end" .. string.char(10) .. src
-						end)
-					end)
-					local okc = false
-					if ok then
-						okc, err = pcall(require, t)
-					end
-					t:Destroy()
-					print("DEVCMD|SRC", d:GetFullName(), "compile", okc, "oldKey", string.find(src, "Anomaly_Krasue", 1, true) ~= nil, if okc then "" else tostring(err))
-				end
-			end
+		local m = 0
+		for _ in pairs(metal) do m += 1 end
+		local soft = 0
+		local otl = workspace:FindFirstChild("MapEnvironment") and workspace.MapEnvironment:FindFirstChild("OuterTreeLine")
+		for _, d in ipairs(otl and otl:GetDescendants() or {}) do
+			if d:IsA("BasePart") and d.CanCollide then soft += 1 end
 		end
+		local bp = game:GetService("ReplicatedStorage"):FindFirstChild("BookPortraits") or game:GetService("ServerStorage"):FindFirstChild("BookPortraits")
+		local radio = bp and bp:FindFirstChild("Anomaly_MonkRadio")
+		print("DEVCMD|STATE", game.PlaceId, "WS", #workspace:GetDescendants(), "dedupe", dd, "farveg", far, "mangoFar", mango, "metalMaps", m, "borderCollide", soft, "portraits", bp and #bp:GetChildren(), "radioV2", radio and radio:FindFirstChild("RadioDial", true) ~= nil)
+		print("DEVCMD|STATE2 archTemple", (function()
+			local a = game:GetService("ServerStorage"):FindFirstChild("ArchivedPlaceholders")
+			local t = a and a:FindFirstChild("TempleLobby")
+			return t and #t:GetDescendants()
+		end)(), game.PlaceVersion)
 	end,
 }

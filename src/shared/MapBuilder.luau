@@ -5707,7 +5707,9 @@ function MapBuilder.AddMangoLeaves(tree: Model, light: boolean?, far: boolean?)
 			local rr = if n == 1 then r else r * 0.8
 			local yaw0 = rng:NextNumber(0, 180)
 			for k = 0, 2 do
-				card(CFrame.new(cc) * CFrame.Angles(0, math.rad(yaw0 + k * 60), 0) * CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), 0, 0), Vector3.new(2.3 * rr, 1.7 * rr, 0.05), false)
+				-- 3 แผ่นตัดกันห้ามอยู่จุดเดียวกันเป๊ะ: Roblox เรียงลำดับแผ่นโปร่งตามระยะ ระยะเท่ากัน = ลำดับสลับไปมาตอนหมุนกล้อง ใบกระพริบ
+				-- เหลื่อมแนวตั้ง: กล้องอยู่ต่ำกว่าพุ่มเสมอ ลำดับใกล้ไกลจึงคงที่ทุกมุม (ผู้ใช้ 2026-11-24)
+				card(CFrame.new(cc + Vector3.new(0, (k - 1) * rr * 0.1, 0)) * CFrame.Angles(0, math.rad(yaw0 + k * 60), 0) * CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), 0, 0), Vector3.new(2.3 * rr, 1.7 * rr, 0.05), false)
 			end
 			card(CFrame.new(cc + Vector3.new(0, rr * 0.3, 0)) * CFrame.Angles(math.rad(rng:NextNumber(-10, 10)), math.rad(rng:NextNumber(0, 360)), 0), Vector3.new(2.3 * rr, 0.05, 2.3 * rr), true)
 		end
@@ -8779,6 +8781,529 @@ function MapBuilder.SwapBanyanLeavesV2(assetId: number?): string
 	;(src :: Instance).Parent = arch
 	;(src :: Instance).Name = "BanyanV2_Imported"
 	return string.format("ok (%d parts, scale %.3f)", n, k)
+end
+
+-- ใบมะม่วง + วงห้องใน Lobby v2 (ผู้ใช้ 2026-11-24 "ทำให้เบาสุด")
+--   tools/blender/mango_v2.py -> assets/models/MangoV2/upload/MangoV2.fbx (MangoCanopy_1..4 / MangoFar / RoomRing)
+--   แทนแผ่น LeafCard + Decal ของต้นมะม่วงทุกต้นใน root (ต้น 688 แผ่น -> 4 ชิ้น, ต้นป่า 112 แผ่น -> 1 ชิ้น) ตำแหน่งแผ่นเท่าเดิม
+--   และแทน RingSeg 36 ชิ้นต่อวง ด้วยวงนีออนชิ้นเดียว (RoomPadWall ไม่แตะ: ล่องหน ใช้ชน/แสงจากพื้น)
+--   ใบเดิมไม่เก็บ (สร้างใหม่ได้ด้วย AddMangoLeaves) · วงเดิมเก็บที่ ServerStorage.ArchivedPlaceholders.RoomRings_v1
+--   ต้นในลาน (688 แผ่น) คงแผ่นเดิม: ผู้ใช้ลองแบบ mesh แล้วดูไม่ดีตอนใกล้ (2026-11-24) เว้นแต่ส่ง withNear = true
+--   ต้นที่มี attribute KeepLeafCards = ใช้แผ่นเดิมเสมอ (ป่าหน้าประตูวัด ผู้ใช้ 2026-11-24)
+--   แม่แบบเก็บที่ ServerStorage.ImportedProps.MangoV2 (รันซ้ำได้ ต้นที่เป็น v2 แล้วข้าม)
+function MapBuilder.SwapMangoLeavesV2(assetId: number?, withNear: boolean?): string
+	local DESIGN: { [string]: { c: Vector3, x: number } } = { -- จาก mango_v2.py (log "BBOX") เทียบกลาง MangoTrunk
+		MangoCanopy_1 = { c = Vector3.new(-3.4845, 6.6292, -5.8022), x = 20.1632 },
+		MangoCanopy_2 = { c = Vector3.new(7.8710, 6.7742, -6.1213), x = 18.1552 },
+		MangoCanopy_3 = { c = Vector3.new(7.1563, 6.6852, 4.8931), x = 18.1185 },
+		MangoCanopy_4 = { c = Vector3.new(-4.5730, 6.8112, 4.9873), x = 19.0237 },
+		MangoFar = { c = Vector3.new(1.6442, 6.8627, -1.0324), x = 36.5417 },
+		RoomRing = { c = Vector3.zero, x = 20.5 },
+	}
+	local CENTROID = { near = Vector3.new(2.1751, 7.4207, -0.2869), far = Vector3.new(2.0897, 7.8680, -0.6248) }
+	local root = Workspace:FindFirstChild("TempleLobby")
+	if not root then
+		return "no Workspace.TempleLobby"
+	end
+	local SS = game:GetService("ServerStorage")
+	local store = SS:FindFirstChild("ImportedProps") or Instance.new("Folder")
+	store.Name = "ImportedProps"
+	store.Parent = SS
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == "MangoV2" then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+	end
+	src = src or store:FindFirstChild("MangoV2")
+	if not src then
+		return "import assets/models/MangoV2/upload/MangoV2.fbx first (or pass the Model asset id)"
+	end
+	local parts: { [string]: MeshPart } = {}
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("MeshPart") and DESIGN[d.Name] and parts[d.Name] == nil then
+			parts[d.Name] = d
+		end
+	end
+	for n in pairs(DESIGN) do
+		if not parts[n] then
+			return "imported model has no " .. n
+		end
+	end
+	-- importer อ่านหน่วยผิดได้ (รถได้ใหญ่ 28 เท่า) และหมุนทั้งชุด 180° ได้ (ชุดวัด): วัดจากตำแหน่งชิ้นเทียบแบบ
+	local k = DESIGN.MangoCanopy_1.x / parts.MangoCanopy_1.Size.X
+	local got = parts.MangoCanopy_3.Position - parts.MangoCanopy_1.Position
+	local want = DESIGN.MangoCanopy_3.c - DESIGN.MangoCanopy_1.c
+	local flip = if Vector3.new(got.X, 0, got.Z):Dot(Vector3.new(want.X, 0, want.Z)) < 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity
+	local tpl: { [string]: MeshPart } = {}
+	for n, p in pairs(parts) do
+		local np = p:Clone()
+		np.Size = p.Size * k
+		np.CFrame = flip * p.CFrame.Rotation
+		np.Anchored = true
+		np.CanCollide = false
+		np.CanTouch = false
+		np.CanQuery = false
+		np.CastShadow = false
+		np.Transparency = 0
+		pcall(function()
+			-- LOD ลดรูปใบแบบแผ่นแล้วใบหาย: ใช้ตัวเต็มเสมอ (448-768 tris)
+			(np :: any).RenderFidelity = Enum.RenderFidelity.Precise
+			;(np :: any).CollisionFidelity = Enum.CollisionFidelity.Box
+		end)
+		local sa = np:FindFirstChildOfClass("SurfaceAppearance")
+		if n == "RoomRing" then
+			if sa then
+				sa:Destroy()
+			end
+			np.TextureID = ""
+			np.Material = Enum.Material.Neon
+		elseif sa then
+			pcall(function()
+				(sa :: any).AlphaMode = Enum.AlphaMode.Transparency
+			end)
+		end
+		tpl[n] = np
+	end
+	-- ใบ
+	local nearN, farN, removed = 0, 0, 0
+	for _, leaves in ipairs(root:GetDescendants()) do
+		if not (leaves:IsA("Model") and leaves.Name == "MangoLeaves" and leaves.Parent) or leaves:GetAttribute("LeavesVersion") == 2 or (leaves.Parent :: Instance):GetAttribute("KeepLeafCards") then
+			continue
+		end
+		local sum, n = Vector3.zero, 0
+		for _, c in ipairs(leaves:GetChildren()) do
+			if c:IsA("BasePart") and c.Name == "LeafCard" then
+				sum += c.Position
+				n += 1
+			end
+		end
+		local kind = if n == 112 then "far" elseif n == 688 and withNear then "near" else nil
+		if not kind then
+			continue
+		end
+		local origin = sum / n - CENTROID[kind]
+		local model = Instance.new("Model")
+		model.Name = "MangoLeaves"
+		model:SetAttribute("LeavesVersion", 2)
+		model:SetAttribute("FlutterScale", 0.15)
+		for _, name in ipairs(if kind == "near" then { "MangoCanopy_1", "MangoCanopy_2", "MangoCanopy_3", "MangoCanopy_4" } else { "MangoFar" }) do
+			local c = tpl[name]:Clone()
+			c.CFrame = CFrame.new(origin + DESIGN[name].c) * c.CFrame.Rotation
+			c.Parent = model
+		end
+		model.Parent = leaves.Parent
+		removed += n
+		leaves:Destroy()
+		if kind == "near" then
+			nearN += 1
+		else
+			farN += 1
+		end
+	end
+	-- วงห้อง
+	local rings = 0
+	local pads = root:FindFirstChild("RoomPads")
+	local arch = SS:FindFirstChild("ArchivedPlaceholders") or Instance.new("Folder")
+	arch.Name = "ArchivedPlaceholders"
+	arch.Parent = SS
+	for _, ring in ipairs(if pads then pads:GetChildren() else {}) do
+		local idx = string.match(ring.Name, "^RoomPadRing_(%d+)$")
+		local pad = idx and pads:FindFirstChild("RoomPad_" .. idx)
+		local seg = ring:FindFirstChild("RingSeg")
+		if idx and pad and seg and #ring:GetChildren() > 1 then
+			local keep = arch:FindFirstChild("RoomRings_v1") or Instance.new("Folder")
+			keep.Name = "RoomRings_v1"
+			keep.Parent = arch
+			local c = tpl.RoomRing:Clone()
+			c.Name = "RingSeg"
+			c.Color = seg.Color
+			c.CFrame = CFrame.new(pad.Position.X, seg.Position.Y, pad.Position.Z) * c.CFrame.Rotation
+			local copy = Instance.new("Model")
+			copy.Name = ring.Name
+			for _, s in ipairs(ring:GetChildren()) do
+				s.Parent = copy
+			end
+			copy.Parent = keep
+			c.Parent = ring
+			rings += 1
+		end
+	end
+	if (src :: Instance).Parent ~= store then
+		local prev = store:FindFirstChild("MangoV2")
+		if prev then
+			prev:Destroy()
+		end
+		(src :: Instance).Name = "MangoV2"
+		;(src :: Instance).Parent = store
+	end
+	return string.format("ok near %d far %d cards removed %d rings %d (scale %.4f flip %s)", nearN, farN, removed, rings, k, tostring(flip ~= CFrame.identity))
+end
+
+-- Lobby เบาลง ข้อ 1-4 (ผู้ใช้ 2026-11-24 "ทำทั้งหมดเลย") ไม่ต้อง import รันซ้ำได้
+--   1) ต้นไม้ในป่า + หญ้า/ตะไคร้: ไม่ทำเงา  2) ต้นป่าที่ใบเป็น mesh: ลบ MangoTwigs (พุ่มทึบบังหมด)
+--   3) ป่าอยู่นอกกำแพงล่องหนทั้งหมด: ไม่ชน  4) ป่า: RenderFidelity Performance (ลดรายละเอียดเร็วขึ้นตามระยะ)
+--   ใบแผ่น/ใบ mesh มะม่วงไม่แตะ (MangoFar ต้อง Precise)
+function MapBuilder.LightenLobby(): string
+	local root = Workspace:FindFirstChild("TempleLobby")
+	local forest = root and root:FindFirstChild("Forest")
+	if not (root and forest) then
+		return "no TempleLobby.Forest"
+	end
+	local sh, col, twigs, lod = 0, 0, 0, 0
+	for _, tree in ipairs(forest:GetChildren()) do
+		local leaves = tree:FindFirstChild("MangoLeaves")
+		local tw = tree:FindFirstChild("MangoTwigs")
+		if tw and leaves and leaves:GetAttribute("LeavesVersion") == 2 then
+			tw:Destroy()
+			twigs += 1
+		end
+		for _, d in ipairs(tree:GetDescendants()) do
+			if d:IsA("BasePart") and d.Name ~= "LeafCard" then
+				if d.CastShadow then
+					d.CastShadow = false
+					sh += 1
+				end
+				if d.CanCollide then
+					d.CanCollide = false
+					col += 1
+				end
+				d.CanTouch = false
+				d.CanQuery = false
+				if d:IsA("MeshPart") and d.Name ~= "MangoFar" and not d:GetAttribute("FarVeg") then
+					pcall(function()
+						(d :: any).RenderFidelity = Enum.RenderFidelity.Performance
+						;(d :: any).CollisionFidelity = Enum.CollisionFidelity.Box
+					end)
+					lod += 1
+				end
+			end
+		end
+	end
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("BasePart") and (d.Name == "WildGrassClump" or d.Name == "LemongrassClump") then
+			if d.CastShadow then
+				d.CastShadow = false
+				sh += 1
+			end
+			d.CanTouch = false
+			d.CanQuery = false
+		end
+	end
+	return string.format("ok shadows off %d, collisions off %d, twigs removed %d, lod %d", sh, col, twigs, lod)
+end
+
+-- Lobby เบาลง ข้อ 5-6: กอกล้วย/ลำต้นมะม่วงในป่า + หญ้า เปลี่ยน mesh เป็นแบบเบา ใช้ SurfaceAppearance เดิม (UV เดิม)
+--   tools/blender/lobby_far_veg.py -> assets/models/LobbyFarVeg/upload/LobbyFarVeg.fbx
+--   ไม่แตะ: ป่าหน้าประตูวัด (KeepLeafCards / Z >= 85 และ |X| <= 125), กล้วยในวัด, หญ้าที่ใกล้ทางเดินกว่า 12 studs
+--   ชิ้นใหม่ใช้ชื่อเดิม + attribute FarVeg (ระบบลมหาเจอ) · ชิ้นเดิมคืนได้จาก ServerStorage.ImportedProps.BananaClump / MangoTree / ThaiGrasses
+function MapBuilder.SwapLobbyFarVeg(assetId: number?): string
+	local D: { [string]: any } = { -- จาก log "LUA" ของ lobby_far_veg.py: ขนาด/กลางกล่อง เดิม (o) และใหม่ (n)
+		["BananaClump"] = { n = "FarBananaClump", oc = Vector3.new(0.2481, 6.5050, -1.0887), os = Vector3.new(13.3279, 13.6257, 14.0768), nc = Vector3.new(0.2481, 6.5094, -1.0887), ns = Vector3.new(13.3279, 13.6279, 14.0768) },
+		["BananaClump_B"] = { n = "FarBananaClump_B", oc = Vector3.new(-0.4940, 5.7521, 0.4335), os = Vector3.new(13.3797, 12.1317, 12.5589), nc = Vector3.new(-0.4940, 5.7739, 0.4335), ns = Vector3.new(13.3797, 12.1596, 12.5589) },
+		["BananaClump_Base"] = { n = "FarBananaClump_Base", oc = Vector3.new(2.0778, 5.2469, 0.3546), os = Vector3.new(14.3257, 11.1420, 12.9780), nc = Vector3.new(2.0777, 5.2575, 0.3546), ns = Vector3.new(14.3259, 11.1598, 12.9780) },
+		["MangoTrunk"] = { n = "FarMangoTrunk", oc = Vector3.new(-2.1442, 9.9935, 0.3282), os = Vector3.new(17.1557, 20.6916, 15.1032), nc = Vector3.new(-2.1545, 9.9767, 0.3340), ns = Vector3.new(17.1350, 20.6551, 15.0631) },
+		["LemongrassClump"] = { n = "LiteLemongrass", oc = Vector3.new(-0.0361, 2.0586, -0.1529), os = Vector3.new(9.9466, 4.3290, 8.6547), nc = Vector3.new(-0.0361, 2.0613, -0.1529), ns = Vector3.new(9.9466, 4.3332, 8.6547) },
+		["WildGrassClump"] = { n = "LiteWildGrass", oc = Vector3.new(-7.0406, 2.3696, 0.1863), os = Vector3.new(2.8865, 4.7391, 3.3378), nc = Vector3.new(-7.0421, 2.3696, 0.1995), ns = Vector3.new(2.8876, 4.7391, 3.3144) },
+	}
+	local root = Workspace:FindFirstChild("TempleLobby")
+	local forest = root and root:FindFirstChild("Forest")
+	if not (root and forest) then
+		return "no TempleLobby.Forest"
+	end
+	local SS = game:GetService("ServerStorage")
+	local store = SS:FindFirstChild("ImportedProps") or Instance.new("Folder")
+	store.Name = "ImportedProps"
+	store.Parent = SS
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == "LobbyFarVeg" then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+	end
+	src = src or store:FindFirstChild("LobbyFarVeg")
+	if not src then
+		return "import assets/models/LobbyFarVeg/upload/LobbyFarVeg.fbx first (or pass the Model asset id)"
+	end
+	local parts: { [string]: MeshPart } = {}
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("MeshPart") then
+			parts[d.Name] = parts[d.Name] or d
+		end
+	end
+	for _, v in pairs(D) do
+		if not parts[v.n] then
+			return "imported model has no " .. v.n
+		end
+	end
+	-- importer หมุนทั้งชุด 180° ได้: เทียบตำแหน่งชิ้นกับแบบ
+	local got = parts.FarBananaClump_Base.Position - parts.FarBananaClump.Position
+	local want = D.BananaClump_Base.nc - D.BananaClump.nc
+	local flip = if Vector3.new(got.X, 0, got.Z):Dot(Vector3.new(want.X, 0, want.Z)) < 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity
+	local counts: { [string]: number } = {}
+	local noDouble = 0
+	local function swap(old: MeshPart)
+		local v = D[old.Name]
+		if not v or old:GetAttribute("FarVeg") then
+			return
+		end
+		local tpl = parts[v.n]
+		local k = old.Size.X / v.os.X
+		local np = tpl:Clone()
+		for _, c in ipairs(np:GetChildren()) do
+			c:Destroy()
+		end
+		np.Name = old.Name
+		np.TextureID = old.TextureID
+		np.Color = old.Color
+		np.Material = old.Material
+		np.Size = v.ns * k
+		np.CFrame = old.CFrame * CFrame.new((v.nc - v.oc) * k) * flip * tpl.CFrame.Rotation
+		np.Anchored = true
+		np.CanCollide = false
+		np.CanTouch = false
+		np.CanQuery = false
+		np.CastShadow = false
+		np.Transparency = old.Transparency
+		local okD = pcall(function()
+			(np :: any).DoubleSided = true
+		end)
+		if not okD then
+			noDouble += 1
+		end
+		pcall(function()
+			(np :: any).RenderFidelity = Enum.RenderFidelity.Automatic
+			;(np :: any).CollisionFidelity = Enum.CollisionFidelity.Box
+		end)
+		for _, c in ipairs(old:GetChildren()) do
+			c:Clone().Parent = np
+		end
+		for a, val in pairs(old:GetAttributes()) do
+			pcall(function()
+				np:SetAttribute(a, val)
+			end)
+		end
+		for _, t in ipairs(old:GetTags()) do
+			np:AddTag(t)
+		end
+		np:SetAttribute("FarVeg", true)
+		local m = old.Parent :: Model
+		local isPrimary = m:IsA("Model") and m.PrimaryPart == old
+		local pivot = m:GetPivot()
+		np.Parent = m
+		old:Destroy()
+		if isPrimary then
+			m.PrimaryPart = np
+			np.PivotOffset = np.CFrame:ToObjectSpace(pivot)
+		end
+		counts[np.Name] = (counts[np.Name] or 0) + 1
+	end
+	for _, tree in ipairs(forest:GetChildren()) do
+		local p = if tree:IsA("Model") then tree:GetPivot().Position else Vector3.zero
+		if tree:GetAttribute("KeepLeafCards") or (p.Z >= 85 and math.abs(p.X) <= 125) then
+			continue
+		end
+		for _, c in ipairs(tree:GetChildren()) do
+			if c:IsA("MeshPart") then
+				swap(c)
+			end
+		end
+	end
+	-- หญ้า: เฉพาะกอที่ไกลจากพื้นที่เดินได้ (ลาน / หน้าโบสถ์ / ลานหน้าประตู ตามกำแพงล่องหน)
+	local ZONES = { { -63, 63, -21, 90 }, { -27, 27, -97, -20 }, { -21, 21, 88, 121 } }
+	local function away(p: Vector3): number
+		local best = math.huge
+		for _, z in ipairs(ZONES) do
+			local dx = math.max(z[1] - p.X, 0, p.X - z[2])
+			local dz = math.max(z[3] - p.Z, 0, p.Z - z[4])
+			best = math.min(best, math.sqrt(dx * dx + dz * dz))
+		end
+		return best
+	end
+	local keptGrass = 0
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("MeshPart") and (d.Name == "WildGrassClump" or d.Name == "LemongrassClump") and not d:GetAttribute("FarVeg") then
+			if away(d.Position) >= 12 then
+				swap(d)
+			else
+				keptGrass += 1
+			end
+		end
+	end
+	if (src :: Instance).Parent ~= store then
+		local prev = store:FindFirstChild("LobbyFarVeg")
+		if prev then
+			prev:Destroy()
+		end
+		(src :: Instance).Name = "LobbyFarVeg"
+		;(src :: Instance).Parent = store
+	end
+	local s = {}
+	for n, c in pairs(counts) do
+		table.insert(s, n .. "=" .. c)
+	end
+	return string.format("ok %s keptGrass=%d noDoubleSided=%d flip=%s", table.concat(s, " "), keptGrass, noDouble, tostring(flip ~= CFrame.identity))
+end
+
+-- ลบหน้าซ้ำของต้นไม้ (ผู้ใช้ 2026-11-24) ใช้ได้ทั้ง 2 place รันซ้ำได้
+--   tools/blender/veg_dedupe.py -> assets/models/VegDedupe/upload/VegDedupe.fbx: mesh เดิมทุกจุด ลบเฉพาะหน้าที่ทับกัน/ยุบเป็นเส้น
+--   ใช้ MeshPart.DoubleSided แทน ลาย (SurfaceAppearance) / tag / attribute / การชนเดิม · กอกล้วย 17,536 -> 9,344 · ข้าว 1,600 -> 320
+--   ชิ้นที่เป็น FarVeg (แบบเบาของ Lobby) ไม่แตะ · แม่แบบเดิมใน ServerStorage.ImportedProps ไม่แตะ (ใช้คืนได้)
+function MapBuilder.SwapDedupedVeg(assetId: number?): string
+	local D: { [string]: { c: Vector3, s: Vector3 } } = { -- จาก log "LUA" ของ veg_dedupe.py (กล่องเท่าเดิมทุกชิ้น)
+		BananaClump = { c = Vector3.new(0.2481, 6.5050, -1.0887), s = Vector3.new(13.3279, 13.6257, 14.0768) },
+		BananaClump_B = { c = Vector3.new(-0.4940, 5.7521, 0.4335), s = Vector3.new(13.3797, 12.1317, 12.5589) },
+		BananaClump_Base = { c = Vector3.new(2.0778, 5.2469, 0.3546), s = Vector3.new(14.3257, 11.1420, 12.9780) },
+		LemongrassClump = { c = Vector3.new(-0.0361, 2.0586, -0.1529), s = Vector3.new(9.9466, 4.3290, 8.6547) },
+		WildGrassClump = { c = Vector3.new(-7.0406, 2.3696, 0.1863), s = Vector3.new(2.8865, 4.7391, 3.3378) },
+		BananaBlossom = { c = Vector3.new(0.2911, 1.9659, 0.2539), s = Vector3.new(1.8143, 4.1318, 1.6905) },
+		RiceTile = { c = Vector3.new(-0.0616, 0.5496, 0.0484), s = Vector3.new(5.6533, 1.4993, 5.5875) },
+	}
+	local SS = game:GetService("ServerStorage")
+	local store = SS:FindFirstChild("ImportedProps") or Instance.new("Folder")
+	store.Name = "ImportedProps"
+	store.Parent = SS
+	local src: Instance? = nil
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("Model") and d.Name == "VegDedupe" then
+			src = d
+			break
+		end
+	end
+	if not src and assetId then
+		local pkg = game:GetService("InsertService"):LoadAsset(assetId)
+		src = pkg:FindFirstChildWhichIsA("Model") or pkg
+	end
+	src = src or store:FindFirstChild("VegDedupe")
+	if not src then
+		return "import assets/models/VegDedupe/upload/VegDedupe.fbx first (or pass the Model asset id)"
+	end
+	local parts: { [string]: MeshPart } = {}
+	for _, d in ipairs((src :: Instance):GetDescendants()) do
+		if d:IsA("MeshPart") then
+			parts[d.Name] = parts[d.Name] or d
+		end
+	end
+	for n in pairs(D) do
+		if not parts["DD_" .. n] then
+			return "imported model has no DD_" .. n
+		end
+	end
+	-- importer หมุนทั้งชุด 180° ได้: เทียบตำแหน่งชิ้นกับแบบ
+	local got = parts.DD_BananaClump_Base.Position - parts.DD_BananaClump.Position
+	local want = D.BananaClump_Base.c - D.BananaClump.c
+	local flip = if Vector3.new(got.X, 0, got.Z):Dot(Vector3.new(want.X, 0, want.Z)) < 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity
+	local counts: { [string]: number } = {}
+	local skipped, noDouble = 0, 0
+	local list: { MeshPart } = {}
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("MeshPart") and D[d.Name] and not d:GetAttribute("FarVeg") and not d:GetAttribute("VegDedupe") and not d:IsDescendantOf(src :: Instance) then
+			table.insert(list, d)
+		end
+	end
+	for _, old in ipairs(list) do
+		local def = D[old.Name]
+		-- ชิ้นชื่อเดียวกันแต่สัดส่วนไม่ตรงแบบ (โมเดลอื่น) ข้าม
+		local ry, rz = old.Size.Y / old.Size.X, old.Size.Z / old.Size.X
+		if math.abs(ry - def.s.Y / def.s.X) > 0.02 * ry + 0.01 or math.abs(rz - def.s.Z / def.s.X) > 0.02 * rz + 0.01 then
+			skipped += 1
+			continue
+		end
+		local tpl = parts["DD_" .. old.Name]
+		local np = tpl:Clone()
+		for _, c in ipairs(np:GetChildren()) do
+			c:Destroy()
+		end
+		np.Name = old.Name
+		np.TextureID = old.TextureID
+		np.Color = old.Color
+		np.Material = old.Material
+		np.MaterialVariant = old.MaterialVariant
+		np.Size = old.Size
+		np.CFrame = old.CFrame * flip * tpl.CFrame.Rotation
+		np.Anchored = old.Anchored
+		np.CanCollide = old.CanCollide
+		np.CanTouch = old.CanTouch
+		np.CanQuery = old.CanQuery
+		np.CastShadow = old.CastShadow
+		np.Transparency = old.Transparency
+		np.Reflectance = old.Reflectance
+		np.CollisionGroup = old.CollisionGroup
+		if not pcall(function()
+			(np :: any).DoubleSided = true
+		end) then
+			noDouble += 1
+		end
+		pcall(function()
+			(np :: any).RenderFidelity = old.RenderFidelity
+			;(np :: any).CollisionFidelity = old.CollisionFidelity
+		end)
+		for _, c in ipairs(old:GetChildren()) do
+			c:Clone().Parent = np
+		end
+		for a, val in pairs(old:GetAttributes()) do
+			pcall(function()
+				np:SetAttribute(a, val)
+			end)
+		end
+		for _, t in ipairs(old:GetTags()) do
+			np:AddTag(t)
+		end
+		np:SetAttribute("VegDedupe", true)
+		local m = old.Parent :: Instance
+		local isPrimary = m:IsA("Model") and m.PrimaryPart == old
+		local pivot = if m:IsA("Model") then m:GetPivot() else nil
+		np.PivotOffset = old.PivotOffset
+		np.Parent = m
+		old:Destroy()
+		if isPrimary and pivot then
+			(m :: Model).PrimaryPart = np
+			np.PivotOffset = np.CFrame:ToObjectSpace(pivot)
+		end
+		counts[np.Name] = (counts[np.Name] or 0) + 1
+	end
+	if (src :: Instance).Parent ~= store then
+		local prev = store:FindFirstChild("VegDedupe")
+		if prev then
+			prev:Destroy()
+		end
+		(src :: Instance).Name = "VegDedupe"
+		;(src :: Instance).Parent = store
+	end
+	local s = {}
+	for n, c in pairs(counts) do
+		table.insert(s, n .. "=" .. c)
+	end
+	return string.format("ok %s skipped=%d noDoubleSided=%d flip=%s", table.concat(s, " "), skipped, noDouble, tostring(flip ~= CFrame.identity))
+end
+
+-- แมพปั๊ม: ใบไม้ชายทุ่งนอกกำแพงล่องหนไม่ต้องชน (ผู้ใช้ 2026-11-24)
+--   ลำต้น/พื้นถนนไม่แตะ: ผีฉากใช้ของที่ CanCollide เช็กว่าบังสายตาหรือไม่
+function MapBuilder.SoftenBorderFoliage(): number
+	local env = Workspace:FindFirstChild("MapEnvironment")
+	local otl = env and env:FindFirstChild("OuterTreeLine")
+	local n = 0
+	for _, d in ipairs(if otl then otl:GetDescendants() else {}) do
+		if d:IsA("BasePart") and d.CanCollide and (d.Name == "Banana" or d.Name == "Grass" or d.Name == "Leaf" or d.Name == "Leaves") then
+			local p = d.Position
+			if p.X < -48 or p.X > 47 or p.Z < -40 or p.Z > 42 then
+				d.CanCollide = false
+				d.CanTouch = false
+				n += 1
+			end
+		end
+	end
+	return n
 end
 
 -- กอกล้วย ลงสีใหม่ v2 (ผู้ใช้ 2026-11-08 "ต้นกล้วยข้างร้านรูปลักษณ์โอเคแล้ว ช่วยลงสี/เฉดให้สมจริงกว่านี้")

@@ -60,6 +60,8 @@ local SETTINGS: { [string]: { default: any, check: (any) -> any } } = {
 	},
 	-- เลือกภาษาเองแล้วหรือยัง (หน้าเลือกภาษาก่อนฉากเปิด Lobby ครั้งแรก: LobbyIntro.client) ยืนยันแล้ว = ไม่ถามอีก
 	LangChosen = { default = false, check = bool },
+	-- เห็นคำแนะนำตั้งกราฟิกแล้ว (lobby/client/GraphicsTip ขึ้นครั้งเดียว)
+	GfxTipSeen = { default = false, check = bool },
 	-- เรื่องที่เคยสอนแล้ว (TutorialController): "flash,shop,gen,fuel,offer,ghost" สอนแล้วไม่สอนซ้ำ
 	TutSeen = {
 		default = "",
