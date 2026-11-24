@@ -123,15 +123,53 @@ SoundBank.DialogueUploadedIds = {
 	-- สั่งน้ำมัน ตามประเภทยานพาหนะ
 	Walker_Order_1 = "rbxassetid://80383433386927",
 	Walker_Order_2 = "rbxassetid://106758192539257",
-	Walker_Order_3 = "rbxassetid://73303762715875",
+	Walker_Order_3 = "rbxassetid://115613119580537", -- อัดใหม่ 2026-11-25 แทน 73303762715875 ที่ Roblox บล็อก
 	Walker_Order_4 = "rbxassetid://116836694647618",
 	Car_Order_1 = "rbxassetid://116893915864843",
 	Car_Order_2 = "rbxassetid://138787121928225",
 	Car_Order_3 = "rbxassetid://126135755891811",
 	TukTuk_Order_1 = "rbxassetid://127881304792192",
-	TukTuk_Order_2 = "rbxassetid://121497903379847",
+	-- TukTuk_Order_2 = "rbxassetid://121497903379847", -- Roblox บล็อก (403 Moderated เช็ก 2026-11-24) ห้ามอัปไฟล์เดิมซ้ำ อัดใหม่แล้วใส่ id ใหม่
 	Bicycle_Order_1 = "rbxassetid://99921307413540",
 	Bicycle_Order_2 = "rbxassetid://123603068735237",
+
+	-- เสียงลุงสมหมาย (_EM, อัป 2026-11-25 ชุดที่ 2 แทนชุดแรก) ไม่มีไฟล์ = ลุงขึ้นซับอย่างเดียว (รายการ: VoiceScript.xlsx ชีต ต้องพากย์เพิ่ม)
+	Pay_1_EM = "rbxassetid://91998187779211",
+	Pay_2_EM = "rbxassetid://124325100447016",
+	Pay_3_EM = "rbxassetid://78642656898111",
+	Bicycle_Order_1_EM = "rbxassetid://91365068794606",
+	Impatient_1_EM = "rbxassetid://128133573933345",
+	Impatient_2_EM = "rbxassetid://128067431942990",
+	Impatient_3_EM = "rbxassetid://139176667532718",
+	Rejected_1_EM = "rbxassetid://73984558669716",
+	Rejected_2_EM = "rbxassetid://138634363483122",
+	Wrong_NeedPetrol_EM = "rbxassetid://131449058258064",
+	Wrong_NeedDiesel_EM = "rbxassetid://109640307939568",
+	Wrong_NeedAir_EM = "rbxassetid://103410393019317",
+	Wrong_NeedFuel_EM = "rbxassetid://103204283253554",
+	Wrong_GiveUp_EM = "rbxassetid://119940113313930",
+	NoOne_1_EM = "rbxassetid://136795696759271",
+	NoOne_2_EM = "rbxassetid://70445746084348",
+	Pay_Slow_EM = "rbxassetid://135078461990314",
+	Shutter_Open_1_EM = "rbxassetid://121569272582772",
+	Shutter_Open_2_EM = "rbxassetid://122050496761588",
+	Shutter_Open_3_EM = "rbxassetid://88638156361927",
+	Shutter_Closed_1_EM = "rbxassetid://131295504655061",
+	Shutter_Closed_2_EM = "rbxassetid://93608661055887",
+	Shutter_Closed_3_EM = "rbxassetid://102884380825871",
+	Pray_Ask_1_EM = "rbxassetid://129876108350849",
+	Pray_Ask_2_EM = "rbxassetid://137850937040744",
+	Pray_Ask_3_EM = "rbxassetid://130419171363960",
+	Pray_Ask_4_EM = "rbxassetid://106926843745043",
+	Pray_After_1_EM = "rbxassetid://133002150230067",
+	Pray_After_2_EM = "rbxassetid://137911645834983",
+	Pray_Ghost_1_EM = "rbxassetid://110561387633710",
+	Pray_Ghost_2_EM = "rbxassetid://85023124744066",
+	Pray_Ghost_3_EM = "rbxassetid://90251097449379",
+	Pray_GhostAfter_1_EM = "rbxassetid://130445981191078",
+	Pray_GhostAfter_2_EM = "rbxassetid://76282167137250",
+	Ghost_Chased_EM = "rbxassetid://125981580454255",
+	Bicycle_Order_2_EF = "rbxassetid://134779661926619",
 
 	-- จ่ายเงิน (แยกเสียงชาย/หญิงตามลูกค้า)
 	Pay_1_M = "rbxassetid://89727972519219",
@@ -195,9 +233,9 @@ SoundBank.DialogueUploadedIds = {
 	Pray_Ask_3_M = "rbxassetid://106825157155459",
 	Pray_Ask_3_F = "rbxassetid://84278109213466",
 	Pray_Ask_4_M = "rbxassetid://125312309692669",
-	Pray_Ask_4_F = "rbxassetid://131695284992255",
+	-- Pray_Ask_4_F = "rbxassetid://131695284992255", -- Roblox บล็อก (403 Moderated เช็ก 2026-11-24) ห้ามอัปไฟล์เดิมซ้ำ อัดใหม่แล้วใส่ id ใหม่
 	Pray_After_1_M = "rbxassetid://103221332740357",
-	Pray_After_1_F = "rbxassetid://78994031383062",
+	Pray_After_1_F = "rbxassetid://76289113693826", -- อัดใหม่ 2026-11-25 แทน 78994031383062 ที่ Roblox บล็อก
 	Pray_After_2_M = "rbxassetid://79656601360432",
 	Pray_After_2_F = "rbxassetid://71773063993619",
 	Pray_Ghost_1_M = "rbxassetid://105448388105251",
@@ -217,7 +255,7 @@ SoundBank.DialogueUploadedIds = {
 	Pray_Summon_3 = "rbxassetid://74307670216532",
 
 	-- ฝน / คนหลบฝน (อัปเพิ่ม 2026-11-07: ไฟล์ที่ยังขาดคือ Shelter_Ask_M, Chat_Reply_1_F)
-	RainTalk_1_M = "rbxassetid://108765476380825",
+	-- RainTalk_1_M = "rbxassetid://108765476380825", -- Roblox บล็อก (403 Moderated เช็ก 2026-11-24) ห้ามอัปไฟล์เดิมซ้ำ อัดใหม่แล้วใส่ id ใหม่
 	RainTalk_1_F = "rbxassetid://106808288221499",
 	RainTalk_2_M = "rbxassetid://117875649538365",
 	RainTalk_2_F = "rbxassetid://77230041726231",
@@ -1185,6 +1223,105 @@ local function resolveVoiceProfileName(speakerInfo: any, dialogueKey: string): s
 	return "Boonmee"
 end
 
+-- ---------------------------------------------------------------- ชุดเสียง (Voice Cast, ผู้ใช้ 2026-11-24)
+-- เดิมเลือกไฟล์จากเพศอย่างเดียว (Pay_1_M) ลุงสมหมายจึงสลับเสียงลุง/เสียงหนุ่มในลูกค้ารายเดียว
+--   speaker.cast (CoreLoop.CHARACTERS) = เสียงใคร · ค้นไฟล์: <คีย์><suffix> ตามลำดับ -> <คีย์> ตรงๆ ถ้าเป็นบทของ cast นี้ (LineOwner)
+--   strict = ไม่มีไฟล์ของตัวเอง ให้ขึ้นซับอย่างเดียว ไม่ยืมเสียงคนอื่น (ไม่มีวันสลับเสียง)
+--   เพิ่มเสียงลุง: ใส่ id ใน DialogueUploadedIds ชื่อ <คีย์>_EM เช่น Pay_1_EM (รายการ: assets/sounds/VoiceScript.xlsx ชีต "เสียงลุง (_EM)")
+SoundBank.VoiceCasts = {
+	elder_m = { gender = "M", suffix = { "_EM" }, strict = true },
+	adult_m = { gender = "M", suffix = { "_M" } },
+	teen_m = { gender = "M", suffix = { "_TM", "_M" } },
+	elder_f = { gender = "F", suffix = { "_EF", "_F" } },
+	adult_f = { gender = "F", suffix = { "_AF", "_F" } },
+} :: { [string]: { gender: string, suffix: { string }, strict: boolean? } }
+
+-- บทที่อัดไฟล์เดียว (ไม่มี _M/_F) เป็นเสียงของใคร ตามคอลัมน์ "เสียงใคร" ใน VoiceScript.xlsx
+SoundBank.LineOwner = {
+	Greet_Uncle = "elder_m", Normal_Uncle = "elder_m", Walker_Order_2 = "elder_m", Car_Order_2 = "elder_m", TukTuk_Order_1 = "elder_m",
+	Greet_Farmer = "adult_m", Normal_Farmer = "adult_m", Walker_Order_1 = "adult_m", Walker_Order_Rain_1 = "adult_m",
+	Car_Order_1 = "adult_m", Car_Order_3 = "adult_m", TukTuk_Order_2 = "adult_m",
+	Greet_Student = "teen_m", Normal_Student = "teen_m", Walker_Order_4 = "teen_m", Bicycle_Order_1 = "teen_m",
+	Greet_Aunt = "elder_f", Normal_Aunt = "elder_f", Walker_Order_3 = "elder_f", Walker_Order_Rain_2 = "elder_f",
+	Bicycle_Order_2 = "adult_f", -- น้าน้อย
+	Ghost_Chased = "adult_f", -- ไฟล์นี้เสียงผีผู้หญิง ผีชายใช้ Ghost_Chased_M / _EM
+} :: { [string]: string }
+
+local function castOf(speakerInfo: any): (string?, any)
+	local name = type(speakerInfo) == "table" and speakerInfo.cast or nil
+	local cast = if type(name) == "string" then SoundBank.VoiceCasts[name] else nil
+	return if cast then name else nil, cast
+end
+
+-- ชื่อไฟล์ที่ใช้ได้ของบทนี้ เรียงจากตรงตัวที่สุด · เพศ = ใช้เมื่อคนพูดไม่มี cast (แบบเดิม)
+local function voiceCandidates(key: string, speakerInfo: any, gender: string): { string }
+	local castName, cast = castOf(speakerInfo)
+	if not cast then
+		return { key .. "_" .. gender, key }
+	end
+	local list = {}
+	local owner = SoundBank.LineOwner[key]
+	if owner == castName then
+		table.insert(list, key)
+	end
+	for _, s in ipairs(cast.suffix) do
+		table.insert(list, key .. s)
+	end
+	if not cast.strict and owner ~= castName then
+		local o = if owner then SoundBank.VoiceCasts[owner] else nil
+		if not o or o.gender == cast.gender then
+			table.insert(list, key) -- ยืมเสียงเพศเดียวกัน
+		end
+	end
+	return list
+end
+
+-- บทนี้ตรงกับเสียงของคนพูดแค่ไหน: 3 = ไฟล์ของตัวเอง · 1 = ยืมเสียงคนอื่น · 0 = ไม่มีเสียง (นับเฉพาะเสียงพากย์จริง)
+local function lineRank(key: string, speakerInfo: any): number
+	local ids = SoundBank.DialogueUploadedIds
+	local function has(k: string): boolean
+		local id = ids[k]
+		return type(id) == "string" and id ~= ""
+	end
+	local castName, cast = castOf(speakerInfo)
+	if not cast then
+		return 3
+	end
+	if (SoundBank.LineOwner[key] == castName and has(key)) or has(key .. cast.suffix[1]) then
+		return 3
+	end
+	for _, k in ipairs(voiceCandidates(key, speakerInfo, cast.gender)) do
+		if has(k) then
+			return 1
+		end
+	end
+	return 0
+end
+
+-- สุ่มบทจากรายการ โดยเลือกเฉพาะบทที่ตรงเสียงคนพูดที่สุดก่อน (ไม่มีเลย = สุ่มตามปกติ ขึ้นซับอย่างเดียว)
+function SoundBank.PickLine(keys: { string }, speakerInfo: any): string
+	local best, pool = -1, {}
+	for _, k in ipairs(keys) do
+		local r = lineRank(k, speakerInfo)
+		if r > best then
+			best, pool = r, { k }
+		elseif r == best then
+			table.insert(pool, k)
+		end
+	end
+	return pool[math.random(#pool)]
+end
+
+-- คนพูดมีเสียงของตัวเองในรายการบทนี้อย่างน้อย 1 บทไหม (CoreLoop เลือกคนขับให้มีเสียงสั่งของ)
+function SoundBank.HasOwnLine(keys: { string }, speakerInfo: any): boolean
+	for _, k in ipairs(keys) do
+		if lineRank(k, speakerInfo) == 3 then
+			return true
+		end
+	end
+	return false
+end
+
 -- คิวเสียงพากย์: เล่นทีละประโยค ประโยคใหม่รอให้ประโยคก่อนพูดจบก่อน (ไฟล์พากย์คนจริงยาวกว่าเวลาซับ เลยเคยพูดทับกัน)
 local VOICE_QUEUE_MAX_WAIT = 10 -- รอคิวนานเกินนี้ (วินาที) ทิ้งประโยคนั้นไปเลย ไม่ให้เสียงช้ากว่าเหตุการณ์มากเกิน
 local VOICE_GAP = 0.15 -- เว้นจังหวะหายใจระหว่างประโยค
@@ -1292,17 +1429,27 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 	local profName = resolveVoiceProfileName(speakerInfo, dialogueKey)
 	local prof = SoundBank.VoiceProfiles[profName] or SoundBank.VoiceProfiles.Boonmee
 	local gender = if isPlayerLine then SoundBank.DetectPlayerGender(localPlr) else (prof.gender or "M")
-	local genderKey = dialogueKey .. "_" .. gender
-
-	-- 1. เช็กว่ามีไฟล์เสียงพากย์เฉพาะประโยคนี้ใน DialogueUploadedIds หรือในโฟลเดอร์ ReplicatedStorage.UploadedSounds หรือยัง
-	-- เสียงพากย์คนจริง (ใส่ id ใน DialogueUploadedIds) ดังกว่า / ความเร็วเดิม / เล่นจนจบไฟล์ ต่างจากไฟล์ TTS เดิมใน UploadedSounds
-	local dubbedId = SoundBank.DialogueUploadedIds[genderKey] or SoundBank.DialogueUploadedIds[dialogueKey]
-	if dubbedId and badVoiceIds[dubbedId] then
-		dubbedId = nil
+	-- 1. เช็กว่ามีไฟล์เสียงพากย์ของประโยคนี้ (ตามชุดเสียงของคนพูด ดู VoiceCasts) ใน DialogueUploadedIds หรือในโฟลเดอร์ UploadedSounds
+	-- เสียงพากย์คนจริง (ใส่ id ใน DialogueUploadedIds) ดังกว่า / ความเร็วเดิม / เล่นจนจบไฟล์
+	local candidates = voiceCandidates(dialogueKey, if isPlayerLine then nil else speakerInfo, gender)
+	local genderKey = candidates[1]
+	local dubbedId: string? = nil
+	for _, k in ipairs(candidates) do
+		local id = SoundBank.DialogueUploadedIds[k]
+		if type(id) == "string" and id ~= "" and not badVoiceIds[id] then
+			dubbedId, genderKey = id, k
+			break
+		end
 	end
-	local uploadedId = dubbedId
-		or findInUploadedFolder(genderKey)
-		or findInUploadedFolder(dialogueKey)
+	local uploadedId: string? = dubbedId
+	if not uploadedId then
+		for _, k in ipairs(candidates) do
+			uploadedId = findInUploadedFolder(k)
+			if uploadedId then
+				break
+			end
+		end
+	end
 	if VOICE_LOG then
 		-- VOICE|คีย์ที่เกมเรียก|ไฟล์ที่ต้องพากย์ (คีย์_M/_F)|dub = มีเสียงพากย์จริงแล้ว / tts = เสียง AI เดิม / none = ไม่มีเสียง
 		print("VOICE|" .. dialogueKey .. "|" .. genderKey .. "|" .. (if dubbedId then "dub" elseif uploadedId then "tts" else "none"))
@@ -1316,7 +1463,8 @@ function SoundBank.PlayDialogueVoice(dialogueKey: string, speakerInfo: any, head
 	end
 
 	-- 2. ถ้าเป็นประโยคตกใจ/สงสัย/หนาวฝน/โดนไล่ ให้เปล่งเสียงอุทาน ("เฮ้ย!", "ห๊า?!", "บรื๋อ...") ที่ตัวผู้พูดคนนั้น
-	if targetParent then
+	local _, speakerCast = castOf(speakerInfo)
+	if targetParent and not (speakerCast and speakerCast.strict) then -- strict: ไม่ยืมเสียงอุทานคนอื่น
 		if string.find(dialogueKey, "Wrong_") or string.find(dialogueKey, "Rejected") or string.find(dialogueKey, "Impatient_3") then
 			SoundBank.PlayReaction("Startle", gender, targetParent)
 		elseif string.find(dialogueKey, "Alone_") or string.find(dialogueKey, "WhoTalking") or string.find(dialogueKey, "ExpensiveNo") then

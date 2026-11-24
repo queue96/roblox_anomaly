@@ -122,6 +122,7 @@ local CONFIG = {
 	AnomalyFinale = 0.45,
 	BigFromProgress = 0.4, -- ผีใหญ่มาได้หลังเงินถึงเท่านี้
 	BigOmenTime = 14, -- วินาที: ก่อนผีใหญ่มา จิ้งหรีดเงียบกริบ + หมาหอนแว่วจากหลังเขา (ร้านล็อกไม่ปล่อยลูกค้าระหว่างนี้)
+	BigHintLead = 8, -- วินาที: ข้อความ Big_Soon บอกวิธีรับมือ ขึ้นก่อนผีใหญ่โผล่เท่านี้ (ผู้ใช้ 2026-11-25: เตือนเร็วขึ้น)
 	CalmAfterScare = 75, -- วินาที: หลังผีใหญ่ / ไฟกลับมา เว้นเงียบ ไม่มีไฟดับ ผีใหญ่ ผีฉาก
 	BigCustomerPause = 20, -- วินาที: หลังผีใหญ่ไปแล้ว รอเท่านี้ก่อนปล่อยลูกค้าคันต่อไป (ผู้ใช้ 2026-11-22: ผีไปปุ๊บลูกค้ามาปั๊บ)
 	BigReward = 0, -- รอดได้ทั้งทีม (เงินมาจากลูกค้าอย่างเดียว เดิม 50)
@@ -626,11 +627,12 @@ end
 
 -- ลูกค้าประจำ (ชื่อ / คำทัก / คำสั่งน้ำมัน) ผีจะปลอมเป็นหนึ่งในนี้
 local CHARACTERS = {
+	-- cast = ชุดเสียงพากย์ (SoundBank.VoiceCasts) ลูกค้า 1 รายใช้เสียงเดียวตลอด ผีที่ปลอมเป็นคนนี้ก็ใช้เสียงเดียวกัน
 	-- char = ตัวละคร (HumanNPC) ให้ตรงกับเสียงพากย์: ลุง = ตา, ป้า = ยาย, ผู้หญิง = human_female
-	{ name = "Name_Sommai", greet = "Greet_Uncle", order = "Normal_Uncle", voice = "M", char = "human_elder_male" },
-	{ name = "Name_Chaem", greet = "Greet_Aunt", order = "Normal_Aunt", voice = "F", char = "human_elder_female" },
-	{ name = "Name_Ton", greet = "Greet_Student", order = "Normal_Student", voice = "M", char = "human_base", teen = true },
-	{ name = "Name_Boonmee", greet = "Greet_Farmer", order = "Normal_Farmer", voice = "M", char = "human_base", outfit = "farmer" },
+	{ name = "Name_Sommai", greet = "Greet_Uncle", order = "Normal_Uncle", voice = "M", cast = "elder_m", char = "human_elder_male" },
+	{ name = "Name_Chaem", greet = "Greet_Aunt", order = "Normal_Aunt", voice = "F", cast = "elder_f", char = "human_elder_female" },
+	{ name = "Name_Ton", greet = "Greet_Student", order = "Normal_Student", voice = "M", cast = "teen_m", char = "human_base", teen = true },
+	{ name = "Name_Boonmee", greet = "Greet_Farmer", order = "Normal_Farmer", voice = "M", cast = "adult_m", char = "human_base", outfit = "farmer" },
 }
 -- ประโยคผีที่ใช้คำแทนตัวเฉพาะเพศ ต้องให้ลูกค้าเพศเดียวกันพูด (ไม่อยู่ในตาราง = ใครพูดก็ได้)
 local ANOMALY_VOICE: { [string]: string } = {
@@ -646,12 +648,16 @@ local SHELTER_CHARACTERS = {
 	{ name = "Name_Noi", voice = "F", char = "human_female" }, -- น้าน้อย
 }
 local namesInUse: () -> { [string]: boolean }
-local function pickCharacter(voice: string?, list: { any }?)
+local function pickCharacter(voice: string?, list: { any }?, orders: { string }?)
 	local src = list or CHARACTERS
 	local used = if namesInUse then namesInUse() else {}
 	local pool, fallback = {}, {}
 	for _, c in ipairs(src) do
 		if voice == nil or c.voice == voice then
+			-- orders: เอาเฉพาะคนที่มีเสียงตัวเองพูดบทสั่งแบบนี้ (ไม่มีเลยสักคน = ไม่กรอง)
+			if orders and not SoundBank.HasOwnLine(orders, c) then
+				continue
+			end
 			table.insert(fallback, c)
 			if not used[c.name] then
 				table.insert(pool, c)
@@ -660,6 +666,9 @@ local function pickCharacter(voice: string?, list: { any }?)
 	end
 	if #pool > 0 then
 		return pick(pool)
+	end
+	if orders and #fallback == 0 then
+		return pickCharacter(voice, list)
 	end
 	return pick(if #fallback > 0 then fallback else src)
 end
@@ -814,7 +823,7 @@ local function toggleShutter(wantOpen: boolean, who: string?)
 			shutterRejectThread = nil
 			print("↩️ เปิดแผงทันเวลา! ยกเลิกการนับถอยหลังปฏิเสธ")
 			if currentVehicle and not decision and not currentVehicleIsAnomaly and currentSpeaker then
-				task.spawn(CoreLoop.say, pick({ "Shutter_Open_1", "Shutter_Open_2", "Shutter_Open_3" }), currentSpeaker, nil, 2.2) -- ไม่หน่วงการยกแผง
+				task.spawn(CoreLoop.say, SoundBank.PickLine({ "Shutter_Open_1", "Shutter_Open_2", "Shutter_Open_3" }, currentSpeaker), currentSpeaker, nil, 2.2) -- ไม่หน่วงการยกแผง
 			end
 		end
 		openShutter()
@@ -839,7 +848,7 @@ local function toggleShutter(wantOpen: boolean, who: string?)
 					if currentVehicleIsAnomaly then
 						CoreLoop.say("...", currentSpeaker, nil, 2.0)
 					else
-						CoreLoop.say(pick({ "Shutter_Closed_1", "Shutter_Closed_2", "Shutter_Closed_3" }), currentSpeaker, nil, 2.2)
+						CoreLoop.say(SoundBank.PickLine({ "Shutter_Closed_1", "Shutter_Closed_2", "Shutter_Closed_3" }, currentSpeaker), currentSpeaker, nil, 2.2)
 					end
 				end
 			end)
@@ -1841,9 +1850,9 @@ local function serviceTarget(service: string): Vector3
 end
 
 -- คนเดินมาซื้อน้ำมันใส่แกลลอน: บอกว่าจะเอาไปเติมอะไร
--- แต่ละไฟล์อัดเสียงคนเดียว (ดู assets/sounds/VoiceScript.xlsx) จึงแยกตามเพศคนพูด ไม่งั้นผู้หญิงจะพูดเป็นเสียงผู้ชาย
-local WALKER_ORDERS = { M = { "Walker_Order_1", "Walker_Order_2", "Walker_Order_4" }, F = { "Walker_Order_3" } }
-local WALKER_ORDERS_RAIN = { M = { "Walker_Order_Rain_1" }, F = { "Walker_Order_Rain_2" } }
+-- แต่ละไฟล์อัดเสียงคนเดียว (SoundBank.LineOwner) SoundBank.PickLine เลือกบทที่เป็นเสียงของลูกค้าคนนั้น
+local WALKER_ORDERS = { "Walker_Order_1", "Walker_Order_2", "Walker_Order_3", "Walker_Order_4" }
+local WALKER_ORDERS_RAIN = { "Walker_Order_Rain_1", "Walker_Order_Rain_2" }
 
 local function backDir(): Vector3
 	local stop = stopPoint.Position
@@ -1856,7 +1865,7 @@ local BICYCLE_TEMPLATES = { "ThaiBicycleRed", "ThaiBicycleBlue" }
 -- รถยนต์ / ตุ๊กตุ๊ก มีแต่เสียงผู้ชาย spawnCustomer จึงสุ่มคนขับเฉพาะผู้ชาย
 local CAR_ORDERS = { "Car_Order_1", "Car_Order_2", "Car_Order_3" }
 local TUKTUK_ORDERS = { "TukTuk_Order_1", "TukTuk_Order_2" }
-local BICYCLE_ORDERS = { M = { "Bicycle_Order_1" }, F = { "Bicycle_Order_2" } }
+local BICYCLE_ORDERS = { "Bicycle_Order_1", "Bicycle_Order_2" }
 
 -- ไฟหน้าส่องถนนให้เห็นแสงมาก่อนตัวรถ: ดันจุดกำเนิดแสงออกไปหน้าเลนส์ (เดิมอยู่กลางชิ้นไฟที่ฝังในตัวถัง
 -- SpotLight ที่เปิดเงาจึงโดนตัวถังบังจนแทบไม่มีแสงลงพื้น) แล้วส่องไกลขึ้น
@@ -2109,7 +2118,12 @@ local function spawnCustomer(kind: string?)
 	-- เลือกคนก่อน แล้วสร้างตัวละครให้ตรงกับเสียงพากย์ (ชาย/หญิง/คนแก่)
 	-- ผีพูดเหมือนคนปกติทุกประโยค ไม่มีคำใบ้ (ผู้ใช้ 2026-11-03: ให้รู้ว่าเป็นผีจากการเห็นตัวเองเท่านั้น)
 	local useAnomalyLine = false
-	local who = pickCharacter(if k == "car" or k == "tuktuk" then "M" else nil)
+	local orderList: { string }? = if k == "walker" then (if raining then WALKER_ORDERS_RAIN else WALKER_ORDERS)
+		elseif k == "car" then CAR_ORDERS
+		elseif k == "tuktuk" then TUKTUK_ORDERS
+		elseif k == "bicycle" then BICYCLE_ORDERS
+		else nil
+	local who = pickCharacter(if k == "car" or k == "tuktuk" then "M" else nil, nil, orderList)
 	local look = { char = who.char, teen = who.teen, outfit = who.outfit }
 	local v: Model
 	local service = "petrol"
@@ -2171,16 +2185,7 @@ local function spawnCustomer(kind: string?)
 	-- praying doesn't show this customer's ghost parts yet (client/PrayerController checks the tag); serveCustomer
 	-- lifts it a random while after they stop at the shop, so players can't tell from the road (user 2026-11-05)
 	CollectionService:AddTag(v :: Model, "VeilLock")
-	local order = who.order
-	if k == "walker" then
-		order = pick((if raining then WALKER_ORDERS_RAIN else WALKER_ORDERS)[who.voice])
-	elseif k == "car" then
-		order = pick(CAR_ORDERS)
-	elseif k == "tuktuk" then
-		order = pick(TUKTUK_ORDERS)
-	elseif k == "bicycle" then
-		order = pick(BICYCLE_ORDERS[who.voice])
-	end
+	local order = if orderList then SoundBank.PickLine(orderList, who) else who.order
 	local c: Customer = {
 		v = v,
 		kind = k,
@@ -2889,7 +2894,7 @@ local function waitDecisionImpatient(c: Customer, speaker, annoyed: number, prom
 		local waited = os.clock() - promptsAt -- นับจากตอนปุ่มเปิด (รวมช่วงถามราคา)
 		if annoyed < 1 and waited > CONFIG.ImpatientAfter[1] and not prayingNear then
 			annoyed = 1
-			say(pick({ "Impatient_1", "Impatient_2" }), speaker)
+			say(SoundBank.PickLine({ "Impatient_1", "Impatient_2" }, speaker), speaker)
 		elseif annoyed < 2 and waited > CONFIG.ImpatientAfter[2] and not prayingNear then
 			annoyed = 2
 			say("Impatient_3", speaker)
@@ -2928,11 +2933,11 @@ local function watchPrayers(c: Customer, speaker: { [string]: string }, alive: (
 				CoreLoop.prayReactNextAt = os.clock() + CONFIG.PrayReactCooldown
 				local ghostLine = c.ghost and math.random() < CONFIG.PrayGhostLineChance
 				print("🙏 ลูกค้าเห็น [" .. p.Name .. "] พนมมือ" .. (if ghostLine then " (ผีไม่ชอบ)" else ""))
-				say(pick(if ghostLine then PRAY_GHOST else PRAY_ASK), speaker, nil, 2.8)
+				say(SoundBank.PickLine(if ghostLine then PRAY_GHOST else PRAY_ASK, speaker), speaker, nil, 2.8)
 				if not alive() then
 					break
 				end
-				say(pick(if ghostLine then PRAY_GHOST_AFTER else PRAY_AFTER), speaker, nil, 2.6)
+				say(SoundBank.PickLine(if ghostLine then PRAY_GHOST_AFTER else PRAY_AFTER, speaker), speaker, nil, 2.6)
 				break
 			end
 		end
@@ -2958,7 +2963,7 @@ local function serveCustomer(c: Customer)
 	end
 	decisionBy = nil
 	local who = c.who
-	local speaker = { name = who.name, voice = who.voice, ghost = ghost }
+	local speaker = { name = who.name, voice = who.voice, cast = who.cast, ghost = ghost }
 	currentSpeaker = speaker
 	local arrivedAt = os.clock()
 	task.delay(rand(CONFIG.RevealDelay), function()
@@ -2997,7 +3002,7 @@ local function serveCustomer(c: Customer)
 
 		local raining = Weather.IsRaining()
 		if raining and math.random() < 0.5 then
-			say(pick({ "RainTalk_1", "RainTalk_2", "RainTalk_3" }), speaker, nil, 2.6)
+			say(SoundBank.PickLine({ "RainTalk_1", "RainTalk_2", "RainTalk_3" }, speaker), speaker, nil, 2.6)
 		end
 
 		if not present or gameOver or decision then return end
@@ -3007,7 +3012,7 @@ local function serveCustomer(c: Customer)
 			local shSpeaker = { name = sh.who.name, voice = sh.who.voice, ghost = sh.ghost }
 			-- (ผี/คนปกติคุยเหมือนกัน: ไม่ใบ้ด้วยข้อความ)
 			say(pick({ "Shelter_ToCustomer_1", "Shelter_ToCustomer_2" }), shSpeaker, nil, 2.6, getHead(sh.v))
-			say(pick({ "Chat_Reply_1", "Chat_Reply_2" }), speaker, nil, 2.4)
+			say(SoundBank.PickLine({ "Chat_Reply_1", "Chat_Reply_2" }, speaker), speaker, nil, 2.4)
 		end
 
 		if not present or gameOver or decision then return end
@@ -3025,7 +3030,7 @@ local function serveCustomer(c: Customer)
 		-- คิวคันหลังแซวให้รีบ
 		local nextInLine = queue[2]
 		if nextInLine and nextInLine.queuedSince and os.clock() - nextInLine.queuedSince > 6 and math.random() < 0.4 then
-			say("Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
+			say("Queue_Chime", { name = nextInLine.who.name, voice = nextInLine.who.voice, cast = nextInLine.who.cast, ghost = nextInLine.ghost }, nil, 2.4, getHead(nextInLine.v))
 		end
 	end)
 
@@ -3103,7 +3108,7 @@ local function serveCustomer(c: Customer)
 		end
 		if ghost then
 			-- เติมให้ผี: ธูปดับ 1 ดอก + ผีหลอก (ไม่หักเงิน)
-			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price }, 0.6)
+			say(SoundBank.PickLine({ "Pay_1", "Pay_2", "Pay_3" }, speaker), speaker, { amount = price }, 0.6)
 			-- ผีค่อยๆ เผยร่าง + ท่าก่อนหลอก (ทุกเครื่องเห็นท่าเดียวกัน) แล้วจอผีหลอกถึงขึ้น ธูปดับตอนจอหลอกขึ้น
 			local plan = fueledPlan()
 			TriggerJumpscare:FireAllClients(c.anomaly, v, "fueled", plan)
@@ -3157,7 +3162,7 @@ local function serveCustomer(c: Customer)
 			money += price
 			local tin = interactive:FindFirstChild("MoneyTin")
 			SoundBank.PlayOneShot("CoinTinDrop1", (tin and tin:FindFirstChildWhichIsA("BasePart", true)) or pumpBody, 55, 1.5)
-			say(pick({ "Pay_1", "Pay_2", "Pay_3" }), speaker, { amount = price })
+			say(SoundBank.PickLine({ "Pay_1", "Pay_2", "Pay_3" }, speaker), speaker, { amount = price })
 			local s = pstat(decisionBy)
 			if s then
 				s.fills += 1
@@ -3198,7 +3203,7 @@ local function serveCustomer(c: Customer)
 			local lingerKind = if not gameOver then CoreLoop.Linger.Pick(#outside > 0) else "vanish"
 			local knockNow = lingerKind == "knock"
 			if not knockNow then
-				say(if #outside > 0 then "Ghost_Chased" else pick({ "Rejected_1", "Rejected_2" }), speaker)
+				say(if #outside > 0 then "Ghost_Chased" else SoundBank.PickLine({ "Rejected_1", "Rejected_2" }, speaker), speaker)
 			end
 			task.delay(if knockNow or #outside > 0 then GHOST_VANISH_AFTER else 1.6, function()
 				if v.Parent then
@@ -3221,12 +3226,12 @@ local function serveCustomer(c: Customer)
 				end
 			end)
 		else
-			say(pick({ "Rejected_1", "Rejected_2" }), speaker)
+			say(SoundBank.PickLine({ "Rejected_1", "Rejected_2" }, speaker), speaker)
 			print("😤 ปิดร้านใส่ลูกค้าปกติ อดได้เงิน")
 		end
 		broadcastHUD()
 	elseif not leaveEarly then
-		say(pick({ "NoOne_1", "NoOne_2" }), speaker)
+		say(SoundBank.PickLine({ "NoOne_1", "NoOne_2" }, speaker), speaker)
 		print("⌛ ไม่มีใครตัดสินใจ ลูกค้าขับออกไปเอง")
 	end
 	present = false
@@ -3466,7 +3471,13 @@ function CoreLoop.Big.run(kind: string?)
 		AnomalyManager.Omen()
 	end
 	local omenEnd = os.clock() + CONFIG.BigOmenTime
+	local hinted = false
 	while os.clock() < omenEnd and not gameOver and ReplicatedStorage:GetAttribute("CutsceneRunning") ~= true do
+		local left = omenEnd - os.clock()
+		if not hinted and left <= CONFIG.BigHintLead then
+			hinted = true
+			Notice:FireAllClients("Big_Soon", left) -- บอกวิธีรับมือก่อนผีโผล่ แล้วข้อความของผีตัวนั้น (Big_*_Warn) ขึ้นต่อ
+		end
 		task.wait(0.5)
 	end
 	if gameOver or ReplicatedStorage:GetAttribute("CutsceneRunning") == true then
