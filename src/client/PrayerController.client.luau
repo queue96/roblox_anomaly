@@ -60,7 +60,7 @@ local function isDriverReplacement(d: Instance): boolean
 	local a = d.Parent
 	while a and a ~= Workspace do
 		local n = a.Name
-		if n == "GhostDouble" or n == "BurnedCorpseDouble" or n == "GhostRiderModel" or n == "KrasueModel" or n == "TwistedHead" then
+		if n == "GhostDouble" or n == "BurnedCorpseDouble" or n == "GhostRiderModel" or n == "TwistedHead" then
 			return true
 		end
 		a = a.Parent

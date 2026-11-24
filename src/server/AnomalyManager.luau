@@ -695,68 +695,6 @@ AnomalyManager.Anomalies = {
 			normalOnly(head)
 		end,
 	},
-	-- 6. กระสือ: คนขับไม่มีขา มีไส้ห้อยเรืองแสงแทน
-	Anomaly_Krasue = {
-		apply = function(v)
-			local d = driverOf(v)
-			if not d then
-				return
-			end
-			-- villager driver (HumanNPC): praying shows the rigged Krasue (floating head + organs) where the driver's
-			-- head is, and the driver vanishes (the block driver with neon tubes looked like an R15 toy, user 2026-11-05)
-			if d:GetAttribute("Human") and GhostNPC.Has("Krasue") then
-				local headPos: Vector3? = nil
-				for _, x in ipairs(d:GetDescendants()) do
-					if x:IsA("Bone") and x.Name == "head" then
-						headPos = x.WorldPosition
-						break
-					end
-				end
-				if headPos then
-					-- Krasue's origin is the centre of its head; front = -Z like the vehicle
-					local m = GhostNPC.Spawn("Krasue", CFrame.new(headPos + Vector3.new(0, 0.3, 0)) * v:GetPivot().Rotation, "Float")
-					if m then
-						m.Name = "KrasueModel"
-						m.Parent = v
-						ghostOnly(m)
-						normalOnly(d)
-						return
-					end
-				end
-			end
-			local legs = d:FindFirstChild("Legs")
-			if legs then
-				normalOnly(legs)
-			end
-			local torso = d:FindFirstChild("Torso") :: BasePart?
-			if not torso then
-				return
-			end
-			local base = torso.CFrame * CFrame.new(0, -torso.Size.Y / 2, 0)
-			for i = 1, 5 do
-				local len = 1.2 + math.random() * 1.4
-				local p = Instance.new("Part")
-				p.Name = "KrasueEntrail"
-				p.Shape = Enum.PartType.Cylinder
-				p.Size = Vector3.new(len, 0.22, 0.22)
-				p.Material = Enum.Material.Neon
-				p.Color = if i % 2 == 0 then Color3.fromRGB(150, 20, 30) else Color3.fromRGB(110, 140, 40)
-				p.Anchored = true
-				p.CanCollide = false
-				p.CanQuery = false
-				local off = Vector3.new((i - 3) * 0.18, -len / 2, (math.random() - 0.5) * 0.4)
-				p.CFrame = base * CFrame.new(off) * CFrame.Angles(0, 0, math.rad(90 + math.random(-15, 15)))
-				p.Parent = d
-				ghostOnly(p)
-			end
-			local glow = Instance.new("PointLight")
-			glow.Color = Color3.fromRGB(255, 60, 40)
-			glow.Range = 6
-			glow.Brightness = 1.2
-			glow.Parent = torso
-			ghostOnly(glow)
-		end,
-	},
 	-- 8. คนขับใส่หน้ากากผีตาโขน (ร่างผี ghost_ta_khon นั่งทับคนขับ เห็นตอนพนมมือ คนขับจริงหายไป)
 	Anomaly_TaKhon = {
 		apply = function(v)
@@ -1119,8 +1057,6 @@ local VEHICLE_ONLY = {
 	Anomaly_TaKhon = true,
 	Anomaly_MirrorGhost = true,
 }
--- ชาวบ้านแบบใหม่เป็นผิวชิ้นเดียว ซ่อนแค่ขาไม่ได้ -> กระสือเกิดกับคนขับรถเท่านั้น
-local NOT_HUMAN_WALKER = { Anomaly_Krasue = true }
 -- ผีเด็กขี่คอ: ไม่สุ่มกับรถยนต์มีหลังคา (หัวเด็กจะทะลุหลังคาเก๋ง/กระบะ) ใช้กับมอไซค์และคนเดินเท้า/จักรยาน
 local NOT_CAR = { Anomaly_ShoulderChild = true }
 
@@ -1151,9 +1087,6 @@ function AnomalyManager.Fits(key: string, kind: string): boolean
 		return false
 	end
 	if NOT_CAR[key] and (kind == "car" or kind == "pickup") then
-		return false
-	end
-	if NOT_HUMAN_WALKER[key] and kind == "walker" and HumanNPC.Available() then
 		return false
 	end
 	return true
@@ -1374,11 +1307,10 @@ if scarecrow then
 end
 
 -- ตัดออกจากการสุ่ม (ยังเรียกทดสอบผ่าน ForceAnomaly ได้):
---   Anomaly_Krasue: กระสือมีเป็นผีใหญ่ (BigEvents) + ผีฉากอยู่แล้ว ผีลูกค้าซ้ำซ้อน ผู้ใช้สั่งตัด 2026-11-12
 --   Anomaly_GhostWalkIn: ผีเดินมาซื้อทั้งร่าง เห็นได้โดยไม่ต้องพนมมือ ไม่ได้ทดสอบอะไร ผู้ใช้สั่งตัด 2026-11-16
 --     (CoreLoop.CONFIG.WalkInChance = 0 · ForceAnomaly "Anomaly_GhostWalkIn" ยังสร้างร่างผีเดินมาได้)
 --   Anomaly_NoUmbrella: ตัดระบบฝนตกออกแล้ว 2026-11-16
-local RETIRED = { Anomaly_Krasue = true, Anomaly_GhostWalkIn = true, Anomaly_NoUmbrella = true }
+local RETIRED = { Anomaly_GhostWalkIn = true, Anomaly_NoUmbrella = true }
 
 AnomalyManager.Keys = {}
 for k in pairs(AnomalyManager.Anomalies) do

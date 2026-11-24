@@ -452,7 +452,6 @@ local function start()
 	local HIDDEN_ANOMALIES = {
 		Anomaly_NoUmbrella = true,
 		Anomaly_GhostWalkIn = true,
-		Anomaly_Krasue = true,
 	}
 	local ok, keys = pcall(function()
 		return HttpService:JSONDecode(ReplicatedStorage:GetAttribute("AdminAnomalies") or "[]")

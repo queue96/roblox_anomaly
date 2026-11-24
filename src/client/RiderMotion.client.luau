@@ -34,7 +34,7 @@ local FOOT_ROLL = 3.5 -- องศา: ตัวเอียงไปทาง�
 local LOOK_RANGE = 24 -- studs: หันมองคนในระยะนี้
 local LOOK_MAX = math.rad(50)
 -- ผีที่เล่นกับคอ/หัวเอง: ไม่หันมอง (ไม่งั้นทับท่าผี)
-local NO_LOOK = { Anomaly_NeckTwist = true, Anomaly_Headless = true, Anomaly_TaKhon = true, Anomaly_Krasue = true }
+local NO_LOOK = { Anomaly_NeckTwist = true, Anomaly_Headless = true, Anomaly_TaKhon = true }
 
 type Rider = {
 	v: Model,

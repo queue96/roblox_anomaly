@@ -4,7 +4,7 @@
 --   จำไว้ใน DataStore แยกต่อคน: { [anomalyKey] = จำนวนครั้งที่รอด }
 --   ส่งให้ Client ทาง Attribute บน Player: "Book" = "Anomaly_Headless:2,Anomaly_Tani:1"
 --   ปลดล็อกครั้งแรก -> Remotes.BookUnlocked:FireClient(player, key) ให้ขึ้นแจ้งเตือน
--- ทดสอบ: ServerStorage.DevDecision:Fire("book:Anomaly_Krasue") (ปลดให้ทุกคน) / Fire("bookreset")
+-- ทดสอบ: ServerStorage.DevDecision:Fire("book:Anomaly_Headless") (ปลดให้ทุกคน) / Fire("bookreset")
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")

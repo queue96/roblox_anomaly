@@ -598,7 +598,6 @@ end
 local AnomalyManager = require(script.Parent:WaitForChild("AnomalyManager"))
 local Pedestrian = require(script.Parent:WaitForChild("Pedestrian"))
 local HumanNPC = require(script.Parent:WaitForChild("HumanNPC"))
-local GhostNPC = require(script.Parent:WaitForChild("GhostNPC"))
 local Weather = require(script.Parent:WaitForChild("Weather"))
 local Power = require(script.Parent:WaitForChild("Power"))
 local AnomalyBook = require(script.Parent:WaitForChild("AnomalyBook"))
@@ -635,7 +634,6 @@ local CHARACTERS = {
 }
 -- ประโยคผีที่ใช้คำแทนตัวเฉพาะเพศ ต้องให้ลูกค้าเพศเดียวกันพูด (ไม่อยู่ในตาราง = ใครพูดก็ได้)
 local ANOMALY_VOICE: { [string]: string } = {
-	Anomaly_Krasue = "F", -- "ป้า"
 	Anomaly_Cemetery = "F", -- "จ้ะ"
 	Anomaly_Headless = "M", -- "ผม"
 	Anomaly_NeckTwist = "M",
@@ -1672,7 +1670,7 @@ devDecision.Event:Connect(function(choice: string)
 		CoreLoop.Decide(choice, "DevDecision")
 	end
 end)
--- ทดสอบผีเฉพาะตัว: ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Krasue") -> ลูกค้าคันถัดไปเป็นผีนี้
+-- ทดสอบผีเฉพาะตัว: ServerStorage.DevDecision:SetAttribute("ForceAnomaly", "Anomaly_Headless") -> ลูกค้าคันถัดไปเป็นผีนี้
 -- ("Normal" = บังคับลูกค้าปกติ)
 
 -- สถานะสำหรับทดสอบ
@@ -2158,7 +2156,7 @@ local function spawnCustomer(kind: string?)
 			end
 		end
 	end
-	if not walking and (anomaly ~= "Anomaly_Krasue" or GhostNPC.Has("Krasue")) then
+	if not walking then
 		humanizeDriver(v :: Model, look)
 	end
 	-- ชื่อของลูกค้ารายนี้ติดไว้ที่รถ/ตัว: ผีป้ายมรณะ (Anomaly_Cemetery) เขียนชื่อนี้บนป้ายทะเบียน

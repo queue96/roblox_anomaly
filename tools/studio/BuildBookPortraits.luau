@@ -17,7 +17,7 @@ local BIKE = SS.VehicleTemplates.CustomerBike
 -- ลำดับเดียวกับ LanguageModule.BookOrder
 local ORDER = {
 	"Anomaly_Headless", "Anomaly_Cemetery", "Anomaly_WheelHair", "Anomaly_NeckTwist", "Anomaly_CreepySmile",
-	"Anomaly_Krasue", "Anomaly_TaKhon", "Anomaly_MirrorGhost", "Anomaly_GhostWalkIn", "Outage_Shrouds",
+	"Anomaly_TaKhon", "Anomaly_MirrorGhost", "Anomaly_GhostWalkIn", "Outage_Shrouds",
 	"Big_Krasue", "Big_Pret", "Big_Funeral", "Big_Pop", "Anomaly_MonkRadio", "Anomaly_BloodFuel", "Anomaly_NoUmbrella",
 }
 
@@ -234,14 +234,6 @@ local SCENES: { [string]: () -> (Model, CFrame, number) } = {
 		local b, dHip = bike()
 		rider(b, dHip, with({ outfit = "mohom", hair = "rong_song_sung", pale = true }))
 		return b, b:GetPivot(), -25
-	end,
-	Anomaly_Krasue = function()
-		-- กระสือลอยแทนที่หัวคนขับ (AnomalyManager.Anomaly_Krasue)
-		local b, _, _, headAt = bike()
-		local m = figure({ ghost = "Krasue", clip = "Float", frac = 0.3 })
-		m:PivotTo(headAt * CFrame.new(0, 0.3, 0))
-		m.Parent = b
-		return b, b:GetPivot(), -30
 	end,
 	Anomaly_TaKhon = function()
 		local b, dHip = bike()

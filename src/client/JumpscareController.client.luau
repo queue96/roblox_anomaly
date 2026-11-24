@@ -33,7 +33,6 @@ local FX = {
 	Anomaly_WheelHair = { focus = "head", tint = Color3.fromRGB(20, 10, 10), extra = "hair" },
 	Anomaly_NeckTwist = { focus = "head", tint = Color3.fromRGB(110, 0, 0), spin = true },
 	Anomaly_CreepySmile = { focus = "head", tint = Color3.fromRGB(90, 0, 20) },
-	Anomaly_Krasue = { focus = "body", tint = Color3.fromRGB(170, 20, 0), extra = "blood" },
 	Anomaly_MonkRadio = { focus = "head", tint = Color3.fromRGB(50, 50, 55), extra = "static" },
 	-- ผีตานี / หุ่นไล่กา: ตัวจริงเป็น MeshPart ที่ ViewportFrame วาดไม่ขึ้น ใช้หน้าหลอนของลูกค้าแทน (เสียง/สีจอยังเป็นของตัวเอง)
 	Anomaly_Tani = { focus = "head", tint = Color3.fromRGB(20, 80, 30) },
@@ -268,14 +267,7 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 		local boneName = source:GetAttribute("FocusBone")
 		focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "head")
 	elseif source then
-		-- กระสือ (ชาวบ้าน): ร่างผีคือ KrasueModel ในรถ ส่วนคนขับเป็น NormalOnly (ถูกซ่อนใน Clone)
-		-- เดิม Clone คนขับ -> ตอนหลอกเห็นแต่ตัวล่องหน หน้าหาย (ผู้ใช้ 2026-11-08)
-		if focus == "body" and source:FindFirstChild("KrasueModel") then
-			local c = addClone(source.KrasueModel)
-			local boneName = source.KrasueModel:GetAttribute("FocusBone")
-			-- กระดูกหัวของแม่แบบกระสือชื่อ "Head" (ตัวใหญ่) ไม่ใช่ "head" แบบชาวบ้าน
-			focusPart = boneFocus(c, if type(boneName) == "string" then boneName else "Head") or boneFocus(c, "head")
-		elseif focus == "rider" and source:FindFirstChild("GhostRiderModel") then
+		if focus == "rider" and source:FindFirstChild("GhostRiderModel") then
 			local c = addClone(source.GhostRiderModel)
 			focusPart = boneFocus(c, "head")
 		elseif focus == "passenger" and source:FindFirstChild("GhostPassengerModel") then
@@ -901,7 +893,6 @@ end
 -- เสียงหัวเราะของผีตัวที่หลอก (SoundBank.GhostSounds) ดังข้างหูหลังภาพผีจางออก ไม่รู้ตัวไหน = สุ่ม
 local SoundBank = require(Shared:WaitForChild("SoundBank")) :: any
 local LAUGH_BY_KEY: { [string]: string } = {
-	Anomaly_Krasue = "Krasue",
 	Anomaly_Headless = "Headless",
 	Anomaly_MirrorGhost = "Mirror",
 	Anomaly_ShroudPickup = "FuneralWoman",

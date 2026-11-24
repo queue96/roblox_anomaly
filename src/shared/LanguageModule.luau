@@ -57,10 +57,6 @@ LanguageModule.Dialogues = {
 		th = "เติมน้ำมันให้หน่อยสิ... ยิ้มให้หน่อยก็ได้นะ หึหึหึ",
 		en = "Fill it up for me... and give me a smile, won't you? Heh heh heh.", es = "Llénamelo... y regálame una sonrisa, ¿sí? Je je je.", pt = "Enche pra mim... e me dá um sorriso, vai? He he he.", id = "Isi penuh buatku... dan senyum dong, ya? He he he.",
 	},
-	Anomaly_Krasue = {
-		th = "ขอน้ำมันหน่อยจ้ะ... คืนนี้ป้าหิวเหลือเกิน...",
-		en = "Some fuel, dear... auntie is so very hungry tonight...", es = "Un poco de gasolina, cariño... la tía tiene tanta hambre esta noche...", pt = "Um pouco de gasolina, querido... a tia tá com tanta fome hoje...", id = "Isi bensin, Nak... Bibi lapar sekali malam ini...",
-	},
 	Anomaly_MonkRadio = {
 		th = "เติมหลอดนึงครับ... วิทยุร้านนี้เปิดเพลงเพราะดีนะ...",
 		en = "One cylinder please... nice song on your radio tonight...", es = "Un cilindro, por favor... qué bonita canción en tu radio esta noche...", pt = "Um cilindro, por favor... que música bonita no seu rádio hoje...", id = "Satu tabung ya... lagu di radiomu malam ini enak...",
@@ -637,7 +633,6 @@ LanguageModule.BookOrder = {
 	"Anomaly_Headless",
 	"Anomaly_Cemetery",
 	"Anomaly_NeckTwist",
-	-- "Anomaly_Krasue" ตัดผีลูกค้ากระสือแล้ว (2026-11-12) เหลือ Big_Krasue
 	"Anomaly_TaKhon",
 	"Anomaly_MirrorGhost",
 	-- "Anomaly_GhostWalkIn" ตัดผีเดินมาซื้อทั้งร่างแล้ว (2026-11-16)
@@ -674,10 +669,6 @@ LanguageModule.Book = {
 	Anomaly_CreepySmile = {
 		th = { "ยิ้มฉีกถึงหู", "ตาโปน ยิ้มกว้างผิดธรรมชาติ แล้วขอให้คุณยิ้มตอบ" },
 		en = { "Ear-to-Ear Grin", "Bulging eyes and an unnatural grin that asks you to smile back." }, es = { "Sonrisa de Oreja a Oreja", "Ojos saltones y una sonrisa nada natural que te pide que sonrías de vuelta." }, pt = { "Sorriso de Orelha a Orelha", "Olhos esbugalhados e um sorriso nada natural que pede para você sorrir de volta." }, id = { "Senyum Lebar", "Mata melotot dan senyum tak wajar yang memintamu balas tersenyum." },
-	},
-	Anomaly_Krasue = {
-		th = { "กระสือ", "ไม่มีขา มีไส้ห้อยเรืองแสงอยู่ใต้ตัว และหิวเสมอ" },
-		en = { "Krasue", "No legs, glowing entrails hanging beneath, and always hungry." }, es = { "Krasue", "Sin piernas, con las entrañas brillando colgadas debajo, y siempre con hambre." }, pt = { "Krasue", "Sem pernas, com as entranhas brilhando penduradas embaixo, e sempre com fome." }, id = { "Krasue", "Tanpa kaki, isi perut bercahaya menggantung di bawahnya, dan selalu lapar." },
 	},
 	Anomaly_TaKhon = {
 		th = { "หน้ากากผีตาโขน", "คนขับใส่หน้ากากผีตาโขนรูตาดำกลวง เอียงหน้ากากมามองคุณ แล้วสะบัดกลับ" },

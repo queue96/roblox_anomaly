@@ -143,8 +143,8 @@ do
 	sg.Face = Enum.NormalId.Front
 	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	sg.PixelsPerStud = 110
-	sg.LightInfluence = 0.25
-	sg.Brightness = 1.6
+	sg.LightInfluence = 1 -- แสงปกติของฉาก: มืดก็มืดตาม ส่องไฟฉายถึงเห็น (ผู้ใช้ 2026-11-24 เดิม 0.25 เรืองในความมืด)
+	sg.Brightness = 1
 	sg.Parent = poster
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)

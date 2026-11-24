@@ -1,20 +1,44 @@
--- DevCommand.luau — Lobby: move the Anomalies leaderboard in front of the wooden pole (pole hides behind the taller board) (2026-11-24)
+-- DevCommand.luau — remove the customer Krasue book portrait + compile check (2026-11-24)
 return {
-	id = "lobby_lb_front_of_pole_20261124_1",
+	id = "lobby_drop_krasue_20261124_1",
 	placeId = 70980777393906,
 	run = function()
-		local lb = workspace.TempleLobby.LeaderboardAnomalies :: Model
-		local cf = lb:GetBoundingBox()
-		lb:PivotTo(lb:GetPivot() + Vector3.new(55.5 - cf.X, 0, 0))
-		local nc, size = lb:GetBoundingBox()
-		local pole = workspace.TempleLobby.SpookyDecor:FindFirstChild("WoodenPole", true) :: BasePart
-		-- ระยะจากหน้าเสา (ฝั่งลาน) ถึงหลังป้าย: เสา MeshPart วัดจากจุดยอดจริงไม่ได้ ใช้ raycast จากลานเข้าหาเสาที่ความสูงกลางเสา
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Include
-		params.FilterDescendantsInstances = { pole }
-		local hit = workspace:Raycast(Vector3.new(40, pole.Position.Y, pole.Position.Z), Vector3.new(30, 0, 0), params)
-		print("DEVCMD|LB", tostring(nc.Position), "boardBackX", nc.X + 1, "poleFrontX", hit and hit.Position.X or "nohit", "boardTop", nc.Y + size.Y / 2, "poleTop", pole.Position.Y + pole.Size.Y / 2)
-		local cam = workspace.CurrentCamera
-		cam.CFrame = CFrame.lookAt(Vector3.new(20, 8, 32.5), nc.Position)
+		task.wait(3)
+		local CHS = game:GetService("ChangeHistoryService")
+		local SES = game:GetService("ScriptEditorService")
+		CHS:SetWaypoint("Before remove customer Krasue portrait")
+		for _, root in ipairs({ game:GetService("ReplicatedStorage"), game:GetService("ServerStorage") }) do
+			local bp = root:FindFirstChild("BookPortraits")
+			local m = bp and bp:FindFirstChild("Anomaly_Krasue")
+			if m then
+				print("DEVCMD|REMOVE", m:GetFullName())
+				m.Parent = nil
+			end
+			if bp then
+				print("DEVCMD|LEFT", bp:GetFullName(), bp:FindFirstChild("Anomaly_Krasue") == nil, "big", bp:FindFirstChild("Big_Krasue") ~= nil, #bp:GetChildren())
+			end
+		end
+		CHS:SetWaypoint("Remove customer Krasue portrait")
+		local names = { AnomalyManager = true, CoreLoop = true, AnomalyBook = true, LanguageModule = true, AdminPanel = true, JumpscareController = true, PrayerController = true, RiderMotion = true, RobuxShop = true }
+		for _, root in ipairs({ game:GetService("ServerScriptService"), game:GetService("ReplicatedStorage"), game:GetService("StarterPlayer") }) do
+			for _, d in ipairs(root:GetDescendants()) do
+				if d:IsA("LuaSourceContainer") and names[d.Name] then
+					local src = (d :: any).Source
+					local t = Instance.new("ModuleScript")
+					t.Parent = game:GetService("ServerStorage")
+					local ok, err = pcall(function()
+						SES:UpdateSourceAsync(t, function()
+							return "local __skip = (game ~= nil)" .. string.char(10) .. "if __skip then return {} end" .. string.char(10) .. src
+						end)
+					end)
+					local okc = false
+					if ok then
+						okc, err = pcall(require, t)
+					end
+					t:Destroy()
+					print("DEVCMD|SRC", d:GetFullName(), "compile", okc, "oldKey", string.find(src, "Anomaly_Krasue", 1, true) ~= nil, if okc then "" else tostring(err))
+				end
+			end
+		end
 	end,
 }
