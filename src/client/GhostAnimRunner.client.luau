@@ -17,9 +17,11 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Data = require(Shared:WaitForChild("GhostClipData")) :: any
+local KnockPlan = require(Shared:WaitForChild("KnockPlan")) :: any
 
 local TAG = "RiggedGhost"
 local FADE_TIME = 0.25
+local KNOCK_TOUCH = 4 -- Pop_KnockShutter คีย์ที่แขนเหยียดสุด (0.2 วิ)
 local CULL_DIST = 110 -- studs: night fog hides everything past ~65-70, keep a margin for tall ghosts
 local NEAR_ALWAYS = 14 -- studs: closer than this always animates, even behind the camera (turning around)
 local BEHIND_DOT = -0.35 -- direction · camera look below this = behind the camera
@@ -138,6 +140,8 @@ type State = {
 	lookAt: number,
 	stillKey: string?, -- attribute StillBones ที่แปลงไว้แล้ว
 	still: { [string]: boolean },
+	knockKey: string?, -- attribute KnockPlan ที่ถอดแล้ว
+	knocks: { any },
 }
 
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
@@ -184,6 +188,8 @@ local function stateOf(m: Model): State
 		lookAt = 0,
 		stillKey = nil,
 		still = {},
+		knockKey = nil,
+		knocks = {},
 	}
 	states[m] = st
 	return st
@@ -324,6 +330,43 @@ local function lookAtCamera(m: Model, st: State, now: number)
 	turn(head, 1) -- หัวรับส่วนที่เหลือทั้งหมด (คำนวณใหม่หลังคอหมุนแล้ว)
 end
 
+-- หมัดผีเคาะแผงแตะผิวแผงพอดี (2026-11-26): ท่า mocap หมัดขวาหยุดห่างแผง ~1 stud (มือซ้ายยันแผงอยู่) จึงดึงแขนขวาไปที่แผงตามน้ำหนัก w
+--   ระยะจากเท้าถึงแผง = attribute KnockFace ของผี (server/GhostLinger) · FIST = ข้อมือถึงข้อนิ้ว
+local FIST = 0.4
+local function aim(b: Bone, from: Vector3, to: Vector3, w: number)
+	if from.Magnitude < 1e-3 or to.Magnitude < 1e-3 then
+		return
+	end
+	local f, t = from.Unit, to.Unit
+	local axis = f:Cross(t)
+	if axis.Magnitude > 1e-4 then
+		addWorldRotation(b, CFrame.fromAxisAngle(axis.Unit, math.acos(math.clamp(f:Dot(t), -1, 1)) * w))
+	end
+end
+local function knockArm(m: Model, st: State, w: number, face: number)
+	local up, fore, hand = st.bones["upper_arm.R"], st.bones["forearm.R"], st.bones["hand.R"]
+	if not (up and fore and hand) then
+		return
+	end
+	local pv = m:GetPivot()
+	local S, E, H = up.TransformedWorldCFrame.Position, fore.TransformedWorldCFrame.Position, hand.TransformedWorldCFrame.Position
+	local a, b = (E - S).Magnitude, (H - E).Magnitude
+	local ls = pv:PointToObjectSpace(S)
+	local T = pv:PointToWorldSpace(Vector3.new(ls.X + 0.1, ls.Y + 0.1, -(face - FIST)))
+	local toT = T - S
+	local d = math.clamp(toT.Magnitude, 0.2, (a + b) * 0.995)
+	local dir = toT.Unit
+	T = S + dir * d
+	-- ศอก: งอไปทางเดิม (ลง/ออกข้าง)
+	local pole = (E - S) - dir * (E - S):Dot(dir)
+	pole = if pole.Magnitude > 1e-3 then pole.Unit else Vector3.new(0, -1, 0)
+	local x = (a * a - b * b + d * d) / (2 * d)
+	local e2 = S + dir * x + pole * math.sqrt(math.max(0, a * a - x * x))
+	aim(up, E - S, e2 - S, w)
+	E, H = fore.TransformedWorldCFrame.Position, hand.TransformedWorldCFrame.Position
+	aim(fore, H - E, T - E, w)
+end
+
 local function stepGhost(m: Model, now: number)
 	local clipName = m:GetAttribute("GhostClip")
 	if type(clipName) ~= "string" or clipName == "" then
@@ -366,6 +409,17 @@ local function stepGhost(m: Model, now: number)
 	end
 
 	local tracks = c.tracks
+	-- ผีเคาะแผง (attribute KnockPlan, shared/KnockPlan): มือยื่นตามตารางเคาะ ไม่วนท่าเอง
+	--   ท่า Pop_KnockShutter เฟรมแรก = งอแขน, คีย์ KNOCK_TOUCH = ปลายนิ้วแตะแผง ผสมตามค่า Reach (ติดลบ = ง้างไปหลัง)
+	local knockAttr = m:GetAttribute("KnockPlan") :: string?
+	local reach: number? = nil
+	if knockAttr then
+		if st.knockKey ~= knockAttr then
+			st.knockKey = knockAttr
+			st.knocks = KnockPlan.Decode(knockAttr)
+		end
+		reach = if m:GetAttribute("KnockEnd") == true then 0.15 else KnockPlan.Reach(st.knocks, now)
+	end
 	-- กระดูกที่ล็อกท่าพัก (attribute StillBones "hips,thigh.L,..." ผู้ใช้ 2026-11-22 ตานี v2: ยืนนิ่ง ขาในผ้าซิ่นไม่บิด)
 	local stillAttr = m:GetAttribute("StillBones") :: string?
 	if stillAttr ~= st.stillKey then
@@ -383,7 +437,13 @@ local function stepGhost(m: Model, now: number)
 		end
 		local tr = tracks[bname]
 		local pScale = if bname == "hips" or bname == "root" then st.hipScale else 1
-		local cf = if tr then sampleAt(tr, i0, i1, a, pScale) else CFrame.identity
+		local cf: CFrame
+		if reach and tr then
+			local bent, touch = sampleAt(tr, 1, 1, 0, pScale), sampleAt(tr, KNOCK_TOUCH, KNOCK_TOUCH, 0, pScale)
+			cf = bent:Lerp(touch, reach)
+		else
+			cf = if tr then sampleAt(tr, i0, i1, a, pScale) else CFrame.identity
+		end
 		if prev then
 			local ptr = prev.tracks[bname]
 			local pcf = if ptr then sampleAt(ptr, p0, p1, pa, pScale) else CFrame.identity
@@ -392,6 +452,9 @@ local function stepGhost(m: Model, now: number)
 		b.Transform = cf
 	end
 	-- (ร่างโคลนในจอจั๊มสแกร์อยู่ใน ViewportFrame ไม่ใช่ Workspace: ไม่หันตามกล้องโลกจริง)
+	if reach and reach > 0 then
+		knockArm(m, st, math.min(reach, 1), (m:GetAttribute("KnockFace") :: number?) or 2.5)
+	end
 	-- แขนห้อยข้างตัว (attribute ArmsDown = 0..1 สัดส่วนที่หมุนแขนบนจากท่าพักลงหาแนวดิ่ง) ใช้กับผีที่ล็อกแขนเป็นท่าพัก
 	-- (StillBones) แต่ท่าพักเป็นท่ากางแขนตอนปั้น เช่น ตานี v2 ยืนเฉยๆ (ผู้ใช้ 2026-11-22 "ทำไมต้องยืนทำมือแบบนี้")
 	local armsDown = m:GetAttribute("ArmsDown") :: number?

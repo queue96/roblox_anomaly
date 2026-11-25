@@ -28,12 +28,15 @@ local ALLOWED = {
 	hungry = true, offer = true, dessert = true, -- ศาลหมดเวลาคุ้มครอง / ถวายแล้ว / แจกขนม
 	["curse:shake"] = true, ["curse:slow"] = true, ["curse:stumble"] = true,
 	intro = true, win = true, -- คัทซีนเปิดคืน / ชนะทันที (คัทซีนเช้า + สรุปผล)
+	["linger:knock:build"] = true, ["linger:knock:mimic"] = true, ["linger:knock:fake"] = true, -- ปอบเคาะแผงแต่ละแบบ (shared/KnockPlan)
+	["linger:roof:fake"] = true, ["linger:roof:leave"] = true,
+	["linger:circle:inside"] = true, ["linger:circle:leave"] = true,
 	["linger:knock"] = true, ["linger:circle"] = true, ["linger:roof"] = true, -- ผีวนหลังปิดแผง (GhostLinger)
 	["scenery:Tani"] = true, ["scenery:Scarecrow"] = true, ["scenery:Shadow"] = true, ["scenery:hide"] = true, -- ผีฉาก
 }
 
 -- ผีใหญ่ (เดิมปุ่มบนแผงส่งไปแต่ไม่อยู่ใน ALLOWED จึงกดแล้วไม่มีอะไรเกิดขึ้น)
-local BIG = { ["big:Krasue"] = true, ["big:Pret"] = true, ["big:Funeral"] = true, ["big:Pop"] = true }
+local BIG = { ["big:Krasue"] = true, ["big:Pret"] = true, ["big:Pret:leave"] = true, ["big:Pret:fake"] = true, ["big:Funeral"] = true, ["big:Pop"] = true }
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes") or Instance.new("Folder")
 remotes.Name = "Remotes"

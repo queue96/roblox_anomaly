@@ -453,6 +453,13 @@ local function swayHangingBulb(model: Instance)
 			nextGust = now + 8 + math.random() * 14
 			gustTarget = 0.6 + math.random() * 0.6
 		end
+		-- ผีทุบแผง (client/KnockFX): หลอดเหวี่ยงทันที
+		local kick = model:GetAttribute("Kick")
+		if type(kick) == "number" and kick > 0 then
+			model:SetAttribute("Kick", 0)
+			gust = math.max(gust, kick)
+			gustTarget = math.max(gustTarget, kick * 0.7)
+		end
 		gustTarget = math.max(0, gustTarget - dt * 0.35)
 		gust += (gustTarget - gust) * math.min(1, dt * 1.5)
 		local amp = math.rad(1.0 + 1.6 * (0.5 + math.noise(now * 0.12, seed, 0)) + 2.6 * gust)
@@ -823,8 +830,9 @@ local crickets = {
 
 -- ลางผีใหญ่ (server: remotes.BigOmen / BigEvent): จิ้งหรีดเงียบกริบค้างไว้จนผีใหญ่ไป ห้ามเสียงอื่นเร่งกลับ
 local omenHeld = false
+local hushHeld = false -- ผีเคาะแผงอยู่ (client/KnockFX ตั้ง attribute KnockHush บนเครื่องนี้)
 local function fadeCrickets(scale, duration)
-	if omenHeld and scale > 0.05 then
+	if (omenHeld or hushHeld) and scale > 0.05 then
 		return
 	end
 	for _, c in ipairs(crickets) do
@@ -850,7 +858,8 @@ end)
 task.spawn(function()
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local function update()
-		local on = remotes:GetAttribute("BigOmen") == true or remotes:GetAttribute("BigEvent") ~= nil
+		local fake = remotes:GetAttribute("BigFake") == true -- เปรตหลอกว่าไปแล้ว: จิ้งหรีดร้องกลับมาก่อนมันหันกลับ
+		local on = not fake and (remotes:GetAttribute("BigOmen") == true or remotes:GetAttribute("BigEvent") ~= nil)
 		if on == omenHeld then
 			return
 		end
@@ -859,16 +868,31 @@ task.spawn(function()
 			omenHeld = true
 		else
 			omenHeld = false
-			task.delay(6, function()
+			task.delay(if fake then 0.4 else 6, function()
 				if not omenHeld then
-					fadeCrickets(1, 10) -- ผีใหญ่ไปแล้ว: ค่อยๆ ร้องกลับมา
+					fadeCrickets(1, if fake then 2.5 else 10) -- ผีใหญ่ไปแล้ว: ค่อยๆ ร้องกลับมา
 				end
 			end)
 		end
 	end
 	remotes:GetAttributeChangedSignal("BigOmen"):Connect(update)
 	remotes:GetAttributeChangedSignal("BigEvent"):Connect(update)
+	remotes:GetAttributeChangedSignal("BigFake"):Connect(update)
 	update()
+	-- ผีเคาะแผง (2026-11-26): เงียบเร็ว · จบช่วงเงียบแล้วค่อยๆ ร้องกลับ (แบบหลอกว่าไปแล้ว จิ้งหรีดกลับมาก่อนทุบโครม)
+	ReplicatedStorage:GetAttributeChangedSignal("KnockHush"):Connect(function()
+		local on = ReplicatedStorage:GetAttribute("KnockHush") == true
+		if on == hushHeld then
+			return
+		end
+		if on then
+			fadeCrickets(0.02, 1.2)
+			hushHeld = true
+		else
+			hushHeld = false
+			fadeCrickets(1, 4)
+		end
+	end)
 end)
 
 -- ลางผีใหญ่ทางตา (ผู้ใช้ 2026-11-22): ไฟร้านกะพริบ หรี่ วูบดับแว่บๆ ตั้งแต่จิ้งหรีดเงียบจนผีใหญ่ไป (หรือจนผู้เล่นสับสะพานไฟดับเอง)

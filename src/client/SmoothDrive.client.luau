@@ -10,7 +10,7 @@ local Workspace = game:GetService("Workspace")
 
 local DriveMotion = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DriveMotion")) :: any
 
-type State = { drive: any, lag: number, lastS: number, wheels: { BasePart }, done: boolean, seed: number, odo0: number }
+type State = { drive: any, lag: number, lastS: number, wheels: { BasePart }, scanAt: number, done: boolean, holdUntil: number, held: { [BasePart]: CFrame }, base: CFrame, seed: number, odo0: number }
 local states: { [Model]: State } = {}
 
 local function start(v: Model)
@@ -26,7 +26,7 @@ local function start(v: Model)
 	-- เน็ตส่งคำสั่งมาช้าเท่าไหร่ ให้เริ่มช้าเท่านั้น (ไม่เกิน 0.5 วิ) / โมเดลเพิ่งส่งมากลางทาง = ตามไปตำแหน่งปัจจุบันเลย
 	local late = Workspace:GetServerTimeNow() - d.t0
 	local lag = if late <= 0.5 then math.max(0, late) else 0
-	states[v] = { drive = d, lag = lag, lastS = 0, wheels = DriveMotion.WheelsOf(v), done = false, seed = (cur and cur.seed) or math.random() * 100, odo0 = if cur then cur.odo0 + cur.lastS else 0 }
+	states[v] = { drive = d, lag = lag, lastS = 0, wheels = DriveMotion.WheelsOf(v), scanAt = os.clock() + 0.4, done = false, holdUntil = 0, held = if cur then cur.held else {}, base = v:GetPivot(), seed = (cur and cur.seed) or math.random() * 100, odo0 = if cur then cur.odo0 + cur.lastS else 0 }
 end
 
 local function watch(inst: Instance)
@@ -89,6 +89,18 @@ RunService:BindToRenderStep("SmoothDrive", Enum.RenderPriority.First.Value, func
 	local now = Workspace:GetServerTimeNow()
 	for v, st in pairs(states) do
 		if st.done then
+			-- จอดแล้ว: ตำแหน่งจาก Server มาทับล้อให้กลับมุมเดิม (ล้อดีดตอนรถหยุด) คงมุมที่หมุนมาถึงไว้
+			if st.holdUntil > 0 and v.Parent then
+				local pv = v:GetPivot()
+				for w, rel in pairs(st.held) do
+					if w.Parent then
+						w.CFrame = pv * rel
+					end
+				end
+				if os.clock() > st.holdUntil then
+					st.holdUntil = 0
+				end
+			end
 			continue
 		end
 		if not v.Parent then
@@ -107,10 +119,32 @@ RunService:BindToRenderStep("SmoothDrive", Enum.RenderPriority.First.Value, func
 		else
 			placed = roadFeel(v, st, cf, st.odo0 + s, if dt > 0 then step / dt else 0)
 		end
+		-- มุมล้อเก็บไว้ฝั่งเรา (เทียบตัวรถ) วางใหม่ทุกเฟรม: ตำแหน่งล้อจาก Server (ไม่หมุน) มาทับตอนใกล้จอด = ล้อดีดหนึ่งครั้ง
+		local pv0 = v:GetPivot()
+		for _, w in ipairs(st.wheels) do
+			if not st.held[w] then
+				-- ล้อที่เน็ตเพิ่งส่งมากลางทางอยู่ที่จุดออกตัวของ Server: เทียบกับตัวรถตอนออกตัวแทน
+				local a, b = pv0:ToObjectSpace(w.CFrame), st.base:ToObjectSpace(w.CFrame)
+				st.held[w] = if a.Position.Magnitude <= b.Position.Magnitude then a else b
+			end
+		end
 		v:PivotTo(placed)
-		if step > 0 then
-			-- หมุนรอบแกนเพลาจริงของรถตอนนี้ (รวมเอียง) ไม่งั้นล้อค่อยๆ บิดเบี้ยวสะสม
-			DriveMotion.SpinWheels(st.wheels, placed.RightVector, step)
+		-- เน็ตส่งตัวรถมาก่อนล้อ: หาใหม่ช่วงแรกของเที่ยว (เดิมหาครั้งเดียวตอนออกตัว = ล้อไม่หมุนทั้งเที่ยว)
+		if st.scanAt > 0 and os.clock() > st.scanAt then
+			st.wheels = DriveMotion.WheelsOf(v)
+			st.scanAt = if elapsed < 4 or #st.wheels == 0 then os.clock() + 0.5 else 0
+		end
+		for w, rel in pairs(st.held) do
+			if w.Parent then
+				if step > 0 then
+					rel = CFrame.new(rel.Position) * CFrame.Angles(-DriveMotion.SpinAngle(w, step), 0, 0) * rel.Rotation
+					st.held[w] = rel:Orthonormalize()
+				end
+				w.CFrame = placed * rel
+			end
+		end
+		if st.done then
+			st.holdUntil = os.clock() + 2
 		end
 	end
 	-- ตัวละครที่ยึดกับรถ (คัทซีนซ้อนท้ายพี่ชาย: server/Cutscene CutscenePin) วางตามรถบนเครื่องนี้
@@ -135,6 +169,153 @@ local NetSmooth = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild(
 type Snap = { t: number, cf: CFrame }
 local bufs: { [Model]: { Snap } } = setmetatable({}, { __mode = "k" }) :: any
 local STEP = 1 / NetSmooth.RATE
+-- เวลาวาดย้อนหลัง ปรับเองตามเน็ตของเครื่องนี้ (2026-11-25): ตำแหน่งมาช้าเท่าไหร่ ย้อนเผื่อเท่านั้น + SLACK
+--   เพิ่มเร็ว (เน็ตแย่ลง = กันค้าง) ลดช้าๆ (เน็ตดีขึ้น) และเลื่อนทีละนิดทุกเฟรม ภาพจึงไม่กระโดดตอนปรับ
+local delay: number = NetSmooth.DELAY
+local ageTop = 0 -- ความช้าช่วงแย่ล่าสุด (วิ)
+local drawn: { [Model]: { at: number, cf: CFrame } } = setmetatable({}, { __mode = "k" }) :: any -- ท่าล่าสุดที่วาดจริง
+-- ล้อจักรยานที่คนเข็น (PushedBicycle): Server ส่งตำแหน่งล้อ (ไม่หมุน) มาทับตลอด จึงเก็บมุมสะสมไว้แล้ววางใหม่ทุกครั้งที่วาด
+type PushWheel = { part: BasePart, rel: CFrame, angle: number }
+local pushed: { [Model]: { PushWheel } } = setmetatable({}, { __mode = "k" }) :: any
+local function spinPushed(m: Model, cf: CFrame, prev: CFrame?)
+	local list = pushed[m]
+	if not list then
+		local bike = m:FindFirstChild("PushedBicycle")
+		local wheels = if bike then DriveMotion.WheelsOf(bike) else {}
+		if #wheels == 0 then
+			return
+		end
+		list = {}
+		for _, w in ipairs(wheels) do
+			table.insert(list, { part = w, rel = cf:ToObjectSpace(w.CFrame), angle = 0 })
+		end
+		pushed[m] = list
+	end
+	local step = if prev then (cf.Position - prev.Position):Dot(cf.LookVector) else 0
+	if step > 3 then
+		step = 0 -- วาร์ป
+	end
+	for _, w in ipairs(list) do
+		if w.part.Parent then
+			if step > 0.001 then
+				w.angle = (w.angle + DriveMotion.SpinAngle(w.part, step)) % (2 * math.pi)
+			end
+			local at = cf * w.rel
+			w.part.CFrame = CFrame.new(at.Position) * CFrame.fromAxisAngle(cf.RightVector, -w.angle) * at.Rotation
+		end
+	end
+end
+
+local function draw(m: Model, cf: CFrame)
+	m:PivotTo(cf)
+	local d = drawn[m]
+	if m:FindFirstChild("PushedBicycle") then
+		spinPushed(m, cf, if d and os.clock() - d.at < 0.3 then d.cf else nil)
+	end
+	if d then
+		d.at, d.cf = os.clock(), cf
+	else
+		drawn[m] = { at = os.clock(), cf = cf }
+	end
+end
+
+-- คนเดินทางตรง (NetSmooth.Walk): เดินเองจากเส้นทาง
+type Walk = { id: number, from: Vector3, to: Vector3, dir: Vector3, dist: number, speed: number, t0: number, dur: number, lag: number, prev: any, blendAt: number?, blendPos: Vector3, blendRot: CFrame, dead: boolean }
+local walks: { [Model]: Walk } = {}
+local walkers: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local TURN_RATE = 10 -- คนเดินถึงแล้วหันหน้า (Pedestrian.Face หันทันที): ค่อยๆ หันบนเครื่องนี้
+local BLEND = 0.25 -- วิ: หันตัว/ไหลเข้าเส้นทางใหม่
+
+local function startWalk(m: Model)
+	local from, to = m:GetAttribute("WalkFrom"), m:GetAttribute("WalkTo")
+	local speed, t0, id = m:GetAttribute("WalkSpeed"), m:GetAttribute("WalkT0"), m:GetAttribute("WalkId")
+	if typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" or type(speed) ~= "number" or type(t0) ~= "number" or type(id) ~= "number" then
+		return
+	end
+	local cur = walks[m]
+	if cur and cur.id == id then
+		return
+	end
+	local flat = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
+	local dist = flat.Magnitude
+	if dist < 0.02 or speed <= 0 then
+		return
+	end
+	local dur = dist / speed
+	local late = Workspace:GetServerTimeNow() - t0
+	if late > dur + 1 then
+		return -- เดินจบไปนานแล้ว (เพิ่งเห็นตัวนี้)
+	end
+	-- คำสั่งมาช้าเท่าไหร่ เริ่มช้าเท่านั้น · เพิ่งเห็นกลางทาง = ตามไปตำแหน่งปัจจุบัน · เดินต่อจากทางเดิม = ช้าไม่น้อยกว่าทางเดิม
+	local lag = if late <= 0.5 then math.max(0, late) else 0
+	local prev: any = nil
+	if cur and not cur.dead and t0 - (cur.t0 + cur.dur) < 0.3 then
+		lag = math.max(lag, cur.lag)
+		prev = cur
+		cur.prev = nil
+	end
+	walks[m] = { id = id, from = from, to = to, dir = flat.Unit, dist = dist, speed = speed, t0 = t0, dur = dur, lag = lag, prev = prev, blendAt = nil, blendPos = Vector3.zero, blendRot = CFrame.identity, dead = false }
+end
+
+local function walkPoint(w: Walk, t: number): Vector3
+	return w.from + w.dir * math.clamp(t * w.speed, 0, w.dist)
+end
+
+-- วาดตามเส้นทาง คืน true = เส้นทางคุมอยู่ (อย่าให้การเกลี่ยตำแหน่งทับ)
+local function drawWalk(m: Model, w: Walk, now: number, rt: number): boolean
+	local b = bufs[m]
+	local last = b and b[#b]
+	-- ตำแหน่งจริงไม่ตรงเส้นทาง (มีอย่างอื่นย้ายตัวนี้): เลิกใช้เส้นทาง กลับไปเกลี่ยตำแหน่ง
+	if last and last.t > w.t0 + 0.2 and last.t < w.t0 + w.dur then
+		local p = walkPoint(w, last.t - w.t0) - last.cf.Position
+		if Vector3.new(p.X, 0, p.Z).Magnitude > 2.5 then
+			w.dead = true
+			return false
+		end
+	end
+	local elapsed = now - w.t0 - w.lag
+	if elapsed < 0 and w.prev then
+		return drawWalk(m, w.prev, now, -math.huge)
+	end
+	w.prev = nil
+	if elapsed >= w.dur and rt >= w.t0 + w.dur then
+		return false -- ถึงแล้ว และตำแหน่งที่เกลี่ยก็ถึงแล้ว: ส่งต่อให้การเกลี่ย (หันหน้า ฯลฯ)
+	end
+	local p = walkPoint(w, elapsed)
+	p = Vector3.new(p.X, DriveMotion.Ground(p), p.Z)
+	local rot = CFrame.lookAt(Vector3.zero, w.dir)
+	if not w.blendAt then
+		local d = drawn[m]
+		local shown = if d and os.clock() - d.at < 0.3 then d.cf else m:GetPivot()
+		local off = shown.Position - p
+		w.blendAt = os.clock()
+		w.blendPos = if off.Magnitude < 4 then off else Vector3.zero
+		w.blendRot = shown.Rotation
+	end
+	local a = math.clamp((os.clock() - (w.blendAt :: number)) / BLEND, 0, 1)
+	a = a * a * (3 - 2 * a)
+	draw(m, CFrame.new(p + w.blendPos * (1 - a)) * w.blendRot:Lerp(rot, a))
+	return true
+end
+
+local function watchWalk(inst: Instance)
+	if not inst:IsA("Model") then
+		return
+	end
+	local m = inst :: Model
+	walkers[m] = true
+	startWalk(m)
+	m:GetAttributeChangedSignal("WalkId"):Connect(function()
+		startWalk(m)
+	end)
+end
+for _, m in ipairs(CollectionService:GetTagged(NetSmooth.WALK_TAG)) do
+	watchWalk(m)
+end
+CollectionService:GetInstanceAddedSignal(NetSmooth.WALK_TAG):Connect(watchWalk)
+CollectionService:GetInstanceRemovedSignal(NetSmooth.WALK_TAG):Connect(function(m)
+	walks[m :: Model] = nil
+end)
 
 task.spawn(function()
 	local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(NetSmooth.REMOTE, 60)
@@ -145,6 +326,8 @@ task.spawn(function()
 		if type(t) ~= "number" or type(batch) ~= "table" then
 			return
 		end
+		local age = math.clamp(Workspace:GetServerTimeNow() - t, 0, NetSmooth.DELAY_MAX)
+		ageTop += (age - ageTop) * (if age > ageTop then 0.5 else 0.01)
 		for i = 1, #batch - 1, 2 do
 			local m, cf = batch[i], batch[i + 1]
 			if typeof(m) == "Instance" and m:IsA("Model") and typeof(cf) == "CFrame" then
@@ -176,9 +359,25 @@ task.spawn(function()
 	end)
 end)
 
-RunService:BindToRenderStep("NetSmooth", Enum.RenderPriority.First.Value + 1, function()
-	local rt = Workspace:GetServerTimeNow() - NetSmooth.DELAY
+RunService:BindToRenderStep("NetSmooth", Enum.RenderPriority.First.Value + 1, function(dt: number)
+	local want = math.clamp(ageTop + NetSmooth.DELAY_SLACK, NetSmooth.DELAY_MIN, NetSmooth.DELAY_MAX)
+	delay += math.clamp(want - delay, -0.03 * dt, 0.3 * dt)
+	local now = Workspace:GetServerTimeNow()
+	local rt = now - delay
+	local walking: { [Model]: boolean } = {}
+	for m, w in pairs(walks) do
+		if not m.Parent then
+			walks[m] = nil
+		elseif not NetSmooth.Nested(m) and drawWalk(m, w, now, rt) then
+			walking[m] = true
+		else
+			walks[m] = nil
+		end
+	end
 	for m, b in pairs(bufs) do
+		if walking[m] then
+			continue
+		end
 		if not m.Parent then
 			bufs[m] = nil
 			continue
@@ -191,6 +390,19 @@ RunService:BindToRenderStep("NetSmooth", Enum.RenderPriority.First.Value + 1, fu
 		local st = states[m]
 		if st and (not st.done or st.drive.t0 >= last.t - 0.01) then
 			continue -- รถกำลังขี่ / ขี่รอบใหม่หลังตำแหน่งล่าสุด (ระบบ DriveMotion ด้านบนคุม ไม่ดึงกลับไปที่เก่า)
+		end
+		if rt > last.t + 1.5 and walkers[m] and not NetSmooth.Nested(m) then
+			-- ลูกค้ายืนรอ: คงท่าไว้ตลอด ตอนออกเดินใหม่ตำแหน่งจาก Server มาถึงก่อนคำสั่งเดินได้ ไม่งั้นแวบไปข้างหน้า/หันพรึ่บหนึ่งเฟรม
+			local keep = drawn[m]
+			local cur = m:GetPivot()
+			if keep and (cur.Position - last.cf.Position).Magnitude < 4 then
+				keep.at = os.clock()
+				keep.cf = last.cf
+				if not cur:FuzzyEq(last.cf, 1e-4) then
+					draw(m, last.cf)
+				end
+				continue
+			end
 		end
 		if rt > last.t + 1.5 then
 			-- นิ่งมานานแล้ว: เลิกวาดทับ (ตำแหน่งจาก Server เท่ากับอันสุดท้ายอยู่แล้ว)
@@ -216,6 +428,10 @@ RunService:BindToRenderStep("NetSmooth", Enum.RenderPriority.First.Value + 1, fu
 				end
 			end
 		end
-		m:PivotTo(pose)
+		local d = drawn[m]
+		if walkers[m] and d and os.clock() - d.at < 0.3 then
+			pose = CFrame.new(pose.Position) * d.cf.Rotation:Lerp(pose.Rotation, 1 - math.exp(-TURN_RATE * dt))
+		end
+		draw(m, pose)
 	end
 end)

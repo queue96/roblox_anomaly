@@ -3,7 +3,7 @@
 -- ผีใหญ่บุกประชิด (GDD ข้อ 3 Tier 3 / ข้อ 27-30): ทุกตัวรับมือแบบเดียวกัน = ปิดแผงร้าน + ดับไฟ (ผู้ใช้ 2026-11-21:
 -- ตัดนั่งยอง / ยืนนิ่ง / ปิดไฟฉายออก กติกาเหล่านั้นยังอยู่ในโค้ด เปิดได้ที่ rules ของแต่ละตัว)
 --   Krasue  แสงไฟผีกระสือลอยจากเถียงนา มาบินวนรอบเพิง 2 รอบ (คนในร้านเห็นแสงลอดช่องเพิง) แล้วลอยกลับ ร้องเพลงวนตลอด
---   Pret    เปรตตัวสูงเท่าต้นตาลเดินผ่านถนนหน้าร้าน
+--   Pret    เปรตตัวสูงเท่าต้นตาล: เดินเข้ามาทีละก้าว หยุดหน้าร้าน ก้มลงมา มือลูบหลังคา แล้วไป (บางครั้งหลอกว่าไปแล้วหันกลับมา) ดู runGiant
 --   Funeral ขบวนคนชุดขาวลอยผ่านถนนหน้าร้าน (ไม่อยู่ในการสุ่ม)
 --   Pop     ปอบเดินกระตุกมาเคาะแผงหน้าร้าน (ไม่อยู่ในการสุ่ม)
 -- ลำดับ: Warn (ผีเดินเข้ามา ข้อความบอกวิธีรับมือ) -> Danger (ผีถึงหน้าร้าน ตรวจกติกาทุก 0.25 วินาที) -> Leave (ผีออกไป)
@@ -33,6 +33,11 @@ BigEvents.Config = {
 BigEvents.Kinds = { "Krasue", "Pret" }
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
+if not remotes:FindFirstChild("BigFX") then -- เอฟเฟกต์เปรตบนเครื่องผู้เล่น (client/PretFX)
+	local e = Instance.new("RemoteEvent")
+	e.Name = "BigFX"
+	e.Parent = remotes
+end
 local CrouchRemote = remotes:FindFirstChild("Crouch") or Instance.new("RemoteEvent")
 CrouchRemote.Name = "Crouch"
 CrouchRemote.Parent = remotes
@@ -97,6 +102,7 @@ type Plan = {
 	danger: number?, -- วินาทีช่วง Danger ของตัวนี้ (ไม่ใส่ = Config.Danger)
 	leave: number?, -- วินาทีช่วง Leave ของตัวนี้ (ไม่ใส่ = Config.Leave)
 	coffin: boolean?, -- แบกโลง (ServerStorage.GhostProps.Coffin) ด้วยกำปั้นขวาของผีตัวแรก
+	giant: boolean?, -- เปรต: บทของตัวเอง (runGiant) แทนเดินตามผัง
 	knock: boolean?, -- เสียงเคาะแผงสังกะสีเป็นจังหวะตลอดช่วง Danger (ปอบเคาะแผง: เดิมเงียบ มีแค่ท่า 2026-11-08)
 }
 
@@ -201,8 +207,7 @@ local function plans(): { [string]: Plan }
 				{ name = "Pret", pts = { { -86, -17 }, { -18, -17 }, { 18, -17 }, { 58, -17 } }, clips = { "TallSlowWalk", "TallSlowWalk", "TallSlowWalk" }, angry = "Shriek" },
 			},
 			rules = SHUT_DARK,
-			voice = "Ghost_Pret",
-			laugh = "Ghost_Pret_Laugh",
+			giant = true,
 		},
 		Funeral = {
 			ghosts = procession(),
@@ -424,6 +429,308 @@ local function placeAt(e: Live, phase: number, a: number)
 	e.m:PivotTo(CFrame.lookAt(feet, feet + look))
 end
 
+-- ---------------------------------------------------------------- เปรต (ผู้ใช้ 2026-11-26 เลือกข้อ 1-5)
+--   เดินเข้ามาทีละก้าว (เสียงเท้าตรงจังหวะท่าเดินจริง) -> หยุดหน้าร้าน หันหน้าเข้าหา เงียบ -> นั่งยองก้มลงมา เสียงหายใจลดต่ำลงถึงหลังคา
+--   -> มือลูบหลังคา หยุดกลางร้าน เคาะ 1 ที -> หวีดเหนือร้าน -> ลุกเดินไป · 40% หลอกว่าไปแล้ว (จิ้งหรีดร้องกลับมา) แล้วหันกลับมาตบหลังคา
+--   ตรวจกติกา (ปิดแผง + ดับไฟ) ตั้งแต่มันหยุดหน้าร้าน จนมันเดินพ้นไปจริงๆ รวมช่วงหลอกว่าไปแล้ว
+--   เสียง/จอสั่น/ท่าก้ม/มือ = client/PretFX (Remotes.BigFX + attribute ของตัวเปรต)
+local GIANT = {
+	Z = -14, -- แนวเดิน (ถนนหน้าร้าน แผงอยู่ z 8)
+	FROM = -118,
+	GONE = 78,
+	V = 12.5, -- studs/วิ เฉลี่ยของท่า TallSlowWalk ความเร็ว 1 (ก้าวละ 20 studs ต่อ 1.6 วิ)
+	-- ระยะที่ตัวไปได้ในครึ่งรอบท่าเดิน (ทุก 0.1333 วิ นับจากเท้าลงพื้นที่ 0.8 วิ) วัดจากเท้าที่ยันพื้นในท่าจริง x ขนาด 5
+	--   ตัวเคลื่อนตามนี้ = เท้าที่ยันพื้นไม่ไถล และเห็นเป็นก้าวๆ (ช้าตอนลงเท้า เร็วตอนถีบ)
+	STRIDE = { 0, 0.95, 2.35, 4.0, 5.85, 7.75, 9.7, 12.4, 14.9, 17.05, 18.7, 19.7, 20 },
+	HALF = 1.6,
+	DOWN = 0.8,
+	LEN = 3.2, -- วิ ต่อรอบท่าเดิน (2 ก้าว)
+	CONTACT = { 0.9, 2.5 }, -- วินาทีในท่าที่เท้าซ้าย / ขวากระแทกพื้น
+	REACH = 9, -- เท้าลงหน้าตัวราวนี้
+	FOOT = 8, -- ปลายเท้าห่างกลางตัว
+	HEAD = 62,
+	FAKE = 0.4, -- โอกาสหลอกว่าไปแล้ว
+	ROOF = 12.6,
+}
+BigEvents.ForceVariant = nil :: string? -- แผง admin: "fake" / "leave" (ใช้ครั้งเดียว)
+
+-- ระยะสะสม (studs) ณ เวลา c วินาทีของท่าเดิน
+local function stride(c: number): number
+	local u = c - GIANT.DOWN
+	local n = math.floor(u / GIANT.HALF)
+	local f = (u - n * GIANT.HALF) / GIANT.HALF * (#GIANT.STRIDE - 1)
+	local i = math.clamp(math.floor(f), 0, #GIANT.STRIDE - 2)
+	local a, b = GIANT.STRIDE[i + 1], GIANT.STRIDE[i + 2]
+	return n * 20 + a + (b - a) * (f - i)
+end
+
+local function runGiant(kind: string, plan: Plan, ctx: any, group: Model, m: Model): { [string]: any }
+	local fx = remotes:FindFirstChild("BigFX") :: RemoteEvent
+	local fake = math.random() < GIANT.FAKE
+	if BigEvents.ForceVariant then
+		fake = BigEvents.ForceVariant == "fake"
+		BigEvents.ForceVariant = nil
+	end
+	group:SetAttribute("Variant", if fake then "fake" else "leave")
+	game:GetService("CollectionService"):AddTag(m, "GiantGhost")
+	local x, yaw = GIANT.FROM, Vector3.xAxis
+	local function put()
+		local p = Vector3.new(x, groundAt(x, GIANT.Z), GIANT.Z)
+		m:PivotTo(CFrame.lookAt(p, p + yaw))
+	end
+	put()
+
+	-- ตรวจกติกาข้างๆ กันไปตลอด: ผิดครั้งแรก = จบ
+	local faults: { [Player]: string } = {}
+	local team: string? = nil
+	local caught, checking, over = false, false, false
+	local checkFrom = 0
+	task.spawn(function()
+		while not over and not caught do
+			task.wait(0.25)
+			if checking and os.clock() >= checkFrom then
+				if plan.rules.lights and Power.LightsOn() then
+					team = "Lights"
+				elseif plan.rules.shutter and not shutterClosed() then
+					team = "Shutter"
+				end
+				if team then
+					for _, p in ipairs(activePlayers()) do
+						faults[p] = team
+					end
+					caught = true
+				else
+					for _, p in ipairs(activePlayers()) do
+						local f = playerFault(p, plan.rules)
+						if f then
+							faults[p] = f
+							caught = true
+						end
+					end
+				end
+			end
+		end
+	end)
+	local function watch(on: boolean)
+		checking = on
+		checkFrom = os.clock() + BigEvents.Config.Grace
+	end
+	local function pause(sec: number): boolean
+		local t0 = os.clock()
+		while os.clock() - t0 < sec do
+			task.wait()
+			if caught then
+				return false
+			end
+		end
+		return true
+	end
+	-- เดินตรงถึง toX ด้วยความเร็วท่า rate (เริ่มท่าใหม่ทุกครั้ง จังหวะเท้าจึงรู้ล่วงหน้า)
+	local function walk(toX: number, rate: number, tick: ((number) -> ())?): boolean
+		local sign = if toX > x then 1 else -1
+		yaw = Vector3.new(sign, 0, 0)
+		GhostNPC.Play(m, "TallSlowWalk", rate)
+		local from, t0 = x, Workspace:GetServerTimeNow()
+		local total = math.abs(toX - from)
+		local function gone(el: number): number
+			return math.min(total, stride(el * rate) - stride(0))
+		end
+		local dur = total / (GIANT.V * rate)
+		while gone(dur) < total do
+			dur += 0.05
+		end
+		local steps = {}
+		local n = 0
+		while n * GIANT.LEN / rate < dur + 0.1 do
+			for i, ct in ipairs(GIANT.CONTACT) do
+				local t = (ct + n * GIANT.LEN) / rate
+				if t < dur + 0.05 then
+					local sx = from + sign * (gone(t) + GIANT.REACH)
+					local sz = GIANT.Z + (if i == 1 then -1 else 1) * sign * GIANT.FOOT
+					table.insert(steps, { t = t0 + t, p = Vector3.new(sx, groundAt(sx, sz), sz) })
+				end
+			end
+			n += 1
+		end
+		fx:FireAllClients("steps", steps)
+		while true do
+			local el = Workspace:GetServerTimeNow() - t0
+			x = from + sign * gone(el)
+			put()
+			if tick then
+				tick(x)
+			end
+			if caught then
+				return false
+			end
+			if el >= dur then
+				return true
+			end
+			RunService.Heartbeat:Wait()
+		end
+	end
+	-- หันตัวช้าๆ
+	local function turn(to: Vector3, sec: number): boolean
+		GhostNPC.Play(m, "Idle")
+		local a0 = math.atan2(-yaw.X, -yaw.Z)
+		local a1 = math.atan2(-to.X, -to.Z)
+		local diff = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
+		local t0 = os.clock()
+		while true do
+			local k = math.clamp((os.clock() - t0) / sec, 0, 1)
+			k = k * k * (3 - 2 * k)
+			local a = a0 + diff * k
+			yaw = Vector3.new(-math.sin(a), 0, -math.cos(a))
+			put()
+			if caught then
+				return false
+			end
+			if k >= 1 then
+				yaw = to
+				return true
+			end
+			RunService.Heartbeat:Wait()
+		end
+	end
+	local function bow(down: boolean, sec: number)
+		m:SetAttribute("BowDir", if down then 1 else -1)
+		m:SetAttribute("BowDur", sec)
+		m:SetAttribute("BowT0", Workspace:GetServerTimeNow())
+	end
+	-- มือขวา: ลากจาก x0 ไป x1 ใช้ drag วิ ค้าง hold วิ (เริ่มแตะหลังจากนี้ 1 วิ)
+	local function handOnRoof(x0: number, x1: number, drag: number, hold: number): number
+		local t0 = Workspace:GetServerTimeNow() + 1.0
+		local z = 10.5
+		m:SetAttribute("HandX0", x0)
+		m:SetAttribute("HandX1", x1)
+		m:SetAttribute("HandY", GIANT.ROOF)
+		m:SetAttribute("HandZ", z)
+		m:SetAttribute("HandDrag", drag)
+		m:SetAttribute("HandHold", hold)
+		m:SetAttribute("HandT0", t0)
+		fx:FireAllClients("hand", t0, drag, hold, x0, x1, z)
+		return z
+	end
+	local function headAt(bowed: boolean): Vector3
+		return if bowed then Vector3.new(x, 24, 3) else Vector3.new(x, GIANT.HEAD, GIANT.Z)
+	end
+
+	local function act(): boolean
+		local stopX = (math.random() - 0.5) * 8
+		local arrive = math.abs(stopX - x) / (GIANT.V * 0.8)
+		ctx.notice("Big_" .. kind .. "_Warn", arrive)
+		task.delay(0.8, function()
+			if not over and not caught then
+				fx:FireAllClients("cry", Vector3.new(x, GIANT.HEAD, GIANT.Z), 0.9, 1) -- หวีดไกลๆ ครั้งแรก
+			end
+		end)
+		if not walk(stopX, 0.8) then
+			return false
+		end
+		watch(true)
+		ctx.notice("Big_Danger", 10)
+		if not turn(Vector3.zAxis, 1.6) or not pause(1.2) then
+			return false
+		end
+		-- ก้มลงมา
+		local t0 = Workspace:GetServerTimeNow()
+		bow(true, 3.6)
+		fx:FireAllClients("breath", t0, headAt(false), Vector3.new(x, 14, 11), 3.6, 10.5)
+		if not pause(4.3) then
+			return false
+		end
+		-- มือลูบหลังคา หยุดกลางร้าน แล้วเคาะ 1 ที
+		local x1 = x + 1.5
+		local z = handOnRoof(x - 10, x1, 2.8, 2.1)
+		if not pause(1.0 + 2.8 + 1.1) then
+			return false
+		end
+		fx:FireAllClients("slam", Vector3.new(x1, 12, z), 0.8)
+		if not pause(1.6) then
+			return false
+		end
+		fx:FireAllClients("cry", headAt(true), 1.15, 1.06) -- หวีดเหนือร้านพอดี
+		if not pause(2.4) then
+			return false
+		end
+		bow(false, 2.4)
+		if not pause(2.2) or not turn(Vector3.xAxis, 1.6) then
+			return false
+		end
+		-- เดินจากไป
+		if not walk(GIANT.GONE, 0.85, function(px)
+			if not fake and px > 52 then
+				checking = false
+			end
+		end) then
+			return false
+		end
+		if not fake then
+			return true
+		end
+		-- หลอกว่าไปแล้ว: จิ้งหรีดร้องกลับมา (ยังตรวจกติกาอยู่) แล้วหันกลับมาเร็วกว่าเดิม
+		GhostNPC.Play(m, "Idle")
+		remotes:SetAttribute("BigFake", true)
+		if not pause(3.4 + math.random() * 1.2) then
+			return false
+		end
+		remotes:SetAttribute("BigFake", nil)
+		if not turn(-Vector3.xAxis, 0.9) or not walk((math.random() - 0.5) * 8, 1.1) then
+			return false
+		end
+		if not turn(Vector3.zAxis, 1.1) then
+			return false
+		end
+		bow(true, 1.5)
+		if not pause(0.9) then
+			return false
+		end
+		z = handOnRoof(x - 3, x - 3, 0.3, 1.9)
+		if not pause(1.0) then
+			return false
+		end
+		fx:FireAllClients("slam", Vector3.new(x - 3, 12, z), 1)
+		if not pause(0.8) then
+			return false
+		end
+		fx:FireAllClients("cry", headAt(true), 1.3, 1.12)
+		if not pause(2.4) then
+			return false
+		end
+		bow(false, 1.8)
+		if not pause(1.7) or not turn(-Vector3.xAxis, 1.2) then
+			return false
+		end
+		return walk(-GIANT.GONE, 1.0, function(px)
+			if px < -52 then
+				checking = false
+			end
+		end)
+	end
+	local ok = act()
+	over = true
+	remotes:SetAttribute("BigFake", nil)
+	if not ok then
+		-- จับได้: หยุด เล่นท่าโกรธ แล้วจางหายหลังผีหลอก
+		fx:FireAllClients("stop")
+		m:SetAttribute("HandT0", nil)
+		m:SetAttribute("BowT0", nil)
+		GhostNPC.Play(m, "Shriek")
+		fx:FireAllClients("cry", headAt(false), 1.2, 1.1)
+		task.delay(4, function()
+			fade(group, 1, 1.5)
+			task.delay(1.6, function()
+				group:Destroy()
+			end)
+		end)
+	else
+		fade(group, 1, 1.5)
+		task.wait(1.6)
+		group:Destroy()
+	end
+	return { ok = ok, faults = faults, team = team, group = group }
+end
+
 -- ---------------------------------------------------------------- รัน
 -- ctx.notice(key, seconds, players?) ข้อความล่างจอ · คืน { ok, faults = { [Player] = เหตุผล }, team = เหตุผลรวม?, group }
 function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?) -> () }): { [string]: any }
@@ -520,6 +827,9 @@ function BigEvents.Run(kind: string, ctx: { notice: (string, number, { Player }?
 	fade(group, 1, 0)
 	group.Parent = Workspace:FindFirstChild("AnomalyProps") or Workspace
 	fade(group, 0, 2.5)
+	if plan.giant then
+		return runGiant(kind, plan, ctx, group, live[1].m)
+	end
 	local song: Sound? = nil
 	if root and plan.song then
 		song = SoundBank.CreateSound(plan.song, root, 140)

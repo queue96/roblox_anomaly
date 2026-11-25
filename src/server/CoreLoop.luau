@@ -1575,8 +1575,10 @@ devDecision.Event:Connect(function(choice: string)
 		AnomalyBook.Reset()
 	elseif string.sub(choice, 1, 4) == "big:" then
 		-- ทดสอบผีใหญ่: "big:Krasue" / "big:Pret" / "big:Funeral" / "big:Pop"
-		task.spawn(CoreLoop.Big.run, string.sub(choice, 5))
-	elseif choice == "linger:knock" or choice == "linger:circle" or choice == "linger:roof" then
+		local bk, bv = string.match(choice, "^big:(%a+):?(%a*)$") -- "big:Pret:fake" = บังคับแบบ
+		CoreLoop.Big.mod.ForceVariant = if bv and bv ~= "" then bv else nil
+		task.spawn(CoreLoop.Big.run, bk)
+	elseif string.sub(choice, 1, 7) == "linger:" then
 		-- admin ทดสอบผีวนหลังปิดแผง (ปอบเคาะแผง / กุมารวิ่งรอบร้าน / ผีบนหลังคา): ปิดแผงก่อน แล้วเริ่มทันที ไม่นับโควตาคืนนั้น
 		task.spawn(function()
 			if isShutterOpen then
@@ -3222,6 +3224,7 @@ local function serveCustomer(c: Customer)
 			-- มีคนโดนหลอกนอกร้าน: ผีต้องปั่นป่วนทุกครั้ง คนที่ล้มนอนรอจนผีไป
 			task.delay(if knockNow then 0.1 elseif #outside > 0 then GHOST_VANISH_AFTER else 1.8, function()
 				if not gameOver then
+					CoreLoop.Linger.Speaker = speaker -- เคาะแผงแบบเลียนเสียง: ใช้เสียงลูกค้าคนนี้
 					CoreLoop.Linger.Start(#outside > 0, lingerKind)
 				end
 			end)

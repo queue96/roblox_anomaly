@@ -1492,6 +1492,22 @@ function playVoiceFile(genderKey: string, uploadedId: string, isDubbed: boolean,
 	snd.RollOffMinDistance = if isDubbed then 16 else 7 -- กล้องคัตซีนอยู่ห่างหัวคนพูด ~10-15 studs
 	snd.RollOffMaxDistance = 60
 	SoundBank.ApplyWarmEffects(snd, { low = prof.low or 2, mid = prof.mid or 2, high = prof.high or -6 })
+	-- ผีเลียนเสียงลูกค้าหลังแผง (server/GhostLinger): อู้อี้ผ่านสังกะสี ยานลงเรื่อยๆ (speaker.mimic = ความเร็วเสียง)
+	local mimic = type(speakerInfo) == "table" and tonumber(speakerInfo.mimic) or nil
+	if mimic then
+		snd.PlaybackSpeed *= mimic
+		local muffle = Instance.new("EqualizerSoundEffect")
+		muffle.Name = "MuffleEQ"
+		muffle.LowGain = 2
+		muffle.MidGain = -5
+		muffle.HighGain = -26
+		muffle.Parent = snd
+		local echo = Instance.new("ReverbSoundEffect")
+		echo.DecayTime = 1.1
+		echo.DryLevel = 0
+		echo.WetLevel = -14
+		echo.Parent = snd
+	end
 	-- เสียงพูดไม่อยู่ในตัวคนพูดตรงๆ: อยู่ในจุดล่องหนที่ตามหัวไปเรื่อยๆ จนพูดจบ
 	-- (เดิมปิดแผงใส่ลูกค้าแล้วเสียงขาดกลางประโยค เพราะรถ/ตัวลูกค้าถูกลบ หรือผีที่โดนไล่สั่ง Sound:Stop() ทุกเสียงในรถ ผู้ใช้ 2026-11-07)
 	if targetParent:IsA("BasePart") then

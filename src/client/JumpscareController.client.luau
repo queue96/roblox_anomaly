@@ -130,6 +130,57 @@ grey.Name = "JumpscareGrade"
 grey.Enabled = false
 grey.Parent = Lighting
 
+-- ---------------------------------------------------------------- ผีลูกค้าที่ร่างจริงเป็นคน: จอหลอกใช้หน้าผีแทน (ผู้ใช้ 2026-11-26)
+--   ป้ายมรณะ / วิทยุสวดศพ / น้ำมันเลือด / เท้ากลับหลัง / คอหมุน ไม่มีร่างผีของตัวเอง เดิมจอหลอกเลยเป็นหน้าลูกค้าธรรมดา
+--   ร่างผีจาก ReplicatedStorage.GhostModels (กระดูกชุดเดียวกับชาวบ้าน วางทับตัวจริงได้พอดี) เลือกตามตัวละครลูกค้า (attribute Char)
+local FACE_SWAP: { [string]: { [string]: string } } = {
+	Anomaly_Cemetery = { human_base = "ghost_funeral_elder_man", human_female = "ghost_funeral_woman", human_elder_male = "ghost_funeral_elder_man", human_elder_female = "ghost_funeral_elder_woman", human_child = "ghost_child" },
+	Anomaly_MonkRadio = { human_base = "ghost_shroud", human_female = "ghost_funeral_woman", human_elder_male = "ghost_shroud", human_elder_female = "ghost_funeral_elder_woman", human_child = "ghost_child" },
+	Anomaly_BloodFuel = { human_base = "ghost_funeral_elder_man", human_female = "ghost_mirror", human_elder_male = "ghost_funeral_elder_man", human_elder_female = "ghost_mirror", human_child = "ghost_child" },
+	Anomaly_BackFeet = { human_base = "ghost_shroud", human_female = "ghost_mirror", human_elder_male = "ghost_shroud", human_elder_female = "ghost_mirror", human_child = "ghost_child" },
+	Anomaly_NeckTwist = { human_base = "ghost_funeral_elder_man", human_female = "ghost_funeral_woman", human_elder_male = "ghost_funeral_elder_man", human_elder_female = "ghost_funeral_elder_woman", human_child = "ghost_child" },
+}
+local function swapBody(key: string?, driver: Instance): Model?
+	local set = key and FACE_SWAP[key]
+	local pool = ReplicatedStorage:FindFirstChild("GhostModels")
+	local dRoot = driver:FindFirstChild("RootPart")
+	if not (set and pool and dRoot and dRoot:IsA("BasePart") and driver:GetAttribute("Human") == true) then
+		return nil
+	end
+	local char = driver:GetAttribute("Char")
+	local name = set[char :: any] or set.human_base
+	local tpl = pool:FindFirstChild(name)
+	if not (tpl and tpl:IsA("Model")) then
+		return nil
+	end
+	local c = tpl:Clone()
+	local gRoot = c:FindFirstChild("RootPart")
+	if not (gRoot and gRoot:IsA("BasePart")) then
+		c:Destroy()
+		return nil
+	end
+	c:SetAttribute("GhostName", name)
+	c:SetAttribute("FaceSwap", true)
+	c:PivotTo(dRoot.CFrame * gRoot.CFrame:ToObjectSpace(c:GetPivot()))
+	-- ท่าเดียวกับลูกค้าตอนนี้ (นั่งขับ / ยืน) หน้าตรงไปข้างหน้า
+	local pose: { [string]: CFrame } = {}
+	for _, d in ipairs(driver:GetChildren()) do
+		if d == dRoot then
+			for _, b in ipairs(d:GetDescendants()) do
+				if b:IsA("Bone") then
+					pose[b.Name] = b.Transform
+				end
+			end
+		end
+	end
+	for _, b in ipairs(c:GetDescendants()) do
+		if b:IsA("Bone") and pose[b.Name] then
+			b.Transform = if b.Name == "neck" or b.Name == "head" then CFrame.identity else pose[b.Name]
+		end
+	end
+	return c
+end
+
 -- ---------------------------------------------------------------- เลือกตัวผีมาใส่จอ
 local function ghostModel(key: string?, focus: string, source: Instance?): (Model?, BasePart?, { Instance })
 	-- เงาหลังต้นไทรที่ยังเป็นเงาเดิม (Part ไม่มีกระดูก: ยังไม่ได้นำเข้า ghost_shadow) ใช้แบบเดิม
@@ -280,7 +331,38 @@ local function ghostModel(key: string?, focus: string, source: Instance?): (Mode
 		end
 		if not focusPart then
 			local driver = source:FindFirstChild("DriverNPC")
-			if driver then
+			local ghost = if driver and focus == "head" then swapBody(key, driver) else nil
+			if driver and ghost then
+				table.insert(roots, driver) -- ตอนเผยร่างผีในฉาก: ซ่อนลูกค้าตัวจริง
+				ghost.Parent = m
+				focusPart = boneFocus(ghost, "head")
+				if focusPart then
+					-- กล้องอยู่ตรงหน้าผีจริงๆ (คนขับมอไซค์โน้มตัว หน้าก้ม): ไล่กระดูกจากรากถึงหัว ทั้งท่าพักและท่าตอนนี้
+					local gRoot = ghost:FindFirstChild("RootPart") :: BasePart
+					local chain: { Bone } = {}
+					for _, d in ipairs(ghost:GetDescendants()) do
+						if d:IsA("Bone") and d.Name == "head" then
+							local b: Instance? = d
+							while b and b:IsA("Bone") do
+								table.insert(chain, 1, b)
+								b = b.Parent
+							end
+							break
+						end
+					end
+					local rest, posed = CFrame.identity, CFrame.identity
+					for _, b in ipairs(chain) do
+						rest = rest * b.CFrame
+						posed = posed * b.CFrame * b.Transform
+					end
+					local headCF = gRoot.CFrame * posed
+					local toLocal = (gRoot.CFrame * rest).Rotation:Inverse()
+					local look = headCF.Rotation * (toLocal * ghost:GetPivot().LookVector)
+					local up = headCF.Rotation * (toLocal * ghost:GetPivot().UpVector)
+					local at = headCF.Position + up * 0.42
+					focusPart.CFrame = CFrame.lookAt(at, at + look)
+				end
+			elseif driver then
 				local c = addClone(driver)
 				local head = c:FindFirstChild("Head") :: BasePart?
 				-- หน้าหลอนเสมอ (ยกเว้นหันหัวกลับ ที่จะหมุนให้เห็นทีหลัง)
@@ -549,6 +631,23 @@ local function showScare(key: string?, source: Instance?, opts: { side: number?,
 		-- หยุดห่างพอเห็นหน้าทั้งหน้า + ไหล่ (เดิม 1.05 ใกล้จนเห็นแค่จมูก/ตา)
 		local far, near = size * 9, size * (if cling then CLING_NEAR else 2.1)
 		local t0 = os.clock()
+		-- คอหมุน (ร่างผีที่สวมแทน): กระดูกคอ/หัว + ท่าเดิม
+		local swapNeck: { any }? = nil
+		if fx.spin and rig and rig:GetAttribute("FaceSwap") == true then
+			local nb, hb: Bone? = nil, nil
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("Bone") then
+					if d.Name == "neck" then
+						nb = d
+					elseif d.Name == "head" then
+						hb = d
+					end
+				end
+			end
+			if nb and hb then
+				swapNeck = { nb, nb.CFrame, hb, hb.CFrame }
+			end
+		end
 		conn = RunService.RenderStepped:Connect(function()
 			local t = os.clock() - t0
 			local k = if instant then 1 else math.clamp(t / DASH, 0, 1)
@@ -564,7 +663,14 @@ local function showScare(key: string?, source: Instance?, opts: { side: number?,
 			end
 			local camPos = target + front * dist + lateral + shake
 			vpCam.CFrame = CFrame.lookAt(camPos, target + shake * 0.5 + lateral * 0.3)
-			if fx.spin and model then
+			if fx.spin and swapNeck then
+				local a = math.clamp((t - 0.12) / 0.3, 0, 1)
+				a = 1 - (1 - a) * (1 - a)
+				local yaw = math.pi * (1 - a)
+				local tilt = math.rad(26) * a
+				swapNeck[1].CFrame = swapNeck[2] * CFrame.Angles(0, yaw * 0.45, tilt * 0.4)
+				swapNeck[3].CFrame = swapNeck[4] * CFrame.Angles(0, yaw * 0.55, tilt * 0.6)
+			elseif fx.spin and model then
 				-- หันหัวกลับมาทางเราแบบกระตุก
 				local ang = math.rad(math.clamp((t - 0.15) / 0.22, 0, 1) * 180)
 				focus.CFrame = CFrame.new(target) * (focus.CFrame - focus.Position) * CFrame.Angles(0, ang - (focus:GetAttribute("Spun") or 0), 0)

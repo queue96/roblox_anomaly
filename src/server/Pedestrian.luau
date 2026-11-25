@@ -342,6 +342,9 @@ function Pedestrian.WalkTo(m: Model, target: Vector3, speed: number?, floor: boo
 	if cap then
 		spd = math.min(spd, cap)
 	end
+	if not floor then
+		NetSmooth.Walk(m, target, spd) -- พื้นดิน: เครื่องผู้เล่นเดินเองจากเส้นทาง (ในร้านใช้พื้นจริง = เกลี่ยตำแหน่งแทน)
+	end
 	local done = false
 	local conn: RBXScriptConnection
 	conn = RunService.Heartbeat:Connect(function(dt)
@@ -353,7 +356,7 @@ function Pedestrian.WalkTo(m: Model, target: Vector3, speed: number?, floor: boo
 		local pos = m:GetPivot().Position
 		local flat = Vector3.new(target.X - pos.X, 0, target.Z - pos.Z)
 		local dist = flat.Magnitude
-		if dist < 0.2 then
+		if dist < 0.02 then -- หยุดตรงจุดหมายพอดี (ตรงกับที่เครื่องผู้เล่นเดินไป)
 			done = true
 			conn:Disconnect()
 			pose(m, 0)

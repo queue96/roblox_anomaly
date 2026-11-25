@@ -16,7 +16,13 @@ local NetSmooth = {}
 NetSmooth.TAG = "NetSmooth"
 NetSmooth.DRIVE_TAG = "SmoothDrive"
 NetSmooth.RATE = 20 -- ครั้ง/วิ
-NetSmooth.DELAY = 0.12 -- วิ: เครื่องผู้เล่นวาดย้อนหลังเท่านี้ (มากกว่า 2 รอบส่งนิดหน่อย)
+NetSmooth.DELAY = 0.12 -- วิ: เครื่องผู้เล่นวาดย้อนหลังเท่านี้ตอนเริ่ม แล้วปรับเองตามเน็ตของเครื่องนั้น (client/SmoothDrive)
+-- (2026-11-25 ผู้ใช้: ลูกค้าเดินวาปๆ) เดิมตายตัว 0.12: ข้อมูลมาช้าเกิน ~55 ms = หยุดค้างแล้วกระโดด
+NetSmooth.DELAY_MIN = 0.1
+NetSmooth.DELAY_MAX = 0.6
+NetSmooth.DELAY_SLACK = 0.08 -- วิ: เผื่อรอบส่ง (1 / RATE) + จังหวะเฟรม บวกเพิ่มจากความช้าของเน็ตที่วัดได้
+NetSmooth.FINAL_REPEATS = 3 -- หยุดแล้วส่งตำแหน่งสุดท้ายซ้ำ (ข้อความแบบ unreliable หายได้: ไม่งั้นค้างก่อนถึงจุดหยุด)
+NetSmooth.WALK_TAG = "SmoothWalk" -- คนเดินทางตรง (NetSmooth.Walk): เครื่องผู้เล่นเดินเองจากเส้นทาง ไม่รอตำแหน่งทีละช่วง
 NetSmooth.CHUNK = 8 -- โมเดลต่อ 1 ข้อความ (UnreliableRemoteEvent จำกัดขนาด ~900 bytes)
 NetSmooth.REMOTE = "NetSmooth"
 
@@ -50,13 +56,15 @@ local function startServer()
 	end
 	local remote = ev :: UnreliableRemoteEvent
 	local lastSent: { [Model]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
+	local finalLeft: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
+	local step = 1 / NetSmooth.RATE
 	local acc = 0
 	RunService.Heartbeat:Connect(function(dt)
 		acc += dt
-		if acc < 1 / NetSmooth.RATE then
+		if acc < step then
 			return
 		end
-		acc = 0
+		acc = math.min(acc - step, step) -- เก็บเศษไว้รอบหน้า (เดิมล้างเป็น 0: ส่งได้จริงแค่ ~15 ครั้ง/วิ)
 		local now = Workspace:GetServerTimeNow()
 		local batch: { any } = {}
 		for _, inst in ipairs(CollectionService:GetTagged(NetSmooth.TAG)) do
@@ -64,7 +72,10 @@ local function startServer()
 				local m = inst :: Model
 				local cf = m:GetPivot()
 				local last = lastSent[m]
-				if not last or (last.Position - cf.Position).Magnitude > 0.003 or last.LookVector:Dot(cf.LookVector) < 0.99999 or last.UpVector:Dot(cf.UpVector) < 0.99999 then
+				local moved = not last or (last.Position - cf.Position).Magnitude > 0.003 or last.LookVector:Dot(cf.LookVector) < 0.99999 or last.UpVector:Dot(cf.UpVector) < 0.99999
+				local left = if moved then NetSmooth.FINAL_REPEATS else (finalLeft[m] or 0) - 1
+				finalLeft[m] = math.max(left, 0)
+				if moved or left >= 0 then
 					lastSent[m] = cf
 					table.insert(batch, m)
 					table.insert(batch, cf)
@@ -96,6 +107,17 @@ function NetSmooth.Track(m: Instance?)
 		end
 	end
 	startServer()
+end
+
+-- Server: บอกเส้นทางเดินตรงครั้งเดียว (Pedestrian.WalkTo) เครื่องผู้เล่นเดินเองด้วยความเร็วเดียวกัน ไม่ขึ้นกับจังหวะเน็ต
+--   Server ยัง PivotTo ทุกเฟรมตามเดิม (โค้ดเกมอ่านตำแหน่งได้) ใช้ได้เฉพาะเดินบนพื้นดิน (Terrain)
+function NetSmooth.Walk(m: Model, to: Vector3, speed: number)
+	m:SetAttribute("WalkFrom", m:GetPivot().Position)
+	m:SetAttribute("WalkTo", to)
+	m:SetAttribute("WalkSpeed", speed)
+	m:SetAttribute("WalkT0", Workspace:GetServerTimeNow())
+	m:SetAttribute("WalkId", (tonumber(m:GetAttribute("WalkId")) or 0) + 1)
+	CollectionService:AddTag(m, NetSmooth.WALK_TAG)
 end
 
 return NetSmooth

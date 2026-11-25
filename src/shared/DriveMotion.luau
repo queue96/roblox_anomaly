@@ -133,15 +133,14 @@ function DriveMotion.WheelsOf(v: Instance): { BasePart }
 	return list
 end
 
--- หมุนล้อตามระยะที่ไป step (studs) รอบแกนขวางของรถ / รัศมีล้อแต่ละวง
-function DriveMotion.SpinWheels(wheels: { BasePart }, right: Vector3, step: number)
-	for _, w in ipairs(wheels) do
-		if w.Parent then
-			local r = math.max(w.Size.Y, w.Size.Z) / 2
-			local c = w.Position
-			w.CFrame = CFrame.new(c) * CFrame.fromAxisAngle(right, -step / math.max(r, 0.2)) * (w.CFrame - c)
-		end
-	end
+-- หมุนล้อได้ไม่เกินนี้ต่อเฟรม (2026-11-26 ผู้ใช้: ล้อรถลูกค้าไม่หมุนบ่อยๆ): รถวิ่ง 24 studs/วิ ล้อหมุน 14-45° ต่อเฟรม
+--   ลายล้อซ้ำทุก 36-72° (รูเก๋ง 10 รู ซี่มอไซค์) หมุนใกล้ครึ่งช่อง/ครบช่องพอดี = ตาเห็นเป็นหยุดนิ่ง กะพริบ หรือหมุนถอยหลัง
+--   10° = ราว 1/4 ช่องของลายที่ถี่สุด เห็นหมุนไปข้างหน้าเสมอทุกเฟรมเรต
+DriveMotion.MAX_SPIN = math.rad(10)
+-- มุมหมุนของล้อเมื่อไประยะ step (studs) ในเฟรมนี้
+function DriveMotion.SpinAngle(w: BasePart, step: number): number
+	local r = math.max(w.Size.Y, w.Size.Z) / 2
+	return math.clamp(step / math.max(r, 0.2), -DriveMotion.MAX_SPIN, DriveMotion.MAX_SPIN)
 end
 
 return DriveMotion
