@@ -56,7 +56,7 @@ end
 
 -- ความดังตายตัว = ค่าเริ่มต้นเดิมของแถบเลื่อน (เพลง 70% / เอฟเฟกต์ 80%) คูณ MASTER_SCALE 0.5 (ไม่ให้ดังแสบหู โดยเฉพาะตอนผีหลอก)
 --   ค่าที่ผู้เล่นเคยเลื่อนไว้ (บันทึกใน DataStore) ไม่ใช้แล้ว
---   มือถือ: คูณเพิ่ม (ลำโพงมือถือเบากว่าคอมมาก) Shared.DeviceInfo.VolumeBoost / อุปกรณ์อื่นเท่าคอม
+--   คูณตามอุปกรณ์ Shared.DeviceInfo.VolumeBoost (คอม 1.6 / มือถือ 3.0 / แท็บเล็ต 1.8)
 -- ไม่มีโมดูล (เช่น place ที่ยังไม่ sync) = ไม่ค้าง ใช้ความดังเท่าคอม
 local deviceModule = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("DeviceInfo", 5)
 local DeviceInfo = if deviceModule then require(deviceModule) :: any else nil

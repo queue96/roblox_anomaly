@@ -802,8 +802,8 @@ local function updateFlashlightSlot()
 		lastSlotHasTool = hasTool
 		lastSlotEquipped = isEquipped
 		lastSlotShowHUD = showHUD
-		-- คีย์บอร์ด: ช่องไฟฉายล่างจอซ่อน ใช้ไอคอน F + หลอดถ่านขอบจอขวา (client/KeyHints) แทน · มือถือยังต้องแตะช่องนี้
-		flashlightSlot.Visible = hasTool and showHUD and IS_TOUCH
+		-- ช่องไฟฉาย [1] ล่างจอทุกอุปกรณ์ (ผู้ใช้ 2026-11-26 "ย้ายมาไว้เลข 1 เหมือนเดิม": ไอคอน F ขอบจอขวาทับรูปศาลพระภูมิบนจอเล็ก)
+		flashlightSlot.Visible = hasTool and showHUD
 		localPlayer:SetAttribute("FlashlightOn", isEquipped == true) -- client/KeyHints
 		slotStroke.Color = if isEquipped then Color3.fromRGB(185, 140, 88) else Color3.fromRGB(70, 64, 54)
 		slotLabel.TextColor3 = if isEquipped then C.Cream else C.Dim
@@ -1556,7 +1556,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 	if input.KeyCode == Enum.KeyCode.V or input.KeyCode == Enum.KeyCode.LeftAlt then
 		setMouseUnlocked(not mouseUnlocked)
-	elseif input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.One or input.KeyCode == Enum.KeyCode.ButtonL1 then -- F (ผู้ใช้ 2026-11-16 ไอคอนขอบจอขวา) · 1 = แบบเดิมยังใช้ได้
+	elseif input.KeyCode == Enum.KeyCode.One or input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonL1 then -- 1 = ปุ่มหลัก (ช่อง [1] ล่างจอ) · F ยังใช้ได้สำหรับคนที่ชินแล้ว
 		toggleFlashlightEquip()
 	end
 end)

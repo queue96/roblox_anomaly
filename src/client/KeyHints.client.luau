@@ -1,5 +1,5 @@
 -- KeyHints.client.luau — ไอคอนปุ่มลัดขอบจอขวา (ผู้ใช้ 2026-11-16: อยากได้แบบแมพอ้างอิงที่มีไอคอนตา/แม่กุญแจ + ตัวอักษรปุ่ม)
---   ไฟฉาย + F (+ หลอดถ่าน) = เปิด/เก็บไฟฉาย (HUDController ตั้ง attribute FlashlightOn, ถ่าน = Battery) · เปิดอยู่ = สีทอง + แสงพุ่ง
+--   (ไฟฉาย + F เคยอยู่ที่นี่ ย้ายกลับไปช่อง [1] ล่างจอใน HUDController แล้ว ผู้ใช้ 2026-11-26: ทับรูปศาลพระภูมิบนจอเล็ก)
 --   ตา + G  = พนมมือเปิดตาทิพย์ (PrayerController) · พนมมืออยู่ = ตาเรืองสีทอง
 --   แม่กุญแจ + V = ปลด/ล็อกเมาส์ (HUDController ตั้ง attribute MouseUnlocked) · ปลดอยู่ = ห่วงกุญแจยกขึ้น
 --   ไอคอนวาดด้วย Frame + UIStroke (เส้นขาวบางจางๆ) ไม่ต้องอัปโหลดรูป · ไม่รับคลิก (แค่บอกปุ่ม)
@@ -91,28 +91,6 @@ local function slot(order: number, name: string): (Frame, TextLabel)
 	key.Parent = holder
 	return icon, key
 end
-
--- ไฟฉาย (ผู้ใช้ 2026-11-16: ย้ายช่องไฟฉายล่างจอมาขอบขวา ปุ่ม F): หัวไฟกว้าง + ด้ามมีปุ่มกด + แสงพุ่ง 3 เส้นตอนเปิด
---   หลอดถ่านเล็กใต้ไอคอน (ถ่านใกล้หมด = แดง)
-local flashIcon, flashKey = slot(0, "Flashlight")
-frame(flashIcon, UDim2.fromOffset(18, 8), UDim2.fromOffset(22, 16), 0.2, 2) -- หัวไฟ
-frame(flashIcon, UDim2.fromOffset(10, 17), UDim2.fromOffset(22, 31), 0.25, 2) -- ด้าม
-frame(flashIcon, UDim2.fromOffset(3, 5), UDim2.fromOffset(22, 28), 0.5, nil, true) -- ปุ่มกด
-local beams = {}
-for _, b in ipairs({ { 22, 5, 0 }, { 13.5, 7, -32 }, { 30.5, 7, 32 } }) do
-	local f = frame(flashIcon, UDim2.fromOffset(2, 6), UDim2.fromOffset(b[1], b[2]), nil, nil, false)
-	f.Rotation = b[3]
-	table.insert(beams, f)
-end
-local battBg = frame(flashIcon.Parent :: Instance, UDim2.fromOffset(28, 5), UDim2.fromOffset(28, 49), nil, 1)
-local battFill = Instance.new("Frame")
-battFill.Name = "BatteryFill"
-battFill.BorderSizePixel = 0
-battFill.Size = UDim2.fromScale(1, 1)
-battFill.BackgroundColor3 = IDLE
-battFill.BackgroundTransparency = IDLE_T
-battFill.Parent = battBg
-flashKey.Text = "F"
 
 -- ตา (ตาทิพย์): ขอบตาทรงเมล็ดอัลมอนด์ (หัวตา/หางตาแหลม ผู้ใช้ 2026-11-16: ทรงแคปซูลเดิมดูไม่เหมือนตา) + ม่านตา + ตาดำ
 --   หนังตาบน/ล่าง = วงกลมใหญ่ 2 วง (จุดศูนย์กลางอยู่ใต้/เหนือตา) โชว์เฉพาะส่วนโค้งที่เป็นหนังตาด้วย UIGradient บนเส้น
@@ -209,26 +187,6 @@ local function updatePray()
 	pupil.Size = if on then UDim2.fromScale(0.24, 0.24) else UDim2.fromScale(0.16, 0.16)
 end
 
--- ถ่าน: เปลี่ยนแค่ความยาว/สีแถบ (attribute Battery เปลี่ยนถี่ ไม่ต้องทาสีทั้งไอคอน)
-local function updateBattery()
-	local b = localPlayer:GetAttribute("Battery")
-	b = if type(b) == "number" then math.clamp(b, 0, 1) else 1
-	battFill.Size = UDim2.fromScale(b, 1)
-	local on = localPlayer:GetAttribute("FlashlightOn") == true
-	battFill.BackgroundColor3 = if b < 0.15 then Color3.fromRGB(205, 50, 40) elseif on then ACTIVE else IDLE
-	battFill.BackgroundTransparency = if b < 0.15 or on then ACTIVE_T else IDLE_T
-end
-
-local function updateFlash()
-	local on = localPlayer:GetAttribute("FlashlightOn") == true
-	paint(flashIcon.Parent :: Instance, if on then ACTIVE else IDLE, if on then ACTIVE_T else IDLE_T)
-	for _, f in ipairs(beams) do
-		f.BackgroundColor3 = ACTIVE
-		TweenService:Create(f, TweenInfo.new(0.2), { BackgroundTransparency = if on then 0.25 else 1 }):Play()
-	end
-	updateBattery()
-end
-
 local function updateMouse()
 	local unlocked = localPlayer:GetAttribute("MouseUnlocked") == true
 	local info = TweenInfo.new(0.2, Enum.EasingStyle.Back)
@@ -236,7 +194,7 @@ local function updateMouse()
 	paint(lockIcon.Parent :: Instance, if unlocked then ACTIVE else IDLE, if unlocked then ACTIVE_T else IDLE_T)
 end
 
--- คีย์บอร์ด = F / G / V · จอย = LB / Y (ไม่มีเมาส์) · จอสัมผัส = ซ่อน
+-- คีย์บอร์ด = G / V · จอย = Y (ไม่มีเมาส์) · จอสัมผัส = ซ่อน
 local mode = "kb"
 local function updateMode()
 	local last = UserInputService:GetLastInputType()
@@ -250,18 +208,14 @@ local function updateMode()
 		mode = "touch"
 	end
 	eyeKey.Text = if mode == "pad" then "Y" else "G"
-	flashKey.Text = if mode == "pad" then "LB" else "F"
 	lockIcon.Parent.Visible = mode == "kb"
 	column.Visible = mode ~= "touch" and Lighting:GetAttribute("Cutscene") ~= true
 end
 
 localPlayer:GetAttributeChangedSignal("Praying"):Connect(updatePray)
 localPlayer:GetAttributeChangedSignal("MouseUnlocked"):Connect(updateMouse)
-localPlayer:GetAttributeChangedSignal("FlashlightOn"):Connect(updateFlash)
-localPlayer:GetAttributeChangedSignal("Battery"):Connect(updateBattery)
 UserInputService.LastInputTypeChanged:Connect(updateMode)
 Lighting:GetAttributeChangedSignal("Cutscene"):Connect(updateMode)
 updateMode()
 updatePray()
 updateMouse()
-updateFlash()

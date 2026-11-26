@@ -11,7 +11,7 @@ local StarterPack = game:GetService("StarterPack")
 
 local TOOL_NAME = "FrogFlashlight"
 local RunService = game:GetService("RunService")
-local DRAIN_TIME = 100 -- วินาทีที่ถ่านเต็มเปิดส่องได้ต่อเนื่อง
+local DRAIN_TIME = 75 -- วินาทีที่ถ่านเต็มเปิดส่องได้ต่อเนื่อง (เดิม 100 ผู้ใช้ 2026-11-26 "แบตหมดเร็วกว่านี้อีกนิด")
 local RECHARGE_TIME = 45 -- วินาทีที่ชาร์จจาก 0 จนเต็ม (ตอนเก็บไฟฉาย หรือถืออยู่แต่ไฟดับเพราะหมด)
 local RELIGHT_AT = 0.2 -- หมดแล้วชาร์จในมือจนถึงเท่านี้ = ไฟติดเอง (ไม่กะพริบติด-ดับตรงขอบ 0)
 

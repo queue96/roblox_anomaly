@@ -760,7 +760,7 @@ end)
 ---------------------------------------------------------------------
 local ambienceGroup = SoundService:FindFirstChild("Ambience") or Instance.new("SoundGroup")
 ambienceGroup.Name = "Ambience"
--- มือถือดังขึ้นเท่ากับกลุ่มเสียงอื่น (Shared.DeviceInfo.VolumeBoost) อุปกรณ์อื่น = 1 เท่าเดิม
+-- ดังขึ้นตามอุปกรณ์เท่ากับกลุ่มเสียงอื่น (Shared.DeviceInfo.VolumeBoost: คอม 1.6 / มือถือ 3.0 / แท็บเล็ต 1.8)
 local deviceModule = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("DeviceInfo", 5)
 local DeviceInfo = if deviceModule then require(deviceModule) :: any else { VolumeBoost = function() return 1 end }
 ambienceGroup.Volume = DeviceInfo.VolumeBoost()

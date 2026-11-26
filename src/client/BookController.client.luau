@@ -5,6 +5,7 @@
 --   ยังไม่เคยเจอ = รูปเป็น "?" เห็นแค่ชื่อ ปุ่มลักษณะกดไม่ได้
 --   ข้อมูลมาจาก Attribute "Book" บนตัวผู้เล่น (Server: AnomalyBook.luau จำไว้ใน DataStore)
 --   ปลดล็อกใหม่ -> แจ้งเตือนกลางจอด้านบน + ปุ่มสมุดกะพริบแดง
+--   ฉากจบ 4 แบบ = ปุ่ม "ฉากจบ" แยกใต้ปุ่มสมุดผี เปิดหน้าต่างของตัวเอง (ผู้ใช้ 2026-11-26 "ให้แยกเป็นรายการแยกเลย" เดิมเป็นแท็บในสมุด)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -128,97 +129,107 @@ local bookBtnText = new("TextLabel", { -- ภาษาอื่นชื่อ�
 }, bookBtn)
 new("UITextSizeConstraint", { MaxTextSize = 20 }, bookBtnText)
 
--- หน้าต่างสมุด (ย่อตามจอ: มือถือแนวนอนก็ไม่ล้น)
-local BookPortrait = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BookPortrait"))
-local panel = new("Frame", {
-	Name = "Panel",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.92, 0.88),
-	BackgroundColor3 = C.Ink,
-	BackgroundTransparency = 0.04,
+-- ปุ่มฉากจบ: ใต้ปุ่มสมุดผี หน้าตาเดียวกัน
+local endBtn = new("TextButton", {
+	Name = "EndingsButton",
+	Position = UDim2.new(0, 14, 0.42, 6 + BTN + 12),
+	Size = UDim2.fromOffset(BTN, BTN),
+	BackgroundColor3 = BTN_IDLE,
+	BackgroundTransparency = 0.12,
 	BorderSizePixel = 0,
-	Visible = false,
-}, gui)
-new("UISizeConstraint", { MaxSize = Vector2.new(720, 540) }, panel)
-new("UIStroke", { Color = C.Line, Thickness = 1 }, panel)
-local header = new("TextLabel", {
-	Name = "Header",
-	Size = UDim2.new(1, 0, 0, 36),
-	BackgroundColor3 = C.Bar,
-	BackgroundTransparency = 0.05,
-	BorderSizePixel = 0,
-	FontFace = FONT_BODY,
-	TextColor3 = C.Cream,
-	TextSize = 22,
-	ZIndex = 20,
-}, panel)
--- ปุ่มปิด X (เส้นไขว้ เหมือนหน้าตั้งค่า)
-local closeBtn = new("TextButton", {
-	Name = "Close",
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.new(1, -6, 0.5, 0),
-	Size = UDim2.new(0, 28, 0, 28),
-	BackgroundTransparency = 1,
 	Text = "",
 	AutoButtonColor = false,
-	Modal = true,
-	ZIndex = 21,
-}, header)
-local xLines = {}
-for _, angle in ipairs({ 45, -45 }) do
-	table.insert(xLines, new("Frame", {
+}, btnGui)
+new("UICorner", { CornerRadius = UDim.new(0, 12) }, endBtn)
+new("UIStroke", { Color = Color3.fromRGB(150, 146, 140), Thickness = 2.5, Transparency = 0.1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, endBtn)
+new("TextLabel", {
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, 0, 0.54, 0),
+	Position = UDim2.fromScale(0, 0.06),
+	Text = "🌅",
+	TextScaled = true,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+}, endBtn)
+local endBtnText = new("TextLabel", {
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, -8, 0.34, 0),
+	Position = UDim2.new(0, 4, 0.62, 0),
+	TextScaled = true,
+	TextWrapped = true,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Cream,
+}, endBtn)
+new("UITextSizeConstraint", { MaxTextSize = 20 }, endBtnText)
+
+-- หน้าต่างสมุด (ย่อตามจอ: มือถือแนวนอนก็ไม่ล้น)
+local BookPortrait = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BookPortrait"))
+local function makeWindow(name: string, maxSize: Vector2): (Frame, TextLabel, TextButton)
+	local win = new("Frame", {
+		Name = name,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.new(0, 18, 0, 2),
-		Rotation = angle,
-		BackgroundColor3 = C.Dim,
+		Size = UDim2.fromScale(0.92, 0.88),
+		BackgroundColor3 = C.Ink,
+		BackgroundTransparency = 0.04,
 		BorderSizePixel = 0,
-		ZIndex = 22,
-	}, closeBtn))
-end
-closeBtn.MouseEnter:Connect(function()
-	for _, l in ipairs(xLines) do
-		l.BackgroundColor3 = Color3.fromRGB(220, 60, 50)
-	end
-end)
-closeBtn.MouseLeave:Connect(function()
-	for _, l in ipairs(xLines) do
-		l.BackgroundColor3 = C.Dim
-	end
-end)
-
--- แท็บสลับระหว่าง ผี / ฉากจบ
-local activeTab = "ghosts"
-local tabBar = new("Frame", {
-	Name = "Tabs",
-	Position = UDim2.new(0, 14, 0, 42),
-	Size = UDim2.new(1, -28, 0, 28),
-	BackgroundTransparency = 1,
-}, panel)
-new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, tabBar)
-local function makeTab(order: number): TextButton
-	local b = new("TextButton", {
-		LayoutOrder = order,
-		Size = UDim2.new(0.5, -4, 1, 0),
-		BackgroundColor3 = C.CardLocked,
+		Visible = false,
+	}, gui)
+	new("UISizeConstraint", { MaxSize = maxSize }, win)
+	new("UIStroke", { Color = C.Line, Thickness = 1 }, win)
+	local head = new("TextLabel", {
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundColor3 = C.Bar,
+		BackgroundTransparency = 0.05,
 		BorderSizePixel = 0,
 		FontFace = FONT_BODY,
-		TextColor3 = C.Dim,
-		TextSize = 16,
+		TextColor3 = C.Cream,
+		TextSize = 22,
+		ZIndex = 20,
+	}, win)
+	-- ปุ่มปิด X (เส้นไขว้ เหมือนหน้าตั้งค่า)
+	local x = new("TextButton", {
+		Name = "Close",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -6, 0.5, 0),
+		Size = UDim2.new(0, 28, 0, 28),
+		BackgroundTransparency = 1,
+		Text = "",
 		AutoButtonColor = false,
-	}, tabBar)
-	new("UICorner", { CornerRadius = UDim.new(0, 4) }, b)
-	local st = new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
-	st.Name = "Stroke"
-	return b
+		Modal = true,
+		ZIndex = 21,
+	}, head)
+	local lines = {}
+	for _, angle in ipairs({ 45, -45 }) do
+		table.insert(lines, new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(0, 18, 0, 2),
+			Rotation = angle,
+			BackgroundColor3 = C.Dim,
+			BorderSizePixel = 0,
+			ZIndex = 22,
+		}, x))
+	end
+	x.MouseEnter:Connect(function()
+		for _, l in ipairs(lines) do
+			l.BackgroundColor3 = Color3.fromRGB(220, 60, 50)
+		end
+	end)
+	x.MouseLeave:Connect(function()
+		for _, l in ipairs(lines) do
+			l.BackgroundColor3 = C.Dim
+		end
+	end)
+	return win, head, x
 end
-local tabGhostsBtn = makeTab(1)
-local tabEndingsBtn = makeTab(2)
+local panel, header, closeBtn = makeWindow("Panel", Vector2.new(720, 540))
+local endPanel, endHeader, endCloseBtn = makeWindow("EndingsPanel", Vector2.new(640, 560))
 
 local countLabel = new("TextLabel", {
 	Name = "Count",
-	Position = UDim2.new(0, 0, 0, 74),
+	Position = UDim2.new(0, 0, 0, 42),
 	Size = UDim2.new(1, 0, 0, 22),
 	BackgroundTransparency = 1,
 	FontFace = FONT_BODY,
@@ -229,14 +240,23 @@ local countLabel = new("TextLabel", {
 -- รายการผี: แบ่งหน้า (กดปุ่ม ‹ › เปลี่ยนหน้า ไม่ต้องเลื่อน) จำนวนการ์ดต่อหน้าตามขนาดกรอบ
 local list = new("Frame", {
 	Name = "List",
-	Position = UDim2.new(0, 14, 0, 100),
-	Size = UDim2.new(1, -28, 1, -154),
+	Position = UDim2.new(0, 14, 0, 72),
+	Size = UDim2.new(1, -28, 1, -126),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ClipsDescendants = true,
 }, panel)
 
--- รายการฉากจบ 4 แบบ (แท็บ "ฉากจบ")
+-- หน้าต่างฉากจบ 4 แบบ (แยกจากสมุดผี)
+local endCount = new("TextLabel", {
+	Name = "Count",
+	Position = UDim2.new(0, 0, 0, 42),
+	Size = UDim2.new(1, 0, 0, 24),
+	BackgroundTransparency = 1,
+	FontFace = FONT_BODY,
+	TextColor3 = C.Ember,
+	TextSize = 17,
+}, endPanel)
 local ENDING_ACCENT: { [string]: Color3 } = {
 	Ending_Bad = Color3.fromRGB(220, 48, 40),
 	Ending_Normal = Color3.fromRGB(235, 202, 138),
@@ -245,16 +265,15 @@ local ENDING_ACCENT: { [string]: Color3 } = {
 }
 local endingsList = new("ScrollingFrame", {
 	Name = "EndingsList",
-	Position = UDim2.new(0, 14, 0, 100),
-	Size = UDim2.new(1, -28, 1, -114),
+	Position = UDim2.new(0, 14, 0, 74),
+	Size = UDim2.new(1, -28, 1, -88),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ScrollBarThickness = 4,
 	ScrollBarImageColor3 = C.Faint,
 	CanvasSize = UDim2.new(),
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	Visible = false,
-}, panel)
+}, endPanel)
 new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10) }, endingsList)
 new("UIPadding", { PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, endingsList)
 
@@ -338,13 +357,36 @@ local perPage = 8
 local page = 1
 local applyPage: () -> () = function() end
 -- จอแคบ (มือถือ) เหลือ 3 คอลัมน์ การ์ดไม่เล็กเกินจนอ่านชื่อไม่ออก / จอเตี้ยเหลือแถวเดียว
+-- ความสูงการ์ดยืดหดให้แถวพอดีกรอบเสมอ (เดิมสูงตายตัว 200 จอเตี้ยแถวล่างโดนตัดครึ่ง ผู้ใช้ 2026-11-26 "สมุดผีมันบัก")
+--   ต้นเหตุจริง: AbsoluteSize เป็นพิกเซลจอที่คูณ UIScale แล้ว (Lobby ~1.36) แต่ CellSize เป็นหน่วยก่อนคูณ ต้องหารกลับ
+local CARD_MIN, CARD_MAX = 150, 220
+local function uiScale(): number
+	local k = 1
+	local node: Instance? = list
+	while node and node ~= gui.Parent do
+		local us = node:FindFirstChildOfClass("UIScale")
+		if us and us.Scale > 0 then
+			k *= us.Scale
+		end
+		node = node.Parent
+	end
+	return k
+end
 local function fitGrid()
-	local w, h = list.AbsoluteSize.X, list.AbsoluteSize.Y
+	local k = uiScale()
+	local w, h = list.AbsoluteSize.X / k, list.AbsoluteSize.Y / k
+	if w < 1 or h < 1 then
+		return
+	end
 	local cols = if w < 520 then 3 else 4
-	local cellH = if w < 520 then 184 else 200
-	local rows = math.max(1, math.floor((h + 12) / (cellH + 12)))
+	local rows = math.max(1, math.floor((h + 12) / (CARD_MIN + 12)))
+	local cellH = math.max(1, math.min(CARD_MAX, math.floor((h + 12) / rows) - 12))
 	grid.CellSize = UDim2.new(1 / cols, -math.ceil(12 * (cols - 1) / cols), 0, cellH)
-	perPage = cols * rows
+	if cols * rows ~= perPage then
+		local first = (page - 1) * perPage + 1 -- คงการ์ดใบแรกของหน้าที่ดูอยู่
+		perPage = cols * rows
+		page = math.floor((first - 1) / perPage) + 1
+	end
 	applyPage()
 end
 list:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitGrid)
@@ -517,6 +559,12 @@ for _, b in ipairs({ prevBtn, nextBtn }) do
 	end)
 end
 fitGrid()
+-- ล้อเมาส์บนรายการ = เปลี่ยนหน้า (ผู้ใช้เลื่อนแล้วคาดว่าจะไปต่อ)
+list.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseWheel then
+		turn(if input.Position.Z > 0 then -1 else 1)
+	end
+end)
 
 -- ---------------------------------------------------------------- หน้าลักษณะ (ซ้อนในหน้าต่างสมุด)
 local detail = new("Frame", {
@@ -736,48 +784,22 @@ local function refresh()
 	end
 	local totalGhosts = #LanguageModule.BookOrder
 	local totalEndings = #LanguageModule.EndingOrder
-	tabGhostsBtn.Text = (string.gsub(string.gsub(ui("BookTabGhosts"), "{n}", tostring(found)), "{total}", tostring(totalGhosts)))
-	tabEndingsBtn.Text = (string.gsub(string.gsub(ui("BookTabEndings"), "{n}", tostring(endingFound)), "{total}", tostring(totalEndings)))
-	local onGhosts = activeTab == "ghosts"
-	list.Visible = onGhosts
-	pager.Visible = onGhosts
-	endingsList.Visible = not onGhosts
-	for _, pair in ipairs({ { tabGhostsBtn, onGhosts }, { tabEndingsBtn, not onGhosts } }) do
-		local b = pair[1] :: TextButton
-		local on = pair[2] :: boolean
-		b.BackgroundColor3 = if on then C.Bar else C.CardLocked
-		b.TextColor3 = if on then C.Cream else C.Dim
-		local st = b:FindFirstChild("Stroke") :: UIStroke?
-		if st then
-			st.Color = if on then C.Ember else C.Line
-		end
-	end
-	if onGhosts then
-		countLabel.Text = (string.gsub(string.gsub(ui("BookCount"), "{n}", tostring(found)), "{total}", tostring(totalGhosts)))
-	else
-		countLabel.Text = (string.gsub(string.gsub(ui("BookEndingCount"), "{n}", tostring(endingFound)), "{total}", tostring(totalEndings)))
-	end
+	countLabel.Text = (string.gsub(string.gsub(ui("BookCount"), "{n}", tostring(found)), "{total}", tostring(totalGhosts)))
+	endCount.Text = (string.gsub(string.gsub(ui("BookEndingCount"), "{n}", tostring(endingFound)), "{total}", tostring(totalEndings)))
+	endHeader.Text = ui("EndingsTitle")
+	endBtnText.Text = ui("EndingsButton")
 	header.Text = ui("BookTitle")
 	bookBtnText.Text = ui("BookButton")
 	fillDetail()
 end
-tabGhostsBtn.Activated:Connect(function()
-	if activeTab ~= "ghosts" then
-		activeTab = "ghosts"
-		closeDetail()
-		refresh()
-	end
-end)
-tabEndingsBtn.Activated:Connect(function()
-	if activeTab ~= "endings" then
-		activeTab = "endings"
-		closeDetail()
-		refresh()
-	end
-end)
 refresh()
 localPlayer:GetAttributeChangedSignal("Book"):Connect(refresh)
 localPlayer:GetAttributeChangedSignal("Lang"):Connect(refresh)
+endPanel:GetPropertyChangedSignal("Visible"):Connect(function()
+	if endPanel.Visible then
+		refresh()
+	end
+end)
 panel:GetPropertyChangedSignal("Visible"):Connect(function()
 	if panel.Visible then
 		refresh()
@@ -788,14 +810,29 @@ end)
 
 
 -- ---------------------------------------------------------------- เปิด / ปิด
-local hasNew = false
+local hasNew, endHasNew = false, false
+local function paintButtons()
+	bookBtn.BackgroundColor3 = if panel.Visible then BTN_HOT else BTN_IDLE
+	endBtn.BackgroundColor3 = if endPanel.Visible then BTN_HOT else BTN_IDLE
+end
 local function setOpen(open: boolean)
 	panel.Visible = open
 	if open then
+		endPanel.Visible = false
 		hasNew = false
 		refresh()
+		task.defer(fitGrid) -- ขนาดกรอบ ณ ตอนเปิดจริง (จอถูกย่อ/ขยายตอนสมุดปิดอยู่)
 	end
-	bookBtn.BackgroundColor3 = if open then BTN_HOT else BTN_IDLE
+	paintButtons()
+end
+local function setEndOpen(open: boolean)
+	endPanel.Visible = open
+	if open then
+		panel.Visible = false
+		endHasNew = false
+		refresh()
+	end
+	paintButtons()
 end
 bookBtn.Activated:Connect(function()
 	setOpen(not panel.Visible)
@@ -803,12 +840,21 @@ end)
 closeBtn.Activated:Connect(function()
 	setOpen(false)
 end)
-bookBtn.MouseEnter:Connect(function()
-	bookBtn.BackgroundColor3 = BTN_HOT
+endBtn.Activated:Connect(function()
+	setEndOpen(not endPanel.Visible)
 end)
-bookBtn.MouseLeave:Connect(function()
-	bookBtn.BackgroundColor3 = if panel.Visible then BTN_HOT else BTN_IDLE
+endCloseBtn.Activated:Connect(function()
+	setEndOpen(false)
 end)
+for _, pair in ipairs({ { bookBtn, panel }, { endBtn, endPanel } }) do
+	local b, win = pair[1] :: TextButton, pair[2] :: Frame
+	b.MouseEnter:Connect(function()
+		b.BackgroundColor3 = BTN_HOT
+	end)
+	b.MouseLeave:Connect(function()
+		b.BackgroundColor3 = if win.Visible then BTN_HOT else BTN_IDLE
+	end)
+end
 
 -- ---------------------------------------------------------------- แจ้งเตือนปลดล็อกใหม่
 local toast = new("Frame", {
@@ -860,16 +906,25 @@ BookUnlocked.OnClientEvent:Connect(function(key: string)
 			toast.Visible = false
 		end
 	end)
-	-- ปุ่มสมุดกะพริบแดงจนกว่าจะเปิดดู
-	hasNew = true
+	-- ปุ่มสมุด / ปุ่มฉากจบ กะพริบแดงจนกว่าจะเปิดดู
+	local isEnding = string.sub(key, 1, 7) == "Ending_"
+	local b, win = if isEnding then endBtn else bookBtn, if isEnding then endPanel else panel
+	if isEnding then
+		endHasNew = true
+	else
+		hasNew = true
+	end
+	local function pending(): boolean
+		return (if isEnding then endHasNew else hasNew) and not win.Visible
+	end
 	task.spawn(function()
-		while hasNew and not panel.Visible do
-			bookBtn.BackgroundColor3 = C.Blood
+		while pending() do
+			b.BackgroundColor3 = C.Blood
 			task.wait(0.6)
-			if not hasNew or panel.Visible then
+			if not pending() then
 				break
 			end
-			bookBtn.BackgroundColor3 = BTN_IDLE
+			b.BackgroundColor3 = BTN_IDLE
 			task.wait(0.6)
 		end
 	end)
