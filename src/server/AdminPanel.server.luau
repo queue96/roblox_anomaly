@@ -28,6 +28,7 @@ local ALLOWED = {
 	hungry = true, offer = true, dessert = true, -- ศาลหมดเวลาคุ้มครอง / ถวายแล้ว / แจกขนม
 	["curse:shake"] = true, ["curse:slow"] = true, ["curse:stumble"] = true,
 	intro = true, win = true, -- คัทซีนเปิดคืน / ชนะทันที (คัทซีนเช้า + สรุปผล)
+	["win:normal"] = true, ["win:true"] = true, ["win:secret"] = true, -- ทดสอบฉากจบแต่ละแบบ (ข้าวต้มมื้อเช้า / เจ้าที่คุ้มครอง / กะดึกตลอดกาล)
 	["linger:knock:build"] = true, ["linger:knock:mimic"] = true, ["linger:knock:fake"] = true, -- ปอบเคาะแผงแต่ละแบบ (shared/KnockPlan)
 	["linger:roof:fake"] = true, ["linger:roof:leave"] = true,
 	["linger:circle:inside"] = true, ["linger:circle:leave"] = true,
@@ -84,9 +85,9 @@ AdminRemote.OnServerEvent:Connect(function(p: Player, cmd: any)
 		print(string.format("🛠️ [Admin %s] %s", p.Name, cmd))
 		return
 	end
-	-- คัทซีนแบบกำหนดจำนวนคน (Studio): "intro@3" / "win@5" = ผู้เล่นจริง + หุ่นทดสอบเติมให้ครบ (Cutscene.luau อ่าน attribute ครั้งเดียวแล้วล้าง)
-	local cutKind, cutN = string.match(cmd, "^(%a+)@(%d)$")
-	if (cutKind == "intro" or cutKind == "win") and RunService:IsStudio() then
+	-- คัทซีนแบบกำหนดจำนวนคน (Studio): "intro@3" / "win@5" / "win:secret@4" = ผู้เล่นจริง + หุ่นทดสอบเติมให้ครบ (Cutscene.luau อ่าน attribute ครั้งเดียวแล้วล้าง)
+	local cutKind, cutN = string.match(cmd, "^([%a:]+)@(%d)$")
+	if (cutKind == "intro" or cutKind == "win" or cutKind == "win:normal" or cutKind == "win:true" or cutKind == "win:secret") and RunService:IsStudio() then
 		local n = math.clamp(tonumber(cutN) or 0, 1, 6)
 		devDecision():SetAttribute("CutsceneDummies", math.max(0, n - #Players:GetPlayers()))
 		devDecision():Fire(cutKind)

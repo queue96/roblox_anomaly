@@ -4,6 +4,7 @@
 -- แล้วถาม "เริ่มคืนใหม่ไหม?" [เริ่มใหม่] [กลับ Lobby (Teleport)]  ใครกดเริ่มใหม่ก่อนนับทั้งร้าน
 -- เกิดใหม่ (Server LoadCharacter) แล้วจอนี้หายไปเอง
 
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -207,8 +208,15 @@ restartBtn.Modal = true -- ปลดล็อกเมาส์
 local quitBtn = button(2)
 
 local function drawTexts()
-	title.Text = ui("DeathTitle")
-	message.Text = ui("Lose")
+	if recapData and recapData.ending == "Ending_Bad" then
+		local tagText, titleText = LanguageModule.GetEnding("Ending_Bad", lang())
+		local numText = LanguageModule.FormatEndingNumber("Ending_Bad", lang())
+		title.Text = titleText
+		message.Text = numText .. "  ·  " .. tagText .. "  ·  " .. ui("Lose")
+	else
+		title.Text = ui("DeathTitle")
+		message.Text = ui("Lose")
+	end
 	ask.Text = ui("AskRestart")
 	restartBtn.Text = ui("Restart")
 	quitBtn.Text = ui("Quit")
@@ -330,9 +338,205 @@ local function showHud()
 	ProximityPromptService.Enabled = true
 end
 
+-- ---------------------------------------------------------------- การ์ดคำบรรยายฉากจบ (สิ้นควันธูป)
+local badEpilogueGui: ScreenGui? = nil
+local badEpilogueToken = 0
+local function closeBadEpilogue()
+	badEpilogueToken += 1
+	pcall(function()
+		ContextActionService:UnbindAction("BadEpilogueContinue")
+	end)
+	if badEpilogueGui then
+		badEpilogueGui:Destroy()
+		badEpilogueGui = nil
+	end
+end
+
+local function showBadEpilogue(isNew: boolean, onDone: () -> ())
+	closeBadEpilogue()
+	badEpilogueToken += 1
+	local my = badEpilogueToken
+	local tagText, titleText, epilogueText = LanguageModule.GetEnding("Ending_Bad", lang())
+	local numText = LanguageModule.FormatEndingNumber("Ending_Bad", lang())
+	local accent = Color3.fromRGB(220, 48, 40)
+
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "BadEndingEpilogue"
+	sg.IgnoreGuiInset = true
+	sg.ScreenInsets = Enum.ScreenInsets.None
+	sg.ResetOnSpawn = false
+	sg.AutoLocalize = false
+	sg.DisplayOrder = 25
+	sg.Parent = localPlayer.PlayerGui
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(sg)
+	badEpilogueGui = sg
+
+	local bg = new("TextButton", {
+		Name = "Backdrop",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		Modal = true,
+		AutoButtonColor = false,
+	}, sg)
+	TweenService:Create(bg, TweenInfo.new(0.8), { BackgroundTransparency = 0.08 }):Play()
+
+	local wrap = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.48),
+		Size = UDim2.new(0.84, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+	}, bg)
+	new("UISizeConstraint", { MaxSize = Vector2.new(760, 520) }, wrap)
+	new("UIListLayout", { HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }, wrap)
+
+	local ord = 0
+	local function nextO(): number
+		ord += 1
+		return ord
+	end
+
+	local tagLbl = new("TextLabel", {
+		LayoutOrder = nextO(),
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 18,
+		TextColor3 = accent,
+		TextTransparency = 1,
+		Text = if isNew then (numText .. "  ·  " .. tagText .. "  ·  " .. ui("EndingNewBadge")) else (numText .. "  ·  " .. tagText),
+	}, wrap)
+	local titleLbl = new("TextLabel", {
+		LayoutOrder = nextO(),
+		Size = UDim2.new(1, 0, 0, 48),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = if LanguageModule.TouchMode then 34 else 40,
+		TextColor3 = C.Cream,
+		TextTransparency = 1,
+		TextWrapped = true,
+		Text = titleText,
+	}, wrap)
+	local rule = new("Frame", {
+		LayoutOrder = nextO(),
+		Size = UDim2.new(0, 160, 0, 1),
+		BackgroundColor3 = accent,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, wrap)
+	new("Frame", { LayoutOrder = nextO(), Size = UDim2.new(1, 0, 0, 6), BackgroundTransparency = 1 }, wrap)
+
+	local lineLabels: { TextLabel } = {}
+	for part in string.gmatch(epilogueText, "[^\n]+") do
+		local l = new("TextLabel", {
+			LayoutOrder = nextO(),
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			FontFace = FONT_BODY,
+			TextSize = if LanguageModule.TouchMode then 20 else 23,
+			TextColor3 = C.Cream,
+			TextTransparency = 1,
+			TextWrapped = true,
+			LineHeight = 1.25,
+			Text = part,
+		}, wrap)
+		table.insert(lineLabels, l)
+	end
+
+	local hintLbl = new("TextLabel", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -30),
+		Size = UDim2.new(0.9, 0, 0, 24),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 15,
+		TextColor3 = C.Dim,
+		TextTransparency = 1,
+		Text = ui("EndingContinue"),
+	}, bg)
+
+	local finished = false
+	local canProceed = false
+	local function proceed()
+		if finished or badEpilogueToken ~= my then
+			return
+		end
+		finished = true
+		pcall(function()
+			ContextActionService:UnbindAction("BadEpilogueContinue")
+		end)
+		TweenService:Create(bg, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+		for _, d in ipairs(sg:GetDescendants()) do
+			if d:IsA("TextLabel") then
+				TweenService:Create(d, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+			elseif d == rule then
+				TweenService:Create(rule, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+			end
+		end
+		task.delay(0.52, function()
+			if badEpilogueGui == sg then
+				sg:Destroy()
+				badEpilogueGui = nil
+			end
+			onDone()
+		end)
+	end
+
+	bg.Activated:Connect(function()
+		if canProceed then
+			proceed()
+		end
+	end)
+	ContextActionService:BindAction("BadEpilogueContinue", function(_, state)
+		if state == Enum.UserInputState.Begin and canProceed then
+			proceed()
+			return Enum.ContextActionResult.Sink
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.Return, Enum.KeyCode.KeypadEnter, Enum.KeyCode.Space, Enum.KeyCode.ButtonA)
+
+	task.spawn(function()
+		task.wait(0.35)
+		if badEpilogueToken ~= my or not dead then return end
+		TweenService:Create(tagLbl, TweenInfo.new(0.7), { TextTransparency = 0 }):Play()
+		TweenService:Create(titleLbl, TweenInfo.new(0.9), { TextTransparency = 0 }):Play()
+		TweenService:Create(rule, TweenInfo.new(0.9), { BackgroundTransparency = 0.25 }):Play()
+		task.wait(0.85)
+		canProceed = true
+		TweenService:Create(hintLbl, TweenInfo.new(0.6), { TextTransparency = 0.25 }):Play()
+		for _, l in ipairs(lineLabels) do
+			if badEpilogueToken ~= my or finished or not dead then return end
+			TweenService:Create(l, TweenInfo.new(0.85), { TextTransparency = 0 }):Play()
+			task.wait(1.35)
+		end
+		task.wait(4.5)
+		proceed()
+	end)
+end
+
 -- ---------------------------------------------------------------- เปิด / ปิดจอตาย
 local dead = false
 local pulseToken = 0
+
+local function revealDeathUI()
+	if not dead then
+		return
+	end
+	TweenService:Create(title, TweenInfo.new(1.2), { TextTransparency = 0 }):Play()
+	TweenService:Create(message, TweenInfo.new(1.4), { TextTransparency = 0 }):Play()
+	task.delay(0.9, function()
+		if dead then
+			TweenService:Create(ask, TweenInfo.new(0.9), { TextTransparency = 0 }):Play()
+			buttons.Visible = true
+			recapBox.Visible = recapData ~= nil
+		end
+	end)
+end
 
 local function showDeath()
 	if dead then
@@ -400,17 +604,28 @@ local function showDeath()
 	end
 	TweenService:Create(red, TweenInfo.new(1.2), { BackgroundTransparency = 0.6 }):Play()
 	TweenService:Create(edge, TweenInfo.new(1.5), { BackgroundTransparency = 0 }):Play()
-	task.delay(1.2, function()
-		TweenService:Create(title, TweenInfo.new(1.4), { TextTransparency = 0 }):Play()
-		TweenService:Create(message, TweenInfo.new(1.8), { TextTransparency = 0 }):Play()
-	end)
-	task.delay(3, function()
-		if dead then
-			TweenService:Create(ask, TweenInfo.new(1), { TextTransparency = 0 }):Play()
-			buttons.Visible = true
-			recapBox.Visible = recapData ~= nil
-		end
-	end)
+	local isBadEnding = recapData ~= nil and recapData.ending == "Ending_Bad"
+	if isBadEnding then
+		local isNew = type(recapData.newFor) == "table" and (recapData.newFor[localPlayer.UserId] == true or recapData.newFor[tostring(localPlayer.UserId)] == true)
+		-- ให้กล้องแพนถอยขึ้นมองร่างตัวเองก่อน ~3.2 วิ แล้วขึ้นคำบรรยายฉากจบ "สิ้นควันธูป" -> ค่อยเข้าหน้าจอสรุป/เริ่มใหม่
+		task.delay(3.2, function()
+			if dead then
+				showBadEpilogue(isNew, revealDeathUI)
+			end
+		end)
+	else
+		task.delay(1.2, function()
+			TweenService:Create(title, TweenInfo.new(1.4), { TextTransparency = 0 }):Play()
+			TweenService:Create(message, TweenInfo.new(1.8), { TextTransparency = 0 }):Play()
+		end)
+		task.delay(3, function()
+			if dead then
+				TweenService:Create(ask, TweenInfo.new(1), { TextTransparency = 0 }):Play()
+				buttons.Visible = true
+				recapBox.Visible = recapData ~= nil
+			end
+		end)
+	end
 	-- จอแดงเต้นช้าๆ เหมือนชีพจร
 	pulseToken += 1
 	local my = pulseToken
@@ -426,6 +641,7 @@ local function showDeath()
 end
 
 local function hideDeath()
+	closeBadEpilogue()
 	if not dead then
 		return
 	end
@@ -478,6 +694,8 @@ DeathChoice.OnClientEvent:Connect(function(kind: string, who: string?)
 	if kind == "revive" then
 		hideDeath() -- admin ชุบชีวิต: ลุกขึ้นตรงที่ล้ม เล่นต่อ
 	elseif kind == "restart" and dead then
+		closeBadEpilogue()
+		revealDeathUI()
 		buttons.Visible = false
 		restartBtn.Active = false
 		ask.Text = string.gsub(ui("RestartBy"), "{name}", who or "?")

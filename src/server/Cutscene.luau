@@ -1455,7 +1455,7 @@ function Cutscene.Intro()
 end
 
 -- ---------------------------------------------------------------- Outro
-local function outroBody(t: number)
+local function outroBody(t: number, endingKey: string)
 	local P = points()
 	local players = active()
 	local n = math.max(1, #players)
@@ -1475,7 +1475,7 @@ local function outroBody(t: number)
 		local pos = Vector3.new(P.ropeStand.X + (i - 1) * 2.0, floorY, P.ropeStand.Z + math.floor((i - 1) / 4) * 1.8)
 		pin(p, nil, CFrame.lookAt(pos, pos - P.shopDir), false) -- ยืนเฉยๆ หลังโต๊ะ (ไม่ใช้ท่าดึงเชือก) แผงปิดลงเอง
 	end
-	fire("start", "outro")
+	fire("start", "outro", endingKey)
 	local rope = P.rope
 	-- (มุมเฉียงจากขวา ไม่ให้ตู้น้ำมันบัง)
 	fire("cam", { mode = "fixed", pos = Vector3.new(rope.X + 9, P.stop.Y + 5.2, D.shutterDoor.Position.Z - 7.7), look = Vector3.new(rope.X + 0.5, P.stop.Y + 4.5, P.ropeStand.Z), fov = 50 })
@@ -1567,7 +1567,7 @@ local function outroBody(t: number)
 			return v
 		end
 	end
-	-- 4) คุยกัน
+	-- 4) คุยกัน (บทเปลี่ยนตามฉากจบ: Normal / True / Secret)
 	for _, p in ipairs(active()) do
 		local root = rootOf(p)
 		if root then
@@ -1575,14 +1575,23 @@ local function outroBody(t: number)
 		end
 	end
 	fire("cam", { mode = "fixed", pos = talkCamPos(v), look = vp:PointToWorldSpace(Vector3.new(0, 4, 2)), fov = 50 })
-	if not say(t, "Outro_Brother_1", BROTHER, headOf(driverOf(v)), 3.0) then
+	local line1, line2 = "Outro_Brother_1", "Outro_Brother_2"
+	local hold1, hold2 = 3.0, 2.6
+	if endingKey == "Ending_True" then
+		line1, line2 = "Outro_True_1", "Outro_True_2"
+		hold1, hold2 = 3.6, 3.6
+	elseif endingKey == "Ending_Secret" then
+		line1, line2 = "Outro_Secret_1", "Outro_Secret_2"
+		hold1, hold2 = 3.4, 3.2
+	end
+	if not say(t, line1, BROTHER, headOf(driverOf(v)), hold1) then
 		return v
 	end
 	fire("say", nil)
 	if not wait_(t, 1.0) then -- ผู้เล่นไม่มีบทพูด: เว้นจังหวะระหว่างประโยคพี่ชาย
 		return v
 	end
-	if not say(t, "Outro_Brother_2", BROTHER, headOf(driverOf(v)), 2.6) then
+	if not say(t, line2, BROTHER, headOf(driverOf(v)), hold2) then
 		return v
 	end
 	fire("say", nil)
@@ -1590,7 +1599,7 @@ local function outroBody(t: number)
 	if not wait_(t, 0.8) then
 		return v
 	end
-	-- 5) ขึ้นรถ ขี่ออกไปรับแสงเช้า
+	-- 5) ขึ้นรถ ขี่ออก
 	-- ขึ้นรถทีละคน ที่นั่งตามลำดับเดียวกับขามา (ไม่นั่งซ้อนกัน)
 	local spots = seatSpots(v, n)
 	local boarding = active()
@@ -1611,21 +1620,94 @@ local function outroBody(t: number)
 		stopG + P.shopDir * 4.5 - P.road * 2 + Vector3.new(0, 4.5, 0),
 	}, vAim, { v })
 	fire("cam", { mode = "lookat", pos = shopFront, target = v, look = Vector3.new(0, 2, 0), fov = 55 })
-	if not run(t, function()
-		task.delay(3.5, function()
-			if alive(t) then
-				fire("fade", true, 1.2)
-			end
+	if endingKey == "Ending_Secret" then
+		-- ฉากจบลับ (กะดึกตลอดกาล): ขับออกไปแป๊บเดียว -> ไฟดับพรึ่บ ฟ้ามืดสนิท -> กล้องจับหลังพี่ชาย คอค่อยๆ หมุน 180° มอง -> ตัดดำทันที
+		local drv = driverOf(v)
+		local broHeadNow = headOf(drv)
+		local broLocal = if broHeadNow then v:GetPivot():PointToObjectSpace(broHeadNow.Position) else Vector3.new(0, 4.2, -0.5)
+		task.spawn(function()
+			pcall(D.driveTo, v, ground(D.exitPoint.Position), false, 15)
 		end)
-		D.driveTo(v, ground(D.exitPoint.Position), false, 18)
-	end) then
+		if not wait_(t, 1.6) then
+			return v
+		end
+		fire("secretBlackout")
+		fire("shake", 0.35, 0.5)
+		if drv then
+			drv:SetAttribute("NoBlink", true)
+			drv:SetAttribute("SecretHeadTwist", Workspace:GetServerTimeNow())
+		end
+		fire("cam", {
+			mode = "track",
+			target = v,
+			offset = broLocal + Vector3.new(0.85, 0.12, 1.75),
+			look = broLocal + Vector3.new(0, -0.05, 0),
+			fov = 38,
+		})
+		if not wait_(t, 2.35) then
+			return v
+		end
+		fire("fade", true, 0.15)
+		wait_(t, 0.55)
+		return v
+	elseif endingKey == "Ending_True" then
+		-- ฉากจบแท้ (เจ้าที่คุ้มครอง): รถขับออกไปแล้วตัดไปช็อตศาลพระภูมิ + ธูป 3 ดอกท่ามกลางแสงเช้าอุ่นๆ
+		task.spawn(function()
+			pcall(D.driveTo, v, ground(D.exitPoint.Position), false, 18)
+		end)
+		if not wait_(t, 2.6) then
+			return v
+		end
+		local sp = D.spirit
+		if sp then
+			-- SpiritHouse เป็น Folder (มี SpiritHouseOnStilts + Incense1..3_Neon): หาจุดศาลกับธูปตรงๆ
+			local body = sp:FindFirstChild("SpiritHouseOnStilts", true)
+			local inc = sp:FindFirstChild("Incense2_Neon", true)
+			local aim: Vector3? = nil
+			if body and body:IsA("BasePart") then
+				aim = if inc and inc:IsA("BasePart")
+					then body.Position:Lerp(inc.Position, 0.35) + Vector3.new(0, 0.5, 0)
+					else body.Position + Vector3.new(0, 0.8, 0)
+			elseif sp:IsA("Model") then
+				local scf, ssize = sp:GetBoundingBox()
+				aim = scf.Position + Vector3.new(0, ssize.Y * 0.15, 0)
+			elseif inc and inc:IsA("BasePart") then
+				aim = inc.Position + Vector3.new(0, 0.8, 0)
+			end
+			if aim then
+				local spCam = clearCamPos({
+					aim + Vector3.new(5.5, 1.4, -6.5),
+					aim + Vector3.new(-5.5, 1.6, -6.5),
+					aim + Vector3.new(0, 1.8, -7.5),
+					aim + Vector3.new(6.5, 2.0, -3.5),
+				}, aim, { v })
+				fire("cam", { mode = "fixed", pos = spCam, look = aim, fov = 44 })
+				if not wait_(t, 2.8) then
+					return v
+				end
+			end
+		end
+		fire("fade", true, 1.2)
+		wait_(t, 1.4)
+		return v
+	else
+		if not run(t, function()
+			task.delay(3.5, function()
+				if alive(t) then
+					fire("fade", true, 1.2)
+				end
+			end)
+			D.driveTo(v, ground(D.exitPoint.Position), false, 18)
+		end) then
+			return v
+		end
 		return v
 	end
-	return v
 end
 
 -- คัทซีนจบคืน (ชนะ): บล็อกจนจบหรือข้ามครบ แล้วผู้เล่นกลับมายืนในร้าน (ร้านปิด) — หน้าสรุปผลขึ้นฝั่ง Client
 function Cutscene.Outro(summary: { [string]: any })
+	local endingKey = tostring(summary.ending or "Ending_Normal")
 	local t = begin("outro")
 	for p in pairs(participants) do
 		send(p, "summary", summary)
@@ -1641,7 +1723,7 @@ function Cutscene.Outro(summary: { [string]: any })
 		setRunning(nil)
 		return
 	end
-	local ok, v = pcall(outroBody, t)
+	local ok, v = pcall(outroBody, t, endingKey)
 	if not ok then
 		warn("[Cutscene] Outro error:", v)
 	end

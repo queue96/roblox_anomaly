@@ -176,6 +176,18 @@ local PRESETS = {
 		atmo = { Density = 0.36, Color = Color3.fromRGB(210, 190, 205), Decay = Color3.fromRGB(170, 125, 115), Haze = 2.2, Glare = 0.55, Offset = 0.12 },
 		grade = { TintColor = Color3.fromRGB(248, 236, 238), Saturation = -0.02, Brightness = 0.01, Contrast = 0.06 },
 	},
+	-- ฉากจบลับ (กะดึกตลอดกาล): เช้าหม่นหมอกจัด ฟ้าไม่ยอมสว่าง
+	secretDawn = {
+		light = { ClockTime = 5.45, Brightness = 0.55, Ambient = Color3.fromRGB(38, 42, 52), OutdoorAmbient = Color3.fromRGB(58, 62, 74), ExposureCompensation = -0.35 },
+		atmo = { Density = 0.52, Color = Color3.fromRGB(78, 84, 96), Decay = Color3.fromRGB(40, 44, 54), Haze = 3.2, Glare = 0, Offset = 0.05 },
+		grade = { TintColor = Color3.fromRGB(185, 195, 212), Saturation = -0.35, Brightness = -0.04, Contrast = 0.14 },
+	},
+	-- ฉากจบลับจังหวะไฟดับ: มืดสนิทก่อนคอพี่ชายหมุน 180°
+	secretNight = {
+		light = { ClockTime = 0, Brightness = 0.08, Ambient = Color3.fromRGB(10, 12, 18), OutdoorAmbient = Color3.fromRGB(14, 16, 24), ExposureCompensation = -0.55 },
+		atmo = { Density = 0.65, Color = Color3.fromRGB(12, 14, 20), Decay = Color3.fromRGB(8, 10, 16), Haze = 4.0, Glare = 0, Offset = 0 },
+		grade = { TintColor = Color3.fromRGB(170, 182, 205), Saturation = -0.45, Brightness = -0.06, Contrast = 0.2 },
+	},
 }
 
 local saved: { [string]: any }? = nil
@@ -493,10 +505,218 @@ local function hideOtherGuis(hide: boolean)
 	end
 end
 
--- ---------------------------------------------------------------- หน้าสรุปผล
+-- ---------------------------------------------------------------- หน้าสรุปผล + การ์ดคำบรรยายฉากจบ
 local summaryData: { [string]: any }? = nil
 local summaryGui: ScreenGui? = nil
+local epilogueGui: ScreenGui? = nil
+local epilogueToken = 0
 local votesLbl: TextLabel? = nil
+local secretFaceLight: Instance? = nil
+
+local ENDING_COLOR: { [string]: Color3 } = {
+	Ending_Bad = Color3.fromRGB(220, 48, 40),
+	Ending_Normal = Color3.fromRGB(235, 202, 138),
+	Ending_True = Color3.fromRGB(248, 212, 105),
+	Ending_Secret = Color3.fromRGB(205, 62, 98),
+}
+
+local function clearSecretLight()
+	if secretFaceLight then
+		secretFaceLight:Destroy()
+		secretFaceLight = nil
+	end
+end
+
+local function closeEpilogue()
+	epilogueToken += 1
+	pcall(function()
+		ContextActionService:UnbindAction("EpilogueContinue")
+	end)
+	if epilogueGui then
+		epilogueGui:Destroy()
+		epilogueGui = nil
+	end
+end
+
+-- การ์ดคำบรรยายท้ายคัทซีนบนจอดำ: ค่อยๆ ขึ้นทีละบรรทัด แล้วคลิก/กด Enter (หรือครบเวลา) ไปหน้าสรุปผล
+local function showEpilogue(endingKey: string, isNew: boolean, onDone: () -> ())
+	closeEpilogue()
+	epilogueToken += 1
+	local my = epilogueToken
+	local accent = ENDING_COLOR[endingKey] or C.Gold
+	local tagText, titleText, epilogueText = LanguageModule.GetEnding(endingKey, lang())
+	local numText = LanguageModule.FormatEndingNumber(endingKey, lang())
+
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "EndingEpilogue"
+	sg.IgnoreGuiInset = true
+	sg.ScreenInsets = Enum.ScreenInsets.None
+	sg.ResetOnSpawn = false
+	sg.AutoLocalize = false
+	sg.DisplayOrder = 75
+	sg.Parent = player.PlayerGui
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UiFit")).Attach(sg)
+	epilogueGui = sg
+
+	local bg = Instance.new("TextButton")
+	bg.Name = "Backdrop"
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = Color3.new(0, 0, 0)
+	bg.BackgroundTransparency = 0
+	bg.BorderSizePixel = 0
+	bg.Text = ""
+	bg.Modal = true
+	bg.AutoButtonColor = false
+	bg.Parent = sg
+
+	local box = Instance.new("Frame")
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.48)
+	box.Size = UDim2.new(0.84, 0, 0, 0)
+	box.AutomaticSize = Enum.AutomaticSize.Y
+	box.BackgroundTransparency = 1
+	box.Parent = bg
+	local maxBox = Instance.new("UISizeConstraint", box)
+	maxBox.MaxSize = Vector2.new(760, 520)
+	local bl = Instance.new("UIListLayout", box)
+	bl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	bl.SortOrder = Enum.SortOrder.LayoutOrder
+	bl.Padding = UDim.new(0, 12)
+
+	local ord = 0
+	local function nextO(): number
+		ord += 1
+		return ord
+	end
+
+	local tagLbl = Instance.new("TextLabel")
+	tagLbl.LayoutOrder = nextO()
+	tagLbl.Size = UDim2.new(1, 0, 0, 24)
+	tagLbl.BackgroundTransparency = 1
+	tagLbl.FontFace = FONT
+	tagLbl.TextSize = 18
+	tagLbl.TextColor3 = accent
+	tagLbl.TextTransparency = 1
+	tagLbl.Text = if isNew then (numText .. "  ·  " .. tagText .. "  ·  " .. ui("EndingNewBadge")) else (numText .. "  ·  " .. tagText)
+	tagLbl.Parent = box
+
+	local titleLbl = Instance.new("TextLabel")
+	titleLbl.LayoutOrder = nextO()
+	titleLbl.Size = UDim2.new(1, 0, 0, 48)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.FontFace = FONT
+	titleLbl.TextSize = if IS_TOUCH then 34 else 40
+	titleLbl.TextColor3 = C.Cream
+	titleLbl.TextTransparency = 1
+	titleLbl.TextWrapped = true
+	titleLbl.AutomaticSize = Enum.AutomaticSize.Y
+	titleLbl.Text = titleText
+	titleLbl.Parent = box
+
+	local rule = Instance.new("Frame")
+	rule.LayoutOrder = nextO()
+	rule.Size = UDim2.new(0, 160, 0, 1)
+	rule.BackgroundColor3 = accent
+	rule.BackgroundTransparency = 1
+	rule.BorderSizePixel = 0
+	rule.Parent = box
+
+	local spacer = Instance.new("Frame")
+	spacer.LayoutOrder = nextO()
+	spacer.Size = UDim2.new(1, 0, 0, 6)
+	spacer.BackgroundTransparency = 1
+	spacer.Parent = box
+
+	local lineLabels: { TextLabel } = {}
+	for part in string.gmatch(epilogueText, "[^\n]+") do
+		local l = Instance.new("TextLabel")
+		l.LayoutOrder = nextO()
+		l.Size = UDim2.new(1, 0, 0, 0)
+		l.AutomaticSize = Enum.AutomaticSize.Y
+		l.BackgroundTransparency = 1
+		l.FontFace = FONT
+		l.TextSize = if IS_TOUCH then 20 else 23
+		l.TextColor3 = C.Cream
+		l.TextTransparency = 1
+		l.TextWrapped = true
+		l.LineHeight = 1.25
+		l.Text = part
+		l.Parent = box
+		table.insert(lineLabels, l)
+	end
+
+	local hintLbl = Instance.new("TextLabel")
+	hintLbl.AnchorPoint = Vector2.new(0.5, 1)
+	hintLbl.Position = UDim2.new(0.5, 0, 1, -30)
+	hintLbl.Size = UDim2.new(0.9, 0, 0, 24)
+	hintLbl.BackgroundTransparency = 1
+	hintLbl.FontFace = FONT
+	hintLbl.TextSize = 15
+	hintLbl.TextColor3 = C.Dim
+	hintLbl.TextTransparency = 1
+	hintLbl.Text = ui("EndingContinue")
+	hintLbl.Parent = bg
+
+	local finished = false
+	local canProceed = false
+	local function proceed()
+		if finished or epilogueToken ~= my then
+			return
+		end
+		finished = true
+		pcall(function()
+			ContextActionService:UnbindAction("EpilogueContinue")
+		end)
+		TweenService:Create(bg, TweenInfo.new(0.45), { BackgroundTransparency = 1 }):Play()
+		for _, d in ipairs(sg:GetDescendants()) do
+			if d:IsA("TextLabel") then
+				TweenService:Create(d, TweenInfo.new(0.35), { TextTransparency = 1 }):Play()
+			elseif d == rule then
+				TweenService:Create(rule, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
+			end
+		end
+		task.delay(0.48, function()
+			if epilogueGui == sg then
+				sg:Destroy()
+				epilogueGui = nil
+			end
+			onDone()
+		end)
+	end
+
+	bg.Activated:Connect(function()
+		if canProceed then
+			proceed()
+		end
+	end)
+	ContextActionService:BindAction("EpilogueContinue", function(_, state)
+		if state == Enum.UserInputState.Begin and canProceed then
+			proceed()
+			return Enum.ContextActionResult.Sink
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.Return, Enum.KeyCode.KeypadEnter, Enum.KeyCode.Space, Enum.KeyCode.ButtonA)
+
+	-- ขึ้นหัวข้อ + ค่อยๆ เฟดคำบรรยายทีละบรรทัด
+	task.spawn(function()
+		task.wait(0.25)
+		if epilogueToken ~= my then return end
+		TweenService:Create(tagLbl, TweenInfo.new(0.7), { TextTransparency = 0 }):Play()
+		TweenService:Create(titleLbl, TweenInfo.new(0.9), { TextTransparency = 0 }):Play()
+		TweenService:Create(rule, TweenInfo.new(0.9), { BackgroundTransparency = 0.25 }):Play()
+		task.wait(0.85)
+		canProceed = true
+		TweenService:Create(hintLbl, TweenInfo.new(0.6), { TextTransparency = 0.25 }):Play()
+		for _, l in ipairs(lineLabels) do
+			if epilogueToken ~= my or finished then return end
+			TweenService:Create(l, TweenInfo.new(0.85), { TextTransparency = 0 }):Play()
+			task.wait(1.35)
+		end
+		-- อ่านจบแล้วรออีกพักค่อยไปหน้าสรุปอัตโนมัติ (ถ้ายังไม่กดข้าม)
+		task.wait(4.5)
+		proceed()
+	end)
+end
 
 local function label(parent: Instance, text: string, size: number, color: Color3, props: { [string]: any }?): TextLabel
 	local l = Instance.new("TextLabel")
@@ -578,7 +798,16 @@ local function showSummary()
 		o += 1
 		return o
 	end
-	label(panel, ui("SummaryTitle"), 28, C.Gold, { LayoutOrder = nextOrder() })
+	local endingKey = tostring(d.ending or "Ending_Normal")
+	local endLabel, endTitle = LanguageModule.GetEnding(endingKey, lang())
+	local endNum = LanguageModule.FormatEndingNumber(endingKey, lang())
+	local endColor = ENDING_COLOR[endingKey] or C.Gold
+	local isNewEnd = type(d.newFor) == "table" and (d.newFor[player.UserId] == true or d.newFor[tostring(player.UserId)] == true)
+	label(panel, if isNewEnd then (endNum .. "  ·  " .. endLabel .. "  ·  " .. ui("EndingNewBadge")) else (endNum .. "  ·  " .. endLabel), 14, endColor, { LayoutOrder = nextOrder(), Size = UDim2.new(1, 0, 0, 18) })
+	label(panel, endTitle, 28, C.Cream, { LayoutOrder = nextOrder() })
+	if d.trueBonus then
+		label(panel, ui("SummaryEndingBonus"), 15, C.Gold, { LayoutOrder = nextOrder(), Size = UDim2.new(1, 0, 0, 20) })
+	end
 	local baht = ui("Baht")
 	local function stat(key: string, value: string)
 		local row = Instance.new("Frame")
@@ -716,6 +945,7 @@ summaryRemote.OnClientEvent:Connect(function(kind: string, n: number?, total: nu
 	if kind == "votes" and votesLbl then
 		votesLbl.Text = ui("SummaryWait", { n = string.format("%d/%d", n or 0, total or 0) })
 	elseif kind == "close" then
+		closeEpilogue()
 		closeSummary()
 		summaryData = nil
 	end
@@ -738,17 +968,19 @@ local function setSkipText()
 	end
 end
 
-local function startCutscene(kind: string)
+local function startCutscene(kind: string, endingKey: string?)
 	if active then
 		return
 	end
 	active = kind
+	clearSecretLight()
 	if _G.ClearHauntEffects then
 		_G.ClearHauntEffects()
 	end
 	setSkipText()
 	snapshot()
-	apply(if kind == "outro" then PRESETS.dawn else PRESETS.dusk, 0)
+	local preset = if kind == "outro" then (if endingKey == "Ending_Secret" then PRESETS.secretDawn else PRESETS.dawn) else PRESETS.dusk
+	apply(preset, 0)
 	hideOtherGuis(true)
 	gui.Enabled = true
 	fade.BackgroundTransparency = 0
@@ -767,10 +999,21 @@ local function startCutscene(kind: string)
 	RunService:BindToRenderStep("CutsceneCamera", Enum.RenderPriority.Last.Value, update)
 end
 
+local function finishOutroUI()
+	local d = summaryData
+	if d and d.ending then
+		local isNew = type(d.newFor) == "table" and (d.newFor[player.UserId] == true or d.newFor[tostring(player.UserId)] == true)
+		showEpilogue(tostring(d.ending), isNew, showSummary)
+	else
+		showSummary()
+	end
+end
+
 local function endCutscene(kind: string)
+	clearSecretLight()
 	if not active then
 		if kind == "outro" then
-			showSummary()
+			finishOutroUI()
 		end
 		-- ฟ้าสางแล้วจอดำค้าง (dawnbreak) แต่เครื่องนี้ไม่ได้ดูคัทซีน: เอาจอดำออก คืนแสง
 		if saved and not active then
@@ -816,7 +1059,7 @@ local function endCutscene(kind: string)
 	setPrompts(true)
 	hideOtherGuis(false)
 	if kind == "outro" then
-		showSummary()
+		finishOutroUI()
 	end
 	task.delay(0.25, function()
 		if active then
@@ -970,7 +1213,7 @@ remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 	end
 	if kind == "start" then
 		voted, voteCount, voteTotal = false, 0, 0
-		startCutscene(a)
+		startCutscene(a, if type(b) == "string" then b else nil)
 		setSkipText()
 	elseif kind == "skipvote" then
 		voteCount = if type(a) == "number" then a else 0
@@ -997,10 +1240,11 @@ remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 		-- Lighting.Dawn = หมอกลอย (AmbienceController) / ผีฉาก (SceneryGhosts) หยุดระหว่างนี้
 		local t = if type(a) == "number" then a else 12
 		local blackAt = if type(b) == "number" then b else 1.6
+		local mode = if type(c) == "string" then c else nil
 		snapshot()
 		Lighting:SetAttribute("Cutscene", nil)
 		Lighting:SetAttribute("Dawn", true)
-		apply(PRESETS.dawn, t)
+		apply(if mode == "secret" then PRESETS.secretDawn else PRESETS.dawn, t)
 		task.delay(math.max(0, t - blackAt), function()
 			if active then
 				return
@@ -1012,6 +1256,35 @@ remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any)
 			gui.Enabled = true
 			TweenService:Create(fade, TweenInfo.new(blackAt, Enum.EasingStyle.Sine), { BackgroundTransparency = 0 }):Play()
 		end)
+	elseif kind == "secretBlackout" then
+		-- ฉากจบลับ (กะดึกตลอดกาล): ฟ้ามืดสนิท + เสียงตัดไฟ + เสียงกระซิบ + ไฟสลัวส่องหน้าพี่ชายตอนหมุนคอ 180°
+		apply(PRESETS.secretNight, 0.15)
+		pcall(function()
+			local ss = game:GetService("SoundService")
+			SoundBank.PlayOneShot("PowerOffClunk", ss, 100, 3.0)
+			task.delay(0.35, function()
+				if active then
+					SoundBank.PlayOneShot("Ghost_Tani", ss, 100, 3.5)
+				end
+			end)
+		end)
+		clearSecretLight()
+		local veh = Workspace:FindFirstChild("BrotherVehicle")
+		local drv = veh and veh:FindFirstChild("DriverNPC")
+		local head = drv and drv:FindFirstChild("Head", true)
+		if head and head:IsA("BasePart") then
+			local att = Instance.new("Attachment")
+			att.Name = "SecretFaceGlow"
+			att.Position = Vector3.new(0, 0.1, 1.35)
+			att.Parent = head
+			local pl = Instance.new("PointLight")
+			pl.Color = Color3.fromRGB(175, 195, 225)
+			pl.Brightness = 1.6
+			pl.Range = 7.5
+			pl.Shadows = false
+			pl.Parent = att
+			secretFaceLight = att
+		end
 	elseif kind == "sunset" then
 		-- ตะวันตกดิน: แสงส้มค่อยๆ หม่นลงจนมืด (ก่อนจอดำเข้ากลางคืน)
 		local t = a or 4

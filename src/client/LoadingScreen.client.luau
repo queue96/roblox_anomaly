@@ -30,8 +30,8 @@ local INTRO_MUSIC_VOLUME = 0.5
 local INTRO_FADE = 4 -- วินาทีที่เพลงเปิดค่อยๆ เบาลงหลังโหลดเสร็จ
 
 local FONT_TITLE = Font.new("rbxasset://fonts/families/Srisakdi.json", Enum.FontWeight.Bold)
-local FONT_BODY = Font.new("rbxasset://fonts/families/Sarabun.json", Enum.FontWeight.Regular)
-local FONT_BOLD = Font.new("rbxasset://fonts/families/Sarabun.json", Enum.FontWeight.Bold)
+local FONT_BODY = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium)
+local FONT_BOLD = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold)
 
 local C = {
 	Ink = Color3.fromRGB(8, 7, 6),
@@ -97,9 +97,9 @@ local TIPS = {
 		id = "Tips: Perhatikan baik-baik plat nomor, radio, kebun pisang, dan bensin di tabung kaca.", pt = "Dica: Repare bem nas placas, no rádio, no bananal e na gasolina do cilindro de vidro.", es = "Consejo: Fíjate bien en las placas, la radio, el platanal y la gasolina del cilindro de vidrio.",
 	},
 	{
-		th = "คำแนะนำ: เก็บเงินให้ครบ 1,200 บาทก่อนธูปทั้ง 3 ดอกจะดับ เพื่อเอาชีวิตรอดผ่านคืนนี้",
-		en = "Tip: Earn 1,200 Baht before all 3 incense sticks go out to survive the night.",
-		id = "Tips: Kumpulkan 1.200 Baht sebelum ketiga batang dupa padam untuk selamat malam ini.", pt = "Dica: Junte 1.200 Baht antes que os 3 incensos apaguem para sobreviver à noite.", es = "Consejo: Junta 1,200 Baht antes de que se apaguen los 3 inciensos para sobrevivir a la noche.",
+		th = "คำแนะนำ: เก็บเงินให้ครบ 1,000 บาทก่อนธูปทั้ง 3 ดอกจะดับ เพื่อเอาชีวิตรอดผ่านคืนนี้",
+		en = "Tip: Earn 1,000 Baht before all 3 incense sticks go out to survive the night.",
+		id = "Tips: Kumpulkan 1.000 Baht sebelum ketiga batang dupa padam untuk selamat malam ini.", pt = "Dica: Junte 1.000 Baht antes que os 3 incensos apaguem para sobreviver à noite.", es = "Consejo: Junta 1,000 Baht antes de que se apaguen los 3 inciensos para sobrevivir a la noche.",
 	},
 	{
 		th = "คำแนะนำ: เริ่มคืนมาไฟดับ กด 1 เปิดไฟฉาย ดึงเชือกเปิดร้าน แล้วรีบไปสตาร์ทเครื่องปั่นไฟ",

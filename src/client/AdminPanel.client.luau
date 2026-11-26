@@ -439,7 +439,11 @@ local function start()
 		g = section("shop", "คัทซีน")
 	end
 	button(g, "🎬 คัทซีนเปิดคืน", cutCmd("intro"))
-	button(g, "🌅 ชนะทันที (สรุปผล)", cutCmd("win"))
+	button(g, "🌅 ชนะ (ตามเงื่อนไขจริง)", cutCmd("win"))
+	button(g, "🍚 จบ: ข้าวต้มมื้อเช้า", cutCmd("win:normal"))
+	button(g, "🙏 จบ: เจ้าที่คุ้มครอง", cutCmd("win:true"))
+	button(g, "🌑 จบ: กะดึกตลอดกาล", cutCmd("win:secret"))
+	button(g, "💀 จบ: สิ้นควันธูป", "lose", "danger")
 
 	-- ================================================================ แท็บ: ลูกค้า
 	g = section("customer", "เรียกลูกค้าปกติ", "มาได้ทีละ 1 ราย (มีลูกค้าอยู่ที่ตู้แล้วกดซ้ำจะไม่มา)")

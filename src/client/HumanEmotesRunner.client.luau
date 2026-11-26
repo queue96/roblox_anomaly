@@ -319,7 +319,9 @@ RunService.PreSimulation:Connect(function(dt)
 					end
 				end
 			end
-			local ok, offs = pcall(NpcLife.Offsets, rigM, root, os.clock(), dt, { seated = seated, noHead = seated or rigM:GetAttribute("HeadByRider") == true, riderYaw = rigM:GetAttribute("RiderLookYaw"), moving = moving, still = sw, emoteW = emoteW, lookAt = lookAt })
+			local secretTwistAt = rigM:GetAttribute("SecretHeadTwist")
+			local hasSecretTwist = type(secretTwistAt) == "number"
+			local ok, offs = pcall(NpcLife.Offsets, rigM, root, os.clock(), dt, { seated = seated, noHead = hasSecretTwist or seated or rigM:GetAttribute("HeadByRider") == true, riderYaw = rigM:GetAttribute("RiderLookYaw"), moving = moving, still = sw, emoteW = emoteW, lookAt = lookAt })
 			if ok then
 				local gest = seatGestureDeltas(rigM) or {}
 				for _, bname in ipairs(LIFE_ORDER) do
@@ -333,6 +335,21 @@ RunService.PreSimulation:Connect(function(dt)
 							from = from * (f:Inverse() * w * f)
 						end
 						poses[b] = if g then from * g else from
+					end
+				end
+				-- คัทซีนฉากจบลับ (กะดึกตลอดกาล): พี่ชายค่อยๆ หมุนคอ 180° กลับมามองผู้เล่นในรถ
+				if hasSecretTwist then
+					local raw = math.clamp((t - (secretTwistAt :: number)) / 1.45, 0, 1)
+					local a = raw * raw * (3 - 2 * raw) -- smoothstep
+					local shiver = if raw >= 0.95 then math.sin(t * 28) * 0.018 else 0
+					for _, pair in ipairs({ { "neck", math.pi * 0.45 * a, 0 }, { "head", math.pi * 0.55 * a + shiver, 0.14 * a } }) do
+						local b = st.bones[pair[1] :: string]
+						if b then
+							local from = poses[b] or baseOf(st, b)
+							local f = b.TransformedWorldCFrame.Rotation
+							local rot = CFrame.Angles(0, pair[2] :: number, pair[3] :: number)
+							poses[b] = from * (f:Inverse() * rot * f)
+						end
 					end
 				end
 				-- ร่างผีซ้อน (HumanNPC.MakeDouble) ขยับตามตัวจริงเป๊ะ: ผีต้องไม่แข็งกว่าคน (ไม่งั้นดูออกว่าตัวไหนผี)

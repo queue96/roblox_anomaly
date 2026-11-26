@@ -217,6 +217,10 @@ LanguageModule.Dialogues = {
 	Intro_Brother_3 = { th = "ใครมาดึกๆ ดูให้ดีก่อนเติมนะ... ไปละ", en = "If anyone shows up late, take a good look before you fill them up... I'm off.", es = "Si llega alguien tarde, fíjate bien antes de llenarle el tanque... me voy.", pt = "Se aparecer alguém tarde, olha bem antes de abastecer... fui.", id = "Kalau ada yang datang larut malam, perhatikan baik-baik sebelum diisi... aku pergi dulu." },
 	Outro_Brother_1 = { th = "เมื่อคืนเป็นไงบ้าง เฝ้าไหวไหม?", en = "So how was last night? Hold up alright?", es = "¿Y qué tal anoche? ¿Aguantaste bien?", pt = "E aí, como foi ontem à noite? Aguentou firme?", id = "Jadi, semalam gimana? Aman?" },
 	Outro_Brother_2 = { th = "ฮ่าๆ ขึ้นรถ ไปกินข้าวต้มกัน", en = "Haha, hop on. Let's go get some rice soup.", es = "Jaja, súbete. Vamos por una sopa de arroz.", pt = "Haha, sobe aí. Vamos tomar uma sopa de arroz.", id = "Haha, ayo naik. Kita makan bubur nasi." },
+	Outro_True_1 = { th = "โอ้โห! ยอดครบ แถมธูปที่ศาลยังติดครบสามดอกเลยเรอะ?", en = "Whoa! You hit the target and all three incense sticks are still burning?", es = "¡Guau! ¿Llegaste a la meta y los tres inciensos siguen encendidos?", pt = "Uau! Bateu a meta e os três incensos ainda estão acesos?", id = "Wah! Target tercapai dan ketiga dupa masih menyala semua?" },
+	Outro_True_2 = { th = "ของจริงว่ะ! งั้นมื้อนี้พี่เลี้ยงข้าวต้มพิเศษ แถมโบนัสให้ด้วย ขึ้นรถเลย!", en = "You're the real deal! Breakfast's on me, plus a bonus. Hop on!", es = "¡Eres increíble! El desayuno corre por mi cuenta, más un bono. ¡Sube!", pt = "Você mandou bem demais! O café é por minha conta, com bônus. Sobe aí!", id = "Hebat banget! Sarapan kutraktir, plus bonus. Ayo naik!" },
+	Outro_Secret_1 = { th = "เมื่อคืน... ไม่ได้เอาขนมไปให้ศาลใช่ไหม?", en = "Last night... you didn't leave any sweets at the shrine, did you?", es = "Anoche... no dejaste dulces en el santuario, ¿verdad?", pt = "Ontem à noite... você não deixou doces no santuário, né?", id = "Semalam... kamu tidak menaruh kue di rumah arwah, kan?" },
+	Outro_Secret_2 = { th = "ช่างเถอะ... ขึ้นรถสิ พี่จะพาไปส่ง", en = "Never mind... get in. I'll give you a ride.", es = "No importa... sube. Yo te llevo.", pt = "Deixa pra lá... entra aí. Eu te levo.", id = "Sudahlah... naik saja. Biar kuantar." },
 	-- ไม่ได้ถวายขนมศาล: ศาลไม่คุ้มครอง
 }
 
@@ -341,6 +345,17 @@ LanguageModule.UI = {
 	BookNotFound = { th = "ยังไม่พบ", en = "Not found yet", es = "Aún no encontrado", pt = "Ainda não encontrado", id = "Belum ditemukan" },
 	BookBack = { th = "กลับ", en = "Back", es = "Volver", pt = "Voltar", id = "Kembali" },
 	BookTraits = { th = "ลักษณะและวิธีสังเกต", en = "What to look for", es = "Cómo reconocerlo", pt = "Como reconhecer", id = "Ciri-cirinya" },
+	BookTabGhosts = { th = "ผี ({n}/{total})", en = "Ghosts ({n}/{total})", es = "Fantasmas ({n}/{total})", pt = "Fantasmas ({n}/{total})", id = "Hantu ({n}/{total})" },
+	BookTabEndings = { th = "ฉากจบ ({n}/{total})", en = "Endings ({n}/{total})", es = "Finales ({n}/{total})", pt = "Finais ({n}/{total})", id = "Akhir ({n}/{total})" },
+	BookEndingCount = { th = "ปลดล็อกแล้ว {n} / {total} ฉากจบ", en = "Unlocked {n} / {total} endings", es = "Desbloqueados {n} / {total} finales", pt = "Desbloqueados {n} / {total} finais", id = "Terbuka {n} / {total} akhir" },
+	BookEndingSeen = { th = "จบไปแล้ว {n} ครั้ง", en = "Reached {n} times", es = "Alcanzado {n} veces", pt = "Alcançado {n} vezes", id = "Tercapai {n} kali" },
+	BookEndingLocked = { th = "ยังไม่ปลดล็อก", en = "Locked", es = "Bloqueado", pt = "Bloqueado", id = "Terkunci" },
+	BookEndingNew = { th = "ปลดล็อกฉากจบใหม่", en = "New ending unlocked", es = "Nuevo final desbloqueado", pt = "Novo final desbloqueado", id = "Akhir baru terbuka" },
+	EndingNumber = { th = "ฉากจบ {n}/{total}", en = "Ending {n}/{total}", es = "Final {n}/{total}", pt = "Final {n}/{total}", id = "Akhir {n}/{total}" },
+	EndingNewBadge = { th = "ฉากจบใหม่!", en = "NEW ENDING!", es = "¡NUEVO FINAL!", pt = "NOVO FINAL!", id = "AKHIR BARU!" },
+	EndingContinue = { th = "คลิกหรือกด Enter เพื่อไปต่อ", en = "Click or press Enter to continue", es = "Haz clic o pulsa Enter para continuar", pt = "Clique ou aperte Enter para continuar", id = "Klik atau tekan Enter untuk lanjut" },
+	EndingContinue_Touch = { th = "แตะเพื่อไปต่อ", en = "Tap to continue", es = "Toca para continuar", pt = "Toque para continuar", id = "Ketuk untuk lanjut" },
+	SummaryEndingBonus = { th = "โบนัสเจ้าที่คุ้มครอง (+20%)", en = "Shrine Blessing Bonus (+20%)", es = "Bono de Bendición (+20%)", pt = "Bônus da Bênção (+20%)", id = "Bonus Berkah (+20%)" },
 	-- จอตาย (แพ้)
 	AskRestart = { th = "เริ่มคืนใหม่ไหม?", en = "Start a new night?", es = "¿Empezar una nueva noche?", pt = "Começar uma nova noite?", id = "Mulai malam baru?" },
 	Restart = { th = "เริ่มใหม่", en = "Restart", es = "Reiniciar", pt = "Recomeçar", id = "Ulangi" },
@@ -755,6 +770,151 @@ function LanguageModule.GetBook(key: string, localeId: string?): (string, string
 	end
 	local t = LanguageModule.Pick(entry, localeId)
 	return t[1], t[2]
+end
+
+-- ฉากจบทั้ง 4 แบบ (ชื่อ, คำบรรยายท้ายคัทซีน, คำใบ้ก่อนปลดล็อก)
+LanguageModule.EndingOrder = {
+	"Ending_Bad",
+	"Ending_Normal",
+	"Ending_True",
+	"Ending_Secret",
+}
+
+LanguageModule.Endings = {
+	Ending_Bad = {
+		label = "BAD ENDING",
+		th = {
+			"สิ้นควันธูป",
+			"ธูปดอกสุดท้ายมอดดับลง พร้อมไฟในเพิงที่เงียบสนิท\nเช้าวันต่อมา พี่ชายกลับมาถึงปั๊ม... แต่ไม่พบใครอยู่ในร้านเลย\nเหลือเพียงกระป๋องเงินบนโต๊ะ และแผงสังกะสีที่เปิดค้างไว้กลางทุ่งนา",
+			"เมื่อธูปที่ศาลพระภูมิดับลงทั้งหมด...",
+		},
+		en = {
+			"Ashes of Three",
+			"The last incense stick fades out as the shack plunges into silence.\nThe next morning, your brother returns to the pump... and finds no one there.\nOnly the money tin on the counter, and the tin shutter left open to the empty fields.",
+			"When all three incense sticks at the spirit house go out...",
+		},
+		es = {
+			"Cenizas de Tres",
+			"El último incienso se apaga mientras el puesto queda en silencio.\nA la mañana siguiente, tu hermano regresa... pero no encuentra a nadie.\nSolo queda la lata del dinero sobre la mesa y la cortina abierta frente al campo.",
+			"Cuando se apagan los tres inciensos del santuario...",
+		},
+		pt = {
+			"Cinzas de Três",
+			"O último incenso se apaga enquanto o posto mergulha no silêncio.\nNa manhã seguinte, seu irmão volta... mas não encontra ninguém.\nResta apenas a lata de dinheiro na mesa e a porta de zinco aberta para o campo.",
+			"Quando todos os três incensos do santuário se apagam...",
+		},
+		id = {
+			"Abu Tiga Dupa",
+			"Dupa terakhir padam saat gubuk jatuh dalam kesunyian.\nKeesokan paginya, kakakmu kembali ke pom... namun tak menemukan siapa pun.\nHanya kaleng uang di atas meja, dan pintu seng yang terbuka menghadap sawah kosong.",
+			"Saat ketiga dupa di rumah arwah padam semua...",
+		},
+	},
+	Ending_Normal = {
+		label = "NORMAL ENDING",
+		th = {
+			"ข้าวต้มมื้อเช้า",
+			"คุณหาเงินครบตามเป้า และรอดพ้นคืนอันยาวนานมาได้\nข้าวต้มร้อนๆ ในตัวเมืองช่วยคลายความหนาวจากเมื่อคืนลงไปบ้าง...\nแต่เงาประหลาดที่แวะมาหน้าร้าน ยังคงติดตาอยู่ไม่จางหาย",
+			"หาเงินให้ครบเป้า และอยู่รอดจนถึงเช้า",
+		},
+		en = {
+			"Morning Rice Soup",
+			"You hit the target and made it through the long night.\nA hot bowl of rice soup in town warms away some of the chill...\nYet the strange shadows that visited the pump still linger behind your eyes.",
+			"Reach the money target and survive until dawn.",
+		},
+		es = {
+			"Sopa de Arroz al Amanecer",
+			"Alcanzaste la meta y sobreviviste a la larga noche.\nUn tazón de sopa caliente en el pueblo alivia un poco el frío...\nPero las sombras extrañas que llegaron al puesto siguen grabadas en tu mente.",
+			"Alcanza la meta de dinero y sobrevive hasta el amanecer.",
+		},
+		pt = {
+			"Sopa de Arroz da Manhã",
+			"Você bateu a meta e sobreviveu à longa noite.\nUma tigela de sopa quente na cidade espanta um pouco o frio...\nMas as sombras estranhas que passaram pelo posto ainda não saem da sua cabeça.",
+			"Bata a meta de dinheiro e sobreviva até o amanhecer.",
+		},
+		id = {
+			"Bubur Nasi Pagi",
+			"Kamu mencapai target dan selamat melewati malam yang panjang.\nSemangkuk bubur hangat di kota sedikit mengusir dingin semalam...\nNamun bayangan aneh yang mampir ke pom masih membekas di ingatan.",
+			"Capai target uang dan bertahan hidup sampai pagi.",
+		},
+	},
+	Ending_True = {
+		label = "TRUE ENDING",
+		th = {
+			"เจ้าที่คุ้มครอง",
+			"ธูปทั้งสามดอกยังคงสว่างอยู่จนถึงรุ่งสาง\nคุณแยกแยะคนเป็นออกจากสิ่งลี้ลับได้ทุกครั้ง และไม่เคยละเลยศาลพระภูมิหน้าเพิง\nแสงแดดยามเช้าอาบไล้ทั่วท้องทุ่ง... คืนนี้เจ้าที่คุ้มครองส่งคุณกลับบ้านอย่างปลอดภัย",
+			"ทำตามคำเตือนของพี่ชายให้ครบทุกข้อ โดยไม่พลาดเลยสักครั้ง",
+		},
+		en = {
+			"Blessed by the Shrine",
+			"All three incense sticks stay lit until first light.\nYou told the living from the unseen every single time, and never neglected the shrine.\nWarm morning sunlight washes over the fields... the guardian spirit sees you safely home.",
+			"Heed all of your brother's warnings without a single mistake.",
+		},
+		es = {
+			"Bendecido por el Santuario",
+			"Los tres inciensos siguen encendidos hasta el amanecer.\nDistinguiste a los vivos de lo oculto cada vez y nunca descuidaste el santuario.\nLa luz cálida de la mañana baña los campos... el espíritu guardián te guía a salvo a casa.",
+			"Sigue todas las advertencias de tu hermano sin cometer un solo error.",
+		},
+		pt = {
+			"Protegido pelo Santuário",
+			"Todos os três incensos permanecem acesos até o amanhecer.\nVocê diferenciou os vivos do oculto todas as vezes e nunca esqueceu o santuário.\nO sol da manhã aquece os campos... o espírito guardião te leva em segurança para casa.",
+			"Siga todos os avisos do seu irmão sem cometer nenhum erro.",
+		},
+		id = {
+			"Lindungan Penunggu",
+			"Ketiga batang dupa tetap menyala hingga fajar menyingsing.\nKamu membedakan yang hidup dan yang gaib setiap saat, serta tak pernah melupakan rumah arwah.\nSinar matahari pagi menyelimuti sawah... penunggu mengantarmu pulang dengan selamat.",
+			"Ikuti semua pesan kakakmu tanpa satu pun kesalahan.",
+		},
+	},
+	Ending_Secret = {
+		label = "SECRET ENDING",
+		th = {
+			"กะดึกตลอดกาล",
+			"คุณปล่อยให้ศาลพระภูมิว่างเปล่ามาตลอดทั้งคืน...\nรถที่มารับตอนเช้ามืดไม่เคยพาคุณไปถึงตัวเมือง ถนนดินลูกรังวนกลับมาจอดหน้าปั๊มเดิมซ้ำแล้วซ้ำเล่า\nแผงสังกะสีเลื่อนเปิดขึ้นอีกครั้ง... กะดึกของคุณไม่มีวันจบ",
+			"จะเกิดอะไรขึ้น... ถ้าปล่อยให้ศาลพระภูมิว่างเปล่าตลอดทั้งคืน?",
+		},
+		en = {
+			"The Eternal Night Shift",
+			"You left the spirit house empty all night long...\nThe ride at dawn never reaches town. The dirt road loops back to the same roadside pump, again and again.\nThe tin shutter rises once more... your night shift will never end.",
+			"What happens... if you leave the spirit house empty the entire night?",
+		},
+		es = {
+			"Turno Nocturno Eterno",
+			"Dejaste el santuario vacío durante toda la noche...\nEl vehículo del amanecer nunca llega al pueblo. El camino de tierra vuelve al mismo puesto una y otra vez.\nLa cortina de metal vuelve a abrirse... tu turno nocturno jamás terminará.",
+			"¿Qué pasará... si dejas el santuario vacío durante toda la noche?",
+		},
+		pt = {
+			"Turno da Noite Eterno",
+			"Você deixou o santuário vazio a noite inteira...\nA carona ao amanhecer nunca chega à cidade. A estrada de terra sempre volta para o mesmo posto.\nA porta de zinco se abre mais uma vez... seu turno da noite nunca vai acabar.",
+			"O que acontece... se você deixar o santuário vazio a noite toda?",
+		},
+		id = {
+			"Shift Malam Abadi",
+			"Kamu membiarkan rumah arwah kosong sepanjang malam...\nKendaraan penjemput di waktu subuh tak pernah sampai ke kota. Jalan tanah terus berputar kembali ke pom yang sama.\nPintu seng kembali terbuka... shift malammu tak akan pernah berakhir.",
+			"Apa yang terjadi... jika kamu membiarkan rumah arwah kosong semalaman?",
+		},
+	},
+}
+
+-- คืน (ป้ายเช่น "SECRET ENDING", ชื่อฉากจบ, คำบรรยาย 3 บรรทัด, คำใบ้, ลำดับ 1..4, จำนวนทั้งหมด)
+function LanguageModule.GetEnding(key: string, localeId: string?): (string, string, string, string, number, number)
+	local total = #LanguageModule.EndingOrder
+	local idx = table.find(LanguageModule.EndingOrder, key) or 0
+	local entry = LanguageModule.Endings[key]
+	if not entry then
+		return "ENDING", key, "", "", idx, total
+	end
+	local t = LanguageModule.Pick(entry, localeId)
+	return entry.label, t[1], t[2], t[3], idx, total
+end
+
+-- ข้อความ "ฉากจบ 1/4" (ตามภาษา)
+function LanguageModule.FormatEndingNumber(key: string, localeId: string?): string
+	local idx = table.find(LanguageModule.EndingOrder, key) or 1
+	local total = #LanguageModule.EndingOrder
+	local s = LanguageModule.GetUI("EndingNumber", localeId)
+	s = string.gsub(s, "{n}", tostring(idx))
+	s = string.gsub(s, "{total}", tostring(total))
+	return s
 end
 
 -- รหัสภาษา / LocaleId ("th", "pt-br", "es-mx", "id-id" ...) -> รหัสที่รองรับ (ภาษาอื่น / nil = "en")

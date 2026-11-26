@@ -26,7 +26,7 @@ local CONFIG = {
 	-- ครบยอดแล้ว: ฟ้าค่อยๆ สางนานเท่านี้ (วินาที) ระหว่างยังเล่นอยู่ แล้วจอดำ BlackFade วิ ค่อยเข้าคัทซีนเช้า (ผู้ใช้ 2026-11-06)
 	DawnSeconds = 14,
 	DawnBlackFade = 1.8,
-	TargetMoney = 1200, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที (1000 -> 1200 ผู้ใช้ 2026-11-22 หลังดีเซลเหลือ 100; 1200 -> 1000 เมื่อ 2026-11-13; 800 -> 1200 เมื่อ 2026-11-08)
+	TargetMoney = 1000, -- เงินมาจากลูกค้าอย่างเดียว วัดจริงลูกค้ามาราย 95 วิ ได้ ~27-54 บาท/นาที (1200 -> 1000 ผู้ใช้ 2026-11-26; 1000 -> 1200 เมื่อ 2026-11-22 หลังดีเซลเหลือ 100; 1200 -> 1000 เมื่อ 2026-11-13; 800 -> 1200 เมื่อ 2026-11-08)
 	Prices = { 80, 100, 120 }, -- ราคาที่ผู้เล่นตอบได้ (เงินที่ได้ = ราคาที่ตอบ) [น้ำมันหลอด]
 	NormalPrice = 100, -- ไม่มีใครตอบ = ราคานี้
 	-- บริการแต่ละแบบ: ตู้ไหน / ราคาให้เลือก / คำถามราคา (เติมผิดตู้ ลูกค้าท้วง)
@@ -455,7 +455,8 @@ local offeringUntil = math.huge -- ศาลคุ้มครองถึงเ
 local offeringWarned = false
 -- สถิติคืนนี้ (หน้าสรุปผลตอนชนะ)
 type PStat = { name: string, fills: number, earned: number, ghosts: number, offerings: number }
-local stats = { anomalies = 0, caught = 0, fooled = 0, offerings = 0, players = {} :: { [number]: PStat }, ghostLog = {} :: { { key: string, result: string, t: number } }, startedAt = 0 }
+local stats = { anomalies = 0, caught = 0, fooled = 0, offerings = 0, incenseLost = 0, players = {} :: { [number]: PStat }, ghostLog = {} :: { { key: string, result: string, t: number } }, startedAt = 0 }
+local forcedEnding: string? = nil -- admin ทดสอบฉากจบแต่ละแบบ ("Ending_Normal" | "Ending_True" | "Ending_Secret")
 local function pstat(who: string?): PStat?
 	local p = who and Players:FindFirstChild(who)
 	if not (p and p:IsA("Player")) then
@@ -469,7 +470,7 @@ local function pstat(who: string?): PStat?
 	return s
 end
 local function resetStats()
-	stats.anomalies, stats.caught, stats.fooled, stats.offerings = 0, 0, 0, 0
+	stats.anomalies, stats.caught, stats.fooled, stats.offerings, stats.incenseLost = 0, 0, 0, 0, 0
 	table.clear(stats.players)
 	table.clear(stats.ghostLog)
 	stats.startedAt = os.clock()
@@ -1271,7 +1272,7 @@ for _, entry in ipairs(drums) do
 		end
 		setCanFull(can, true, fuel)
 		SoundBank.PlayOneShot("FuelGlugLoop", drum, 45, 1.6)
-		print("🛢️ [" .. player.Name .. "] ตักน้ำมัน " .. tostring(fuel) .. " ใส่แกลลอน")
+		print("🛢️ [" .. player.Name .. "] " .. if fuel then ("ตักน้ำมัน " .. tostring(fuel) .. " ใส่แกลลอน") else "ตักน้ำมันใส่แกลลอน")
 	end)
 end
 
@@ -1674,7 +1675,12 @@ devDecision.Event:Connect(function(choice: string)
 		end
 	elseif choice == "intro" then
 		task.spawn(Cutscene.Intro) -- เล่นคัทซีนเปิดคืนซ้ำ (ร้านเปิดอยู่แล้วก็เล่นได้)
-	elseif choice == "win" then
+	elseif choice == "win" or choice == "win:normal" or choice == "win:true" or choice == "win:secret" then
+		forcedEnding = if choice == "win:normal"
+			then "Ending_Normal"
+			elseif choice == "win:true" then "Ending_True"
+			elseif choice == "win:secret" then "Ending_Secret"
+			else nil
 		money = math.max(money, CONFIG.TargetMoney) -- ลูปเกมจับได้แล้วเข้าคัทซีนเช้า + สรุปผล
 		broadcastHUD()
 	else
@@ -3116,6 +3122,7 @@ local function serveCustomer(c: Customer)
 			TriggerJumpscare:FireAllClients(c.anomaly, v, "fueled", plan)
 			task.wait(plan.reveal + plan.pause)
 			incense -= 1
+			stats.incenseLost += 1
 			refreshIncense()
 			local spiritPart = spirit:FindFirstChildWhichIsA("BasePart", true)
 			if spiritPart then
@@ -3529,6 +3536,7 @@ function CoreLoop.Big.run(kind: string?)
 			end)
 		end
 		incense -= 1
+		stats.incenseLost += 1
 		refreshIncense()
 		broadcastHUD()
 		local spiritPart = spirit:FindFirstChildWhichIsA("BasePart", true)
@@ -3633,6 +3641,7 @@ Cutscene.Init({
 	exitPoint = exitPoint,
 	ROAD_DIR = ROAD_DIR,
 	shack = Items.shack,
+	spirit = spirit,
 	rejectRope = rejectRope,
 	shutterDoor = shutterDoor,
 	insideShop = Items.insideShop,
@@ -3753,17 +3762,22 @@ local function rewardMult(p: Player): number
 	return Difficulty.Get(id).reward
 end
 
-local function buildSummary(): { [string]: any }
+local function buildSummary(endingKey: string, newFor: { [number]: boolean }?): { [string]: any }
+	local trueBonus = endingKey == "Ending_True"
+	local bonusMult = if trueBonus then 1.2 else 1.0
 	local rows = {}
 	for _, p in ipairs(Players:GetPlayers()) do
 		local s = stats.players[p.UserId] or { name = p.DisplayName, fills = 0, earned = 0, ghosts = 0, offerings = 0 }
-		local wage = (CONFIG.WageBase + s.fills * CONFIG.WagePerFill + s.ghosts * CONFIG.WagePerGhost + s.offerings * CONFIG.WagePerOffering) * rewardMult(p)
+		local wage = (CONFIG.WageBase + s.fills * CONFIG.WagePerFill + s.ghosts * CONFIG.WagePerGhost + s.offerings * CONFIG.WagePerOffering) * rewardMult(p) * bonusMult
 		table.insert(rows, { userId = p.UserId, name = p.DisplayName, fills = s.fills, earned = s.earned, ghosts = s.ghosts, offerings = s.offerings, wage = math.floor(wage / 5 + 0.5) * 5 })
 	end
 	table.sort(rows, function(a, b)
 		return a.earned > b.earned
 	end)
 	return {
+		ending = endingKey,
+		newFor = newFor or {},
+		trueBonus = trueBonus,
 		team = money,
 		target = CONFIG.TargetMoney,
 		anomalies = stats.anomalies,
@@ -3775,6 +3789,24 @@ local function buildSummary(): { [string]: any }
 		players = rows,
 		recap = CoreLoop.Recap(), -- เวลาที่เฝ้าร้าน + ผีทุกตัว
 	}
+end
+
+local function pickWinEnding(): string
+	if forcedEnding then
+		local f = forcedEnding
+		forcedEnding = nil
+		return f
+	end
+	-- ไม่เคยถวายขนมศาลเลยตลอดคืน -> ฉากจบลับ (กะดึกตลอดกาล)
+	if stats.offerings <= 0 then
+		return "Ending_Secret"
+	end
+	-- ถวายขนมศาล + ธูปไม่เคยดับเลยทั้งคืน -> ฉากจบแท้ (เจ้าที่คุ้มครอง)
+	if stats.incenseLost == 0 and incense >= CONFIG.StartIncense then
+		return "Ending_True"
+	end
+	-- จบปกติ (ข้าวต้มมื้อเช้า)
+	return "Ending_Normal"
 end
 
 -- ชนะ: คัทซีนเช้า + หน้าสรุปผล แล้วรอทุกคนกด "เฝ้าต่ออีกคืน" (หรือหมดเวลา)
@@ -3800,11 +3832,13 @@ local function winSequence()
 	ServiceMinigame:FireAllClients("close")
 	CustomerSpeech:FireAllClients(nil)
 	remotes:SetAttribute("Cursed", false)
+	local endingKey = pickWinEnding()
+	local newFor = AnomalyBook.UnlockEnding(endingKey)
 	-- ฟ้าค่อยๆ สาง (ทุกเครื่อง client/CutsceneController "dawnbreak") แล้วจอค่อยๆ ดำ ก่อนเข้าคัทซีนเช้า
-	-- admin กด "ชนะ" ก็มาทางนี้ (ตั้งเงินครบยอด -> ลูปหลักเรียก winSequence)
+	-- ฉากจบลับ: ฟ้าไม่สว่าง กลายเป็นหมอกหม่นแทน
 	local cutRemote = remotes:FindFirstChild("Cutscene") :: RemoteEvent?
 	if cutRemote then
-		cutRemote:FireAllClients("dawnbreak", CONFIG.DawnSeconds, CONFIG.DawnBlackFade)
+		cutRemote:FireAllClients("dawnbreak", CONFIG.DawnSeconds, CONFIG.DawnBlackFade, if endingKey == "Ending_Secret" then "secret" else nil)
 		task.wait(CONFIG.DawnSeconds)
 	end
 	-- เช้าแล้ว ขายหมด: ตู้และแผงน้ำมันขวดว่างเปล่าในคัทซีนจบ (เปลี่ยนตอนจอดำแล้ว ไม่ให้เห็นน้ำมันหายต่อหน้า)
@@ -3813,8 +3847,8 @@ local function winSequence()
 	setDieselLevel(0, 0.3)
 	Items.setRackFilled(false)
 	Items.updatePourPrompts()
-	local summary = buildSummary()
-	print("🌅 ชนะ: คัทซีนเช้า + สรุปผล", summary.team, "฿")
+	local summary = buildSummary(endingKey, newFor)
+	print("🌅 ชนะ [" .. endingKey .. "]: คัทซีนจบ + สรุปผล", summary.team, "฿")
 	table.clear(summaryVotes)
 	summaryOpen = true
 	local ok, err = pcall(Cutscene.Outro, summary)
@@ -3907,7 +3941,11 @@ function CoreLoop.Start()
 				for _, p in ipairs(Players:GetPlayers()) do
 					collapse(p)
 				end
-				GameState:FireAllClients("Lose", CoreLoop.Recap()) -- จอตาย: เวลาที่รอด + ผีที่พลาด
+				local badNewFor = AnomalyBook.UnlockEnding("Ending_Bad")
+				local loseRecap = CoreLoop.Recap()
+				loseRecap.ending = "Ending_Bad"
+				loseRecap.newFor = badNewFor
+				GameState:FireAllClients("Lose", loseRecap) -- จอตาย: ฉากจบสิ้นควันธูป + เวลาที่รอด + ผีที่พลาด
 				while not restartBy do
 					task.wait(0.3)
 				end

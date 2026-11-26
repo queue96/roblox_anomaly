@@ -19,7 +19,6 @@ local TriggerJumpscare = remotes:WaitForChild("TriggerJumpscare") :: RemoteEvent
 
 local SND = {
 	Jumpscare_1 = "rbxassetid://105012119508747",
-	Jumpscare_2 = "rbxassetid://86851276922466",
 }
 
 -- เอฟเฟกต์ของผีแต่ละแบบ
@@ -449,7 +448,7 @@ end
 -- ผีหลอกทุกแบบใช้เสียงที่เจ้าของเกมอัปโหลดเท่านั้น (ผู้ใช้ 2026-11-05) · โหลดไฟล์ไว้ตั้งแต่เข้าเกม เสียงจึงมาพร้อมภาพ
 -- สุ่มจากไฟล์ที่โหลดสำเร็จ ไฟล์ที่ Roblox ยังไม่อนุมัติจะถูกข้ามไปเอง · ยังโหลดไม่เสร็จเลย = สั่งเล่น Jumpscare_1
 local scareSounds: { Sound } = {}
-for _, key in ipairs({ "Jumpscare_1", "Jumpscare_2" }) do
+for _, key in ipairs({ "Jumpscare_1" }) do
 	local s = Instance.new("Sound")
 	s.Name = "Scare" .. key
 	s.SoundId = SND[key]

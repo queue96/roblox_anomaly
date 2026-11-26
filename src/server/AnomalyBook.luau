@@ -97,7 +97,7 @@ local function load(player: Player)
 	publish(player)
 end
 
-local function add(p: Player, key: string)
+local function add(p: Player, key: string, skipLeaderboard: boolean?): boolean
 	local b = books[p]
 	if b then
 		local first = (b[key] or 0) == 0
@@ -105,11 +105,15 @@ local function add(p: Player, key: string)
 		publish(p)
 		dirty[p] = true
 		if first then
-			LeaderboardStats.Increment("anomalies", p.UserId, 1)
+			if not skipLeaderboard then
+				LeaderboardStats.Increment("anomalies", p.UserId, 1)
+			end
 			unlocked:FireClient(p, key)
-			print("📘 [" .. p.Name .. "] ปลดล็อกผีในสมุด: " .. key)
+			print((if skipLeaderboard then "🎬 [" else "📘 [") .. p.Name .. "] ปลดล็อกในสมุด: " .. key)
 		end
+		return first
 	end
+	return false
 end
 
 -- รอดจากผี key: ปลดล็อก/นับเพิ่มให้ผู้เล่นทุกคนในเซิร์ฟเวอร์
@@ -123,6 +127,23 @@ function AnomalyBook.Survived(key: string)
 			save(p)
 		end
 	end
+end
+
+-- ปลดล็อกฉากจบ (Ending_Bad / Ending_Normal / Ending_True / Ending_Secret) — ไม่นับรวมในยอดผีบนกระดาน
+-- คืนตาราง { [UserId] = true } เฉพาะคนที่เพิ่งปลดฉากจบนี้ครั้งแรก (ไว้ขึ้นป้าย "ฉากจบใหม่!" บนจอสรุป)
+function AnomalyBook.UnlockEnding(key: string): { [number]: boolean }
+	local firstFor: { [number]: boolean } = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if add(p, key, true) then
+			firstFor[p.UserId] = true
+		end
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		if dirty[p] then
+			save(p)
+		end
+	end
+	return firstFor
 end
 
 -- เจอเองคนเดียว (ผีที่เห็นคนละคน เช่นศพห่อผ้าตอนไฟดับ): ปลดเฉพาะคนนั้น

@@ -188,25 +188,146 @@ closeBtn.MouseLeave:Connect(function()
 	end
 end)
 
+-- แท็บสลับระหว่าง ผี / ฉากจบ
+local activeTab = "ghosts"
+local tabBar = new("Frame", {
+	Name = "Tabs",
+	Position = UDim2.new(0, 14, 0, 42),
+	Size = UDim2.new(1, -28, 0, 28),
+	BackgroundTransparency = 1,
+}, panel)
+new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, tabBar)
+local function makeTab(order: number): TextButton
+	local b = new("TextButton", {
+		LayoutOrder = order,
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundColor3 = C.CardLocked,
+		BorderSizePixel = 0,
+		FontFace = FONT_BODY,
+		TextColor3 = C.Dim,
+		TextSize = 16,
+		AutoButtonColor = false,
+	}, tabBar)
+	new("UICorner", { CornerRadius = UDim.new(0, 4) }, b)
+	local st = new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+	st.Name = "Stroke"
+	return b
+end
+local tabGhostsBtn = makeTab(1)
+local tabEndingsBtn = makeTab(2)
+
 local countLabel = new("TextLabel", {
 	Name = "Count",
-	Position = UDim2.new(0, 0, 0, 42),
-	Size = UDim2.new(1, 0, 0, 24),
+	Position = UDim2.new(0, 0, 0, 74),
+	Size = UDim2.new(1, 0, 0, 22),
 	BackgroundTransparency = 1,
 	FontFace = FONT_BODY,
 	TextColor3 = C.Ember,
-	TextSize = 18,
+	TextSize = 17,
 }, panel)
 
 -- รายการผี: แบ่งหน้า (กดปุ่ม ‹ › เปลี่ยนหน้า ไม่ต้องเลื่อน) จำนวนการ์ดต่อหน้าตามขนาดกรอบ
 local list = new("Frame", {
 	Name = "List",
-	Position = UDim2.new(0, 14, 0, 72),
-	Size = UDim2.new(1, -28, 1, -126),
+	Position = UDim2.new(0, 14, 0, 100),
+	Size = UDim2.new(1, -28, 1, -154),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ClipsDescendants = true,
 }, panel)
+
+-- รายการฉากจบ 4 แบบ (แท็บ "ฉากจบ")
+local ENDING_ACCENT: { [string]: Color3 } = {
+	Ending_Bad = Color3.fromRGB(220, 48, 40),
+	Ending_Normal = Color3.fromRGB(235, 202, 138),
+	Ending_True = Color3.fromRGB(248, 212, 105),
+	Ending_Secret = Color3.fromRGB(205, 62, 98),
+}
+local endingsList = new("ScrollingFrame", {
+	Name = "EndingsList",
+	Position = UDim2.new(0, 14, 0, 100),
+	Size = UDim2.new(1, -28, 1, -114),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 4,
+	ScrollBarImageColor3 = C.Faint,
+	CanvasSize = UDim2.new(),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	Visible = false,
+}, panel)
+new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10) }, endingsList)
+new("UIPadding", { PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, endingsList)
+
+type EndingCard = { frame: Frame, stripe: Frame, stroke: UIStroke, tag: TextLabel, status: TextLabel, title: TextLabel, body: TextLabel }
+local endingCards: { [string]: EndingCard } = {}
+for i, key in ipairs(LanguageModule.EndingOrder) do
+	local f = new("Frame", {
+		Name = key,
+		LayoutOrder = i,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = C.CardLocked,
+		BorderSizePixel = 0,
+	}, endingsList)
+	new("UICorner", { CornerRadius = UDim.new(0, 5) }, f)
+	local st = new("UIStroke", { Color = C.Line, Thickness = 1, Transparency = 0.25 }, f)
+	local stripe = new("Frame", {
+		Size = UDim2.new(0, 4, 1, 0),
+		BackgroundColor3 = C.Line,
+		BorderSizePixel = 0,
+	}, f)
+	new("UICorner", { CornerRadius = UDim.new(0, 2) }, stripe)
+	local inner = new("Frame", {
+		Position = UDim2.new(0, 14, 0, 0),
+		Size = UDim2.new(1, -24, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+	}, f)
+	new("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10) }, inner)
+	new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }, inner)
+	local topRow = new("Frame", { LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1 }, inner)
+	local tag = new("TextLabel", {
+		Size = UDim2.new(0.65, 0, 1, 0),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 13,
+		TextColor3 = C.Dim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, topRow)
+	local status = new("TextLabel", {
+		Position = UDim2.fromScale(0.65, 0),
+		Size = UDim2.new(0.35, 0, 1, 0),
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 13,
+		TextColor3 = C.Faint,
+		TextXAlignment = Enum.TextXAlignment.Right,
+	}, topRow)
+	local title = new("TextLabel", {
+		LayoutOrder = 2,
+		Size = UDim2.new(1, 0, 0, 24),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 20,
+		TextColor3 = C.Cream,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = true,
+	}, inner)
+	local body = new("TextLabel", {
+		LayoutOrder = 3,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		FontFace = FONT_BODY,
+		TextSize = 15,
+		TextColor3 = C.Dim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = true,
+		LineHeight = 1.2,
+	}, inner)
+	endingCards[key] = { frame = f, stripe = stripe, stroke = st, tag = tag, status = status, title = title, body = body }
+end
 local grid = new("UIGridLayout", {
 	CellSize = UDim2.new(0.25, -9, 0, 200),
 	CellPadding = UDim2.new(0, 12, 0, 12),
@@ -590,13 +711,70 @@ local function refresh()
 		card.btn.TextColor3 = if isFound then C.Cream else C.Faint
 		card.btn.BackgroundColor3 = if isFound then C.Bar else C.CardLocked
 	end
-	local total = #LanguageModule.BookOrder
-	local countText = (string.gsub(ui("BookCount"), "{n}", tostring(found)))
-	countLabel.Text = (string.gsub(countText, "{total}", tostring(total)))
+	local endingFound = 0
+	for i, key in ipairs(LanguageModule.EndingOrder) do
+		local n = book[key] or 0
+		local ec = endingCards[key]
+		local labelText, titleText, epilogueText, hintText = LanguageModule.GetEnding(key, l)
+		local accent = ENDING_ACCENT[key] or C.Ember
+		local unlocked = n > 0
+		if unlocked then
+			endingFound += 1
+		end
+		ec.frame.BackgroundColor3 = if unlocked then C.Card else C.CardLocked
+		ec.stroke.Color = if unlocked then accent else C.Line
+		ec.stroke.Transparency = if unlocked then 0.35 else 0.3
+		ec.stripe.BackgroundColor3 = if unlocked then accent else C.Faint
+		ec.tag.Text = LanguageModule.FormatEndingNumber(key, l) .. "  ·  " .. labelText
+		ec.tag.TextColor3 = if unlocked then accent else C.Faint
+		ec.status.Text = if unlocked then (string.gsub(ui("BookEndingSeen"), "{n}", tostring(n))) else ui("BookEndingLocked")
+		ec.status.TextColor3 = if unlocked then C.Dim else C.Faint
+		ec.title.Text = if unlocked then titleText else ui("BookLockedName")
+		ec.title.TextColor3 = if unlocked then C.Cream else C.Dim
+		ec.body.Text = if unlocked then epilogueText else hintText
+		ec.body.TextColor3 = if unlocked then C.Cream else C.Faint
+	end
+	local totalGhosts = #LanguageModule.BookOrder
+	local totalEndings = #LanguageModule.EndingOrder
+	tabGhostsBtn.Text = (string.gsub(string.gsub(ui("BookTabGhosts"), "{n}", tostring(found)), "{total}", tostring(totalGhosts)))
+	tabEndingsBtn.Text = (string.gsub(string.gsub(ui("BookTabEndings"), "{n}", tostring(endingFound)), "{total}", tostring(totalEndings)))
+	local onGhosts = activeTab == "ghosts"
+	list.Visible = onGhosts
+	pager.Visible = onGhosts
+	endingsList.Visible = not onGhosts
+	for _, pair in ipairs({ { tabGhostsBtn, onGhosts }, { tabEndingsBtn, not onGhosts } }) do
+		local b = pair[1] :: TextButton
+		local on = pair[2] :: boolean
+		b.BackgroundColor3 = if on then C.Bar else C.CardLocked
+		b.TextColor3 = if on then C.Cream else C.Dim
+		local st = b:FindFirstChild("Stroke") :: UIStroke?
+		if st then
+			st.Color = if on then C.Ember else C.Line
+		end
+	end
+	if onGhosts then
+		countLabel.Text = (string.gsub(string.gsub(ui("BookCount"), "{n}", tostring(found)), "{total}", tostring(totalGhosts)))
+	else
+		countLabel.Text = (string.gsub(string.gsub(ui("BookEndingCount"), "{n}", tostring(endingFound)), "{total}", tostring(totalEndings)))
+	end
 	header.Text = ui("BookTitle")
 	bookBtnText.Text = ui("BookButton")
 	fillDetail()
 end
+tabGhostsBtn.Activated:Connect(function()
+	if activeTab ~= "ghosts" then
+		activeTab = "ghosts"
+		closeDetail()
+		refresh()
+	end
+end)
+tabEndingsBtn.Activated:Connect(function()
+	if activeTab ~= "endings" then
+		activeTab = "endings"
+		closeDetail()
+		refresh()
+	end
+end)
 refresh()
 localPlayer:GetAttributeChangedSignal("Book"):Connect(refresh)
 localPlayer:GetAttributeChangedSignal("Lang"):Connect(refresh)
@@ -656,8 +834,13 @@ local toastText = new("TextLabel", {
 }, toast)
 local toastToken = 0
 BookUnlocked.OnClientEvent:Connect(function(key: string)
-	local title = LanguageModule.GetBook(key, lang())
-	toastText.Text = ui("BookNew") .. ":  " .. title
+	if string.sub(key, 1, 7) == "Ending_" then
+		local _, endTitle = LanguageModule.GetEnding(key, lang())
+		toastText.Text = ui("BookEndingNew") .. ":  " .. endTitle
+	else
+		local title = LanguageModule.GetBook(key, lang())
+		toastText.Text = ui("BookNew") .. ":  " .. title
+	end
 	toast.Visible = true
 	toast.BackgroundTransparency = 1
 	toastText.TextTransparency = 1

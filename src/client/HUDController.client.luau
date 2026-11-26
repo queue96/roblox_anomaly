@@ -1429,10 +1429,12 @@ local function isAnyModalOpen(): boolean
 	if mouseUnlocked or lobbyBtn.Visible or mgFrame.Visible then
 		return true
 	end
-	-- หน้าสรุปผลหลังชนะ (client/CutsceneController) = ต้องใช้เมาส์กดปุ่ม
-	local summary = playerGui:FindFirstChild("Summary")
-	if summary and summary:IsA("ScreenGui") and summary.Enabled then
-		return true
+	-- หน้าสรุปผล / การ์ดคำบรรยายฉากจบ = ต้องใช้เมาส์กดปุ่มได้
+	for _, guiName in ipairs({ "Summary", "EndingEpilogue", "BadEndingEpilogue" }) do
+		local g = playerGui:FindFirstChild(guiName)
+		if g and g:IsA("ScreenGui") and g.Enabled then
+			return true
+		end
 	end
 	if not cachedBookWin or not cachedBookWin.Parent then
 		local bookGui = playerGui:FindFirstChild("BookGui")
